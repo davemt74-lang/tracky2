@@ -28,6 +28,11 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Each new turn resets the stability lock so an inactive marker cannot carry a detection into the next turn. The arena displays acquisition and recovery states.
 - Camera tuning remains local; automatic marker recognition is not proof of participant identity. On-device lighting and occlusion certification is still pending.
 
+## V0.4C — Participant and voice-profile presence in game
+- Scorecards show current face/body tracking, temporary occlusion and locally enrolled Voice Profile readiness for their manually assigned participants.
+- Raw marker position can show non-authoritative proximity to a recognized body; ambiguous and stale results explicitly decline verification. Proximity or a voice/face match never auto-reassigns the scoring marker.
+- The visual evidence adapter stores no photos, recordings or speaker embeddings. Hardware certification is still pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.
