@@ -24,7 +24,7 @@ test('PWA does not force activation, cache cross-origin media or wipe personal s
  assert.ok(sw.includes('url.origin!==self.location.origin'));
  assert.ok(sw.includes("request.method!=='GET'"));
  assert.ok(!sw.includes('indexedDB.deleteDatabase'));
- assert.ok(!sw.includes("self.skipWaiting()")); // update only via explicit message
+ assert.ok(!sw.slice(sw.indexOf("self.addEventListener('install'"),sw.indexOf("self.addEventListener('activate'")).includes('skipWaiting')); // no forced update
 });
 test('generated PNGs have verified signature and dimensions',()=>{
  for(const size of [192,512]){
