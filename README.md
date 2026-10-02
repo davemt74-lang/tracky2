@@ -1,3 +1,9 @@
+# Tracky2 V0.5.0 — Random Follow Pattern game platform
+
+**Game 01: Random Follow Pattern.** From Games, launch the shared four-zone gameboard, select **one or two** locally enrolled participants and choose a **30-, 60-, 90-, or 120-second interval** plus **5, 10, 15, or 20 total timed rounds**. Each interval is one round. Green starts; if two players are selected, the shared board switches to blue on the next timed round, then alternates. During a round, a random highlighted zone calls for **3–6 up/down reps**. Each completed target earns a point and immediately draws another non-repeating random zone/repetition target. Only the active controller scores. The classic solo and two-player point-goal modes remain accessible from Game mode.
+
+The new DOM-free game registry, reusable shared board, explicit player binding and independent timed engine are described in `docs/GAME-PLATFORM.md`. Existing participant/body tracking, opt-in voice profiles, calibration and hardware self-tests remain available. New pattern scores are session-only in this first section; physical hardware certification is still pending.
+
 # Tracky2 V0.4E — On-device hardware self-test
 
 Visit **diagnostics.html** (or choose **Hardware self-test** on the Vertical Motion page) from localhost or HTTPS. Start the camera and move both green and blue markers through all four board sections while the diagnostics page is visible for at least eight seconds. The page measures camera FPS, per-marker detection confidence, stable observations, rejected jumps, tracking dropouts and zone coverage. Start the optional microphone test and speak normally to verify signal capture without recording audio. Export the aggregate JSON report locally to review or share for device certification. No media or biometric data is included in the report.
