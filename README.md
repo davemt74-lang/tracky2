@@ -1,3 +1,7 @@
+# Tracky2 V0.4C — Participant, voice and controller visibility
+
+The two player scorecards now display current participant face/body tracking (including temporary occlusion), Voice Profile readiness, and whether the manually assigned color marker is near the player's tracked body. Marker proximity is **advisory only**: when two bodies overlap, neither person's hand position nor identity is inferred. Existing opt-in face/voice enrollment and the independent scoring assignments remain unchanged. No images or audio are saved by these indicators.
+
 # Tracky2 V0.4B — Stable marker acquisition
 
 Each shared-board turn now requires three consecutive coherent camera observations before the active marker can score. If tracking drops out or an implausible position jump appears, the incomplete repetition is discarded and the marker is reacquired. Turning the shared board green or blue also clears the previous tracking lock. The arena displays the current acquisition or recovery state. This safety gate does not change participant recognition or voice profiles; live camera/hardware testing remains necessary.
