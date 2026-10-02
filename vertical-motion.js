@@ -2,6 +2,9 @@ import { clamp01, detectColorBlob } from './src/tracker-core.js';
 import { createMotionStats, recordMotion, summarizeMotion, zoneForY } from './src/movement-core.js';
 import { createGameSession } from './src/game-session.js';
 import { createMultiplayerMatch } from './src/multiplayer-match.js';
+import { createGamePlatform } from './src/game-platform.js';
+import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
+import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
 import { playerPresenceEvidence } from './src/player-presence.js';
@@ -49,6 +52,12 @@ const $ = (s) => document.querySelector(s);
 const ui = {
   gameMode: $('#gameMode'),
   multiplayerSettings: $('#multiplayerSettings'),
+  patternSetup: $('#patternSetup'),
+  playerCount: $('#patternPlayerCount'),
+  interval: $('#patternInterval'),
+  rounds: $('#patternRounds'),
+  bluePlayerWrap: $('#bluePlayerWrap'),
+  roundTimer: $('#roundTimer'),
   historySaveOption: $('#historySaveOption'),
   matchHistoryPanel: $('#matchHistoryPanel'),
   matchHistoryStatus: $('#matchHistoryStatus'),
@@ -137,6 +146,9 @@ const ui = {
   statTime: $('#statTime')
 };
 
+const platform = createGamePlatform();
+platform.register(randomFollowPatternGame);
+
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
@@ -150,7 +162,8 @@ const state = {
   displayY: 0.5,
   stats: createMotionStats(),
   gameplay: createGameSession({ pointGoal: 5 }),
-  mode: 'solo',
+  mode: 'pattern',
+  pattern: null,
   multiplayer: createMultiplayerMatch({ pointGoal: 5 }),
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
   calibration: createColorCalibration(),
@@ -280,18 +293,128 @@ function refreshPlayerChoices() {
   }
 }
 
+function patternActive() {
+  return state.pattern?.snapshot(performance.now()).active === true;
+}
+
+function updatePatternSetup() {
+  const inPattern = state.mode === 'pattern';
+  ui.patternSetup.hidden = !inPattern;
+  ui.bluePlayerWrap.hidden = inPattern && Number(ui.playerCount.value) === 1;
+  const locked = patternActive();
+  for (const el of ui.patternSetup.querySelectorAll('select,input')) el.disabled = locked;
+  ui.bluePlayer.disabled = locked || (inPattern && Number(ui.playerCount.value) === 1);
+}
+
 function renderMode() {
-  const multi = state.mode === 'multiplayer';
+  const multi = state.mode !== 'solo';
   document.body.classList.toggle('multiplayer-mode', multi);
+  document.body.classList.toggle('pattern-mode', state.mode === 'pattern');
   ui.multiplayerSettings.hidden = !multi;
   ui.multiplayerStage.hidden = !multi;
-  ui.matchHistoryPanel.hidden = !multi;
-  if (multi) { renderMultiplayer(); renderMatchHistory(); }
+  ui.matchHistoryPanel.hidden = state.mode !== 'multiplayer';
+  updatePatternSetup();
+  if (state.mode === 'pattern') renderPattern();
+  else if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
   else renderGame();
 }
 
 function playerScoreCard(color) {
   return ui.multiplayerStage.querySelector('[data-player-color="' + color + '"]');
+}
+
+function renderPattern(now = performance.now()) {
+  if (state.mode !== 'pattern') return;
+  const match = state.pattern?.snapshot(now);
+  const active = Boolean(match?.active);
+  const chosenCount = Number(ui.playerCount.value);
+  const activePlayer = match?.players.find(p => p.color === match.activeColor);
+  ui.gameMode.disabled = active;
+  ui.greenPlayer.disabled = active;
+  ui.bluePlayer.disabled = active || chosenCount === 1;
+  ui.startGame.disabled = active;
+  ui.startGame.textContent = match?.status === 'completed' ? 'Play again' : 'Start pattern';
+  ui.endGame.disabled = !active;
+  ui.pointGoal.disabled = active;
+  ui.board.dataset.activeColor = active ? match.activeColor : 'idle';
+  updatePatternSetup();
+  for (const color of ['green','blue']) {
+    const card = playerScoreCard(color);
+    const p = match?.players.find(person => person.color === color);
+    card.hidden = color === 'blue' && chosenCount === 1;
+    card.classList.toggle('on-turn', Boolean(active && p && p.color === match.activeColor));
+    const selectedId = color === 'green' ? ui.greenPlayer.value : ui.bluePlayer.value;
+    const selected = state.identity.participants.find(person => person.id === selectedId);
+    card.querySelector('.multi-name').textContent = p?.name || selected?.name || (color === 'green'?'Player 1':'Player 2');
+    card.querySelector('.multi-score').textContent = (p?.score ?? 0) + ' targets';
+    card.querySelector('.multi-reps').textContent = p ?
+      p.repsCompleted + ' reps · ' + p.roundsPlayed + ' rounds' : 'Choose a player';
+    card.querySelector('.multi-travel').textContent = inches(
+      summarizeMotion(state.multiMotion[color], now).totalTravel) + ' tracked';
+    const profile = p ? state.identity.participants.find(person => person.id === p.participantId) : selected;
+    const evidence = playerPresenceEvidence(profile?.id, state.identity.tracks,
+      state.latestMarkerDetections[color], now, profile ? voiceProfileReadiness(profile).ready : false);
+    card.querySelector('.multi-presence').textContent = evidence.presence === 'face-observed' ?
+      'Face match observed' : evidence.presence === 'body-tracked' ? 'Body tracked' :
+      evidence.presence === 'temporarily-occluded' ? 'Temporarily occluded' : 'Identity not verified';
+    card.querySelector('.multi-marker-status').textContent =
+      evidence.marker === 'near-assigned-body' ? 'Marker near assigned participant (unverified)' :
+      evidence.marker === 'ambiguous-proximity' ? 'Marker proximity ambiguous' :
+      'Marker holder not verified';
+    card.querySelector('.multi-voice').textContent = evidence.voiceReady ? 'Voice Profile enrolled' : 'Voice Profile not enrolled';
+  }
+  for(const cell of ui.board.querySelectorAll('[data-board-zone]')){
+    const i=Number(cell.dataset.boardZone);
+    const target=active && match.activeZone===i;
+    cell.classList.toggle('target',Boolean(target));
+    cell.querySelector('b').textContent=target?String(match.repsRemaining):String(i+1);
+  }
+  ui.roundTimer.textContent = active ?
+    'Round ' + match.round + '/' + match.totalRounds + ' · ' +
+    Math.ceil(match.remainingMs/1000) + ' seconds remaining' :
+    match?.status==='completed' ? match.totalRounds + ' rounds complete' :
+    match?.status==='stopped' ? 'Game ended early' : 'Select players, interval and rounds';
+  ui.turnLabel.textContent = activePlayer ?
+    activePlayer.name + "'s turn · " + match.activeColor.toUpperCase() :
+    match?.status==='completed' ? 'Game complete' : 'Random Follow Pattern';
+  ui.boardInstruction.textContent = active ?
+    'ZONE ' + (match.activeZone+1) + ' · ' + match.repsRemaining + ' up/down reps' :
+    match?.status==='completed' ? 'All timed rounds are complete.' :
+    'Random zone and rep targets will continue until each interval expires.';
+}
+
+function loopPattern(image,now) {
+  const detections=detectColorControllers(image,{calibration:state.calibration});
+  state.latestMarkerDetections=detections;
+  const before=state.pattern?.snapshot(now);
+  const color=before?.activeColor;
+  const observation=color && before.active ? state.markerTracker.observe(detections[color],now):null;
+  const input=toColorControllerInput(observation?.sample,ui.mirror.checked,now);
+  setBoardCursor(input);
+  if(color && before.active){
+    if(!input)state.pattern.signalLost(color);
+    else{
+      if(!state.paused)recordMotion(state.multiMotion[color],input.y,now,{
+        noiseFloor:Number(ui.sensitivity.value),microThreshold:MICRO_THRESHOLD
+      });
+      const result=state.pattern.sample(color,input);
+      if(result.type==='target-complete')renderPattern(now);
+    }
+  }
+  ui.trackingStatus.textContent='Green '+(detections.green?'visible':'missing')+
+    ' · Blue '+(detections.blue?'visible':'missing');
+  if(now-state.lastUiUpdate>=100){
+    for(const c of ['green','blue']){
+      const found=detections[c];
+      const el=c==='green'?ui.greenDetection:ui.blueDetection;
+      el.textContent=found?c.toUpperCase()+' visible · '+Math.round(found.confidence*100)+'% confidence':
+        c.toUpperCase()+' marker not found';
+    }
+    ui.stabilityStatus.textContent=color?
+      color.toUpperCase()+' · '+state.markerTracker.snapshot().status:'Controller ready';
+    renderPattern(now);
+    state.lastUiUpdate=now;
+  }
 }
 
 function renderMultiplayer() {
@@ -1521,9 +1644,13 @@ function stopCamera() {
     maybeRecordMatch(false);
     state.multiplayer.stop();
   }
+  if (patternActive()) state.pattern.stop(performance.now());
   if (state.mode === 'multiplayer') {
     setBoardCursor(null);
     renderMultiplayer();
+  } else if (state.mode === 'pattern') {
+    setBoardCursor(null);
+    renderPattern();
   }
   if (state.voice.active) stopRoomAudio();
   state.running = false;
@@ -1582,6 +1709,10 @@ async function startCamera(deviceId = '') {
 }
 
 function resetSession() {
+  if (state.mode === 'pattern') {
+    state.multiMotion = { green: createMotionStats(4), blue: createMotionStats(4) };
+    renderPattern();
+  }
   if (state.mode === 'multiplayer') {
     state.multiMotion = { green: createMotionStats(4), blue: createMotionStats(4) };
     renderMultiplayer();
@@ -1603,6 +1734,28 @@ async function beginGameplay() {
   }
 
   resetSession();
+  if(state.mode==='pattern'){
+    try {
+      const players=resolvePatternPlayers(state.identity.participants,{
+        count:Number(ui.playerCount.value),
+        greenId:ui.greenPlayer.value,
+        blueId:ui.bluePlayer.value
+      });
+      state.pattern=platform.createSession('random-follow-pattern',{
+        players,intervalSeconds:Number(ui.interval.value),
+        rounds:Number(ui.rounds.value)
+      });
+      const result=state.pattern.start(performance.now());
+      if(result.type!=='game-start')throw new Error('Could not start timed game.');
+      state.markerTracker.reset();
+      ui.multiplayerSetupStatus.textContent='Timed pattern live: complete as many random targets as possible each interval.';
+      renderPattern();
+    }catch(error){
+      ui.multiplayerSetupStatus.textContent=error.message;
+      renderPattern();
+    }
+    return;
+  }
   if (state.mode === 'multiplayer') {
     try {
       state.multiplayer.configure([
@@ -1630,6 +1783,12 @@ async function beginGameplay() {
 }
 
 function endGameplay() {
+  if (state.mode === 'pattern') {
+    if (patternActive()) state.pattern.stop(performance.now());
+    setBoardCursor(null);
+    renderPattern();
+    return;
+  }
   if (state.mode === 'multiplayer') {
     if (state.multiplayer.snapshot().active) maybeRecordMatch(false);
     state.multiplayer.stop();
@@ -1721,6 +1880,14 @@ function renderStats(now) {
 
 function loop(now) {
   if (!state.running) return;
+  if (state.mode === 'pattern' && patternActive()) {
+    const advance=state.pattern.tick(now);
+    if (advance.advanced || advance.type === 'game-complete') {
+      state.markerTracker.reset();
+      setBoardCursor(null);
+      renderPattern(now);
+    }
+  }
   if (ui.video.readyState < 2) {
     state.raf = requestAnimationFrame(loop);
     return;
@@ -1736,6 +1903,12 @@ function loop(now) {
 
   ctx.drawImage(ui.video, 0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
   const image = ctx.getImageData(0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
+  if (state.mode === 'pattern') {
+    loopPattern(image, now);
+    maybeScanRoom(now);
+    state.raf = requestAnimationFrame(loop);
+    return;
+  }
   if (state.mode === 'multiplayer') {
     loopMultiplayer(image, now);
     maybeScanRoom(now);
@@ -1796,21 +1969,21 @@ function loop(now) {
 }
 
 ui.gameMode.addEventListener('change', () => {
-  if (state.gameplay.game.active || state.multiplayer.snapshot().active) return;
-  state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
+  if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
+  state.mode = ['solo','multiplayer','pattern'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
   state.latestMarkerDetections = { green: null, blue: null };
   state.markerTracker.reset();
   renderMode();
 });
 ui.calibrationPreset.addEventListener('change', () => {
-  if (state.multiplayer.snapshot().active) return;
+  if (state.multiplayer.snapshot().active || patternActive()) return;
   state.calibration = createColorCalibration(ui.calibrationPreset.value);
   state.markerTracker.reset();
   populateCalibration(state.calibration);
   ui.calibrationStatus.textContent = 'Preset active. Verify live detection and save if satisfied.';
 });
 ui.saveCalibration.addEventListener('click', () => {
-  if (state.multiplayer.snapshot().active) return;
+  if (state.multiplayer.snapshot().active || patternActive()) return;
   try {
     const candidate = calibrationFromControls();
     state.calibration = candidate;
@@ -1826,7 +1999,7 @@ ui.saveCalibration.addEventListener('click', () => {
   }
 });
 ui.resetCalibration.addEventListener('click', () => {
-  if (state.multiplayer.snapshot().active) return;
+  if (state.multiplayer.snapshot().active || patternActive()) return;
   state.calibration = createColorCalibration();
   state.markerTracker.reset();
   ui.calibrationPreset.value = 'normal';
@@ -1836,10 +2009,15 @@ ui.resetCalibration.addEventListener('click', () => {
 });
 ui.greenPlayer.addEventListener('change', () => {
   if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
+  else if (state.mode === 'pattern') renderPattern();
 });
 ui.bluePlayer.addEventListener('change', () => {
   if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
+  else if (state.mode === 'pattern') renderPattern();
 });
+ui.playerCount.addEventListener('change', () => {updatePatternSetup();renderPattern();});
+ui.interval.addEventListener('change', () => renderPattern());
+ui.rounds.addEventListener('change', () => renderPattern());
 ui.clearMatchHistory.addEventListener('click', () => {
   const cleared = clearMatchHistory(browserMatchStorage());
   ui.matchHistoryStatus.textContent = cleared ? 'Local match history cleared.' :
@@ -1861,6 +2039,7 @@ ui.pointGoal.addEventListener('change', () => {
   if (!state.gameplay.game.active) {
     state.gameplay.game.pointGoal = pointGoalValue();
     if (state.mode === 'multiplayer') renderMultiplayer();
+    else if (state.mode === 'pattern') renderPattern();
     else renderGame();
   }
 });
