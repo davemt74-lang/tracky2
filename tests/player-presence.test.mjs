@@ -8,6 +8,7 @@ const t=(id,changes={})=>({
 });
 test('face/body/occlusion states require current evidence',()=>{
  assert.equal(playerPresenceEvidence('a',[t('a')],null,now).presence,'face-observed');
+ assert.equal(playerPresenceEvidence('a',[t('a',{status:'occluded'})],null,now).presence,'temporarily-occluded');
  assert.equal(playerPresenceEvidence('a',[t('a',{lastFaceSeenAt:100})],null,now).presence,'body-tracked');
  assert.equal(playerPresenceEvidence('a',[t('a',{status:'occluded',lastBodySeenAt:8000,lastFaceSeenAt:8000})],null,now).presence,'temporarily-occluded');
  assert.equal(playerPresenceEvidence('a',[],null,now).presence,'not-visible');
