@@ -4,6 +4,7 @@ import { createGameSession } from './src/game-session.js';
 import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
+import { playerPresenceEvidence } from './src/player-presence.js';
 import { toColorControllerInput } from './src/game-input.js';
 import { gamePresentation } from './src/game-presenter.js';
 import {
@@ -147,6 +148,7 @@ const state = {
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
   calibration: createColorCalibration(),
   markerTracker: createControllerStability(),
+  latestMarkerDetections: { green: null, blue: null },
   trace: [],
   lastUiUpdate: 0,
   identity: {
@@ -305,10 +307,22 @@ function renderMultiplayer() {
         p ? 'Waiting for turn' : 'Choose a participant');
     card.querySelector('.multi-travel').textContent =
       inches(summarizeMotion(state.multiMotion[color], performance.now()).totalTravel) + ' tracked';
-    const recognized = Boolean(p && state.identity.tracks.some(t =>
-      t.participantId === p.participantId && t.status !== 'occluded'));
-    card.querySelector('.multi-presence').textContent = recognized ?
-      'Participant visible · marker assigned manually' : 'Marker assignment only · identity unverified';
+    const savedProfile = p ? state.identity.participants.find(person => person.id === p.participantId) : null;
+    const evidence = playerPresenceEvidence(p?.participantId, state.identity.tracks,
+      state.latestMarkerDetections[color], performance.now(),
+      savedProfile ? voiceProfileReadiness(savedProfile).ready : false);
+    card.querySelector('.multi-presence').textContent = ({
+      'face-observed': 'Face match observed', 'body-tracked': 'Recognized body tracked',
+      'temporarily-occluded': 'Temporarily out of view',
+      'not-visible': 'Participant not visible', 'not-assigned': 'No player selected'
+    })[evidence.presence];
+    card.querySelector('.multi-marker-status').textContent = ({
+      'near-assigned-body': 'Marker near assigned body (advisory)',
+      'ambiguous-proximity': 'Multiple bodies near marker · unclear',
+      'unverified': 'Marker holder not verified'
+    })[evidence.marker];
+    card.querySelector('.multi-voice').textContent =
+      evidence.voiceReady ? 'Voice Profile ready' : 'Voice Profile not enrolled';
   }
   for (const zone of ui.board.querySelectorAll('[data-board-zone]')) {
     const index = Number(zone.dataset.boardZone);
@@ -335,6 +349,7 @@ function setBoardCursor(input) {
 
 function loopMultiplayer(image, now) {
   const detections = detectColorControllers(image, { calibration: state.calibration });
+  state.latestMarkerDetections = detections;
   const before = state.multiplayer.snapshot();
   const color = before.activeColor;
   const observation = color ? state.markerTracker.observe(detections[color], now) : null;
@@ -1433,6 +1448,7 @@ function maybeScanRoom(now) {
 }
 
 function stopCamera() {
+  state.latestMarkerDetections = { green: null, blue: null };
   state.gameplay.signalLost();
   state.markerTracker.reset();
   if (state.multiplayer.snapshot().active) state.multiplayer.stop();
@@ -1709,6 +1725,7 @@ function loop(now) {
 ui.gameMode.addEventListener('change', () => {
   if (state.gameplay.game.active || state.multiplayer.snapshot().active) return;
   state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
+  state.latestMarkerDetections = { green: null, blue: null };
   state.markerTracker.reset();
   renderMode();
 });
