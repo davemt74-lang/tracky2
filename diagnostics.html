@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tracky2 — Hardware Self-Test</title><link rel="stylesheet" href="./styles.css"></head>
+<body><main class="shell diag-shell">
+  <header class="diag-heading"><div><small>V0.4 HARDWARE ACCEPTANCE</small><h1>Camera &amp; microphone self-test</h1>
+    <p>No video or audio is recorded. Exported reports contain aggregate measurements only.</p></div>
+    <a class="button-link" href="./vertical-motion.html">← Vertical Motion</a></header>
+  <section class="panel"><h2>1. Camera and both colored markers</h2>
+    <p>Start your camera. Hold a green marker, then a blue marker, in each of the same four vertical gameboard sections. Keep this tab active for at least eight seconds.</p>
+    <div class="diag-actions"><button id="startTestCamera" class="primary">Start camera test</button>
+      <button id="stopTestCamera" disabled>Stop camera</button>
+      <label>Camera <select id="testCameraSelect"><option value="">Default camera</option></select></label></div>
+    <video id="testVideo" autoplay playsinline muted class="diag-video"></video>
+    <canvas id="testCanvas" width="320" height="180" hidden></canvas>
+    <p id="testCameraStatus" role="status">Camera test is idle.</p>
+    <div id="testMetrics" class="diag-metrics" aria-live="polite"></div>
+  </section>
+  <section class="panel"><h2>2. Microphone transport</h2>
+    <p>Speak normally during the short microphone test. Only the peak signal level is measured; audio is not saved or transcribed.</p>
+    <button id="testMicrophone">Test microphone</button><p id="testMicrophoneStatus" role="status">Microphone not tested.</p>
+  </section>
+  <section class="panel"><h2>3. Participant, tracking and voice verification</h2>
+    <ol><li>Open <a href="./participants.html">Participants</a> and enroll at least two consenting players, including optional Voice Profiles.</li>
+      <li>In the game, confirm recognition when each player faces the camera and body tracking when they turn away.</li>
+      <li>Confirm only the active player's colored marker scores, and its partial repetitions reset after temporary occlusion.</li>
+      <li>Test optional Voice Profile recognition and transcription in the main game separately. This page tests microphone access, not model identification accuracy.</li></ol>
+  </section>
+  <section class="panel"><h2>4. Export measurement report</h2>
+    <p>Review the measured FPS, both marker confidence values, four-zone coverage and dropout/jump counts. Your report contains only aggregate counters, calibration thresholds and microphone-level status.</p>
+    <button id="exportTestReport" disabled>Export hardware test report (JSON)</button>
+    <p id="testExportStatus" role="status">Start a test to enable export.</p>
+  </section>
+</main><script type="module" src="./diagnostics.js"></script></body></html>
