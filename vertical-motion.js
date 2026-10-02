@@ -5,6 +5,7 @@ import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
+import { consumeLobbyTicket } from './src/game-lobby.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
 import { playerPresenceEvidence } from './src/player-presence.js';
@@ -58,6 +59,9 @@ const ui = {
   interval: $('#patternInterval'),
   rounds: $('#patternRounds'),
   bluePlayerWrap: $('#bluePlayerWrap'),
+  patternExtraPlayers: $('#patternExtraPlayers'),
+  patternRosterScoreboard: $('#patternRosterScoreboard'),
+  classicPatternScorecards: $('#classicPatternScorecards'),
   roundTimer: $('#roundTimer'),
   historySaveOption: $('#historySaveOption'),
   matchHistoryPanel: $('#matchHistoryPanel'),
@@ -147,6 +151,7 @@ const ui = {
   statTime: $('#statTime')
 };
 
+let extraPlayerIds=[];
 const platform = createGamePlatform();
 platform.register(randomFollowPatternGame);
 
@@ -292,7 +297,39 @@ function refreshPlayerChoices() {
     }
     if (state.identity.participants.some(p => p.id === chosen)) select.value = chosen;
   }
+  renderExtraPlayerFields();
 }
+function makeParticipantSelect(position, selectedId) {
+  const label=document.createElement('label');
+  label.textContent='Player '+position+' · shared green marker';
+  const select=document.createElement('select');
+  select.dataset.extraPosition=String(position);
+  select.setAttribute('aria-label','Enrolled participant for player '+position);
+  const placeholder=document.createElement('option');
+  placeholder.value='';placeholder.textContent='Select enrolled player…';
+  select.append(placeholder);
+  for(const person of state.identity.participants){
+    const option=document.createElement('option');
+    option.value=person.id;
+    option.textContent=person.name || person.nickname || 'Participant';
+    select.append(option);
+  }
+  if(state.identity.participants.some(p=>p.id===selectedId))select.value=selectedId;
+  label.append(select);
+  return label;
+}
+
+function renderExtraPlayerFields() {
+  const count=Number(ui.playerCount.value);
+  const visible=state.mode==='pattern' && count>2;
+  ui.patternExtraPlayers.hidden=!visible;
+  ui.patternExtraPlayers.replaceChildren();
+  if(!visible)return;
+  for(let index=3;index<=count;index++){
+    ui.patternExtraPlayers.append(makeParticipantSelect(index,extraPlayerIds[index-3] || ''));
+  }
+}
+
 
 function patternActive() {
   return state.pattern?.snapshot(performance.now()).active === true;
@@ -300,11 +337,16 @@ function patternActive() {
 
 function updatePatternSetup() {
   const inPattern = state.mode === 'pattern';
+  const count=Number(ui.playerCount.value);
   ui.patternSetup.hidden = !inPattern;
-  ui.bluePlayerWrap.hidden = inPattern && Number(ui.playerCount.value) === 1;
+  ui.bluePlayerWrap.hidden = inPattern && count===1;
+  ui.bluePlayerWrap.firstChild.textContent = inPattern && count>2 ?
+    'Player 2 · shared green marker' : 'Blue controller player';
+  renderExtraPlayerFields();
   const locked = patternActive();
   for (const el of ui.patternSetup.querySelectorAll('select,input')) el.disabled = locked;
-  ui.bluePlayer.disabled = locked || (inPattern && Number(ui.playerCount.value) === 1);
+  ui.bluePlayer.disabled = locked || (inPattern && count===1);
+  for(const select of ui.patternExtraPlayers.querySelectorAll('select'))select.disabled=locked;
 }
 
 function renderMode() {
@@ -329,7 +371,7 @@ function renderPattern(now = performance.now()) {
   const match = state.pattern?.snapshot(now);
   const active = Boolean(match?.active);
   const chosenCount = Number(ui.playerCount.value);
-  const activePlayer = match?.players.find(p => p.color === match.activeColor);
+  const activePlayer = match?.players[match.activePlayerIndex];
   ui.gameMode.disabled = active;
   ui.greenPlayer.disabled = active;
   ui.bluePlayer.disabled = active || chosenCount === 1;
@@ -339,11 +381,32 @@ function renderPattern(now = performance.now()) {
   ui.pointGoal.disabled = active;
   ui.board.dataset.activeColor = active ? match.activeColor : 'idle';
   updatePatternSetup();
+  const groupMode=chosenCount>2;
+  ui.classicPatternScorecards.hidden=groupMode;
+  ui.patternRosterScoreboard.hidden=!groupMode;
+  if(groupMode){
+    ui.patternRosterScoreboard.replaceChildren();
+    const roster=match?.players || [];
+    const ids=[ui.greenPlayer.value,ui.bluePlayer.value,...extraPlayerIds].slice(0,chosenCount);
+    for(let i=0;i<chosenCount;i++){
+      const p=roster[i];
+      const profile=state.identity.participants.find(x=>x.id===ids[i]);
+      const card=document.createElement('div');
+      card.className='pattern-roster-card';
+      if(active && match.activePlayerIndex===i)card.classList.add('active');
+      const name=document.createElement('strong');
+      name.textContent=p?.name || profile?.name || ('Player '+(i+1));
+      const stats=document.createElement('span');
+      stats.textContent=(p?.score ?? 0)+' targets · '+(p?.repsCompleted ?? 0)+' reps · '+(p?.roundsPlayed ?? 0)+' rounds';
+      card.append(name,stats);
+      ui.patternRosterScoreboard.append(card);
+    }
+  }
   for (const color of ['green','blue']) {
     const card = playerScoreCard(color);
-    const p = match?.players.find(person => person.color === color);
-    card.hidden = color === 'blue' && chosenCount === 1;
-    card.classList.toggle('on-turn', Boolean(active && p && p.color === match.activeColor));
+    const p = match?.players[color==='green'?0:1];
+    card.hidden = groupMode || (color === 'blue' && chosenCount === 1);
+    card.classList.toggle('on-turn', Boolean(active && p && match.activePlayerIndex === (color==='green'?0:1)));
     const selectedId = color === 'green' ? ui.greenPlayer.value : ui.bluePlayer.value;
     const selected = state.identity.participants.find(person => person.id === selectedId);
     card.querySelector('.multi-name').textContent = p?.name || selected?.name || (color === 'green'?'Player 1':'Player 2');
@@ -372,7 +435,7 @@ function renderPattern(now = performance.now()) {
     match?.status==='completed' ? match.totalRounds + ' rounds complete' :
     match?.status==='stopped' ? 'Game ended early' : 'Select players, interval and rounds';
   ui.turnLabel.textContent = activePlayer ?
-    activePlayer.name + "'s turn · " + match.activeColor.toUpperCase() :
+    activePlayer.name + "'s turn · " + (chosenCount>2?'SHARED GREEN':match.activeColor.toUpperCase()) :
     match?.status==='completed' ? 'Game complete' : 'Random Follow Pattern';
   ui.boardInstruction.textContent = active ?
     'ZONE ' + (match.activeZone+1) + ' · ' + match.repsRemaining + ' up/down reps' :
@@ -1726,7 +1789,10 @@ async function beginGameplay() {
       patternPlayers = resolvePatternPlayers(state.identity.participants, {
         count:Number(ui.playerCount.value),
         greenId:ui.greenPlayer.value,
-        blueId:ui.bluePlayer.value
+        blueId:ui.bluePlayer.value,
+        extraIds:extraPlayerIds,
+        intervalSeconds:Number(ui.interval.value),
+        rounds:Number(ui.rounds.value)
       });
     } catch(error) {
       ui.multiplayerSetupStatus.textContent = error.message;
@@ -2017,6 +2083,11 @@ ui.bluePlayer.addEventListener('change', () => {
   else if (state.mode === 'pattern') renderPattern();
 });
 ui.playerCount.addEventListener('change', () => {updatePatternSetup();renderPattern();});
+ui.patternExtraPlayers.addEventListener('change',event=>{
+  if(event.target.tagName!=='SELECT'||patternActive())return;
+  extraPlayerIds[Number(event.target.dataset.extraPosition)-3]=event.target.value;
+  renderPattern();
+});
 ui.interval.addEventListener('change', () => renderPattern());
 ui.rounds.addEventListener('change', () => renderPattern());
 ui.clearMatchHistory.addEventListener('click', () => {
@@ -2064,6 +2135,33 @@ window.addEventListener('beforeunload', () => {
 
 restoreCalibration();
 await reloadIdentityParticipants();
+// Handoff is consumed once and every participant ID is rechecked against live local enrollment.
+// Never auto-start a camera or silently start a game from lobby navigation.
+try {
+  const requestedMode=new URL(window.location.href).searchParams.get('mode');
+  if(['solo','multiplayer'].includes(requestedMode)){
+    state.mode=requestedMode;
+    ui.gameMode.value=requestedMode;
+  } else {
+    const handoff=consumeLobbyTicket(window.sessionStorage,state.identity.participants);
+    if(handoff.status==='ready'){
+      const setup=handoff.setup;
+      state.mode='pattern';
+      ui.gameMode.value='pattern';
+      ui.playerCount.value=String(setup.players.length);
+      ui.interval.value=String(setup.intervalSeconds);
+      ui.rounds.value=String(setup.rounds);
+      ui.greenPlayer.value=setup.players[0].participantId;
+      if(setup.players.length>1)ui.bluePlayer.value=setup.players[1].participantId;
+      extraPlayerIds=setup.players.slice(2).map(p=>p.participantId);
+      ui.multiplayerSetupStatus.textContent='Lobby setup loaded. Check player assignments and start when ready.';
+    } else if(handoff.status==='invalid'){
+      ui.multiplayerSetupStatus.textContent='Lobby setup is invalid or enrollment changed. Please select your players again.';
+    }
+  }
+} catch {
+  ui.multiplayerSetupStatus.textContent='Lobby handoff unavailable; use the game setup controls directly.';
+}
 await loadSavedDialogue();
 updateConversationGroups();
 renderParticipantCards();
