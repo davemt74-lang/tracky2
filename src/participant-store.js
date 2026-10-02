@@ -1,4 +1,5 @@
 import { participantRecord, cryptoRandomId } from './participant-core.js';
+import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 
 const DB_NAME = 'tracky-participants-v1';
 const DB_VERSION = 2;
@@ -153,6 +154,8 @@ export async function deleteParticipant(id) {
     }
 
     await done;
+    // Follow participant deletion with local game-history cleanup on the same device.
+    deleteParticipantMatchHistory(browserMatchStorage(), id);
     return true;
   } finally {
     db.close();

@@ -5,6 +5,7 @@ import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
 import { playerPresenceEvidence } from './src/player-presence.js';
+import { browserMatchStorage, readMatchHistory, saveMatchHistory, clearMatchHistory, playerProgress } from './src/match-history.js';
 import { toColorControllerInput } from './src/game-input.js';
 import { gamePresentation } from './src/game-presenter.js';
 import {
@@ -48,6 +49,12 @@ const $ = (s) => document.querySelector(s);
 const ui = {
   gameMode: $('#gameMode'),
   multiplayerSettings: $('#multiplayerSettings'),
+  historySaveOption: $('#historySaveOption'),
+  matchHistoryPanel: $('#matchHistoryPanel'),
+  matchHistoryStatus: $('#matchHistoryStatus'),
+  playerProgress: $('#playerProgress'),
+  recentMatches: $('#recentMatches'),
+  clearMatchHistory: $('#clearMatchHistory'),
   multiplayerStage: $('#multiplayerStage'),
   multiplayerSetupStatus: $('#multiplayerSetupStatus'),
   turnLabel: $('#multiTurnLabel'),
@@ -148,6 +155,9 @@ const state = {
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
   calibration: createColorCalibration(),
   markerTracker: createControllerStability(),
+  matchStartedMs: 0,
+  matchResultId: null,
+  matchSaved: false,
   latestMarkerDetections: { green: null, blue: null },
   trace: [],
   lastUiUpdate: 0,
@@ -275,7 +285,8 @@ function renderMode() {
   document.body.classList.toggle('multiplayer-mode', multi);
   ui.multiplayerSettings.hidden = !multi;
   ui.multiplayerStage.hidden = !multi;
-  if (multi) renderMultiplayer();
+  ui.matchHistoryPanel.hidden = !multi;
+  if (multi) { renderMultiplayer(); renderMatchHistory(); }
   else renderGame();
 }
 
@@ -363,6 +374,7 @@ function loopMultiplayer(image, now) {
       });
       const result = state.multiplayer.sample(color, input);
       if (result.type === 'point' || result.type === 'game-over') {
+        if (result.matchComplete) maybeRecordMatch(true);
         state.markerTracker.reset(); // Every new turn requires a new stable marker lock.
         setBoardCursor(null);
         renderMultiplayer();
@@ -423,6 +435,60 @@ function restoreCalibration() {
     ui.calibrationStatus.textContent = 'Stored calibration invalid or inaccessible. Using defaults.';
   }
   populateCalibration(state.calibration);
+}
+
+function renderMatchHistory() {
+  const rows = readMatchHistory(browserMatchStorage());
+  ui.playerProgress.replaceChildren();
+  ui.recentMatches.replaceChildren();
+  const selected = [ui.greenPlayer.value, ui.bluePlayer.value].filter((id,i,all)=>
+    id && all.indexOf(id) === i);
+  for (const id of selected) {
+    const profile = state.identity.participants.find(p=>p.id===id);
+    const summary = playerProgress(rows,id);
+    const card = document.createElement('article');
+    const name = document.createElement('strong');
+    name.textContent = profile?.name || profile?.nickname || 'Enrolled player';
+    const stats = document.createElement('span');
+    stats.textContent = summary.matches + ' saved matches · ' + summary.completedMatches +
+      ' completed · best ' + summary.bestScore + ' points · ' + summary.totalRounds + ' rounds';
+    card.append(name,stats);
+    ui.playerProgress.append(card);
+  }
+  for (const match of rows.slice(0,5)) {
+    const card = document.createElement('article');
+    const date = document.createElement('strong');
+    date.textContent = new Date(match.endMs).toLocaleString() +
+      (match.completed ? ' · Completed' : ' · Ended early');
+    const summary = document.createElement('p');
+    summary.textContent = match.players.map(p=>{
+      const profile=state.identity.participants.find(x=>x.id===p.participantId);
+      const name=profile?.name || profile?.nickname || p.color + ' player';
+      return name + ': ' + p.score + ' points, ' + p.completedRounds + ' rounds';
+    }).join(' · ');
+    card.append(date,summary);
+    ui.recentMatches.append(card);
+  }
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No saved matches on this device.';
+    ui.recentMatches.append(empty);
+  }
+}
+function maybeRecordMatch(completed) {
+  if (state.matchSaved || !state.matchResultId || !ui.historySaveOption.checked) return;
+  const result = saveMatchHistory(browserMatchStorage(), {
+    id: state.matchResultId, startMs: state.matchStartedMs,
+    endMs: Math.max(Date.now(), state.matchStartedMs), completed,
+    players: state.multiplayer.snapshot().players.map(p=>({
+      participantId:p.participantId,color:p.color,score:p.score,completedRounds:p.completedRounds
+    }))
+  });
+  state.matchSaved = result.saved;
+  ui.matchHistoryStatus.textContent = result.saved ?
+    'Result saved locally. No camera, face or voice data was recorded.' :
+    'Could not save results on this device.';
+  renderMatchHistory();
 }
 
 function setGameInstructions(title, detail) {
@@ -1451,7 +1517,10 @@ function stopCamera() {
   state.latestMarkerDetections = { green: null, blue: null };
   state.gameplay.signalLost();
   state.markerTracker.reset();
-  if (state.multiplayer.snapshot().active) state.multiplayer.stop();
+  if (state.multiplayer.snapshot().active) {
+    maybeRecordMatch(false);
+    state.multiplayer.stop();
+  }
   if (state.mode === 'multiplayer') {
     setBoardCursor(null);
     renderMultiplayer();
@@ -1542,6 +1611,9 @@ async function beginGameplay() {
       ], state.identity.participants);
       const result = state.multiplayer.begin(goal);
       if (result.type !== 'match-start') throw new Error('Could not start the match.');
+      state.matchStartedMs = Date.now();
+      state.matchResultId = window.crypto?.randomUUID?.() || 'match-' + state.matchStartedMs + '-' + Math.random().toString(36).slice(2);
+      state.matchSaved = false;
       state.multiMotion = { green: createMotionStats(4), blue: createMotionStats(4) };
       state.markerTracker.reset();
       ui.multiplayerSetupStatus.textContent = 'One shared board: completing a round passes the turn to the next player.';
@@ -1559,6 +1631,7 @@ async function beginGameplay() {
 
 function endGameplay() {
   if (state.mode === 'multiplayer') {
+    if (state.multiplayer.snapshot().active) maybeRecordMatch(false);
     state.multiplayer.stop();
     renderMultiplayer();
     return;
@@ -1761,8 +1834,18 @@ ui.resetCalibration.addEventListener('click', () => {
   try { window.localStorage.removeItem(CALIBRATION_STORAGE_KEY); } catch {}
   ui.calibrationStatus.textContent = 'Default calibration restored.';
 });
-ui.greenPlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
-ui.bluePlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
+ui.greenPlayer.addEventListener('change', () => {
+  if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
+});
+ui.bluePlayer.addEventListener('change', () => {
+  if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
+});
+ui.clearMatchHistory.addEventListener('click', () => {
+  const cleared = clearMatchHistory(browserMatchStorage());
+  ui.matchHistoryStatus.textContent = cleared ? 'Local match history cleared.' :
+    'Browser storage unavailable; could not clear local history.';
+  renderMatchHistory();
+});
 ui.start.addEventListener('click', () => startCamera(ui.select.value));
 ui.startRoomAudio.addEventListener('click', startRoomAudio);
 ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
