@@ -584,3 +584,16 @@ button,select,.button-link,.points-goal input,.participant-fields input,.partici
 .diag-video{width:100%;max-width:600px;max-height:340px;object-fit:contain;aspect-ratio:16/9;border:1px solid var(--line);border-radius:12px;background:#020609}
 .diag-metrics{display:grid;gap:4px;font-size:.75rem}
 .diag-metrics p{border-left:2px solid var(--green);padding:7px;background:rgba(92,255,157,.05);margin:0}
+
+/* V0.5 platform: timed pattern configuration reuses the established four-zone gameboard. */
+.pattern-setup{display:flex;flex-wrap:wrap;align-items:end;gap:12px;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px}
+.pattern-setup legend{font-weight:850;font-size:.85rem;padding:0 6px}
+.pattern-setup label{display:grid;gap:6px;font-size:.76rem;flex:1 1 155px}
+.pattern-setup select{width:100%}
+.pattern-setup p{flex-basis:100%;font-size:.7rem;color:var(--muted);margin:0}
+.pattern-setup[hidden],#bluePlayerWrap[hidden],.multi-scorecard[hidden]{display:none!important}
+.pattern-round-timer{font-variant-numeric:tabular-nums;font-weight:850;font-size:.8rem;text-align:center;color:#e6f9f0}
+body:not(.pattern-mode) .pattern-round-timer{display:none}
+.pattern-mode .points-goal,.pattern-mode .match-consent{display:none!important}
+.pattern-mode .shared-board{max-height:45vh}
+@media(max-width:700px){.pattern-setup label{flex-basis:100%}}
