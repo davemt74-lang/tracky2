@@ -9,17 +9,17 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
  const config=validatePatternSetup({players,intervalSeconds,rounds});
  if(rounds<config.players.length)throw new RangeError('Provide at least one round per participant.');
  if(typeof random!=='function')throw new TypeError('Expected random function.');
- const progress=config.players.map(p=>({...p,hits:0,roundsPlayed:0,totalMs:0,bestMs:null}));
+ const progress=config.players.map(p=>({...p,hits:0,misses:0,roundsPlayed:0,totalMs:0,bestMs:null}));
  let status='ready',index=-1,deadline=null,startAt=null,targetAt=null,zone=null,previous=null;
- let armed=false,tracking=false,lastTime=null,history=[],roundHits=0,roundTime=0,lastEvent='ready';
+ let armed=false,tracking=false,lastTime=null,lastZone=null,history=[],roundHits=0,roundMisses=0,roundTime=0,lastEvent='ready';
  function target(at){
    const value=random();
    if(!Number.isFinite(value)||value<0||value>=1)throw new RangeError('Random source must return [0, 1).');
    zone=nextZone(previous,()=>value,4);previous=zone;
-   targetAt=at;armed=false;tracking=false;lastTime=null;lastEvent='target-start';
+   targetAt=at;armed=false;tracking=false;lastTime=null;lastZone=null;lastZone=null;lastEvent='target-start';
  }
  function startRound(at){
-   startAt=at;deadline=at+config.intervalSeconds*1000;roundHits=0;roundTime=0;
+   startAt=at;deadline=at+config.intervalSeconds*1000;roundHits=0;roundMisses=0;roundTime=0;
    progress[index%progress.length].roundsPlayed++;
    target(at);lastEvent='round-start';
  }
@@ -27,7 +27,7 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
    const p=progress[index%progress.length];
    history.push(Object.freeze({
      round:index+1,participantId:p.participantId,color:p.color,
-     hits:roundHits,meanReactionMs:roundHits?Math.round(roundTime/roundHits):null,
+     hits:roundHits,misses:roundMisses,meanReactionMs:roundHits?Math.round(roundTime/roundHits):null,
      intervalSeconds:config.intervalSeconds
    }));
    armed=false;tracking=false;lastTime=null;
@@ -45,7 +45,8 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
      roundTargets:status==='running'?roundHits:0,armed,lastEvent,trackingPresent:tracking,
      players:Object.freeze(progress.map(x=>Object.freeze({
        participantId:x.participantId,name:x.name,color:x.color,score:x.hits,
-       roundsPlayed:x.roundsPlayed,repsCompleted:x.hits,
+       roundsPlayed:x.roundsPlayed,repsCompleted:x.hits,misses:x.misses,
+       accuracyPct:x.hits+x.misses?Math.round(100*x.hits/(x.hits+x.misses)):null,
        bestReactionMs:x.bestMs,averageReactionMs:x.hits?Math.round(x.totalMs/x.hits):null
      }))),
      roundHistory:Object.freeze(history.slice())
@@ -70,7 +71,7 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
    start(now){
      if(status==='running')return {type:'already-active'};
      if(!valid(now))return {type:'invalid-timestamp'};
-     progress.forEach(p=>{p.hits=0;p.roundsPlayed=0;p.totalMs=0;p.bestMs=null;});
+     progress.forEach(p=>{p.hits=0;p.misses=0;p.roundsPlayed=0;p.totalMs=0;p.bestMs=null;});
      history=[];index=0;previous=null;status='running';startRound(now);
      return {type:'game-start',activeColor:progress[0].color};
    },
@@ -86,8 +87,12 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
         input.x<0||input.x>1||input.y<0||input.y>1)return {type:'invalid-input'};
      if(lastTime!==null&&input.timestamp<=lastTime)return {type:'stale-input'};
      lastTime=input.timestamp;tracking=true;
-     if(zoneForY(input.y,4)!==zone){
-       armed=true;lastEvent='armed';return {type:'armed'};
+     const atZone=zoneForY(input.y,4);
+     if(atZone!==zone){
+       if(armed && lastZone!==null && atZone!==lastZone){
+         p.misses++;roundMisses++;
+       }
+       lastZone=atZone;armed=true;lastEvent='armed';return {type:'armed'};
      }
      if(!armed){lastEvent='needs-exit';return {type:'needs-exit'};}
      const reactionMs=Math.max(0,Math.round(input.timestamp-targetAt));
@@ -101,7 +106,7 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
      if(status!=='running')return {type:'inactive'};
      if(color!==progress[index%progress.length].color)return {type:'not-your-turn'};
      if(!tracking&&!armed)return {type:'already-lost'};
-     tracking=false;armed=false;lastTime=null;lastEvent='signal-lost';
+     tracking=false;armed=false;lastTime=null;lastZone=null;lastEvent='signal-lost';
      return {type:'signal-lost'};
    },
    stop(now){
