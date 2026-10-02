@@ -1,10 +1,11 @@
 import { createRepDetector, recordRepSample, resetRepDetector, nextZone, randomIntInclusive } from '../gameplay-core.js';
 import { zoneForY } from '../movement-core.js';
+import { GAME_SETTINGS } from '../game-platform.js';
 
 export const FOLLOW_PATTERN_ID = 'random-follow-pattern';
-export const FOLLOW_INTERVALS = Object.freeze([30,60,90,120]);
-export const FOLLOW_ROUND_COUNTS = Object.freeze([5,10,15,20]);
-export const FOLLOW_ZONE_COUNT = 4;
+export const FOLLOW_INTERVALS = GAME_SETTINGS.intervals;
+export const FOLLOW_ROUND_COUNTS = GAME_SETTINGS.rounds;
+export const FOLLOW_ZONE_COUNT = GAME_SETTINGS.boardZones;
 export const FOLLOW_REPS = Object.freeze({ min: 3, max: 6 });
 
 export function validatePatternSetup({ players, intervalSeconds, rounds } = {}) {

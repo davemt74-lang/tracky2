@@ -11,6 +11,7 @@ import { playerPresenceEvidence } from './src/player-presence.js';
 import { browserMatchStorage, readMatchHistory, saveMatchHistory, clearMatchHistory, playerProgress } from './src/match-history.js';
 import { toColorControllerInput } from './src/game-input.js';
 import { gamePresentation } from './src/game-presenter.js';
+import { sharedBoardView, paintSharedBoard } from './src/shared-board.js';
 import {
   advanceScan,
   bestParticipantMatch
@@ -363,12 +364,8 @@ function renderPattern(now = performance.now()) {
       'Marker holder not verified';
     card.querySelector('.multi-voice').textContent = evidence.voiceReady ? 'Voice Profile enrolled' : 'Voice Profile not enrolled';
   }
-  for(const cell of ui.board.querySelectorAll('[data-board-zone]')){
-    const i=Number(cell.dataset.boardZone);
-    const target=active && match.activeZone===i;
-    cell.classList.toggle('target',Boolean(target));
-    cell.querySelector('b').textContent=target?String(match.repsRemaining):String(i+1);
-  }
+  paintSharedBoard(ui.board,sharedBoardView({active,activeColor:match?.activeColor,
+    activeZone:match?.activeZone,repsRemaining:match?.repsRemaining}));
   ui.roundTimer.textContent = active ?
     'Round ' + match.round + '/' + match.totalRounds + ' · ' +
     Math.ceil(match.remainingMs/1000) + ' seconds remaining' :
@@ -458,12 +455,8 @@ function renderMultiplayer() {
     card.querySelector('.multi-voice').textContent =
       evidence.voiceReady ? 'Voice Profile ready' : 'Voice Profile not enrolled';
   }
-  for (const zone of ui.board.querySelectorAll('[data-board-zone]')) {
-    const index = Number(zone.dataset.boardZone);
-    const targeted = Boolean(match.active && active && active.activeZone === index);
-    zone.classList.toggle('target', targeted);
-    zone.querySelector('b').textContent = targeted ? String(active.repsRemaining) : String(index + 1);
-  }
+  paintSharedBoard(ui.board,sharedBoardView({active:match.active,activeColor:match.activeColor,
+    activeZone:active?.activeZone,repsRemaining:active?.repsRemaining}));
   ui.turnLabel.textContent = match.active && active ?
     active.name + "'s turn · " + active.color.toUpperCase() + ' · turn ' + match.turnNumber :
     match.complete ? 'Match complete' : 'Assign two players and start the match';
@@ -1727,6 +1720,19 @@ function resetSession() {
 
 async function beginGameplay() {
   const goal = pointGoalValue();
+  let patternPlayers = null;
+  if (state.mode === 'pattern') {
+    try {
+      patternPlayers = resolvePatternPlayers(state.identity.participants, {
+        count:Number(ui.playerCount.value),
+        greenId:ui.greenPlayer.value,
+        blueId:ui.bluePlayer.value
+      });
+    } catch(error) {
+      ui.multiplayerSetupStatus.textContent = error.message;
+      return;
+    }
+  }
 
   if (!state.running) {
     const started = await startCamera(ui.select.value);
@@ -1736,13 +1742,8 @@ async function beginGameplay() {
   resetSession();
   if(state.mode==='pattern'){
     try {
-      const players=resolvePatternPlayers(state.identity.participants,{
-        count:Number(ui.playerCount.value),
-        greenId:ui.greenPlayer.value,
-        blueId:ui.bluePlayer.value
-      });
       state.pattern=platform.createSession('random-follow-pattern',{
-        players,intervalSeconds:Number(ui.interval.value),
+        players:patternPlayers,intervalSeconds:Number(ui.interval.value),
         rounds:Number(ui.rounds.value)
       });
       const result=state.pattern.start(performance.now());

@@ -1,5 +1,12 @@
 // Shared gameplay registry: camera, identity and Voice Profiles belong to the host, not each game.
 const ID = /^[a-z][a-z0-9-]{1,47}$/;
+export const GAME_SETTINGS = Object.freeze({
+  playerCounts:Object.freeze([1,2]),
+  intervals:Object.freeze([30,60,90,120]),
+  rounds:Object.freeze([5,10,15,20]),
+  boardZones:4
+});
+
 export function createGamePlatform() {
   const definitions = new Map();
   return Object.freeze({
