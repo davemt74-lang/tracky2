@@ -9,10 +9,12 @@ const requiredFiles = [
   'games.html',
   'vertical-motion.html',
   'participants.html',
+  'diagnostics.html',
   'app.js',
   'vertical-motion.js',
   'participants.js',
   'participant-voice.js',
+  'diagnostics.js',
   'styles.css',
   'README.md',
   'package.json',
@@ -27,6 +29,7 @@ const requiredFiles = [
   'src/controller-stability.js',
   'src/player-presence.js',
   'src/match-history.js',
+  'src/hardware-diagnostics.js',
   'src/participant-core.js',
   'src/participant-store.js',
   'src/identity-engine.js',
@@ -54,6 +57,7 @@ const runtimeJs = [
   'src/controller-stability.js',
   'src/player-presence.js',
   'src/match-history.js',
+  'src/hardware-diagnostics.js',
   'src/participant-core.js',
   'src/participant-store.js',
   'src/identity-engine.js',
@@ -68,7 +72,8 @@ const runtimeJs = [
 const htmlContracts = [
   ['index.html', ['app.js']],
   ['vertical-motion.html', ['vertical-motion.js']],
-  ['participants.html', ['participants.js', 'participant-voice.js']]
+  ['participants.html', ['participants.js', 'participant-voice.js']],
+  ['diagnostics.html', ['diagnostics.js']]
 ];
 
 function fail(message) {
@@ -87,8 +92,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.4.3') {
-  fail('package.json version must be 0.4.3');
+if (packageJson.version !== '0.4.4') {
+  fail('package.json version must be 0.4.4');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -198,8 +203,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.4\.3-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.4.3 deploy ZIP');
+if (!/tracky2-v0\.4\.4-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.4.4 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);

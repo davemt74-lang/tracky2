@@ -1,3 +1,9 @@
+# Tracky2 V0.4E — On-device hardware self-test
+
+Visit **diagnostics.html** (or choose **Hardware self-test** on the Vertical Motion page) from localhost or HTTPS. Start the camera and move both green and blue markers through all four board sections while the diagnostics page is visible for at least eight seconds. The page measures camera FPS, per-marker detection confidence, stable observations, rejected jumps, tracking dropouts and zone coverage. Start the optional microphone test and speak normally to verify signal capture without recording audio. Export the aggregate JSON report locally to review or share for device certification. No media or biometric data is included in the report.
+
+The hardware self-test does not itself certify face recognition, body lock after turn-away, Voice Profile identification or full gameplay. Follow the checklist in diagnostics.html to verify those interactively on your devices. A green CI result proves software regression and deployment integrity, **not** actual device performance.
+
 # Tracky2 V0.4D — Optional match history
 
 Select two enrolled participants and opt in to **Save scores and match progress locally** before starting a match. After completion or an early stop, Tracky2 stores only match identifiers, dates, completion state and each participant's points and completed rounds on this device. The history view shows recent matches and per-player progress, supports clearing saved results and automatically purges a participant's entries when that local profile is deleted. Up to 100 sessions are retained; no camera or microphone recordings, biometric embeddings or dialogue are written to match history. Opt-in defaults to off each page visit.
