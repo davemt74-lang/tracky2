@@ -43,6 +43,12 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Measurements can be exported locally as JSON without raw camera frames, recorded audio, face/voice embeddings or transcripts. The diagnostics tool gives a repeatable hardware-validation checklist for enrolled identity/body lock, Voice Profile enrollment and manual in-game turn testing.
 - The automated CI gate validates the diagnostic core and complete deploy artifact. Hardware certification is explicitly NOT complete until a human runs the report on representative physical devices and verifies all manual items.
 
+## V0.5 Section 1 — Extensible game platform and Random Follow Pattern
+- Register games in a DOM-free platform. Four-zone board presentation is a reusable component shared by both Random Follow Pattern and the existing classic two-player game. Camera, identity, participant and voice runtimes stay in the host.
+- First game: Random Follow Pattern. Select one or two distinct locally enrolled participants (current physical markers: green and blue), intervals of 30/60/90/120 seconds, and 5/10/15/20 timed rounds per game. Each interval is one round; players alternate each round (for an odd round count the starting player receives one extra round). Only the current player may score.
+- During a round, random non-repeating zone targets require 3–6 complete up/down repetitions; completing a target awards one point and immediately generates another target until time expires. Timed round boundaries are independent of frame delivery and late inputs cannot award extra attempts; background-tab clock gaps consume elapsed rounds.
+- Original classic solo and point-goal multiplayer remain selectable. Pattern session results are volatile in Section 1; historical persistence can be extended explicitly in a later section. Physical camera/voice hardware certification remains pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.
