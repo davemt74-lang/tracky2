@@ -665,3 +665,12 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 .pwa-banner span{flex:1 1 220px}
 .pwa-banner button{cursor:pointer;padding:8px 12px;background:#175244;color:#fff;border:1px solid #72e7af;border-radius:8px}
 @media(min-width:900px){.pwa-banner{left:auto;right:20px;max-width:520px}}
+
+/* Reaction Challenge uses the existing four-zone shared gameboard. */
+.reaction-mode .shared-board[data-active-color="green"]{--turn-color:#80ffd1}
+.reaction-mode .shared-board[data-active-color="blue"]{--turn-color:#76abff}
+.lobby-second-game{margin-top:18px}
+.lobby-game-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.lobby-game-tiles article{background:#0a2026;border:1px solid #57ba9873;padding:14px;border-radius:12px}
+.lobby-game-tiles article strong{font-size:.86rem;color:#c1f9dd}
+.lobby-game-tiles article p{font-size:.78rem;color:#96c1ad;line-height:1.55}
