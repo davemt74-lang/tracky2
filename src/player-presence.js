@@ -12,7 +12,7 @@ export function playerPresenceEvidence(participantId, tracks, marker, now, voice
     Number(t.lastFaceSeenAt ?? -Infinity), Number(t.lastSeenAt ?? -Infinity));
   candidates.sort((a,b)=>recent(b)-recent(a));
   const own = candidates[0] || null;
-  const faceFresh = own && Number.isFinite(own.lastFaceSeenAt) &&
+  const faceFresh = own && own.status !== 'occluded' && Number.isFinite(own.lastFaceSeenAt) &&
     now - own.lastFaceSeenAt >= 0 && now - own.lastFaceSeenAt <= FRESH_MS;
   const bodyFresh = own && own.status !== 'occluded' && Number.isFinite(own.lastBodySeenAt) &&
     now - own.lastBodySeenAt >= 0 && now - own.lastBodySeenAt <= FRESH_MS;
