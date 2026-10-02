@@ -1,6 +1,8 @@
 import { clamp01, detectColorBlob } from './src/tracker-core.js';
 import { createMotionStats, recordMotion, summarizeMotion, zoneForY } from './src/movement-core.js';
-import { createGameState, recordGameSample, startGame, stopGame } from './src/gameplay-core.js';
+import { createGameSession } from './src/game-session.js';
+import { toColorControllerInput } from './src/game-input.js';
+import { gamePresentation } from './src/game-presenter.js';
 import {
   advanceScan,
   bestParticipantMatch
@@ -112,7 +114,7 @@ const state = {
   displayX: 0.5,
   displayY: 0.5,
   stats: createMotionStats(),
-  game: createGameState(5),
+  gameplay: createGameSession({ pointGoal: 5 }),
   trace: [],
   lastUiUpdate: 0,
   identity: {
@@ -224,7 +226,7 @@ function setGameInstructions(title, detail) {
 }
 
 function renderGame() {
-  const game = state.game;
+  const game = state.gameplay.game;
   const targetNodes = ui.lane.querySelectorAll('[data-target-zone]');
   const zoneNodes = ui.lane.querySelectorAll('.lane-zone');
 
@@ -246,44 +248,8 @@ function renderGame() {
   ui.endGame.disabled = !game.active;
   ui.startGame.textContent = game.over ? 'Play again' : 'Start game';
 
-  if (game.over) {
-    setGameInstructions(
-      'Game over — ' + game.score + ' points.',
-      'You reached your selected point goal. Press Play again for a new game.'
-    );
-    return;
-  }
-
-  if (!game.active) {
-    setGameInstructions(
-      'Choose your point goal and start the game.',
-      'Each highlighted section cleared is worth one point.'
-    );
-    return;
-  }
-
-  const zoneNumber = game.activeZone + 1;
-  if (game.lastEvent === 'outside-zone') {
-    setGameInstructions(
-      'Move into Zone ' + zoneNumber + '.',
-      'Only complete up → down reps inside the highlighted section count.'
-    );
-  } else if (game.lastEvent === 'rep') {
-    setGameInstructions(
-      game.repsRemaining + ' reps left in Zone ' + zoneNumber + '.',
-      'Keep the up → down rhythm inside the highlighted section.'
-    );
-  } else if (game.lastEvent === 'round-start') {
-    setGameInstructions(
-      'Zone ' + zoneNumber + ': ' + game.repsRemaining + ' reps.',
-      'Complete up → down cycles inside the highlighted section.'
-    );
-  } else {
-    setGameInstructions(
-      'Zone ' + zoneNumber + ': ' + game.repsRemaining + ' reps left.',
-      'Complete up → down cycles inside the highlighted section.'
-    );
-  }
+  const presentation = gamePresentation(game);
+  setGameInstructions(presentation.title, presentation.detail);
 }
 
 async function enumerateCameras() {
@@ -1271,6 +1237,7 @@ function maybeScanRoom(now) {
 }
 
 function stopCamera() {
+  state.gameplay.signalLost();
   if (state.voice.active) stopRoomAudio();
   state.running = false;
   cancelAnimationFrame(state.raf);
@@ -1345,12 +1312,12 @@ async function beginGameplay() {
   }
 
   resetSession();
-  startGame(state.game, goal);
+  state.gameplay.begin(goal);
   renderGame();
 }
 
 function endGameplay() {
-  stopGame(state.game);
+  state.gameplay.stop();
   renderGame();
 }
 
@@ -1451,16 +1418,19 @@ function loop(now) {
   ctx.drawImage(ui.video, 0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
   const image = ctx.getImageData(0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
   const detection = detectColorBlob(image, detectOptions());
+  const input = toColorControllerInput(detection, ui.mirror.checked, now);
 
-  if (!detection) {
+  if (!input) {
+    const loss = state.gameplay.signalLost();
+    if (loss.type === 'signal-lost') renderGame();
     ui.trackingStatus.textContent = 'Searching for green…';
     ui.liveY.textContent = '—';
     ui.liveDelta.textContent = '—';
     ui.liveZone.textContent = '—';
     setCursor(state.displayX, state.displayY, false);
   } else {
-    const rawX = clamp01(ui.mirror.checked ? 1 - detection.x : detection.x);
-    const rawY = clamp01(detection.y);
+    const rawX = input.x;
+    const rawY = input.y;
     state.displayX += (rawX - state.displayX) * 0.28;
     state.displayY += (rawY - state.displayY) * 0.28;
     setCursor(state.displayX, state.displayY, true);
@@ -1475,8 +1445,8 @@ function loop(now) {
       pushTrace(motionEvent.delta, motionEvent.micro);
     }
 
-    if (state.game.active) {
-      const gameEvent = recordGameSample(state.game, rawY);
+    if (state.gameplay.game.active) {
+      const gameEvent = state.gameplay.sample(input);
       if (gameEvent.type === 'rep' || gameEvent.type === 'point' || gameEvent.type === 'game-over' || gameEvent.type === 'outside-zone') {
         renderGame();
       }
@@ -1492,7 +1462,7 @@ function loop(now) {
 
   if (now - state.lastUiUpdate >= 100) {
     renderStats(now);
-    if (state.game.active) renderGame();
+    if (state.gameplay.game.active) renderGame();
     drawTrace();
     state.lastUiUpdate = now;
   }
@@ -1505,15 +1475,15 @@ ui.startRoomAudio.addEventListener('click', startRoomAudio);
 ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
 ui.stop.addEventListener('click', () => {
-  if (state.game.active) endGameplay();
+  if (state.gameplay.game.active) endGameplay();
   stopCamera();
 });
 ui.reset.addEventListener('click', resetSession);
 ui.startGame.addEventListener('click', beginGameplay);
 ui.endGame.addEventListener('click', endGameplay);
 ui.pointGoal.addEventListener('change', () => {
-  if (!state.game.active) {
-    state.game.pointGoal = pointGoalValue();
+  if (!state.gameplay.game.active) {
+    state.gameplay.game.pointGoal = pointGoalValue();
     renderGame();
   }
 });

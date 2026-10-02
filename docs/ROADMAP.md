@@ -3,6 +3,12 @@
 ## Restored baseline
 Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf9b. Preserve Vertical Motion gameplay, green-object tracking, calibration, raw movement analytics, local enrolled participant recognition, persistent full-body tracking, voice profiles and optional transcription. Keep this independent of Agent Eyes and VP3 Cloud.
 
+## V0.2 modularization
+- Game lifecycle, scoring dispatch, signal loss and bounded gameplay events are isolated from browser UI and participant/voice engines.
+- Raw color-camera adapter and pure UI presenter can be reused independently. The original single-controller rules remain unchanged except that tracking loss resets partial reps.
+- The original participant and voice engines remain separate modules; the large browser integration controller will be decomposed incrementally after hardware verification.
+- This release does not claim multiplayer or hardware certification.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

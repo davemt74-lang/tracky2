@@ -1,3 +1,9 @@
+# Tracky2 V0.2 — Modular game runtime
+
+Game lifecycle and frame scoring now run in `src/game-session.js`, independently of camera, participant and voice implementations. `src/game-input.js` converts raw green-object detections to normalized samples. `src/game-presenter.js` produces the existing game instructions without DOM access. Original participant/body/voice systems remain intact. Missing tracking resets incomplete repetitions to prevent phantom scoring; stale and invalid frames cannot score. This is still one-controller gameplay; multiplayer player assignment is a later section.
+
+**Validate:** `npm run validate`. CI publishes a standalone ZIP and checksum. Camera and microphone integration still require on-device testing.
+
 # Tracky2 — Gameplay recovery
 
 Independent game-focused recovery of original Tracky V0.7 from PR #9 (`a8ed0c134b0bb2b77ed596828d564d9d4de9cf9b`). Features include the original Vertical Motion game, multi-person tracking, local participant enrollment and voice profiles. No HomeServer, Cloud or Agent Eyes dependency. Current gameplay uses one green-object controller and one score; player-specific multiplayer scoring is a subsequent milestone.
