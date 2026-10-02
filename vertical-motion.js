@@ -363,6 +363,8 @@ function renderMode() {
   updatePatternSetup();
   if (state.mode === 'pattern') renderPattern();
   else if (state.mode === 'multiplayer') {
+    ui.board.dataset.playerSlot='-1';
+    ui.board.dataset.controllerMode='individual';
     ui.classicPatternScorecards.hidden=false;
     ui.patternRosterScoreboard.hidden=true;
     renderMultiplayer();renderMatchHistory();
@@ -388,6 +390,8 @@ function renderPattern(now = performance.now()) {
   ui.endGame.disabled = !active;
   ui.pointGoal.disabled = active;
   ui.board.dataset.activeColor = active ? match.activeColor : 'idle';
+  ui.board.dataset.playerSlot = active ? String(match.activePlayerIndex) : '-1';
+  ui.board.dataset.controllerMode = chosenCount>2 ? 'shared-green' : 'individual';
   updatePatternSetup();
   const groupMode=chosenCount>2;
   ui.classicPatternScorecards.hidden=groupMode;
