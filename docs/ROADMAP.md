@@ -49,6 +49,12 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - During a round, random non-repeating zone targets require 3–6 complete up/down repetitions; completing a target awards one point and immediately generates another target until time expires. Timed round boundaries are independent of frame delivery and late inputs cannot award extra attempts; background-tab clock gaps consume elapsed rounds.
 - Original classic solo and point-goal multiplayer remain selectable. Pattern session results are volatile in Section 1; historical persistence can be extended explicitly in a later section. Physical camera/voice hardware certification remains pending.
 
+## V0.5 Section 2 — Game selection and expanded player lobby
+- New game lobby selects Random Follow Pattern or existing classic solo/two-player modes. Timed-game lobby loads locally enrolled participants and previews duration and exact round-by-round roster order.
+- Timed Random Follow Pattern supports 1–6 unique enrolled participants. Two players retain separate green/blue markers; a group of 3–6 manually passes one green marker when the round expires. Camera, face/body and voice systems remain shared and do not automatically attribute marker ownership.
+- Require enough rounds for every selected participant to play once. Use a one-time sessionStorage handoff containing enrollment IDs and settings only (no names, photos, embeddings or voice data), never participant IDs in URL parameters; revalidate against current enrollment before game setup. No automatic camera or game start.
+- Extend shared-board UI with dynamic group scoreboard for 3–6 players and keep classic modes functional. Live hardware acceptance for shared-marker multi-person handoffs remains pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

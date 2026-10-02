@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { sharedBoardView } from '../src/shared-board.js';
 import { GAME_SETTINGS } from '../src/game-platform.js';
 test('platform shares supported player, interval, round and board options',()=>{
- assert.deepEqual(GAME_SETTINGS.playerCounts,[1,2]);
+ assert.deepEqual(GAME_SETTINGS.playerCounts,[1,2,3,4,5,6]);
  assert.deepEqual(GAME_SETTINGS.intervals,[30,60,90,120]);
  assert.deepEqual(GAME_SETTINGS.rounds,[5,10,15,20]);
  assert.equal(GAME_SETTINGS.boardZones,4);

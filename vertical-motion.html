@@ -70,7 +70,7 @@
     </aside>
 
     <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
-      <div class="multi-scorecards" aria-label="Individual player scores">
+      <div class="multi-scorecards" id="classicPatternScorecards" aria-label="Individual player scores">
         <article class="multi-scorecard" data-player-color="green">
           <strong class="multi-name">Green player</strong><b class="multi-score">0 / 5</b>
           <span class="multi-reps">Ready</span><span class="multi-travel">0.000 in tracked</span>
@@ -87,6 +87,7 @@
         </article>
       </div>
       <div id="roundTimer" class="pattern-round-timer" aria-live="off">Select players, interval and rounds</div>
+      <div id="patternRosterScoreboard" class="pattern-roster-scoreboard" aria-label="Timed pattern player roster" hidden></div>
       <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
       <div id="stabilityStatus" class="stability-status" role="status" aria-live="polite">Waiting for a stable marker</div>
       <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
@@ -129,7 +130,7 @@
       <fieldset id="patternSetup" class="pattern-setup">
         <legend>Random Follow Pattern · game settings</legend>
         <label>Number of players
-          <select id="patternPlayerCount"><option value="1">1 player</option><option value="2" selected>2 players</option></select>
+          <select id="patternPlayerCount"><option value="1">1 player</option><option value="2" selected>2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option></select>
         </label>
         <label>Player interval (one timed round)
           <select id="patternInterval"><option value="30" selected>30 seconds</option>
@@ -141,13 +142,14 @@
             <option value="10">10 rounds</option><option value="15">15 rounds</option>
             <option value="20">20 rounds</option></select>
         </label>
-        <p>Players take turns for each timed round. Follow random zone and rep targets until
-          the timer expires. With two players, green starts and blue follows.</p>
+        <p>Players take turns for each timed round. For 3–6 players, pass the same green marker between turns. Follow random zone and rep targets until
+          the timer expires. With two players, green starts and blue follows using separate controllers.</p>
       </fieldset>
       <label>Green controller player<select id="greenPlayer"><option value="">Select enrolled player…</option></select></label>
       <label id="bluePlayerWrap">Blue controller player<select id="bluePlayer"><option value="">Select enrolled player…</option></select></label>
+      <div id="patternExtraPlayers" class="pattern-extra-players" hidden aria-label="Additional player selections"></div>
       <p id="multiplayerSetupStatus" role="status" aria-live="polite">
-        Choose two enrolled participants. One shared four-section board changes color after each completed round.
+        Select all enrolled participants. In Random Follow Pattern, the turn changes at the timed interval, not after each target.
         Camera or voice recognition does not prove who holds a colored marker.
       </p>
       <fieldset class="calibration-panel" aria-label="Camera marker calibration">

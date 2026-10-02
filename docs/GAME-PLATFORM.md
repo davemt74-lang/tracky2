@@ -18,3 +18,13 @@ Export a definition object with `id`, `title`, `description` and `createSession(
 
 ## Safety and release limits
 Face and voice enrollment remain optional, opt-in and local. Marker selection does not establish who physically holds a controller. The older opt-in classic match-history format is not silently reused for the new timed game's distinct round structure. Automated tests do not certify performance with live webcams or microphones.
+
+## Section 2 — Game lobby, player selection and honest controller mapping
+- Open `games.html`, choose Random Follow Pattern, 1–6 *locally enrolled* participants in play order, 30/60/90/120-second interval and 5/10/15/20 total rounds. A schedule preview shows precisely who plays each round and the total timed duration. Every selected player must have at least one round; therefore six-player games cannot use five total rounds.
+- A solo player uses green. Exactly two players use separate green and blue markers. Three to six players **pass the same green marker between turns**; no extra color detection, biometric possession inference or automatic identity assignment is claimed. Only the currently scheduled participant is credited, relying on agreed manual handoff.
+- The lobby may also open classic solo and classic two-player point-goal gameplay.
+- The lobby validates against local enrollment and carries only participant IDs and game settings via a one-time `sessionStorage` entry. The game consumes and revalidates that entry against enrolled participants, then requires a deliberate user action before opening the camera and beginning play. Nothing goes into browser URL parameters; game setup does not save roster selections permanently.
+- The shared board, detection, optional face/body tracking, Voice Profiles, calibration and existing player consent requirements are unchanged. Distinct session scoring for six participants is independent of aggregate motion totals, which remain per camera marker rather than unproven per-person attribution.
+
+## Expansion boundary
+For more than two *simultaneous independent markers* add another hardware-tracked input family, explicit participant-to-controller binding and corresponding permissions first. This lobby supports larger **turn-taking** groups without asserting that additional controllers already exist.

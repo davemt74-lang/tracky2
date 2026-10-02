@@ -9,17 +9,17 @@ export const FOLLOW_ZONE_COUNT = GAME_SETTINGS.boardZones;
 export const FOLLOW_REPS = Object.freeze({ min: 3, max: 6 });
 
 export function validatePatternSetup({ players, intervalSeconds, rounds } = {}) {
-  if (!Array.isArray(players) || players.length < 1 || players.length > 2 ||
+  if (!Array.isArray(players) || players.length < 1 || players.length > 6 ||
       !FOLLOW_INTERVALS.includes(intervalSeconds) || !FOLLOW_ROUND_COUNTS.includes(rounds)) {
-    throw new RangeError('Select 1–2 enrolled players, a supported interval, and 5/10/15/20 rounds.');
+    throw new RangeError('Select 1–6 enrolled players, a supported interval, and 5/10/15/20 rounds.');
   }
-  const colors = ['green','blue'];
+  const colors=players.length===2?['green','blue']:players.map(()=> 'green');
   const known = new Set();
   const safe = players.map((player, index) => {
     if (!player || typeof player.participantId !== 'string' ||
         !player.participantId.trim() || known.has(player.participantId) ||
         player.color !== colors[index] || typeof player.name !== 'string' || !player.name.trim()) {
-      throw new TypeError('Use distinct enrolled participants in green, then blue order.');
+      throw new TypeError('Use distinct enrolled participants with an appropriate controller assignment.');
     }
     known.add(player.participantId);
     return Object.freeze({
@@ -33,6 +33,7 @@ export function validatePatternSetup({ players, intervalSeconds, rounds } = {}) 
 
 export function createRandomFollowPattern({ players, intervalSeconds=30, rounds=5, random=Math.random } = {}) {
   const config = validatePatternSetup({ players, intervalSeconds, rounds });
+  if (rounds<players.length) throw new RangeError('Provide at least one round for each enrolled player.');
   if (typeof random !== 'function') throw new TypeError('Expected random function.');
   const internal = config.players.map(p=>({
     ...p, targetsCompleted:0, repsCompleted:0, roundsPlayed:0, detector:createRepDetector()
@@ -67,7 +68,7 @@ export function createRandomFollowPattern({ players, intervalSeconds=30, rounds=
     const p=internal[roundIndex % internal.length];
     resetRepDetector(p.detector);
     roundHistory.push(Object.freeze({
-      round:roundIndex+1,color:p.color,targets:roundTargets,
+      round:roundIndex+1,participantId:p.participantId,color:p.color,targets:roundTargets,
       intervalSeconds:config.intervalSeconds
     }));
     trackingPresent=false;
@@ -82,6 +83,7 @@ export function createRandomFollowPattern({ players, intervalSeconds=30, rounds=
       id:FOLLOW_PATTERN_ID,status,active:status==='running',
       activeColor:p?.color??null,activeParticipantId:p?.participantId??null,
       round:roundIndex+1,totalRounds:config.rounds,roundsCompleted:roundHistory.length,
+      activePlayerIndex:status==='running'?roundIndex%internal.length:null,
       intervalSeconds:config.intervalSeconds,remainingMs,
       zoneCount:FOLLOW_ZONE_COUNT,activeZone:status==='running'?activeZone:null,
       repsRemaining:status==='running'?repsRemaining:0,
