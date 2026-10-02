@@ -68,6 +68,37 @@
       </div>
     </aside>
 
+    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Two-player live arena" hidden>
+      <article class="multi-board" data-multi-color="green">
+        <strong class="multi-name">Green player</strong>
+        <span class="multi-marker">GREEN CONTROLLER</span>
+        <b class="multi-score">0 / 5</b><small class="multi-reps">Ready</small>
+        <div class="multi-lane" aria-label="Green player's three movement zones">
+          <div data-multi-zone="0"><b>1</b></div>
+          <div data-multi-zone="1"><b>2</b></div>
+          <div data-multi-zone="2"><b>3</b></div>
+          <div class="multi-cursor" hidden></div>
+        </div>
+        <span class="multi-instruction">Choose a participant above.</span>
+        <span class="multi-travel">0.000 in tracked</span>
+        <small class="multi-presence">Marker assignment only · identity unverified</small>
+      </article>
+      <article class="multi-board" data-multi-color="blue">
+        <strong class="multi-name">Blue player</strong>
+        <span class="multi-marker">BLUE CONTROLLER</span>
+        <b class="multi-score">0 / 5</b><small class="multi-reps">Ready</small>
+        <div class="multi-lane" aria-label="Blue player's three movement zones">
+          <div data-multi-zone="0"><b>1</b></div>
+          <div data-multi-zone="1"><b>2</b></div>
+          <div data-multi-zone="2"><b>3</b></div>
+          <div class="multi-cursor" hidden></div>
+        </div>
+        <span class="multi-instruction">Choose a participant above.</span>
+        <span class="multi-travel">0.000 in tracked</span>
+        <small class="multi-presence">Marker assignment only · identity unverified</small>
+      </article>
+    </section>
+
     <div class="movement-lane" id="movementLane" aria-label="Three-zone vertical movement lane">
       <div class="lane-zone zone-top"><span>1</span><b class="zone-rep-target" data-target-zone="0" hidden></b></div>
       <div class="lane-zone zone-middle"><span>2</span><b class="zone-rep-target" data-target-zone="1" hidden></b></div>
@@ -88,6 +119,21 @@
       <div><span>Score</span><b id="gameScore">0 / 5</b></div>
       <div><span>Reps left</span><b id="gameReps">—</b></div>
     </aside>
+  </section>
+
+  <section class="multiplayer-setup panel" aria-label="Game mode and player assignments">
+    <label>Game mode
+      <select id="gameMode"><option value="solo">Solo · green controller</option>
+        <option value="multiplayer">Two-player · green and blue</option></select>
+    </label>
+    <div id="multiplayerSettings" class="multiplayer-settings" hidden>
+      <label>Green controller player<select id="greenPlayer"><option value="">Select enrolled player…</option></select></label>
+      <label>Blue controller player<select id="bluePlayer"><option value="">Select enrolled player…</option></select></label>
+      <p id="multiplayerSetupStatus" role="status" aria-live="polite">
+        Choose two different enrolled participants. Assign the green and blue markers manually.
+        Camera or voice recognition does not prove who holds a colored marker.
+      </p>
+    </div>
   </section>
 
   <section class="game-controls panel">
