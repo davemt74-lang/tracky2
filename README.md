@@ -1,3 +1,7 @@
+# Tracky2 V0.6.0 — Splash screen and launch shell
+
+The app launches from `index.html` with branded Tracky2 splash, device-readiness notes and an always-available entrance to the game lobby. The first visit in a tab transitions to Games after a short animation unless Stay on splash is selected; reduced-motion preference disables automatic transition. Camera and voice access are never requested by the launcher. Existing tracker setup lives at `tracker.html`; all other game and participant pages remain intact.
+
 # Tracky2 V0.5.1 — Game lobby and expanded player roster
 
 Open **Games** for a full setup screen with enrolled participant selection, player order, interval length, total rounds and an exact round-by-round preview. Random Follow Pattern now supports 1–6 selected participants on the original shared four-zone board. One player uses green; two use separate green/blue markers; groups of 3–6 manually pass one green marker when the timer changes turns. Select at least as many total rounds as players (six players require 10/15/20 rounds). The one-time same-tab lobby transfer contains only enrollment IDs and game settings, checks enrollment again on the game page and never activates the camera automatically. Classic solo and two-player games remain selectable. This section does not claim live hardware certification or automatic identification of a shared marker holder.

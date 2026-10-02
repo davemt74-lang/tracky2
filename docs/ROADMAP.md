@@ -69,3 +69,8 @@ Recognition must be opt-in. Preserve local storage, raw voice enrollment audio d
 Original PRs #1–#5 supply game tracking and play. PR #6 supplies participant recognition. PR #7 supplies body persistence. PR #8 supplies local voice identities. PR #9 supplies hardening, testing and packaging. PR #10 may inform an optional game event bus, but its Agent Eyes/Cloud runtime is excluded.
 
 Next development phase starts only once this PR is green and merged.
+
+## V0.6 Section 1 — Branded splash and application shell
+- New branded splash launches to the game lobby on first visit in each browser tab with a safe automatic transition. An always-available Enter game lobby link and Stay on splash control prevent traps, and reduced-motion preferences are respected.
+- Existing camera-tracker setup moves from index.html to tracker.html with game and diagnostic navigation updated, preserving all original tracker controls and avoiding camera permission prompts during startup.
+- Browser readiness checks are informational; data/face/voice enrollment remains local and opt-in. Desktop/mobile responsive shell includes game lobby, participants, tracker setup and hardware testing.
