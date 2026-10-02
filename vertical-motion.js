@@ -3,6 +3,7 @@ import { createMotionStats, recordMotion, summarizeMotion, zoneForY } from './sr
 import { createGameSession } from './src/game-session.js';
 import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
+import { createControllerStability } from './src/controller-stability.js';
 import { toColorControllerInput } from './src/game-input.js';
 import { gamePresentation } from './src/game-presenter.js';
 import {
@@ -52,6 +53,7 @@ const ui = {
   board: $('#sharedBoard'),
   boardCursor: $('#boardCursor'),
   boardInstruction: $('#boardInstruction'),
+  stabilityStatus: $('#stabilityStatus'),
   greenDetection: $('#greenDetection'),
   blueDetection: $('#blueDetection'),
   calibrationStatus: $('#calibrationStatus'),
@@ -144,6 +146,7 @@ const state = {
   multiplayer: createMultiplayerMatch({ pointGoal: 5 }),
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
   calibration: createColorCalibration(),
+  markerTracker: createControllerStability(),
   trace: [],
   lastUiUpdate: 0,
   identity: {
@@ -334,7 +337,8 @@ function loopMultiplayer(image, now) {
   const detections = detectColorControllers(image, { calibration: state.calibration });
   const before = state.multiplayer.snapshot();
   const color = before.activeColor;
-  const input = toColorControllerInput(color ? detections[color] : null, ui.mirror.checked, now);
+  const observation = color ? state.markerTracker.observe(detections[color], now) : null;
+  const input = toColorControllerInput(observation?.sample, ui.mirror.checked, now);
   setBoardCursor(input);
   if (before.active && color) {
     if (!input) state.multiplayer.signalLost(color);
@@ -344,6 +348,7 @@ function loopMultiplayer(image, now) {
       });
       const result = state.multiplayer.sample(color, input);
       if (result.type === 'point' || result.type === 'game-over') {
+        state.markerTracker.reset(); // Every new turn requires a new stable marker lock.
         setBoardCursor(null);
         renderMultiplayer();
       }
@@ -359,6 +364,12 @@ function loopMultiplayer(image, now) {
         c.toUpperCase() + ' visible · ' + Math.round(found.confidence * 100) + '% confidence' :
         c.toUpperCase() + ' marker not found';
     }
+    const lock = state.markerTracker.snapshot();
+    ui.stabilityStatus.textContent = before.active && color ?
+      color.toUpperCase() + ' marker · ' + (lock.locked ? 'stable tracking' :
+      lock.status === 'acquiring' ? 'acquiring ' + lock.consecutive + '/' + lock.stableFrames :
+      lock.status === 'jump-rejected' ? 'implausible jump rejected · reacquiring' :
+      'waiting for stable marker') : 'Camera marker gate is ready for the next match';
     renderMultiplayer();
     state.lastUiUpdate = now;
   }
@@ -1423,6 +1434,7 @@ function maybeScanRoom(now) {
 
 function stopCamera() {
   state.gameplay.signalLost();
+  state.markerTracker.reset();
   if (state.multiplayer.snapshot().active) state.multiplayer.stop();
   if (state.mode === 'multiplayer') {
     setBoardCursor(null);
@@ -1515,6 +1527,7 @@ async function beginGameplay() {
       const result = state.multiplayer.begin(goal);
       if (result.type !== 'match-start') throw new Error('Could not start the match.');
       state.multiMotion = { green: createMotionStats(4), blue: createMotionStats(4) };
+      state.markerTracker.reset();
       ui.multiplayerSetupStatus.textContent = 'One shared board: completing a round passes the turn to the next player.';
     } catch (error) {
       ui.multiplayerSetupStatus.textContent = error.message;
@@ -1696,11 +1709,13 @@ function loop(now) {
 ui.gameMode.addEventListener('change', () => {
   if (state.gameplay.game.active || state.multiplayer.snapshot().active) return;
   state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
+  state.markerTracker.reset();
   renderMode();
 });
 ui.calibrationPreset.addEventListener('change', () => {
   if (state.multiplayer.snapshot().active) return;
   state.calibration = createColorCalibration(ui.calibrationPreset.value);
+  state.markerTracker.reset();
   populateCalibration(state.calibration);
   ui.calibrationStatus.textContent = 'Preset active. Verify live detection and save if satisfied.';
 });
@@ -1709,6 +1724,7 @@ ui.saveCalibration.addEventListener('click', () => {
   try {
     const candidate = calibrationFromControls();
     state.calibration = candidate;
+    state.markerTracker.reset();
     try {
       window.localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(candidate));
       ui.calibrationStatus.textContent = 'Color calibration saved on this device.';
@@ -1722,6 +1738,7 @@ ui.saveCalibration.addEventListener('click', () => {
 ui.resetCalibration.addEventListener('click', () => {
   if (state.multiplayer.snapshot().active) return;
   state.calibration = createColorCalibration();
+  state.markerTracker.reset();
   ui.calibrationPreset.value = 'normal';
   populateCalibration(state.calibration);
   try { window.localStorage.removeItem(CALIBRATION_STORAGE_KEY); } catch {}
