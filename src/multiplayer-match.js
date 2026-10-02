@@ -1,12 +1,29 @@
-// Manual enrollment-based assignment; a colored object never proves its holder's identity.
+// A single shared four-section arena; only the active player's marker can score.
+// Assignment is manual. Face/voice recognition remains observational, not controller authority.
 import { createGameSession } from './game-session.js';
 import { CONTROLLER_COLORS } from './color-controllers.js';
 
 const COLORS = Object.keys(CONTROLLER_COLORS);
+export const MULTIPLAYER_ZONE_COUNT = 4;
+
 export function createMultiplayerMatch({ pointGoal = 5 } = {}) {
-  const sessions = Object.fromEntries(COLORS.map(color => [color, createGameSession({ pointGoal })]));
+  const sessions = Object.fromEntries(COLORS.map(color =>
+    [color, createGameSession({ pointGoal, zoneCount: MULTIPLAYER_ZONE_COUNT })]));
   let players = [];
   let started = false;
+  let activeColor = null;
+  let turnNumber = 0;
+
+  function nextTurn(finishedColor) {
+    // The previous player cannot carry a half-completed rep into a later turn.
+    sessions[finishedColor].suspendTurn();
+    const others = COLORS.filter(color => color !== finishedColor && !sessions[color].game.over);
+    const fallback = !sessions[finishedColor].game.over ? finishedColor : null;
+    activeColor = others[0] || fallback;
+    if (activeColor) turnNumber += 1;
+    else started = false;
+  }
+
   return {
     configure(assignments, participants) {
       if (started) throw new Error('Stop the match before changing player assignments.');
@@ -35,31 +52,42 @@ export function createMultiplayerMatch({ pointGoal = 5 } = {}) {
       if (!Number.isFinite(goal) || goal < 1 || goal > 50) return { type: 'invalid-goal' };
       for (const color of COLORS) sessions[color].begin(goal, random);
       started = true;
-      return { type: 'match-start' };
+      activeColor = COLORS[0];
+      turnNumber = 1;
+      return { type: 'match-start', activeColor, turnNumber };
     },
     sample(color, input, random = Math.random) {
       if (!started) return { type: 'inactive' };
       if (!COLORS.includes(color) || !players.some(p => p.color === color)) {
         return { type: 'unassigned-controller' };
       }
+      if (color !== activeColor) return { type: 'not-your-turn' };
       const result = sessions[color].sample(input, random);
-      if (COLORS.every(c => sessions[c].game.over)) started = false;
+      if (result.type === 'point' || result.type === 'game-over') {
+        nextTurn(color);
+        return { ...result, nextPlayerColor: activeColor, turnNumber, matchComplete: !started };
+      }
       return result;
     },
     signalLost(color) {
       if (!started || !COLORS.includes(color)) return { type: 'inactive' };
+      if (color !== activeColor) return { type: 'not-your-turn' };
       return sessions[color].signalLost();
     },
     stop() {
       if (!started) return { type: 'inactive' };
       for (const color of COLORS) sessions[color].stop();
       started = false;
+      activeColor = null;
       return { type: 'match-stopped' };
     },
     getSession(color) { return sessions[color] || null; },
     snapshot() {
       return Object.freeze({
         active: started,
+        activeColor,
+        turnNumber,
+        zoneCount: MULTIPLAYER_ZONE_COUNT,
         complete: players.length === 2 && COLORS.every(c => sessions[c].game.over),
         players: Object.freeze(players.map(p => Object.freeze({ ...p, ...sessions[p.color].snapshot() })))
       });

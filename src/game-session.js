@@ -1,8 +1,8 @@
 // DOM-free game lifecycle. Camera and participant engines supply only normalized samples.
 import { createGameState, recordGameSample, resetRepDetector, startGame, stopGame } from './gameplay-core.js';
 
-export function createGameSession({ pointGoal = 5, onEvent = null, maxEvents = 64 } = {}) {
-  const game = createGameState(pointGoal);
+export function createGameSession({ pointGoal = 5, zoneCount = 3, onEvent = null, maxEvents = 64 } = {}) {
+  const game = createGameState(pointGoal, zoneCount);
   const history = [];
   let lastTimestamp = null;
   let signalPresent = false;
@@ -27,7 +27,7 @@ export function createGameSession({ pointGoal = 5, onEvent = null, maxEvents = 6
     history() { return history.slice(); },
     snapshot() {
       return Object.freeze({
-        sessionNumber, active: game.active, over: game.over,
+        sessionNumber, zoneCount: game.zoneCount, active: game.active, over: game.over,
         score: game.score, pointGoal: game.pointGoal, activeZone: game.activeZone,
         repsRemaining: game.repsRemaining, completedRounds: game.completedRounds,
         signalPresent, lastEvent: game.lastEvent
@@ -61,6 +61,15 @@ export function createGameSession({ pointGoal = 5, onEvent = null, maxEvents = 6
       }
       if (result.type === 'game-over') signalPresent = false;
       return result;
+    },
+    suspendTurn() {
+      // Switching players must discard partial reps without falsely reporting a camera outage.
+      if (!game.active) return { type: 'inactive' };
+      signalPresent = false;
+      lastTimestamp = null;
+      resetRepDetector(game.detector);
+      game.lastEvent = 'round-start';
+      return { type: 'turn-suspended' };
     },
     signalLost() {
       if (!game.active) return { type: 'inactive' };
