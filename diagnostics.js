@@ -116,6 +116,8 @@ ui.mic.addEventListener('click',async()=>{
   source=audio.createMediaStreamSource(media);
   const analyser=audio.createAnalyser();
   analyser.fftSize=1024;source.connect(analyser);
+  const silence=audio.createGain();silence.gain.value=0;
+  analyser.connect(silence);silence.connect(audio.destination);
   const samples=new Float32Array(analyser.fftSize);
   let peak=0;
   for(let i=0;i<20;i++){
@@ -149,7 +151,7 @@ ui.export.addEventListener('click',()=>{
  const url=URL.createObjectURL(blob);
  const anchor=document.createElement('a');anchor.href=url;
  anchor.download='tracky2-hardware-test-'+Date.now()+'.json';
- anchor.click();URL.revokeObjectURL(url);
+ anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  ui.exportStatus.textContent='Aggregate hardware report exported locally. Manual checks still required.';
 });
 window.addEventListener('beforeunload',stopCamera);
