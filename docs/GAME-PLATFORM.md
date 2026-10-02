@@ -28,3 +28,6 @@ Face and voice enrollment remain optional, opt-in and local. Marker selection do
 
 ## Expansion boundary
 For more than two *simultaneous independent markers* add another hardware-tracked input family, explicit participant-to-controller binding and corresponding permissions first. This lobby supports larger **turn-taking** groups without asserting that additional controllers already exist.
+
+## Reaction Challenge — Second registered game
+`reactionChallengeGame` has the same `start`, `tick`, `sample`, `signalLost`, `stop` and immutable `snapshot` session interface as Random Follow Pattern. Game rules are independent of the shared camera, enrolled roster, participant identification and voice engines. Timed turns and individual participant records use the same validated lobby setup. When a target appears, the active participant must move the stabilized controller outside the target and then enter it to score; each hit generates a different target. Every distinct incorrect-zone transition while armed counts as one miss, not one miss per frame. The game reports player-specific hits, misses, accuracy, fastest and average response times. Camera loss disarms the target. A shared marker's credited participant is the explicitly scheduled player, not an inferred identity.

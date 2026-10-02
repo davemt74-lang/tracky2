@@ -80,3 +80,9 @@ Next development phase starts only once this PR is green and merged.
 - Versioned static same-origin cache powers launcher, games, tracker, participants and diagnostics offline after successful installation. Explicitly exclude cross-origin recognition/voice model downloads and personal data.
 - Only offer updates after the user stops active camera/game; preserve local profiles and recordings. No forced skipWaiting on install, no automatic storage clearing.
 - Tests assert manifest, icons, cached paths and explicit-update safety.
+
+## V0.6 Section 3 — Reaction Challenge
+- The second game is registered through the existing game platform and shares the camera, stable marker filter, consent-governed participant roster, optional voice engine, four-section board and PWA shell.
+- Reaction Challenge uses exactly the same 30/60/90/120-second interval and 5/10/15/20-round setup options and manual green/blue or group shared-marker handoff.
+- A score requires moving outside the highlighted random target and entering it after marker stabilization. Holding a marker inside or losing tracking cannot create repeated scores.
+- Track successful hits, reaction time in milliseconds, best/average response and accuracy based on discrete incorrect-zone transitions rather than repeated camera frames. Physical camera/voice certification remains a separate human test.
