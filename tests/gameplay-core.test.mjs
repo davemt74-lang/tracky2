@@ -78,3 +78,19 @@ test('reaching selected point goal ends the game', () => {
   assert.equal(game.over, true);
   assert.equal(game.active, false);
 });
+
+test('four-zone game can select each section; solo still uses original three',()=>{
+ const game=createGameState(2,4);
+ startGame(game,2,()=>0.99);
+ assert.equal(game.zoneCount,4);
+ assert.equal(game.activeZone,3);
+ game.activeZone=0;
+ const chosen=new Set();
+ for(const r of [0,.34,.68,.99]){
+   const next=nextZone(0,()=>r,4);
+   assert.notEqual(next,0); chosen.add(next);
+ }
+ assert.deepEqual([...chosen].sort(),[1,2,3]);
+ assert.equal(createGameState().zoneCount,3);
+ assert.throws(()=>createGameState(2,1),RangeError);
+});

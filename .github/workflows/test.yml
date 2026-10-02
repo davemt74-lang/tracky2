@@ -28,28 +28,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf dist tracky2-v0.3.0-deploy.zip
-          mkdir -p dist/tracky2-v0.3.0/src
-          cp index.html games.html vertical-motion.html participants.html app.js vertical-motion.js participants.js participant-voice.js styles.css README.md package.json dist/tracky2-v0.3.0/
-          cp src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.3.0/src/
+          rm -rf dist tracky2-v0.4.0-deploy.zip
+          mkdir -p dist/tracky2-v0.4.0/src
+          cp index.html games.html vertical-motion.html participants.html app.js vertical-motion.js participants.js participant-voice.js styles.css README.md package.json dist/tracky2-v0.4.0/
+          cp src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.4.0/src/
           cd dist
-          zip -r ../tracky2-v0.3.0-deploy.zip tracky2-v0.3.0
+          zip -r ../tracky2-v0.4.0-deploy.zip tracky2-v0.4.0
 
       - name: Verify deploy ZIP
         shell: bash
         run: |
           set -euo pipefail
-          unzip -t tracky2-v0.3.0-deploy.zip
-          unzip -l tracky2-v0.3.0-deploy.zip | grep -F "tracky2-v0.3.0/src/model-config.js"
-          unzip -l tracky2-v0.3.0-deploy.zip | grep -F "tracky2-v0.3.0/src/room-audio-worklet.js"
-          sha256sum tracky2-v0.3.0-deploy.zip | tee tracky2-v0.3.0-deploy.zip.sha256
+          unzip -t tracky2-v0.4.0-deploy.zip
+          unzip -l tracky2-v0.4.0-deploy.zip | grep -F "tracky2-v0.4.0/src/model-config.js"
+          unzip -l tracky2-v0.4.0-deploy.zip | grep -F "tracky2-v0.4.0/src/room-audio-worklet.js"
+          sha256sum tracky2-v0.4.0-deploy.zip | tee tracky2-v0.4.0-deploy.zip.sha256
 
       - name: Upload deploy ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tracky2-v0.3.0-deploy
+          name: tracky2-v0.4.0-deploy
           path: |
-            tracky2-v0.3.0-deploy.zip
-            tracky2-v0.3.0-deploy.zip.sha256
+            tracky2-v0.4.0-deploy.zip
+            tracky2-v0.4.0-deploy.zip.sha256
           if-no-files-found: error
           retention-days: 30

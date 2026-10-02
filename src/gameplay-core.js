@@ -50,19 +50,22 @@ export function randomIntInclusive(min, max, random = Math.random) {
   return min + Math.floor(random() * (max - min + 1));
 }
 
-export function nextZone(previousZone = null, random = Math.random) {
-  if (previousZone === null || previousZone < 0 || previousZone > 2) {
-    return randomIntInclusive(0, 2, random);
+export function nextZone(previousZone = null, random = Math.random, zoneCount = 3) {
+  if (!Number.isInteger(zoneCount) || zoneCount < 2 || zoneCount > 12) throw new RangeError('zoneCount must be 2–12.');
+  if (previousZone === null || previousZone < 0 || previousZone >= zoneCount) {
+    return randomIntInclusive(0, zoneCount - 1, random);
   }
 
-  // Choose one of the other two zones so the game always visibly moves.
-  const offset = random() < 0.5 ? 1 : 2;
-  return (previousZone + offset) % 3;
+  // Never repeat the previous zone, for both original three-zone solo and four-zone multiplayer.
+  const offset = 1 + Math.min(zoneCount - 2, Math.floor(random() * (zoneCount - 1)));
+  return (previousZone + offset) % zoneCount;
 }
 
-export function createGameState(pointGoal = 5) {
+export function createGameState(pointGoal = 5, zoneCount = 3) {
+  if (!Number.isInteger(zoneCount) || zoneCount < 2 || zoneCount > 12) throw new RangeError('zoneCount must be 2–12.');
   return {
     active: false,
+    zoneCount,
     over: false,
     score: 0,
     pointGoal: Math.max(1, Math.min(50, Math.round(pointGoal))),
@@ -76,7 +79,7 @@ export function createGameState(pointGoal = 5) {
 }
 
 export function beginRound(game, random = Math.random) {
-  game.activeZone = nextZone(game.activeZone, random);
+  game.activeZone = nextZone(game.activeZone, random, game.zoneCount);
   game.roundTarget = randomIntInclusive(4, 10, random);
   game.repsRemaining = game.roundTarget;
   game.lastEvent = 'round-start';
@@ -107,7 +110,7 @@ export function recordGameSample(game, y, random = Math.random) {
     return { type: 'inactive', zone: null };
   }
 
-  const zone = zoneForY(y);
+  const zone = zoneForY(y, game.zoneCount);
   if (zone !== game.activeZone) {
     resetRepDetector(game.detector);
     game.lastEvent = 'outside-zone';

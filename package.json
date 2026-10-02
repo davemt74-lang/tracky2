@@ -1,6 +1,6 @@
 {
   "name": "tracky2",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Standalone camera-controlled game with participant tracking and local voice profiles",

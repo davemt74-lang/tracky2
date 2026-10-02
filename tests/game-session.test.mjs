@@ -82,3 +82,14 @@ test('history is bounded, minimal and does not retain supplied participant data'
   assert.equal(JSON.stringify(s.history()).includes('private-person'), false);
   assert.throws(() => { s.history()[0].score = 999; }, TypeError);
 });
+
+test('turn suspension resets the incomplete rep without creating a camera-loss event',()=>{
+ const s=createGameSession({zoneCount:4});s.begin(2,()=>0);
+ assert.equal(s.snapshot().zoneCount,4);
+ s.game.activeZone=1;s.game.detector.minExcursion=.03;
+ s.sample(frame(.42,1));s.sample(frame(.34,2));
+ assert.equal(s.suspendTurn().type,'turn-suspended');
+ assert.equal(s.snapshot().signalPresent,false);
+ assert.equal(s.snapshot().lastEvent,'round-start');
+ assert.notEqual(s.sample(frame(.42,3)).type,'rep');
+});

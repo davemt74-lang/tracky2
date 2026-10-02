@@ -16,6 +16,13 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Original solo green-controller game remains available. Room identification and optional voice/transcription continue independently.
 - Assignments designate the credited player; neither the object color nor proximity proves who physically holds it. On-device calibration, identity and low-light testing remain required.
 
+## V0.4A — Shared board and camera calibration
+- One physical four-zone board for both players. Completing a round passes the board to the next player and updates the highlight to the active marker color.
+- Only the active marker can score. Players keep independent sessions, unfinished targets, turn numbers and movement measurements. Completed players are skipped until both finish.
+- Camera calibration includes lighting presets, tuneable per-color hue/saturation, minimum marker area, live confidence, optional local-device persistence and reset; no video or biometric data is saved.
+- Solo mode retains the original three-zone lane, and face/body/voice systems remain independently available.
+- Hardware/camera certification and calibration accuracy across lighting conditions are still pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

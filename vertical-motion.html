@@ -68,35 +68,26 @@
       </div>
     </aside>
 
-    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Two-player live arena" hidden>
-      <article class="multi-board" data-multi-color="green">
-        <strong class="multi-name">Green player</strong>
-        <span class="multi-marker">GREEN CONTROLLER</span>
-        <b class="multi-score">0 / 5</b><small class="multi-reps">Ready</small>
-        <div class="multi-lane" aria-label="Green player's three movement zones">
-          <div data-multi-zone="0"><b>1</b></div>
-          <div data-multi-zone="1"><b>2</b></div>
-          <div data-multi-zone="2"><b>3</b></div>
-          <div class="multi-cursor" hidden></div>
-        </div>
-        <span class="multi-instruction">Choose a participant above.</span>
-        <span class="multi-travel">0.000 in tracked</span>
-        <small class="multi-presence">Marker assignment only · identity unverified</small>
-      </article>
-      <article class="multi-board" data-multi-color="blue">
-        <strong class="multi-name">Blue player</strong>
-        <span class="multi-marker">BLUE CONTROLLER</span>
-        <b class="multi-score">0 / 5</b><small class="multi-reps">Ready</small>
-        <div class="multi-lane" aria-label="Blue player's three movement zones">
-          <div data-multi-zone="0"><b>1</b></div>
-          <div data-multi-zone="1"><b>2</b></div>
-          <div data-multi-zone="2"><b>3</b></div>
-          <div class="multi-cursor" hidden></div>
-        </div>
-        <span class="multi-instruction">Choose a participant above.</span>
-        <span class="multi-travel">0.000 in tracked</span>
-        <small class="multi-presence">Marker assignment only · identity unverified</small>
-      </article>
+    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
+      <div class="multi-scorecards" aria-label="Individual player scores">
+        <article class="multi-scorecard" data-player-color="green">
+          <strong class="multi-name">Green player</strong><b class="multi-score">0 / 5</b>
+          <span class="multi-reps">Ready</span><span class="multi-travel">0.000 in tracked</span>
+          <small class="multi-presence">Marker assignment only · identity unverified</small>
+        </article>
+        <article class="multi-scorecard" data-player-color="blue">
+          <strong class="multi-name">Blue player</strong><b class="multi-score">0 / 5</b>
+          <span class="multi-reps">Ready</span><span class="multi-travel">0.000 in tracked</span>
+          <small class="multi-presence">Marker assignment only · identity unverified</small>
+        </article>
+      </div>
+      <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
+      <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
+        <div data-board-zone="0"><b>1</b></div><div data-board-zone="1"><b>2</b></div>
+        <div data-board-zone="2"><b>3</b></div><div data-board-zone="3"><b>4</b></div>
+        <div id="boardCursor" class="multi-cursor" hidden></div>
+      </div>
+      <div id="boardInstruction" class="multi-instruction">One four-section board for both players. Green takes the first turn.</div>
     </section>
 
     <div class="movement-lane" id="movementLane" aria-label="Three-zone vertical movement lane">
@@ -124,15 +115,35 @@
   <section class="multiplayer-setup panel" aria-label="Game mode and player assignments">
     <label>Game mode
       <select id="gameMode"><option value="solo">Solo · green controller</option>
-        <option value="multiplayer">Two-player · green and blue</option></select>
+        <option value="multiplayer">Two-player · shared four-section turns</option></select>
     </label>
     <div id="multiplayerSettings" class="multiplayer-settings" hidden>
       <label>Green controller player<select id="greenPlayer"><option value="">Select enrolled player…</option></select></label>
       <label>Blue controller player<select id="bluePlayer"><option value="">Select enrolled player…</option></select></label>
       <p id="multiplayerSetupStatus" role="status" aria-live="polite">
-        Choose two different enrolled participants. Assign the green and blue markers manually.
+        Choose two enrolled participants. One shared four-section board changes color after each completed round.
         Camera or voice recognition does not prove who holds a colored marker.
       </p>
+      <fieldset class="calibration-panel" aria-label="Camera marker calibration">
+        <legend>Camera calibration · green and blue markers</legend>
+        <label>Lighting preset<select id="calibrationPreset"><option value="normal">Normal</option>
+          <option value="lowLight">Low light</option><option value="bright">Bright light</option></select></label>
+        <label>Green hue start <input id="greenHueMin" type="number" min="60" max="175" value="70"></label>
+        <label>Green hue end <input id="greenHueMax" type="number" min="70" max="185" value="170"></label>
+        <label>Green saturation <input id="greenSatMin" type="number" min="15" max="90" value="35"></label>
+        <label>Blue hue start <input id="blueHueMin" type="number" min="190" max="275" value="195"></label>
+        <label>Blue hue end <input id="blueHueMax" type="number" min="200" max="285" value="260"></label>
+        <label>Blue saturation <input id="blueSatMin" type="number" min="15" max="90" value="40"></label>
+        <label>Minimum marker area<select id="markerArea">
+          <option value="0.0005">Small</option><option value="0.001">Small-medium</option>
+          <option value="0.002" selected>Normal</option><option value="0.0025">Medium</option>
+          <option value="0.005">Large</option><option value="0.01">Very large</option></select></label>
+        <button type="button" id="saveCalibration">Apply and save</button>
+        <button type="button" id="resetCalibration">Restore defaults</button>
+        <span id="calibrationStatus" role="status">Calibration ready.</span>
+        <span id="greenDetection">GREEN marker not found</span>
+        <span id="blueDetection">BLUE marker not found</span>
+      </fieldset>
     </div>
   </section>
 
