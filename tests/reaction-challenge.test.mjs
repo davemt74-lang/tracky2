@@ -64,3 +64,24 @@ test('stale input, invalid inputs, catch-up timer and restart fail closed',()=>{
  assert.equal(g.start(2000).type,'game-start');assert.equal(g.snapshot().players[0].score,0);
  assert.throws(()=>create({random:()=>1}).start(0),RangeError);
 });
+
+test('distinct incorrect-zone entries count as misses, not repeated camera frames',()=>{
+ const g=create({players:one});g.start(0);
+ assert.equal(g.sample('green',frame(.375,100)).type,'armed');
+ assert.equal(g.sample('green',frame(.375,110)).type,'armed');
+ assert.equal(g.snapshot().players[0].misses,0);
+ assert.equal(g.sample('green',frame(.625,200)).type,'armed');
+ assert.equal(g.snapshot().players[0].misses,1);
+ assert.equal(g.sample('green',frame(.125,550)).type,'hit');
+ assert.equal(g.snapshot().players[0].accuracyPct,50);
+ g.tick(30000);
+ assert.equal(g.snapshot().roundHistory[0].misses,1);
+});
+test('reaction entry must rearm for each new target and stale camera frames never score',()=>{
+ const g=create({players:one});g.start(0);
+ assert.equal(g.sample('green',frame(.375,100)).type,'armed');
+ assert.equal(g.sample('green',frame(.125,150)).type,'hit');
+ assert.equal(g.sample('green',frame(.375,150)).type,'stale-input');
+ assert.equal(g.snapshot().players[0].score,1);
+ assert.equal(g.snapshot().players[0].accuracyPct,100);
+});
