@@ -23,6 +23,11 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Solo mode retains the original three-zone lane, and face/body/voice systems remain independently available.
 - Hardware/camera certification and calibration accuracy across lighting conditions are still pending.
 
+## V0.4B — Marker-stability runtime
+- Active player scoring requires three stable observations of that player’s assigned color. A lost/noisy marker invalidates partial reps immediately and requires reacquisition; physically implausible jumps are rejected.
+- Each new turn resets the stability lock so an inactive marker cannot carry a detection into the next turn. The arena displays acquisition and recovery states.
+- Camera tuning remains local; automatic marker recognition is not proof of participant identity. On-device lighting and occlusion certification is still pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

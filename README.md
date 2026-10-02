@@ -1,3 +1,7 @@
+# Tracky2 V0.4B — Stable marker acquisition
+
+Each shared-board turn now requires three consecutive coherent camera observations before the active marker can score. If tracking drops out or an implausible position jump appears, the incomplete repetition is discarded and the marker is reacquired. Turning the shared board green or blue also clears the previous tracking lock. The arena displays the current acquisition or recovery state. This safety gate does not change participant recognition or voice profiles; live camera/hardware testing remains necessary.
+
 # Tracky2 V0.4A — Shared four-section turn-based multiplayer
 
 Both enrolled participants use **one shared four-section board**, not separate lanes. Green starts. Every completed round (one point) hands control to blue, and the board highlight and cursor change to the active player's marker color. Each participant keeps their own score, round target and movement telemetry; inactive markers cannot score. Once one player reaches the selected point goal, the other finishes their remaining rounds. The original three-zone solo game is unchanged.
