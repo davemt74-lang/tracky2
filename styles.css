@@ -597,3 +597,29 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 .pattern-mode .points-goal,.pattern-mode .match-consent{display:none!important}
 .pattern-mode .shared-board{max-height:45vh}
 @media(max-width:700px){.pattern-setup label{flex-basis:100%}}
+
+/* V0.5 Section 2: game lobby and full roster setup. */
+.game-lobby-shell{max-width:1260px}
+.lobby-layout{display:grid;grid-template-columns:minmax(230px,.82fr) minmax(320px,1.3fr);gap:24px;align-items:start}
+.lobby-game-details,.lobby-controls{display:grid;gap:12px}
+.lobby-game-details>small{font-weight:850;letter-spacing:.1em;color:var(--muted)}
+.lobby-game-details p,.lobby-controls p{font-size:.81rem;line-height:1.55;color:var(--muted);margin:0}
+.lobby-game-details h2,.lobby-controls h2,.lobby-controls h3{margin:0}
+.lobby-game-details label,.lobby-choices label,.lobby-player-list label{display:grid;gap:6px;font-size:.78rem}
+.lobby-layout select{padding:10px;min-width:0;width:100%;background:#07141a;color:var(--text);border:1px solid var(--line);border-radius:8px}
+.lobby-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lobby-player-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lobby-preview{border:1px solid var(--line);border-radius:12px;padding:14px;background:rgba(4,13,19,.6)}
+.lobby-preview>h3{margin-bottom:9px}
+.lobby-preview ol{columns:2;padding-left:18px;line-height:1.8;font-size:.74rem;margin-bottom:0}
+#lobbyStatus{color:var(--green)}
+.lobby-privacy-note{font-size:.7rem!important}
+.pattern-roster-scoreboard[hidden],.multi-scorecards[hidden]{display:none!important}
+.pattern-roster-scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;width:100%;max-height:120px;overflow:auto}
+.pattern-roster-card{border:1px solid var(--line);border-radius:8px;padding:5px;min-width:0;font-size:.61rem;display:grid;gap:1px}
+.pattern-roster-card.active{border-color:var(--green);box-shadow:0 0 10px rgba(84,222,150,.22)}
+.pattern-roster-card strong{overflow-wrap:anywhere}
+.pattern-roster-card span{color:var(--muted)}
+.pattern-extra-players{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;width:100%}
+.pattern-extra-players[hidden]{display:none!important}
+@media(max-width:760px){.lobby-layout{grid-template-columns:1fr}.lobby-choices{grid-template-columns:1fr}.lobby-player-list{grid-template-columns:1fr}.lobby-preview ol{columns:1}}
