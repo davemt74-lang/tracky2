@@ -313,8 +313,8 @@ function loopMultiplayer(image, now) {
     setMultiCursor(color, input);
     if (!input) {
       state.multiplayer.signalLost(color);
-    } else if (match.active) {
-      recordMotion(state.multiMotion[color], input.y, now, {
+    } else if (match.active && state.multiplayer.getSession(color).game.active) {
+      if (!state.paused) recordMotion(state.multiMotion[color], input.y, now, {
         noiseFloor: Number(ui.sensitivity.value), microThreshold: MICRO_THRESHOLD
       });
       state.multiplayer.sample(color, input);
@@ -358,6 +358,7 @@ function renderGame() {
   ui.startGame.disabled = game.active;
   ui.endGame.disabled = !game.active;
   ui.startGame.textContent = game.over ? 'Play again' : 'Start game';
+  ui.gameMode.disabled = game.active;
 
   const presentation = gamePresentation(game);
   setGameInstructions(presentation.title, presentation.detail);
@@ -1410,6 +1411,10 @@ async function startCamera(deviceId = '') {
 }
 
 function resetSession() {
+  if (state.mode === 'multiplayer') {
+    state.multiMotion = { green: createMotionStats(), blue: createMotionStats() };
+    renderMultiplayer();
+  }
   state.stats = createMotionStats();
   state.trace = [];
   state.rawY = null;
