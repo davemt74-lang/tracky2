@@ -2,7 +2,11 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0c1820"><title>Tracky2 — Play in Motion</title>
 <link rel="icon" type="image/svg+xml" href="./assets/tracky-mark.svg">
-<link rel="stylesheet" href="./styles.css"></head>
+<link rel="stylesheet" href="./styles.css"><link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
 <body class="tracky-launch">
 <main id="launchScreen" class="launch-screen" aria-label="Tracky2 application launcher">
   <div class="launch-background" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -23,4 +27,5 @@
   <footer class="launch-footer">Local-first camera games · Camera and microphone permissions are requested only when you choose to enable them.</footer>
 </main>
 <script type="module" src="./launch.js"></script>
+<script type="module" src="./pwa.js"></script>
 </body></html>

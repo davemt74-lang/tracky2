@@ -659,3 +659,9 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 .launch-nav a:hover,.launch-nav a:focus{color:#ffffff}
 .launch-footer{position:absolute;bottom:22px;max-width:670px;text-align:center;font-size:.67rem;color:#86b7aa}
 @media(prefers-reduced-motion:reduce){.launch-background span,.launch-mark{animation:none}.launch-progress span{transition:none}}
+
+/* Install and update controls remain visible without interrupting gameplay. */
+.pwa-banner{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));z-index:100000;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#112a30;color:#e9fff6;border:1px solid #6affc2a1;box-shadow:0 15px 46px #0008;padding:13px;border-radius:12px;font:500 .82rem system-ui;max-width:800px;margin:auto}
+.pwa-banner span{flex:1 1 220px}
+.pwa-banner button{cursor:pointer;padding:8px 12px;background:#175244;color:#fff;border:1px solid #72e7af;border-radius:8px}
+@media(min-width:900px){.pwa-banner{left:auto;right:20px;max-width:520px}}

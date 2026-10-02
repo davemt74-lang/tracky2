@@ -1,7 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tracky2 — Hardware Self-Test</title><link rel="stylesheet" href="./styles.css"></head>
+<title>Tracky2 — Hardware Self-Test</title><link rel="stylesheet" href="./styles.css"><link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
 <body><main class="shell diag-shell">
   <header class="diag-heading"><div><small>V0.4 HARDWARE ACCEPTANCE</small><h1>Camera &amp; microphone self-test</h1>
     <p>No video or audio is recorded. Exported reports contain aggregate measurements only.</p></div>
@@ -31,4 +35,5 @@
     <button id="exportTestReport" disabled>Export hardware test report (JSON)</button>
     <p id="testExportStatus" role="status">Start a test to enable export.</p>
   </section>
-</main><script type="module" src="./diagnostics.js"></script></body></html>
+</main><script type="module" src="./diagnostics.js"></script><script type="module" src="./pwa.js"></script>
+</body></html>

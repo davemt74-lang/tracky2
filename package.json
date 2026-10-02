@@ -1,13 +1,13 @@
 {
   "name": "tracky2",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "description": "Tracky2 modular camera-controlled game platform with timed Random Follow Pattern, participant tracking and optional voice profiles",
   "scripts": {
-    "test": "node --test && node --check app.js && node --check vertical-motion.js && node --check participants.js && node --check participant-voice.js && node --check src/tracker-core.js && node --check src/movement-core.js && node --check src/gameplay-core.js && node --check src/participant-core.js && node --check src/participant-store.js && node --check src/identity-engine.js && node --check src/room-tracking-core.js && node --check src/voice-core.js && node --check src/voice-engine.js && node --check src/room-audio-engine.js && node --check src/room-audio-worklet.js && node --check src/model-config.js && node --check src/game-session.js && node --check src/game-input.js && node --check src/game-presenter.js && node --check src/color-controllers.js && node --check src/multiplayer-match.js && node --check src/controller-stability.js && node --check src/player-presence.js && node --check src/match-history.js && node --check diagnostics.js && node --check src/hardware-diagnostics.js && node --check src/game-platform.js && node --check src/shared-board.js && node --check src/games/random-follow-pattern.js && node --check src/games/pattern-setup.js && node --check games.js && node --check src/game-lobby.js && node --check launch.js && node --check src/launch-core.js",
+    "test": "node --test && node --check app.js && node --check vertical-motion.js && node --check participants.js && node --check participant-voice.js && node --check src/tracker-core.js && node --check src/movement-core.js && node --check src/gameplay-core.js && node --check src/participant-core.js && node --check src/participant-store.js && node --check src/identity-engine.js && node --check src/room-tracking-core.js && node --check src/voice-core.js && node --check src/voice-engine.js && node --check src/room-audio-engine.js && node --check src/room-audio-worklet.js && node --check src/model-config.js && node --check src/game-session.js && node --check src/game-input.js && node --check src/game-presenter.js && node --check src/color-controllers.js && node --check src/multiplayer-match.js && node --check src/controller-stability.js && node --check src/player-presence.js && node --check src/match-history.js && node --check diagnostics.js && node --check src/hardware-diagnostics.js && node --check src/game-platform.js && node --check src/shared-board.js && node --check src/games/random-follow-pattern.js && node --check src/games/pattern-setup.js && node --check games.js && node --check src/game-lobby.js && node --check launch.js && node --check src/launch-core.js && node --check pwa.js && node --check sw.js",
     "audit": "node scripts/audit.mjs",
-    "validate": "npm test && npm run audit",
+    "validate": "npm test && npm run audit && node scripts/check-pwa.mjs",
     "serve": "python -m http.server 8080"
   }
 }

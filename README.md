@@ -1,3 +1,7 @@
+# Tracky2 V0.6.1 — Installable PWA
+
+Tracky2 now ships a manifest and branded 192/512px maskable app icons, with an install prompt on supported browsers, offline same-origin app shell and user-controlled update notices. Camera and microphone still require localhost/HTTPS and permission. AI model and voice downloads are NOT guaranteed offline until their separate optional model packages are explicitly installed; do not treat cached UI as full recognition offline. Service-worker updates never clear IndexedDB or local participant data and wait for the user to finish any running camera/game before applying.
+
 # Tracky2 V0.6.0 — Splash screen and launch shell
 
 The app launches from `index.html` with branded Tracky2 splash, device-readiness notes and an always-available entrance to the game lobby. The first visit in a tab transitions to Games after a short animation unless Stay on splash is selected; reduced-motion preference disables automatic transition. Camera and voice access are never requested by the launcher. Existing tracker setup lives at `tracker.html`; all other game and participant pages remain intact.

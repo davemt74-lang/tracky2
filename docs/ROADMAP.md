@@ -74,3 +74,9 @@ Next development phase starts only once this PR is green and merged.
 - New branded splash launches to the game lobby on first visit in each browser tab with a safe automatic transition. An always-available Enter game lobby link and Stay on splash control prevent traps, and reduced-motion preferences are respected.
 - Existing camera-tracker setup moves from index.html to tracker.html with game and diagnostic navigation updated, preserving all original tracker controls and avoiding camera permission prompts during startup.
 - Browser readiness checks are informational; data/face/voice enrollment remains local and opt-in. Desktop/mobile responsive shell includes game lobby, participants, tracker setup and hardware testing.
+
+## V0.6 Section 2 — Installable PWA
+- Branded app manifest with PNG 192/512 maskable icons, SVG mark and standalone installation.
+- Versioned static same-origin cache powers launcher, games, tracker, participants and diagnostics offline after successful installation. Explicitly exclude cross-origin recognition/voice model downloads and personal data.
+- Only offer updates after the user stops active camera/game; preserve local profiles and recordings. No forced skipWaiting on install, no automatic storage clearing.
+- Tests assert manifest, icons, cached paths and explicit-update safety.
