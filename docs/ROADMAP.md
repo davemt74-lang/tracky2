@@ -9,6 +9,13 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - The original participant and voice engines remain separate modules; the large browser integration controller will be decomposed incrementally after hardware verification.
 - This release does not claim multiplayer or hardware certification.
 
+## V0.3: Two-player color-controller arena
+- Manual selection of two distinct locally enrolled participants; green and blue physical controller markers.
+- One shared camera frame processed in a single HSV pass; separate per-color detection, loss recovery, score and motion distance.
+- Independent simultaneous sessions: each player completes the same target independently. The match ends when both finish.
+- Original solo green-controller game remains available. Room identification and optional voice/transcription continue independently.
+- Assignments designate the credited player; neither the object color nor proximity proves who physically holds it. On-device calibration, identity and low-light testing remain required.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

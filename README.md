@@ -1,3 +1,9 @@
+# Tracky2 V0.3 — Two-player Vertical Motion
+
+Choose **Two-player** in Vertical Motion, assign two different locally enrolled participants to green and blue physical markers, and press **Start match**. Each color runs its own independent movement detector, score, target and travel metrics. Both participants complete their own challenges. The original solo mode remains available. Existing participant recognition, full-body tracking, local Voice Profiles and optional transcription are unchanged.
+
+**Attribution notice:** Marker assignment is manual, not biometric proof of who holds the object. On-device camera and microphone testing is still required, especially under challenging lighting. `npm run validate` is the CI acceptance gate.
+
 # Tracky2 V0.2 — Modular game runtime
 
 Game lifecycle and frame scoring now run in `src/game-session.js`, independently of camera, participant and voice implementations. `src/game-input.js` converts raw green-object detections to normalized samples. `src/game-presenter.js` produces the existing game instructions without DOM access. Original participant/body/voice systems remain intact. Missing tracking resets incomplete repetitions to prevent phantom scoring; stale and invalid frames cannot score. This is still one-controller gameplay; multiplayer player assignment is a later section.

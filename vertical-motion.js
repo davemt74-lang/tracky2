@@ -1,6 +1,8 @@
 import { clamp01, detectColorBlob } from './src/tracker-core.js';
 import { createMotionStats, recordMotion, summarizeMotion, zoneForY } from './src/movement-core.js';
 import { createGameSession } from './src/game-session.js';
+import { createMultiplayerMatch } from './src/multiplayer-match.js';
+import { detectColorControllers } from './src/color-controllers.js';
 import { toColorControllerInput } from './src/game-input.js';
 import { gamePresentation } from './src/game-presenter.js';
 import {
@@ -42,6 +44,12 @@ import {
 const $ = (s) => document.querySelector(s);
 
 const ui = {
+  gameMode: $('#gameMode'),
+  multiplayerSettings: $('#multiplayerSettings'),
+  multiplayerStage: $('#multiplayerStage'),
+  multiplayerSetupStatus: $('#multiplayerSetupStatus'),
+  greenPlayer: $('#greenPlayer'),
+  bluePlayer: $('#bluePlayer'),
   start: $('#startCamera'),
   stop: $('#stopCamera'),
   reset: $('#resetSession'),
@@ -115,6 +123,9 @@ const state = {
   displayY: 0.5,
   stats: createMotionStats(),
   gameplay: createGameSession({ pointGoal: 5 }),
+  mode: 'solo',
+  multiplayer: createMultiplayerMatch({ pointGoal: 5 }),
+  multiMotion: { green: createMotionStats(), blue: createMotionStats() },
   trace: [],
   lastUiUpdate: 0,
   identity: {
@@ -217,6 +228,106 @@ function setCursor(x, y, visible) {
   ui.cursor.hidden = false;
 }
 
+
+function refreshPlayerChoices() {
+  for (const [color, select] of [['green', ui.greenPlayer], ['blue', ui.bluePlayer]]) {
+    const chosen = select.value;
+    select.replaceChildren();
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = 'Select enrolled player…';
+    select.append(empty);
+    for (const p of state.identity.participants) {
+      const option = document.createElement('option');
+      option.value = p.id;
+      option.textContent = p.name || p.nickname || 'Participant';
+      select.append(option);
+    }
+    if (state.identity.participants.some(p => p.id === chosen)) select.value = chosen;
+  }
+}
+
+function renderMode() {
+  const multi = state.mode === 'multiplayer';
+  document.body.classList.toggle('multiplayer-mode', multi);
+  ui.multiplayerSettings.hidden = !multi;
+  ui.multiplayerStage.hidden = !multi;
+  if (multi) renderMultiplayer();
+  else renderGame();
+}
+
+function multiBoard(color) {
+  return ui.multiplayerStage.querySelector('[data-multi-color="' + color + '"]');
+}
+
+function renderMultiplayer() {
+  if (state.mode !== 'multiplayer') return;
+  const snapshot = state.multiplayer.snapshot();
+  ui.gameMode.disabled = snapshot.active;
+  ui.greenPlayer.disabled = snapshot.active;
+  ui.bluePlayer.disabled = snapshot.active;
+  ui.startGame.disabled = snapshot.active;
+  ui.endGame.disabled = !snapshot.active;
+  ui.startGame.textContent = snapshot.complete ? 'Play again' : 'Start match';
+  ui.pointGoal.disabled = snapshot.active;
+  for (const color of ['green', 'blue']) {
+    const board = multiBoard(color);
+    const player = snapshot.players.find(p => p.color === color);
+    board.querySelector('.multi-name').textContent = player?.name || (color === 'green' ? 'Green player' : 'Blue player');
+    board.querySelector('.multi-score').textContent = player ? player.score + ' / ' + player.pointGoal : '0 / ' + pointGoalValue();
+    board.querySelector('.multi-reps').textContent = player?.active ? player.repsRemaining + ' reps left' :
+      player?.over ? 'Completed' : 'Ready';
+    const presence = board.querySelector('.multi-presence');
+    const recognized = player && state.identity.tracks.some(t => t.participantId === player.participantId && t.status !== 'occluded');
+    presence.textContent = recognized ? 'Recognized in room' : 'Marker assignment only · identity unverified';
+    board.querySelector('.multi-travel').textContent =
+      inches(summarizeMotion(state.multiMotion[color], performance.now()).totalTravel) + ' tracked';
+    for (const zone of board.querySelectorAll('[data-multi-zone]')) {
+      const index = Number(zone.dataset.multiZone);
+      zone.classList.toggle('target', Boolean(player?.active && player.activeZone === index));
+      zone.querySelector('b').textContent = player?.active && player.activeZone === index ?
+        String(player.repsRemaining) : String(index + 1);
+    }
+    if (player) {
+      board.querySelector('.multi-instruction').textContent = gamePresentation(player).title;
+    } else {
+      board.querySelector('.multi-instruction').textContent = 'Choose a participant above.';
+    }
+  }
+  if (snapshot.complete) ui.multiplayerSetupStatus.textContent = 'Both participants completed the challenge.';
+}
+
+function setMultiCursor(color, input) {
+  const cursor = multiBoard(color).querySelector('.multi-cursor');
+  if (!input) { cursor.hidden = true; return; }
+  cursor.style.left = (9 + input.x * 82) + '%';
+  cursor.style.top = (2 + input.y * 96) + '%';
+  cursor.hidden = false;
+}
+
+function loopMultiplayer(image, now) {
+  const detections = detectColorControllers(image);
+  const match = state.multiplayer.snapshot();
+  for (const color of ['green', 'blue']) {
+    const input = toColorControllerInput(detections[color], ui.mirror.checked, now);
+    setMultiCursor(color, input);
+    if (!input) {
+      state.multiplayer.signalLost(color);
+    } else if (match.active) {
+      recordMotion(state.multiMotion[color], input.y, now, {
+        noiseFloor: Number(ui.sensitivity.value), microThreshold: MICRO_THRESHOLD
+      });
+      state.multiplayer.sample(color, input);
+    }
+  }
+  ui.trackingStatus.textContent = 'Green ' + (detections.green ? 'tracked' : 'missing') +
+    ' · Blue ' + (detections.blue ? 'tracked' : 'missing');
+  if (now - state.lastUiUpdate >= 100) {
+    renderMultiplayer();
+    state.lastUiUpdate = now;
+  }
+}
+
 function setGameInstructions(title, detail) {
   const strong = document.createElement('strong');
   strong.textContent = title;
@@ -272,9 +383,11 @@ async function enumerateCameras() {
 async function reloadIdentityParticipants() {
   try {
     state.identity.participants = await listParticipants();
+    refreshPlayerChoices();
   } catch (error) {
     console.error(error);
     state.identity.participants = [];
+    refreshPlayerChoices();
   }
 }
 
@@ -1238,6 +1351,8 @@ function maybeScanRoom(now) {
 
 function stopCamera() {
   state.gameplay.signalLost();
+  if (state.multiplayer.snapshot().active) state.multiplayer.stop();
+  if (state.mode === 'multiplayer') renderMultiplayer();
   if (state.voice.active) stopRoomAudio();
   state.running = false;
   cancelAnimationFrame(state.raf);
@@ -1312,11 +1427,34 @@ async function beginGameplay() {
   }
 
   resetSession();
+  if (state.mode === 'multiplayer') {
+    try {
+      state.multiplayer.configure([
+        { color: 'green', participantId: ui.greenPlayer.value },
+        { color: 'blue', participantId: ui.bluePlayer.value }
+      ], state.identity.participants);
+      const result = state.multiplayer.begin(goal);
+      if (result.type !== 'match-start') throw new Error('Could not start the match.');
+      state.multiMotion = { green: createMotionStats(), blue: createMotionStats() };
+      ui.multiplayerSetupStatus.textContent = 'Match live: each marker scores only its assigned player.';
+    } catch (error) {
+      ui.multiplayerSetupStatus.textContent = error.message;
+      renderMultiplayer();
+      return;
+    }
+    renderMultiplayer();
+    return;
+  }
   state.gameplay.begin(goal);
   renderGame();
 }
 
 function endGameplay() {
+  if (state.mode === 'multiplayer') {
+    state.multiplayer.stop();
+    renderMultiplayer();
+    return;
+  }
   state.gameplay.stop();
   renderGame();
 }
@@ -1417,6 +1555,12 @@ function loop(now) {
 
   ctx.drawImage(ui.video, 0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
   const image = ctx.getImageData(0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
+  if (state.mode === 'multiplayer') {
+    loopMultiplayer(image, now);
+    maybeScanRoom(now);
+    state.raf = requestAnimationFrame(loop);
+    return;
+  }
   const detection = detectColorBlob(image, detectOptions());
   const input = toColorControllerInput(detection, ui.mirror.checked, now);
 
@@ -1470,6 +1614,13 @@ function loop(now) {
   state.raf = requestAnimationFrame(loop);
 }
 
+ui.gameMode.addEventListener('change', () => {
+  if (state.gameplay.game.active || state.multiplayer.snapshot().active) return;
+  state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
+  renderMode();
+});
+ui.greenPlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
+ui.bluePlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
 ui.start.addEventListener('click', () => startCamera(ui.select.value));
 ui.startRoomAudio.addEventListener('click', startRoomAudio);
 ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
@@ -1484,7 +1635,8 @@ ui.endGame.addEventListener('click', endGameplay);
 ui.pointGoal.addEventListener('change', () => {
   if (!state.gameplay.game.active) {
     state.gameplay.game.pointGoal = pointGoalValue();
-    renderGame();
+    if (state.mode === 'multiplayer') renderMultiplayer();
+    else renderGame();
   }
 });
 ui.select.addEventListener('change', () => state.running && startCamera(ui.select.value));
@@ -1513,5 +1665,5 @@ renderRoomEvents();
 renderDialogueTurns();
 renderVoiceHud();
 renderStats(performance.now());
-renderGame();
+renderMode();
 drawTrace();
