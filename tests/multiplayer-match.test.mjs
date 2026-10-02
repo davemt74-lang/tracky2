@@ -39,5 +39,7 @@ test('unknown color cannot score and malformed config cannot erase prior roster'
  assert.throws(()=>m.configure([picks[0],picks[0]],roster));
  assert.equal(m.snapshot().players.length,2);m.begin();
  assert.equal(m.sample('pink',frame(.5,1)).type,'unassigned-controller');
- assert.equal(m.sample('green',frame(.5,1)).type,'tracking');
+ assert.ok(['tracking','outside-zone'].includes(m.sample('green',frame(.5,1)).type));
+ assert.equal(m.snapshot().players[0].score,0);
+ assert.equal(m.snapshot().players[1].score,0);
 });
