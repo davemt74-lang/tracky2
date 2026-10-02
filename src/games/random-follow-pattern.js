@@ -11,9 +11,8 @@ export const FOLLOW_REPS = Object.freeze({ min: 3, max: 6 });
 export function validatePatternSetup({ players, intervalSeconds, rounds } = {}) {
   if (!Array.isArray(players) || players.length < 1 || players.length > 6 ||
       !FOLLOW_INTERVALS.includes(intervalSeconds) || !FOLLOW_ROUND_COUNTS.includes(rounds)) {
-    throw new RangeError('Select 1–2 enrolled players, a supported interval, and 5/10/15/20 rounds.');
+    throw new RangeError('Select 1–6 enrolled players, a supported interval, and 5/10/15/20 rounds.');
   }
-  const shared=players.length!==2;
   const colors=players.length===2?['green','blue']:players.map(()=> 'green');
   const known = new Set();
   const safe = players.map((player, index) => {

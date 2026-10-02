@@ -14,7 +14,22 @@ test('two selected enrolled participants use distinct controller colors',()=>{
 });
 test('invalid player count, unregistered or duplicate ids fail closed',()=>{
  assert.throws(()=>resolvePatternPlayers(roster,{count:3,greenId:'a'}),RangeError);
- assert.throws(()=>resolvePatternPlayers(roster,{count:2,greenId:'a',blueId:'a'}),/distinct/);
- assert.throws(()=>resolvePatternPlayers(roster,{count:1,greenId:'other'}),/Enroll/);
- assert.throws(()=>resolvePatternPlayers(roster,{count:2,greenId:'a'}),/distinct/);
+ assert.throws(()=>resolvePatternPlayers(roster,{count:2,greenId:'a',blueId:'a'}),/different/);
+ assert.throws(()=>resolvePatternPlayers(roster,{count:1,greenId:'other'}),/no longer enrolled/);
+ assert.throws(()=>resolvePatternPlayers(roster,{count:2,greenId:'a'}),/different/);
+});
+
+test('six-player setup binds the existing enrolled roster to one shared green marker',()=>{
+ const six=Array.from({length:6},(_,i)=>({id:'i'+i,name:'Person '+i,embedding:[i]}));
+ const players=resolvePatternPlayers(six,{
+   count:6,greenId:'i0',blueId:'i1',
+   extraIds:['i2','i3','i4','i5'],intervalSeconds:90,rounds:10
+ });
+ assert.equal(players.length,6);
+ assert.deepEqual(players.map(p=>p.color),Array(6).fill('green'));
+ assert.equal(JSON.stringify(players).includes('embedding'),false);
+ assert.throws(()=>resolvePatternPlayers(six,{
+   count:6,greenId:'i0',blueId:'i1',
+   extraIds:['i2','i3','i4','i5'],intervalSeconds:30,rounds:5
+ }),/at least/);
 });

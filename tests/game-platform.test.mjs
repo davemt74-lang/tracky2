@@ -26,7 +26,12 @@ test('validates one or two unique enrolled players and fixed time/round options'
  assert.throws(()=>make({intervalSeconds:20}),RangeError);
  assert.throws(()=>make({rounds:6}),RangeError);
  assert.throws(()=>make({players:[...one,...one]}),TypeError);
- assert.throws(()=>make({players:[...two,{participantId:'c',name:'C',color:'green'}]}),RangeError);
+ const group=[...one, ...Array.from({length:5},(_,i)=>({participantId:'g'+i,name:'Guest '+i,color:'green'}))];
+ const session=make({players:group,rounds:10});
+ assert.equal(session.start(0).type,'game-start');
+ assert.equal(session.snapshot().players.length,6);
+ assert.throws(()=>make({players:group,rounds:5}),RangeError);
+ assert.throws(()=>make({players:[...group,{participantId:'more',name:'More',color:'green'}],rounds:10}),RangeError);
  assert.throws(()=>make({players:[{participantId:'a',name:'a',color:'blue'}]}),TypeError);
 });
 test('each interval is one timed round and alternates players even if targets remain unfinished',()=>{
@@ -97,4 +102,25 @@ test('only supported random source and monotonic timestamps advance game safely'
  assert.equal(g.tick(NaN).type,'invalid-timestamp');
  assert.equal(g.sample('green',f(.125,99)).type,'stale-timestamp');
  assert.equal(g.snapshot(100).remainingMs,30000);
+});
+
+test('six players rotate at precise deadlines using one manually passed green controller',()=>{
+ const roster=Array.from({length:6},(_,i)=>({
+  participantId:'id'+i,name:'Participant '+(i+1),color:'green'
+ }));
+ const g=createRandomFollowPattern({players:roster,intervalSeconds:30,rounds:10,random:()=>0});
+ g.start(0);
+ assert.equal(g.snapshot().activePlayerIndex,0);
+ assert.equal(g.snapshot().activeColor,'green');
+ assert.equal(g.snapshot().players.length,6);
+ assert.equal(g.tick(30000).type,'round-advanced');
+ assert.equal(g.snapshot().activePlayerIndex,1);
+ assert.equal(g.tick(180000).type,'round-advanced');
+ assert.equal(g.snapshot().activePlayerIndex,0);
+ assert.equal(g.tick(300000).type,'game-complete');
+ const out=g.snapshot();
+ assert.deepEqual(out.roundHistory.map(row=>row.participantId),[
+  'id0','id1','id2','id3','id4','id5','id0','id1','id2','id3'
+ ]);
+ assert.deepEqual(out.players.map(p=>p.roundsPlayed),[2,2,2,2,1,1]);
 });

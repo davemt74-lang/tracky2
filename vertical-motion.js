@@ -362,7 +362,11 @@ function renderMode() {
   ui.matchHistoryPanel.hidden = state.mode !== 'multiplayer';
   updatePatternSetup();
   if (state.mode === 'pattern') renderPattern();
-  else if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
+  else if (state.mode === 'multiplayer') {
+    ui.classicPatternScorecards.hidden=false;
+    ui.patternRosterScoreboard.hidden=true;
+    renderMultiplayer();renderMatchHistory();
+  }
   else renderGame();
 }
 
