@@ -16,10 +16,10 @@ export function createReactionChallenge({players,intervalSeconds=30,rounds=5,ran
    const value=random();
    if(!Number.isFinite(value)||value<0||value>=1)throw new RangeError('Random source must return [0, 1).');
    zone=nextZone(previous,()=>value,4);previous=zone;
-   targetAt=at;armed=false;tracking=false;lastTime=null;lastZone=null;lastEvent='target-start';
+   targetAt=at;armed=false;tracking=false;lastZone=null;lastEvent='target-start';
  }
  function startRound(at){
-   startAt=at;deadline=at+config.intervalSeconds*1000;roundHits=0;roundMisses=0;roundTime=0;
+   startAt=at;deadline=at+config.intervalSeconds*1000;roundHits=0;roundMisses=0;roundTime=0;lastTime=null;
    progress[index%progress.length].roundsPlayed++;
    target(at);lastEvent='round-start';
  }
