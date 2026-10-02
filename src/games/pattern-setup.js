@@ -1,17 +1,12 @@
-// Bind game participants to existing enrolled profiles; never accept arbitrary UI names as identity.
-export function resolvePatternPlayers(roster, {count,greenId,blueId} = {}) {
-  if (!Array.isArray(roster) || ![1,2].includes(count)) {
-    throw new RangeError('Select one or two enrolled players.');
+// Resolve selected roster positions against locally enrolled profiles, never based on a face match.
+import { validateLobbySelection } from '../game-lobby.js';
+
+export function resolvePatternPlayers(roster,{count,greenId,blueId,extraIds=[],intervalSeconds=30,rounds=5}={}){
+  const ids=[greenId,...(count>=2?[blueId]:[]),...(count>2?extraIds.slice(0,count-2):[])];
+  if (!Number.isInteger(count) || ids.length!==count) {
+    throw new RangeError('Select the requested number of enrolled participants.');
   }
-  const seen = new Set(), ids = count===1?[greenId]:[greenId,blueId];
-  return Object.freeze(ids.map((id,index)=>{
-    if (typeof id!=='string' || !id || seen.has(id)) throw new Error('Assign distinct enrolled participants.');
-    const profile=roster.find(p=>p && p.id===id);
-    if (!profile) throw new Error('Enroll and select every chosen participant before starting.');
-    seen.add(id);
-    return Object.freeze({
-      participantId:id,color:index===0?'green':'blue',
-      name:String(profile.name || profile.nickname || ('Player '+(index+1))).trim().slice(0,80)
-    });
-  }));
+  return validateLobbySelection(roster,{
+    gameId:'random-follow-pattern',playerIds:ids,intervalSeconds,rounds
+  }).players;
 }
