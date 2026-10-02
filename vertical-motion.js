@@ -1586,6 +1586,7 @@ function stopCamera() {
   state.identity.tracks = [];
   renderParticipantCards();
   setCursor(0.5, 0.5, false);
+  renderDiagnostics();
 }
 
 async function startCamera(deviceId = '') {
