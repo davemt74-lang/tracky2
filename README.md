@@ -1,3 +1,7 @@
+# Tracky2 V0.4E — Opt-in local device diagnostic
+
+In multiplayer mode, start the camera and use **Live camera diagnostics** to measure aggregate green/blue marker visibility, interruption counts and frame cadence alongside coarse identity/microphone/voice readiness flags. Reports never contain video, audio, face/body images, coordinate paths, biometric features or participant identities. Measurements stay in memory and may be exported by user action only after at least 60 frames. The report explicitly does not constitute hardware certification. Follow `docs/HARDWARE-ACCEPTANCE.md` for the physical acceptance checklist.
+
 # Tracky2 V0.4D — Optional match history
 
 Select two enrolled participants and opt in to **Save scores and match progress locally** before starting a match. After completion or an early stop, Tracky2 stores only match identifiers, dates, completion state and each participant's points and completed rounds on this device. The history view shows recent matches and per-player progress, supports clearing saved results and automatically purges a participant's entries when that local profile is deleted. Up to 100 sessions are retained; no camera or microphone recordings, biometric embeddings or dialogue are written to match history. Opt-in defaults to off each page visit.

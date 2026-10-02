@@ -38,6 +38,11 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Retain at most 100 local matches, deduplicate session IDs, display recent match results and individual aggregated progress, allow clearing local history. Deleting a participant removes their history entries while preserving unrelated player results.
 - Camera frames, face descriptions, voice samples, dialogue and raw motion traces are excluded. Physical certification remains pending.
 
+## V0.4E — Live browser hardware diagnostics
+- Opt-in and volatile aggregate-only recording of both marker detection rates, interruption counts, frame cadence, invalid timestamps and coarse camera/identity/microphone/model availability. Recording is capped at 3,600 frames and has no biometric or frame retention.
+- Aggregate JSON export is available only after a minimum of 60 frames have been collected and recording has stopped; all outputs explicitly state `hardwareCertified: false`.
+- Complete actual camera/occlusion/identity/voice testing manually using `docs/HARDWARE-ACCEPTANCE.md`; CI tests are not live device certification.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.
