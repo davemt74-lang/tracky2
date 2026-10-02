@@ -1,3 +1,9 @@
+# Tracky2 V0.4A — Shared four-section turn-based multiplayer
+
+Both enrolled participants use **one shared four-section board**, not separate lanes. Green starts. Every completed round (one point) hands control to blue, and the board highlight and cursor change to the active player's marker color. Each participant keeps their own score, round target and movement telemetry; inactive markers cannot score. Once one player reaches the selected point goal, the other finishes their remaining rounds. The original three-zone solo game is unchanged.
+
+Before playing, use the camera calibration controls to choose Normal, Low light or Bright conditions, optionally adjust marker hue and saturation and minimum marker area, and inspect both marker confidence indicators. Apply and save stores only the detection settings in local browser storage. Enrolled participant recognition and optional Voice Profiles remain independent; manual marker assignment does not prove the holder's identity. On-device testing remains required.
+
 # Tracky2 V0.3 — Two-player Vertical Motion
 
 Choose **Two-player** in Vertical Motion, assign two different locally enrolled participants to green and blue physical markers, and press **Start match**. Each color runs its own independent movement detector, score, target and travel metrics. Both participants complete their own challenges. The original solo mode remains available. Existing participant recognition, full-body tracking, local Voice Profiles and optional transcription are unchanged.
