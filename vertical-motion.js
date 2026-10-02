@@ -4,6 +4,7 @@ import { createGameSession } from './src/game-session.js';
 import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
+import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
@@ -155,6 +156,7 @@ let extraPlayerIds=[];
 let extraFieldsSignature='';
 const platform = createGamePlatform();
 platform.register(randomFollowPatternGame);
+platform.register(reactionChallengeGame);
 
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
@@ -322,7 +324,7 @@ function makeParticipantSelect(position, selectedId) {
 
 function renderExtraPlayerFields() {
   const count=Number(ui.playerCount.value);
-  const visible=state.mode==='pattern' && count>2;
+  const visible=timedMode() && count>2;
   ui.patternExtraPlayers.hidden=!visible;
   if(!visible){extraFieldsSignature='';ui.patternExtraPlayers.replaceChildren();return;}
   const signature=String(count)+'|'+state.identity.participants.map(p=>p.id).join('|');
@@ -335,14 +337,17 @@ function renderExtraPlayerFields() {
 }
 
 
+function timedMode() { return state.mode === 'pattern' || state.mode === 'reaction'; }
 function patternActive() {
   return state.pattern?.snapshot(performance.now()).active === true;
 }
 
 function updatePatternSetup() {
-  const inPattern = state.mode === 'pattern';
+  const inPattern = timedMode();
   const count=Number(ui.playerCount.value);
   ui.patternSetup.hidden = !inPattern;
+  ui.patternSetup.querySelector('legend').textContent=state.mode==='reaction'?
+    'Reaction Challenge · timed settings':'Random Follow Pattern · timed settings';
   ui.bluePlayerWrap.hidden = inPattern && count===1;
   ui.bluePlayerWrap.firstChild.textContent = inPattern && count>2 ?
     'Player 2 · shared green marker' : 'Blue controller player';
@@ -356,12 +361,13 @@ function updatePatternSetup() {
 function renderMode() {
   const multi = state.mode !== 'solo';
   document.body.classList.toggle('multiplayer-mode', multi);
-  document.body.classList.toggle('pattern-mode', state.mode === 'pattern');
+  document.body.classList.toggle('pattern-mode', timedMode());
+  document.body.classList.toggle('reaction-mode', state.mode === 'reaction');
   ui.multiplayerSettings.hidden = !multi;
   ui.multiplayerStage.hidden = !multi;
   ui.matchHistoryPanel.hidden = state.mode !== 'multiplayer';
   updatePatternSetup();
-  if (state.mode === 'pattern') renderPattern();
+  if (timedMode()) renderPattern();
   else if (state.mode === 'multiplayer') {
     ui.board.dataset.playerSlot='-1';
     ui.board.dataset.controllerMode='individual';
@@ -386,7 +392,8 @@ function renderPattern(now = performance.now()) {
   ui.greenPlayer.disabled = active;
   ui.bluePlayer.disabled = active || chosenCount === 1;
   ui.startGame.disabled = active;
-  ui.startGame.textContent = match?.status === 'completed' ? 'Play again' : 'Start pattern';
+  ui.startGame.textContent = match?.status === 'completed' ? 'Play again' :
+    state.mode==='reaction'?'Start reaction':'Start pattern';
   ui.endGame.disabled = !active;
   ui.pointGoal.disabled = active;
   ui.board.dataset.activeColor = active ? match.activeColor : 'idle';
@@ -409,7 +416,9 @@ function renderPattern(now = performance.now()) {
       const name=document.createElement('strong');
       name.textContent=p?.name || profile?.name || ('Player '+(i+1));
       const stats=document.createElement('span');
-      stats.textContent=(p?.score ?? 0)+' targets · '+(p?.repsCompleted ?? 0)+' reps · '+(p?.roundsPlayed ?? 0)+' rounds';
+      stats.textContent=state.mode==='reaction'?
+        (p?.score ?? 0)+' hits · '+(p?.bestReactionMs === null || p?.bestReactionMs===undefined ? 'No time':p.bestReactionMs+'ms best'):
+        (p?.score ?? 0)+' targets · '+(p?.repsCompleted ?? 0)+' reps · '+(p?.roundsPlayed ?? 0)+' rounds';
       card.append(name,stats);
       ui.patternRosterScoreboard.append(card);
     }
@@ -422,9 +431,12 @@ function renderPattern(now = performance.now()) {
     const selectedId = color === 'green' ? ui.greenPlayer.value : ui.bluePlayer.value;
     const selected = state.identity.participants.find(person => person.id === selectedId);
     card.querySelector('.multi-name').textContent = p?.name || selected?.name || (color === 'green'?'Player 1':'Player 2');
-    card.querySelector('.multi-score').textContent = (p?.score ?? 0) + ' targets';
+    card.querySelector('.multi-score').textContent = (p?.score ?? 0) +
+      (state.mode==='reaction'?' hits':' targets');
     card.querySelector('.multi-reps').textContent = p ?
-      p.repsCompleted + ' reps · ' + p.roundsPlayed + ' rounds' : 'Choose a player';
+      (state.mode==='reaction' ?
+        (p.bestReactionMs===null?'No hits yet':p.bestReactionMs+'ms best · '+p.averageReactionMs+'ms avg'):
+        p.repsCompleted+' reps')+' · '+p.roundsPlayed+' rounds' : 'Choose a player';
     card.querySelector('.multi-travel').textContent = inches(
       summarizeMotion(state.multiMotion[color], now).totalTravel) + ' tracked';
     const profile = p ? state.identity.participants.find(person => person.id === p.participantId) : selected;
@@ -448,11 +460,15 @@ function renderPattern(now = performance.now()) {
     match?.status==='stopped' ? 'Game ended early' : 'Select players, interval and rounds';
   ui.turnLabel.textContent = activePlayer ?
     activePlayer.name + "'s turn · " + (chosenCount>2?'SHARED GREEN':match.activeColor.toUpperCase()) :
-    match?.status==='completed' ? 'Game complete' : 'Random Follow Pattern';
+    match?.status==='completed' ? 'Game complete' :
+    state.mode==='reaction'?'Reaction Challenge':'Random Follow Pattern';
   ui.boardInstruction.textContent = active ?
-    'ZONE ' + (match.activeZone+1) + ' · ' + match.repsRemaining + ' up/down reps' :
+    state.mode==='reaction' ? 'ZONE '+(match.activeZone+1)+' · '+
+      (match.armed?'ENTER THE TARGET NOW':'MOVE OUT OF TARGET, THEN ENTER'):
+      'ZONE '+(match.activeZone+1)+' · '+match.repsRemaining+' up/down reps':
     match?.status==='completed' ? 'All timed rounds are complete.' :
-    'Random zone and rep targets will continue until each interval expires.';
+    state.mode==='reaction'?'Leave and enter each highlighted zone to score.':
+      'Random zone and rep targets will continue until each interval expires.';
 }
 
 function loopPattern(image,now) {
@@ -470,7 +486,7 @@ function loopPattern(image,now) {
         noiseFloor:Number(ui.sensitivity.value),microThreshold:MICRO_THRESHOLD
       });
       const result=state.pattern.sample(color,input);
-      if(result.type==='target-complete')renderPattern(now);
+      if(result.type==='target-complete'||result.type==='hit')renderPattern(now);
     }
   }
   ui.trackingStatus.textContent='Green '+(detections.green?'visible':'missing')+
@@ -1716,7 +1732,7 @@ function stopCamera() {
   if (state.mode === 'multiplayer') {
     setBoardCursor(null);
     renderMultiplayer();
-  } else if (state.mode === 'pattern') {
+  } else if (timedMode()) {
     setBoardCursor(null);
     renderPattern();
   }
@@ -1777,7 +1793,7 @@ async function startCamera(deviceId = '') {
 }
 
 function resetSession() {
-  if (state.mode === 'pattern') {
+  if (timedMode()) {
     state.multiMotion = { green: createMotionStats(4), blue: createMotionStats(4) };
     renderPattern();
   }
@@ -1796,7 +1812,7 @@ function resetSession() {
 async function beginGameplay() {
   const goal = pointGoalValue();
   let patternPlayers = null;
-  if (state.mode === 'pattern') {
+  if (timedMode()) {
     try {
       patternPlayers = resolvePatternPlayers(state.identity.participants, {
         count:Number(ui.playerCount.value),
@@ -1818,16 +1834,18 @@ async function beginGameplay() {
   }
 
   resetSession();
-  if(state.mode==='pattern'){
+  if(timedMode()){
     try {
-      state.pattern=platform.createSession('random-follow-pattern',{
+      state.pattern=platform.createSession(state.mode==='reaction'?'reaction-challenge':'random-follow-pattern',{
         players:patternPlayers,intervalSeconds:Number(ui.interval.value),
         rounds:Number(ui.rounds.value)
       });
       const result=state.pattern.start(performance.now());
       if(result.type!=='game-start')throw new Error('Could not start timed game.');
       state.markerTracker.reset();
-      ui.multiplayerSetupStatus.textContent='Timed pattern live: complete as many random targets as possible each interval.';
+      ui.multiplayerSetupStatus.textContent=state.mode==='reaction'?
+        'Reaction live: move outside and enter each target before the timer expires.':
+        'Timed pattern live: complete as many random targets as possible each interval.';
       renderPattern();
     }catch(error){
       ui.multiplayerSetupStatus.textContent=error.message;
@@ -1862,7 +1880,7 @@ async function beginGameplay() {
 }
 
 function endGameplay() {
-  if (state.mode === 'pattern') {
+  if (timedMode()) {
     if (patternActive()) state.pattern.stop(performance.now());
     setBoardCursor(null);
     renderPattern();
@@ -1959,7 +1977,7 @@ function renderStats(now) {
 
 function loop(now) {
   if (!state.running) return;
-  if (state.mode === 'pattern' && patternActive()) {
+  if (timedMode() && patternActive()) {
     const advance=state.pattern.tick(now);
     if (advance.advanced || advance.type === 'game-complete') {
       state.markerTracker.reset();
@@ -1982,7 +2000,7 @@ function loop(now) {
 
   ctx.drawImage(ui.video, 0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
   const image = ctx.getImageData(0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
-  if (state.mode === 'pattern') {
+  if (timedMode()) {
     loopPattern(image, now);
     maybeScanRoom(now);
     state.raf = requestAnimationFrame(loop);
@@ -2049,7 +2067,8 @@ function loop(now) {
 
 ui.gameMode.addEventListener('change', () => {
   if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
-  state.mode = ['solo','multiplayer','pattern'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
+  state.mode = ['solo','multiplayer','pattern','reaction'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
+  state.pattern=null;
   state.latestMarkerDetections = { green: null, blue: null };
   state.markerTracker.reset();
   renderMode();
@@ -2088,11 +2107,11 @@ ui.resetCalibration.addEventListener('click', () => {
 });
 ui.greenPlayer.addEventListener('change', () => {
   if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
-  else if (state.mode === 'pattern') renderPattern();
+  else if (timedMode()) renderPattern();
 });
 ui.bluePlayer.addEventListener('change', () => {
   if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
-  else if (state.mode === 'pattern') renderPattern();
+  else if (timedMode()) renderPattern();
 });
 ui.playerCount.addEventListener('change', () => {updatePatternSetup();renderPattern();});
 ui.patternExtraPlayers.addEventListener('change',event=>{
@@ -2123,7 +2142,7 @@ ui.pointGoal.addEventListener('change', () => {
   if (!state.gameplay.game.active) {
     state.gameplay.game.pointGoal = pointGoalValue();
     if (state.mode === 'multiplayer') renderMultiplayer();
-    else if (state.mode === 'pattern') renderPattern();
+    else if (timedMode()) renderPattern();
     else renderGame();
   }
 });
@@ -2158,8 +2177,8 @@ try {
     const handoff=consumeLobbyTicket(window.sessionStorage,state.identity.participants);
     if(handoff.status==='ready'){
       const setup=handoff.setup;
-      state.mode='pattern';
-      ui.gameMode.value='pattern';
+      state.mode=setup.gameId==='reaction-challenge'?'reaction':'pattern';
+      ui.gameMode.value=state.mode;
       ui.playerCount.value=String(setup.players.length);
       ui.interval.value=String(setup.intervalSeconds);
       ui.rounds.value=String(setup.rounds);

@@ -27,6 +27,7 @@
       <label>Game
         <select id="lobbyGame">
           <option value="random-follow-pattern">Random Follow Pattern · timed rounds</option>
+          <option value="reaction-challenge">Reaction Challenge · speed and accuracy</option>
           <option value="solo">Classic solo · 3-zone point goal</option>
           <option value="multiplayer">Classic two-player · 4-zone point goal</option>
         </select>
@@ -40,7 +41,7 @@
     </div>
     <div class="lobby-controls">
       <div id="patternLobbySettings">
-        <h2>Set up Random Follow Pattern</h2>
+        <h2>Timed game setup</h2>
         <div class="lobby-choices">
           <label>Number of players
             <select id="lobbyPlayerCount"><option value="1">1 player</option>
@@ -68,6 +69,15 @@
       <button id="lobbyStart" type="button" class="primary">Go to game setup</button>
       <p class="lobby-privacy-note">Roster choices are transferred only within this browser tab and rechecked
         against enrolled participants. The game never infers who holds a marker from face recognition.</p>
+    </div>
+  </section>
+<section class="lobby-second-game panel" aria-label="Available game library">
+    <h2>Available games</h2>
+    <div class="lobby-game-tiles">
+      <article><strong>01 · Random Follow Pattern</strong>
+        <p>Follow randomly changing zones, completing 3–6 up/down repetitions in each timed round.</p></article>
+      <article><strong>02 · Reaction Challenge</strong>
+        <p>Move out of a randomly highlighted zone, then enter as quickly as possible. Track hits and reaction times.</p></article>
     </div>
   </section>
 </main>

@@ -62,3 +62,18 @@ test('malformed oversized and inaccessible handoff tickets fail closed',()=>{
  assert.equal(consumeLobbyTicket(s,roster).status,'invalid');
  assert.equal(consumeLobbyTicket({getItem(){throw Error('denied')},removeItem(){}},roster).status,'unavailable');
 });
+
+test('reaction game uses the same enrolled roster, duration and single-use setup transfer',()=>{
+ const game={...choice(3,10),gameId:'reaction-challenge',intervalSeconds:90};
+ const selected=validateLobbySelection(roster,game);
+ assert.equal(selected.gameId,'reaction-challenge');
+ assert.equal(selected.controllerMode,'shared-green');
+ const ticket=makeLobbyTicket(selected);
+ const data=new Map([[LOBBY_TICKET_KEY,ticket]]);
+ const storage={getItem:key=>data.get(key),removeItem:key=>data.delete(key)};
+ const restored=consumeLobbyTicket(storage,roster);
+ assert.equal(restored.status,'ready');
+ assert.equal(restored.setup.gameId,'reaction-challenge');
+ assert.equal(restored.setup.rounds,10);
+ assert.equal(data.size,0);
+});

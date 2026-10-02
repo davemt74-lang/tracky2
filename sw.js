@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while a match may be active.
-const CACHE='tracky2-static-v0.6.1';
+const CACHE='tracky2-static-v0.6.2';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
@@ -16,7 +16,7 @@ const ASSETS=[
   './src/identity-engine.js','./src/room-tracking-core.js','./src/voice-core.js',
   './src/voice-engine.js','./src/room-audio-engine.js','./src/room-audio-worklet.js',
   './src/model-config.js','./src/games/random-follow-pattern.js',
-  './src/games/pattern-setup.js'
+  './src/games/pattern-setup.js','./src/games/reaction-challenge.js'
 ];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
