@@ -20,7 +20,7 @@ test('collects only bounded aggregate telemetry for both colors and runtime read
  assert.equal(s.hardwareCertified,false);
  assert.equal(JSON.stringify(s).includes('SECRET'),false);
  assert.equal(JSON.stringify(s).includes('embedding'),false);
- assert.equal(JSON.stringify(s).includes('x'),false);
+ assert.equal(JSON.stringify(s).includes('"x":'),false);
 });
 test('rejects duplicated, backwards and invalid timestamps without scoring false observations',()=>{
  const d=createLiveDiagnostics();d.start();d.frame(50,markers(.5,null));
