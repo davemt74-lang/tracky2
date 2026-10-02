@@ -571,3 +571,16 @@ button,select,.button-link,.points-goal input,.participant-fields input,.partici
 @media(max-width:1200px){.multiplayer-mode .dialogue-hud{display:none}.multiplayer-stage{left:40%}}
 @media(max-width:760px){.multiplayer-mode .room-identity-hud{display:none}.multiplayer-stage{left:50%;top:50%}.shared-board{height:3.2in}.multi-scorecard{padding:6px}}
 @media(prefers-reduced-motion:reduce){.shared-board{transition:none}}
+
+/* V0.4E — on-device hardware measurements, no camera/audio recording. */
+.diag-shell{max-width:960px;display:grid;gap:14px}
+.diag-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.diag-heading h1{margin:.2rem 0 .5rem}
+.diag-heading p,.diag-shell .panel p,.diag-shell li{color:var(--muted);line-height:1.45}
+.diag-shell .panel{display:grid;gap:10px}
+.diag-shell .panel h2{font-size:1.1rem;margin:0}
+.diag-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.diag-actions label{display:grid;gap:5px;font-size:.76rem}
+.diag-video{width:100%;max-width:600px;max-height:340px;object-fit:contain;aspect-ratio:16/9;border:1px solid var(--line);border-radius:12px;background:#020609}
+.diag-metrics{display:grid;gap:4px;font-size:.75rem}
+.diag-metrics p{border-left:2px solid var(--green);padding:7px;background:rgba(92,255,157,.05);margin:0}
