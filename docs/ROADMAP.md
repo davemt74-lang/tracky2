@@ -33,6 +33,11 @@ Original Tracky V0.7, PR #9 merged commit a8ed0c134b0bb2b77ed596828d564d9d4de9cf
 - Raw marker position can show non-authoritative proximity to a recognized body; ambiguous and stale results explicitly decline verification. Proximity or a voice/face match never auto-reassigns the scoring marker.
 - The visual evidence adapter stores no photos, recordings or speaker embeddings. Hardware certification is still pending.
 
+## V0.4D — Local player progress and match history
+- Opt-in checkbox for saving match completion or early-stop results to local browser storage; default is off. Summary records whitelist ID, timestamps, completion flag, per-player color, points and completed rounds only.
+- Retain at most 100 local matches, deduplicate session IDs, display recent match results and individual aggregated progress, allow clearing local history. Deleting a participant removes their history entries while preserving unrelated player results.
+- Camera frames, face descriptions, voice samples, dialogue and raw motion traces are excluded. Physical certification remains pending.
+
 ## Acceptance gates
 1. Recover all baseline files, V0.7 unit tests, syntax and repository audit. Produce integrity-checked deploy ZIP in CI.
 2. Certify actual camera tracking, calibration, identity matching, body occlusion and mic enrollment on supported browser hardware. CI alone cannot establish hardware readiness.

@@ -1,3 +1,7 @@
+# Tracky2 V0.4D — Optional match history
+
+Select two enrolled participants and opt in to **Save scores and match progress locally** before starting a match. After completion or an early stop, Tracky2 stores only match identifiers, dates, completion state and each participant's points and completed rounds on this device. The history view shows recent matches and per-player progress, supports clearing saved results and automatically purges a participant's entries when that local profile is deleted. Up to 100 sessions are retained; no camera or microphone recordings, biometric embeddings or dialogue are written to match history. Opt-in defaults to off each page visit.
+
 # Tracky2 V0.4C — Participant, voice and controller visibility
 
 The two player scorecards now display current participant face/body tracking (including temporary occlusion), Voice Profile readiness, and whether the manually assigned color marker is near the player's tracked body. Marker proximity is **advisory only**: when two bodies overlap, neither person's hand position nor identity is inferred. Existing opt-in face/voice enrollment and the independent scoring assignments remain unchanged. No images or audio are saved by these indicators.
