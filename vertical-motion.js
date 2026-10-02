@@ -152,6 +152,7 @@ const ui = {
 };
 
 let extraPlayerIds=[];
+let extraFieldsSignature='';
 const platform = createGamePlatform();
 platform.register(randomFollowPatternGame);
 
@@ -323,8 +324,11 @@ function renderExtraPlayerFields() {
   const count=Number(ui.playerCount.value);
   const visible=state.mode==='pattern' && count>2;
   ui.patternExtraPlayers.hidden=!visible;
+  if(!visible){extraFieldsSignature='';ui.patternExtraPlayers.replaceChildren();return;}
+  const signature=String(count)+'|'+state.identity.participants.map(p=>p.id).join('|');
+  if(signature===extraFieldsSignature)return;
+  extraFieldsSignature=signature;
   ui.patternExtraPlayers.replaceChildren();
-  if(!visible)return;
   for(let index=3;index<=count;index++){
     ui.patternExtraPlayers.append(makeParticipantSelect(index,extraPlayerIds[index-3] || ''));
   }
