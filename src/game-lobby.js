@@ -4,9 +4,10 @@ import { GAME_SETTINGS } from './game-platform.js';
 
 export const LOBBY_TICKET_KEY = 'tracky2-pending-game-v1';
 export const LOBBY_GAME_ID = 'random-follow-pattern';
+export const LOBBY_GAME_IDS = Object.freeze(['random-follow-pattern','reaction-challenge']);
 
 export function validateLobbySelection(roster, choice) {
-  if (!Array.isArray(roster) || !choice || choice.gameId !== LOBBY_GAME_ID ||
+  if (!Array.isArray(roster) || !choice || !LOBBY_GAME_IDS.includes(choice.gameId) ||
       !Array.isArray(choice.playerIds) || !GAME_SETTINGS.playerCounts.includes(choice.playerIds.length) ||
       !GAME_SETTINGS.intervals.includes(choice.intervalSeconds) ||
       !GAME_SETTINGS.rounds.includes(choice.rounds)) {
@@ -32,7 +33,7 @@ export function validateLobbySelection(roster, choice) {
     ...p,color:controllerMode==='individual-colors' && index===1?'blue':'green'
   })));
   return Object.freeze({
-    gameId:LOBBY_GAME_ID,
+    gameId:choice.gameId,
     players:assignments,
     intervalSeconds:choice.intervalSeconds,
     rounds:choice.rounds,
@@ -42,7 +43,7 @@ export function validateLobbySelection(roster, choice) {
 }
 
 export function makeLobbyTicket(verified) {
-  if (!verified || verified.gameId!==LOBBY_GAME_ID || !Array.isArray(verified.players)) {
+  if (!verified || !LOBBY_GAME_IDS.includes(verified.gameId) || !Array.isArray(verified.players)) {
     throw new TypeError('Validate the roster before creating a game handoff.');
   }
   return JSON.stringify({

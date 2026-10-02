@@ -2,6 +2,7 @@
 import { listParticipants } from './src/participant-store.js';
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
+import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import {
  LOBBY_TICKET_KEY,validateLobbySelection,makeLobbyTicket,roundRosterPreview
 } from './src/game-lobby.js';
@@ -15,6 +16,7 @@ const ui={
 };
 const games=createGamePlatform();
 games.register(randomFollowPatternGame);
+games.register(reactionChallengeGame);
 let roster=[];
 let picks=[];
 
@@ -53,7 +55,7 @@ function choices() {
   };
 }
 function renderPreview() {
-  const pattern=ui.game.value==='random-follow-pattern';
+  const pattern=['random-follow-pattern','reaction-challenge'].includes(ui.game.value);
   ui.settings.hidden=!pattern;
   ui.status.textContent='';
   ui.preview.replaceChildren();
@@ -66,7 +68,9 @@ function renderPreview() {
     ui.preview.append(p);
     return;
   }
-  ui.gameSummary.textContent='Follow random zone targets on one shared four-section board. Each interval is one timed round.';
+  ui.gameSummary.textContent=ui.game.value==='reaction-challenge' ?
+    'React to highlighted zones as quickly as possible. Move outside, then enter the target to score a timed hit.':
+    'Follow random zone targets on one shared four-section board. Each interval is one timed round.';
   try {
     const valid=validateLobbySelection(roster,choices());
     const info=document.createElement('p');
