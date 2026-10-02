@@ -42,12 +42,14 @@ jobs:
           unzip -t tracky2-v0.1.0-deploy.zip
           unzip -l tracky2-v0.1.0-deploy.zip | grep -F "tracky2-v0.1.0/src/model-config.js"
           unzip -l tracky2-v0.1.0-deploy.zip | grep -F "tracky2-v0.1.0/src/room-audio-worklet.js"
-          sha256sum tracky2-v0.1.0-deploy.zip
+          sha256sum tracky2-v0.1.0-deploy.zip | tee tracky2-v0.1.0-deploy.zip.sha256
 
       - name: Upload deploy ZIP
         uses: actions/upload-artifact@v4
         with:
           name: tracky2-v0.1.0-deploy
-          path: tracky2-v0.1.0-deploy.zip
+          path: |
+            tracky2-v0.1.0-deploy.zip
+            tracky2-v0.1.0-deploy.zip.sha256
           if-no-files-found: error
           retention-days: 30
