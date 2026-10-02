@@ -4,6 +4,7 @@ import { createGameSession } from './src/game-session.js';
 import { createMultiplayerMatch } from './src/multiplayer-match.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
+import { createLiveDiagnostics } from './src/live-diagnostics.js';
 import { playerPresenceEvidence } from './src/player-presence.js';
 import { browserMatchStorage, readMatchHistory, saveMatchHistory, clearMatchHistory, playerProgress } from './src/match-history.js';
 import { toColorControllerInput } from './src/game-input.js';
@@ -51,6 +52,12 @@ const ui = {
   multiplayerSettings: $('#multiplayerSettings'),
   historySaveOption: $('#historySaveOption'),
   matchHistoryPanel: $('#matchHistoryPanel'),
+  diagnosticsPanel: $('#liveDiagnostics'),
+  startDiagnostics: $('#startDiagnostics'),
+  stopDiagnostics: $('#stopDiagnostics'),
+  exportDiagnostics: $('#exportDiagnostics'),
+  diagnosticsStatus: $('#diagnosticsStatus'),
+  diagnosticsResults: $('#diagnosticsResults'),
   matchHistoryStatus: $('#matchHistoryStatus'),
   playerProgress: $('#playerProgress'),
   recentMatches: $('#recentMatches'),
@@ -155,6 +162,7 @@ const state = {
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
   calibration: createColorCalibration(),
   markerTracker: createControllerStability(),
+  diagnostics: createLiveDiagnostics(),
   matchStartedMs: 0,
   matchResultId: null,
   matchSaved: false,
@@ -288,6 +296,7 @@ function renderMode() {
   ui.matchHistoryPanel.hidden = !multi;
   if (multi) { renderMultiplayer(); renderMatchHistory(); }
   else renderGame();
+  renderDiagnostics();
 }
 
 function playerScoreCard(color) {
@@ -358,9 +367,44 @@ function setBoardCursor(input) {
   ui.boardCursor.hidden = false;
 }
 
+function diagnosticRuntime() {
+  return { secureContext: Boolean(window.isSecureContext),
+    camera: Boolean(state.running && state.stream),
+    identity: Boolean(state.identity.ready),
+    microphone: Boolean(state.voice.active),
+    voiceModel: Boolean(state.voice.speakerReady),
+    transcriptModel: Boolean(state.voice.transcriptReady) };
+}
+function renderDiagnostics() {
+  const d = state.diagnostics.snapshot();
+  const eligible = state.mode === 'multiplayer' && state.running;
+  ui.diagnosticsPanel.hidden = state.mode !== 'multiplayer';
+  ui.startDiagnostics.disabled = !eligible || d.status === 'recording';
+  ui.stopDiagnostics.disabled = d.status !== 'recording';
+  ui.exportDiagnostics.disabled = d.status !== 'stopped' || d.frames < 60;
+  ui.diagnosticsStatus.textContent = d.status === 'recording' ?
+    'Measuring in memory; stop or record a maximum of 3,600 frames.' :
+    d.status === 'stopped' ? 'Measurement stopped. This is not hardware certification.' :
+    'Start the camera to capture aggregate tracking measurements.';
+  const fmt = color => {
+    const v = d.markers[color];
+    return color.toUpperCase() + ': ' + (100 * v.detectionRate).toFixed(1) +
+      '% detected · ' + v.interruptions + ' interruptions · longest ' + v.longestStreak + ' frames';
+  };
+  ui.diagnosticsResults.textContent = d.frames + ' camera frames · ' +
+    d.averageFps.toFixed(1) + ' measured fps · ' + d.timestampDiscontinuities +
+    ' invalid timestamps\n' + fmt('green') + '\n' + fmt('blue') +
+    '\nIdentity: ' + (d.runtime.identity ? 'ready' : 'unverified') +
+    ' · Microphone: ' + (d.runtime.microphone ? 'enabled' : 'off') +
+    ' · Voice model: ' + (d.runtime.voiceModel ? 'ready' : 'unverified');
+}
 function loopMultiplayer(image, now) {
   const detections = detectColorControllers(image, { calibration: state.calibration });
   state.latestMarkerDetections = detections;
+  if (state.diagnostics.running) {
+    state.diagnostics.runtime(diagnosticRuntime());
+    state.diagnostics.frame(now, detections);
+  }
   const before = state.multiplayer.snapshot();
   const color = before.activeColor;
   const observation = color ? state.markerTracker.observe(detections[color], now) : null;
@@ -398,6 +442,7 @@ function loopMultiplayer(image, now) {
       lock.status === 'jump-rejected' ? 'implausible jump rejected · reacquiring' :
       'waiting for stable marker') : 'Camera marker gate is ready for the next match';
     renderMultiplayer();
+    renderDiagnostics();
     state.lastUiUpdate = now;
   }
 }
@@ -1514,6 +1559,7 @@ function maybeScanRoom(now) {
 }
 
 function stopCamera() {
+  state.diagnostics.stop();
   state.latestMarkerDetections = { green: null, blue: null };
   state.gameplay.signalLost();
   state.markerTracker.reset();
@@ -1566,6 +1612,7 @@ async function startCamera(deviceId = '') {
     await enumerateCameras();
 
     state.running = true;
+    renderDiagnostics();
     ui.start.disabled = true;
     ui.stop.disabled = false;
     ui.cameraStatus.textContent = 'Camera live';
@@ -1797,6 +1844,7 @@ function loop(now) {
 
 ui.gameMode.addEventListener('change', () => {
   if (state.gameplay.game.active || state.multiplayer.snapshot().active) return;
+  state.diagnostics.stop();
   state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
   state.latestMarkerDetections = { green: null, blue: null };
   state.markerTracker.reset();
@@ -1846,6 +1894,27 @@ ui.clearMatchHistory.addEventListener('click', () => {
     'Browser storage unavailable; could not clear local history.';
   renderMatchHistory();
 });
+ui.startDiagnostics.addEventListener('click', () => {
+  if (!state.running || state.mode !== 'multiplayer') return;
+  state.diagnostics.start(diagnosticRuntime());
+  renderDiagnostics();
+});
+ui.stopDiagnostics.addEventListener('click', () => {
+  state.diagnostics.stop();
+  renderDiagnostics();
+});
+ui.exportDiagnostics.addEventListener('click', () => {
+  const result = state.diagnostics.snapshot();
+  if (result.status !== 'stopped' || result.frames < 60) return;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(result,null,2)], {type:'application/json'}));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'tracky2-local-device-diagnostic.json';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+});
 ui.start.addEventListener('click', () => startCamera(ui.select.value));
 ui.startRoomAudio.addEventListener('click', startRoomAudio);
 ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
@@ -1892,4 +1961,5 @@ renderDialogueTurns();
 renderVoiceHud();
 renderStats(performance.now());
 renderMode();
+renderDiagnostics();
 drawTrace();

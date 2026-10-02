@@ -188,6 +188,20 @@
     </label>
   </section>
 
+  <section id="liveDiagnostics" class="panel hardware-diagnostics" aria-label="Local device diagnostics" hidden>
+    <div class="section-head"><div><small>ON-DEVICE TESTING</small><h2>Live camera diagnostics</h2></div></div>
+    <p>Optional aggregate-only measurements in memory; no frames, audio, biometric records, participant
+      identities, coordinates or transcripts are recorded. This is not a hardware certification.</p>
+    <div class="diagnostics-buttons">
+      <button id="startDiagnostics" type="button">Start measurements</button>
+      <button id="stopDiagnostics" type="button" disabled>Stop measurements</button>
+      <button id="exportDiagnostics" type="button" disabled>Export aggregate JSON</button>
+    </div>
+    <p id="diagnosticsStatus" role="status" aria-live="polite">Start the camera before measuring.</p>
+    <pre id="diagnosticsResults" aria-label="Aggregate measurements">No measurements yet.</pre>
+    <p>Stop after at least 60 frames to export; use docs/HARDWARE-ACCEPTANCE.md for actual physical testing.</p>
+  </section>
+
   <section class="motion-section">
     <article class="panel">
       <div class="section-head">

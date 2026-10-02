@@ -571,3 +571,9 @@ button,select,.button-link,.points-goal input,.participant-fields input,.partici
 @media(max-width:1200px){.multiplayer-mode .dialogue-hud{display:none}.multiplayer-stage{left:40%}}
 @media(max-width:760px){.multiplayer-mode .room-identity-hud{display:none}.multiplayer-stage{left:50%;top:50%}.shared-board{height:3.2in}.multi-scorecard{padding:6px}}
 @media(prefers-reduced-motion:reduce){.shared-board{transition:none}}
+
+.hardware-diagnostics{margin:14px 0 0;display:grid;gap:9px}
+.hardware-diagnostics[hidden]{display:none!important}
+.hardware-diagnostics p{font-size:.75rem;color:var(--muted);margin:0}
+.diagnostics-buttons{display:flex;flex-wrap:wrap;gap:9px}
+#diagnosticsResults{font-size:.73rem;color:var(--text);background:rgba(3,11,15,.85);border:1px solid var(--line);padding:12px;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}
