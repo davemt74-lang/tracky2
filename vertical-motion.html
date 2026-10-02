@@ -149,7 +149,17 @@
         <span id="greenDetection">GREEN marker not found</span>
         <span id="blueDetection">BLUE marker not found</span>
       </fieldset>
+      <label class="match-consent"><input id="historySaveOption" type="checkbox">
+        Save scores and match progress locally on this device (optional)</label>
     </div>
+  </section>
+
+  <section id="matchHistoryPanel" class="panel match-history-panel" aria-label="Local match results" hidden>
+    <div class="match-history-heading"><strong>Local match history &amp; player progress</strong>
+      <button type="button" id="clearMatchHistory">Clear saved history</button></div>
+    <p id="matchHistoryStatus" role="status" aria-live="polite">Match results are never saved unless enabled above.</p>
+    <div id="playerProgress" class="player-progress" aria-label="Individual player statistics"></div>
+    <div id="recentMatches" class="recent-matches" aria-label="Recent saved matches"></div>
   </section>
 
   <section class="game-controls panel">
