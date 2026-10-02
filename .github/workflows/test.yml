@@ -31,7 +31,8 @@ jobs:
           rm -rf dist tracky2-v0.5.0-deploy.zip
           mkdir -p dist/tracky2-v0.5.0/src/games dist/tracky2-v0.5.0/docs
           cp index.html games.html vertical-motion.html participants.html diagnostics.html app.js vertical-motion.js participants.js participant-voice.js diagnostics.js styles.css README.md package.json dist/tracky2-v0.5.0/
-          cp src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/games/random-follow-pattern.js src/games/pattern-setup.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.5.0/src/
+          cp src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.5.0/src/
+          cp src/games/random-follow-pattern.js src/games/pattern-setup.js dist/tracky2-v0.5.0/src/games/
           cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md dist/tracky2-v0.5.0/docs/
           cd dist
           zip -r ../tracky2-v0.5.0-deploy.zip tracky2-v0.5.0
@@ -45,6 +46,11 @@ jobs:
           unzip -l tracky2-v0.5.0-deploy.zip | grep -F "tracky2-v0.5.0/src/room-audio-worklet.js"
           unzip -l tracky2-v0.5.0-deploy.zip | grep -F 'tracky2-v0.5.0/src/games/random-follow-pattern.js'
           unzip -l tracky2-v0.5.0-deploy.zip | grep -F 'tracky2-v0.5.0/docs/GAME-PLATFORM.md'
+          rm -rf dist/package-smoke
+          mkdir -p dist/package-smoke
+          unzip -q tracky2-v0.5.0-deploy.zip -d dist/package-smoke
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.5.0/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.5.0/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
           sha256sum tracky2-v0.5.0-deploy.zip | tee tracky2-v0.5.0-deploy.zip.sha256
 
       - name: Upload deploy ZIP
