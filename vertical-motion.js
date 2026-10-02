@@ -364,6 +364,41 @@ function loopMultiplayer(image, now) {
   }
 }
 
+const CALIBRATION_STORAGE_KEY = 'tracky2-color-calibration-v1';
+function populateCalibration(profile) {
+  ui.greenHueMin.value = String(profile.green.hueMin);
+  ui.greenHueMax.value = String(profile.green.hueMax);
+  ui.greenSatMin.value = String(profile.green.saturationMin);
+  ui.blueHueMin.value = String(profile.blue.hueMin);
+  ui.blueHueMax.value = String(profile.blue.hueMax);
+  ui.blueSatMin.value = String(profile.blue.saturationMin);
+  ui.markerArea.value = String(profile.minAreaRatio);
+}
+function calibrationFromControls() {
+  const base = state.calibration;
+  return validateColorCalibration({
+    green: { ...base.green,
+      hueMin: Number(ui.greenHueMin.value), hueMax: Number(ui.greenHueMax.value),
+      saturationMin: Number(ui.greenSatMin.value) },
+    blue: { ...base.blue,
+      hueMin: Number(ui.blueHueMin.value), hueMax: Number(ui.blueHueMax.value),
+      saturationMin: Number(ui.blueSatMin.value) },
+    minAreaRatio: Number(ui.markerArea.value)
+  });
+}
+function restoreCalibration() {
+  try {
+    const saved = window.localStorage.getItem(CALIBRATION_STORAGE_KEY);
+    if (saved) state.calibration = validateColorCalibration(JSON.parse(saved));
+    ui.calibrationStatus.textContent = saved ? 'Saved local camera calibration loaded.' :
+      'Default calibration. Check both markers before playing.';
+  } catch {
+    state.calibration = createColorCalibration();
+    ui.calibrationStatus.textContent = 'Stored calibration invalid or inaccessible. Using defaults.';
+  }
+  populateCalibration(state.calibration);
+}
+
 function setGameInstructions(title, detail) {
   const strong = document.createElement('strong');
   strong.textContent = title;
@@ -1663,6 +1698,35 @@ ui.gameMode.addEventListener('change', () => {
   state.mode = ui.gameMode.value === 'multiplayer' ? 'multiplayer' : 'solo';
   renderMode();
 });
+ui.calibrationPreset.addEventListener('change', () => {
+  if (state.multiplayer.snapshot().active) return;
+  state.calibration = createColorCalibration(ui.calibrationPreset.value);
+  populateCalibration(state.calibration);
+  ui.calibrationStatus.textContent = 'Preset active. Verify live detection and save if satisfied.';
+});
+ui.saveCalibration.addEventListener('click', () => {
+  if (state.multiplayer.snapshot().active) return;
+  try {
+    const candidate = calibrationFromControls();
+    state.calibration = candidate;
+    try {
+      window.localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(candidate));
+      ui.calibrationStatus.textContent = 'Color calibration saved on this device.';
+    } catch {
+      ui.calibrationStatus.textContent = 'Calibration applied; browser storage unavailable.';
+    }
+  } catch (error) {
+    ui.calibrationStatus.textContent = error.message;
+  }
+});
+ui.resetCalibration.addEventListener('click', () => {
+  if (state.multiplayer.snapshot().active) return;
+  state.calibration = createColorCalibration();
+  ui.calibrationPreset.value = 'normal';
+  populateCalibration(state.calibration);
+  try { window.localStorage.removeItem(CALIBRATION_STORAGE_KEY); } catch {}
+  ui.calibrationStatus.textContent = 'Default calibration restored.';
+});
 ui.greenPlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
 ui.bluePlayer.addEventListener('change', () => { if (state.mode === 'multiplayer') renderMultiplayer(); });
 ui.start.addEventListener('click', () => startCamera(ui.select.value));
@@ -1701,6 +1765,7 @@ window.addEventListener('beforeunload', () => {
   stopCamera();
 });
 
+restoreCalibration();
 await reloadIdentityParticipants();
 await loadSavedDialogue();
 updateConversationGroups();
