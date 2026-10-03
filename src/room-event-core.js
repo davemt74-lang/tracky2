@@ -21,7 +21,7 @@ function boundedEvidence(input){
 export function roomObservation(input={},now=Date.now()){
  if(!input||typeof input!=='object'||!CATEGORIES.has(input.category))return null;
  const at=finite(input.at)?input.at:now;
- if(!finite(at)||at<0)return null;
+ if(!finite(at)||at<0||at>8.64e15)return null;
  const kind=input.kind??(input.category==='decision'?'decision':'observation');
  if(!KINDS.has(kind))return null;
  const sensor=SENSORS.has(input.sensor)?input.sensor:null;
@@ -111,6 +111,7 @@ export function projectRoomState(rows,at=Infinity){
  const effectiveEvents=[];
  const sensors={camera:'unknown',microphone:'unknown'};
  const participants={};
+ let cameraLastOnlineAt=-Infinity;
  for(const event of list){
   if(event.kind==='correction')continue;
   const fix=corrections.get(event.id);
@@ -119,7 +120,10 @@ export function projectRoomState(rows,at=Infinity){
    Object.freeze({...event,message:fix.correction.replacement.message,
     confidence:fix.correction.replacement.confidence,correctedBy:fix.id}):event;
   effectiveEvents.push(e);
-  if(e.semantic==='sensor-state'&&e.sensor&&e.status)sensors[e.sensor]=e.status;
+  if(e.semantic==='sensor-state'&&e.sensor&&e.status){
+   sensors[e.sensor]=e.status;
+   if(e.sensor==='camera'&&e.status==='online')cameraLastOnlineAt=e.at;
+  }
   if(e.participantId&&['participant-observed','participant-out-of-view'].includes(e.semantic)){
    const current=participants[e.participantId]||{firstObservedAt:e.at,lastObservedAt:null,
     lastOutOfViewAt:null,visibility:'unknown'};
@@ -132,8 +136,10 @@ export function projectRoomState(rows,at=Infinity){
   }
  }
  // Camera unavailable invalidates CURRENT visibility, not historical observation.
- if(sensors.camera!=='online')
-  for(const p of Object.values(participants))p.visibility='unavailable';
+ for(const p of Object.values(participants)){
+  if(sensors.camera!=='online')p.visibility='unavailable';
+  else if(p.lastObservedAt===null||p.lastObservedAt<cameraLastOnlineAt)p.visibility='unknown';
+ }
  return Object.freeze({sensors:Object.freeze(sensors),participants:Object.freeze(participants),
   events:Object.freeze(effectiveEvents),corrections:Object.freeze(Object.fromEntries(corrections))});
 }
