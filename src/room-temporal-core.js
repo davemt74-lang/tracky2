@@ -46,10 +46,18 @@ export class RoomTemporalLedger{
    let record=this.records.get(key);
    const observationSeq=finite(track.bodyObservations)?track.bodyObservations:null;
    // UI repaints and transcript callbacks are not new camera measurements.
-   if(record&&observationSeq!==null&&record.lastObservationSeq===observationSeq)continue;
+   if(record&&observationSeq!==null&&record.lastObservationSeq===observationSeq &&
+     point&&association.status!=='unavailable'&&
+     association.status!=='uncertain-footpoint')continue;
    // An occluded body is not evidence for motion, location or stationary time.
    if(!point||association.status==='unavailable'||association.status==='uncertain-footpoint'){
-    if(record){record.visibility='uncertain';record.lastAt=at;}
+    if(record){
+     record.visibility='uncertain';record.lastAt=at;
+     // No continuity across occlusion, cropping or invalid position.
+     record.candidateKey=null;record.candidateSince=null;record.candidateCount=0;
+     record.confirmedKey=null;record.areaSince=null;record.dwellEmitted=false;
+     record.stationarySince=at;record.stationaryEmitted=false;
+    }
     continue;
    }
    const name=displayName(track),participantId=track.participantId||null;
