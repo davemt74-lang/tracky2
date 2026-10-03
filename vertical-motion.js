@@ -1076,7 +1076,8 @@ function reconcileRoomVisitors(now){
   }
   const profile=participantById(change.visitor.participantId);
   if(!profile)continue;
-  state.activity.events=upgradeVisitorTimeline(state.activity.events,change.visitor.id,profile);
+  state.activity.events=upgradeVisitorTimeline(state.activity.events,change.visitor.id,profile,change.visitor.label);
+  pushRoomEvent(change.visitor.label+' matched enrolled participant '+profile.name,'recognized',false);
   logPlayerActivity(profile.id,'matched',change.visitor.label+' matched by enrolled identity',
    'confirmed-tracking');
   const changed=[];

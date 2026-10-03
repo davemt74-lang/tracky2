@@ -5,14 +5,14 @@ import {createVisitorSession,reconcileVisitors,eligibleVisitor,visibleVisitors,
 const body=(id,patch={})=>({id,firstSeenAt:0,lastBodySeenAt:2000,
  bodyObservations:4,bodyScore:.91,quality:.65,face:{box:{x:0,y:0,width:1,height:1}},...patch});
 test('background ghosts and one-frame detections never create numbered visitors',()=>{
- const session=createVisitorSession();
+ const session=createVisitorSession('test');
  for(const track of [body('T1',{bodyObservations:1}),body('T2',{firstSeenAt:1850}),
    body('T3',{bodyScore:.2,quality:.1,face:null}),body('T4',{lastBodySeenAt:-2000})])
    assert.equal(reconcileVisitors(session,[track],2000).length,0);
  assert.equal(session.next,1);
 });
 test('stable unknown becomes Visitor 1, repeated scans never invent Visitors 2..N',()=>{
- const session=createVisitorSession(),track=body('T005');
+ const session=createVisitorSession('test'),track=body('T005');
  assert.equal(eligibleVisitor(track,2000),true);
  const first=reconcileVisitors(session,[track],2000);
  assert.equal(first.length,1);assert.equal(first[0].visitor.label,'Visitor 1');
@@ -21,7 +21,7 @@ test('stable unknown becomes Visitor 1, repeated scans never invent Visitors 2..
  assert.equal(session.next,2);
 });
 test('event history follows same persistent visitor on reliable enrollment match',()=>{
- const session=createVisitorSession(),track=body('T011');
+ const session=createVisitorSession('test'),track=body('T011');
  const visitor=reconcileVisitors(session,[track],2000)[0].visitor;
  let turn=associateVisitorTurn({id:'turn1',participantId:null,transcript:'Hello'},visitor);
  assert.equal(turn.visitorId,visitor.id);assert.equal(turn.participantId,null);
@@ -40,9 +40,9 @@ test('event history follows same persistent visitor on reliable enrollment match
  assert.equal(activity[0].source,'visitor-observation');
 });
 test('multiple different stable tracks have unique visitor labels without overwriting existing records',()=>{
- const session=createVisitorSession();
+ const session=createVisitorSession('test');
  const a=reconcileVisitors(session,[body('T1'),body('T2')],2000);
  assert.deepEqual(a.map(e=>e.visitor.label),['Visitor 1','Visitor 2']);
- assert.equal(visitorForTrack(session,'T1').id,'visitor-1');
- assert.equal(visitorForTrack(session,'T2').id,'visitor-2');
+ assert.equal(visitorForTrack(session,'T1').id,'visitor-test-1');
+ assert.equal(visitorForTrack(session,'T2').id,'visitor-test-2');
 });

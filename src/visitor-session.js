@@ -13,8 +13,8 @@ export function eligibleVisitor(track,now){
  // A moving shadow or poster with repeated body-like boxes isn't a visitor.
  return face && Number(track.bodyScore||0)>=.57;
 }
-export function createVisitorSession(){
- return {next:1,byTrack:new Map(),records:new Map(),promotion:new Map()};
+export function createVisitorSession(namespace='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7)){
+ return {namespace,next:1,byTrack:new Map(),records:new Map(),promotion:new Map()};
 }
 export function visitorForTrack(session,trackId){
  const id=session?.byTrack?.get(trackId);
@@ -40,7 +40,7 @@ export function reconcileVisitors(session,tracks,now){
    continue;
   }
   if(!eligibleVisitor(track,now))continue;
-  const id='visitor-'+session.next++;
+  const id='visitor-'+session.namespace+'-'+session.next++;
   visitor={id,label:'Visitor '+(session.next-1),firstSeenAt:track.firstSeenAt,
     lastSeenAt:now,trackId:track.id,participantId:null,participantName:null};
   session.byTrack.set(track.id,id);session.records.set(id,visitor);
@@ -66,11 +66,11 @@ export function visitorDisplayName(session,id){
    visitor.participantName+' (formerly '+visitor.label+')':
    visitor?.label||null;
 }
-export function upgradeVisitorTimeline(history,visitorId,participant){
+export function upgradeVisitorTimeline(history,visitorId,participant,visitorLabel='Visitor'){
  if(!visitorId||!participant?.id)return history.slice();
  return history.map(event=>event.participantId===visitorId?
   {...event,participantId:participant.id,name:participant.name,
-    detail:(event.detail?event.detail+' · ':'')+'originally '+visitorId,
+    detail:(event.detail?event.detail+' · ':'')+'originally '+visitorLabel,
     source:'visitor-observation'}:event);
 }
 export function associateVisitorTurn(turn,visitor){
