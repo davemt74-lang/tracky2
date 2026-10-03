@@ -23,6 +23,22 @@ function select(view){
 }
 ui.camera.addEventListener('click',()=>select('camera'));
 ui.orb.addEventListener('click',()=>select('orb'));
+// ZZZ: three non-repeating Z keystrokes within 1.2 seconds. Never intercept typing.
+let zCount=0,lastZAt=0;
+document.addEventListener('keydown',event=>{
+ if(!agentEnabled || event.repeat || event.ctrlKey || event.altKey || event.metaKey
+     || event.isComposing || event.key?.toLowerCase()!=='z')return;
+ const target=event.target;
+ if(target?.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(target?.tagName)
+     || target?.closest?.('[contenteditable="true"]'))return;
+ const now=performance.now();
+ zCount=now-lastZAt<=650?zCount+1:1;
+ lastZAt=now;
+ if(zCount===3){
+  zCount=0;
+  select(mode==='camera'?'orb':'camera');
+ }
+});
 window.addEventListener('tracky:agent-speech-state',event=>{
  speaking=event.detail?.speaking===true;
  render();
