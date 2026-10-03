@@ -1,6 +1,6 @@
 # Tracky2 V0.7.4 — Always-accessible Camera / Orb views
 
-On `vertical-motion.html?mode=agent`, the Camera / Orb switch appears immediately without waiting for recognition or the room model. `vertical-motion.html?mode=agent&view=orb` directly opens the no-video floating orb; the camera and audio remain active under existing permissions. The game lobby now offers a dedicated Launch AGENT · Orb button. Conversation remains separate from AGENT settings and v0.7.3 room-level audio meters remain unchanged.
+On `vertical-motion.html?mode=agent`, the Camera / Orb switch appears immediately without waiting for recognition or the room model. `vertical-motion.html?mode=agent&view=orb` directly opens the no-video floating orb; the camera and audio remain active under existing permissions. The game lobby now offers a dedicated Launch AGENT · Orb button. Press ZZZ (three Z keys rapidly) outside text fields to toggle between Camera and Orb. Conversation remains separate from AGENT settings and v0.7.3 room-level audio meters remain unchanged.
 
 # Tracky2 V0.7.4 — AGENT tabs, live microphone meter and translucent sidebars
 
