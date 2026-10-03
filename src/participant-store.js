@@ -1,12 +1,14 @@
 import { participantRecord, cryptoRandomId } from './participant-core.js';
 import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
+import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
 const ROOM_OBSERVATIONS = 'room-observations';
+const ROOM_SCENE = 'room-scene-map';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -67,6 +69,9 @@ export async function openParticipantDb() {
       if (!db.objectStoreNames.contains(ROOM_OBSERVATIONS)) {
         const observations=db.createObjectStore(ROOM_OBSERVATIONS,{keyPath:'id'});
         observations.createIndex('at','at',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(ROOM_SCENE)) {
+        db.createObjectStore(ROOM_SCENE,{keyPath:'id'});
       }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
@@ -328,4 +333,21 @@ export async function saveRoomObservation(record){
 }
 export function clearRoomObservations(){
  return storeAction(ROOM_OBSERVATIONS,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+// Only owner-entered area rectangles and object labels. Never save people,
+// camera frames, photographs, coordinates from live tracks or audio here.
+export async function loadRoomScene(){
+ const record=await storeAction(ROOM_SCENE,'readonly',store=>
+  requestToPromise(store.get('local-room')));
+ return record?normalizeRoomScene(record):emptyRoomScene();
+}
+export async function saveRoomScene(scene){
+ const safe=normalizeRoomScene(scene);
+ await storeAction(ROOM_SCENE,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function clearRoomScene(){
+ return storeAction(ROOM_SCENE,'readwrite',store=>requestToPromise(store.clear()));
 }
