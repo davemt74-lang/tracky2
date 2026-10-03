@@ -62,7 +62,8 @@ function choices() {
 }
 function renderPreview() {
   const pattern=['random-follow-pattern','reaction-challenge'].includes(ui.game.value);
-  ui.settings.hidden=!pattern;\n  ui.orbLaunch.hidden=ui.game.value!=='agent';
+  ui.settings.hidden=!pattern;
+  ui.orbLaunch.hidden=ui.game.value!=='agent';
   ui.status.textContent='';
   ui.preview.replaceChildren();
   ui.start.textContent=ui.game.value==='agent'?'Launch AGENT':pattern?'Go to game setup':'Open classic game';
@@ -111,7 +112,8 @@ function renderPreview() {
     ui.preview.append(line);
   }
 }
-ui.game.addEventListener('change',renderPreview);\nui.orbLaunch.addEventListener('click',()=>window.location.assign('./vertical-motion.html?mode=agent&view=orb'));
+ui.game.addEventListener('change',renderPreview);
+ui.orbLaunch.addEventListener('click',()=>window.location.assign('./vertical-motion.html?mode=agent&view=orb'));
 ui.count.addEventListener('change',()=>{renderPlayers();renderPreview();});
 ui.interval.addEventListener('change',renderPreview);
 ui.rounds.addEventListener('change',renderPreview);
