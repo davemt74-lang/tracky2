@@ -7,6 +7,7 @@
   <title>Tracky2 — Participants</title>
   <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./participants-stage.css">
+<link rel="stylesheet" href="./scene-analysis.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -62,6 +63,14 @@
             <small id="participantVideoDetails">Ready for capture</small></div>
         </div>
         <video id="participantVideo" playsinline muted aria-label="Participant live camera preview"></video>
+        <div class="scene-analysis-overlay" id="participantSceneOverlay" role="status" aria-live="polite" hidden>
+  <div class="scene-analysis-orbit" aria-hidden="true"><i></i><i></i><i></i><b>◎</b></div>
+  <strong>ANALYZING SCENE</strong>
+  <span id="participantSceneStatus">Connecting to camera…</span>
+  <div class="scene-analysis-progress" role="progressbar" aria-label="Scene initialization progress"
+     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="participantSceneBar"><i id="participantSceneFill"></i></div>
+  <small>Checking camera, loading models and establishing stable tracking</small>
+</div>
         <div class="face-reticle" id="faceReticle" hidden>
           <i></i><i></i><i></i><i></i><span id="faceQualityText">SCANNING</span>
         </div>
