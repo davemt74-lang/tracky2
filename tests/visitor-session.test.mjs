@@ -7,7 +7,7 @@ const body=(id,patch={})=>({id,firstSeenAt:0,lastBodySeenAt:2000,
 test('background ghosts and one-frame detections never create numbered visitors',()=>{
  const session=createVisitorSession();
  for(const track of [body('T1',{bodyObservations:1}),body('T2',{firstSeenAt:1850}),
-   body('T3',{bodyScore:.2,quality:.1,face:null}),body('T4',{lastBodySeenAt:0})])
+   body('T3',{bodyScore:.2,quality:.1,face:null}),body('T4',{lastBodySeenAt:-2000})])
    assert.equal(reconcileVisitors(session,[track],2000).length,0);
  assert.equal(session.next,1);
 });

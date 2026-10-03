@@ -1,7 +1,7 @@
 // Ephemeral room-visitor IDs. Observations must mature before a track can be
 // presented as a visitor. Track IDs are internal and never become visitor names.
-export const VISITOR_MIN_OBSERVATIONS=3;
-export const VISITOR_MIN_AGE_MS=1250;
+export const VISITOR_MIN_OBSERVATIONS=4;
+export const VISITOR_MIN_AGE_MS=1650;
 export const VISITOR_GRACE_MS=3600;
 export function eligibleVisitor(track,now){
  if(!track||track.participantId||!track.id||!Number.isFinite(now)||
@@ -9,8 +9,9 @@ export function eligibleVisitor(track,now){
     Number(track.bodyObservations||0)<VISITOR_MIN_OBSERVATIONS||
     now-(track.lastBodySeenAt??track.lastSeenAt??0)>VISITOR_GRACE_MS)return false;
  const face=Boolean(track.face?.box)&&Number(track.quality||0)>=.5;
- const strongBody=Number(track.bodyObservations)>=4&&Number(track.bodyScore||0)>=.72;
- return face||strongBody;
+ // Only persist a new public visitor after a stable usable face AND body track.
+ // A moving shadow or poster with repeated body-like boxes isn't a visitor.
+ return face && Number(track.bodyScore||0)>=.57;
 }
 export function createVisitorSession(){
  return {next:1,byTrack:new Map(),records:new Map(),promotion:new Map()};

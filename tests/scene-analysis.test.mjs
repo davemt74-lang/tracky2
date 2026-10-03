@@ -38,3 +38,11 @@ test('occluded identified track remains briefly visible, never labels strangers 
  assert.equal(stablePublicTracks([t],3000).length,1);
  assert.equal(stablePublicTracks([t],7000).length,0);
 });
+
+test('animation remains during first frame and turns into visible searching state when person not stable',()=>{
+ const {sceneAcquisition}=await import('../src/scene-analysis.js');
+ assert.equal(sceneAcquisition({modelReady:true,completeScans:1,elapsedMs:300,stable:true}),'detecting');
+ assert.equal(sceneAcquisition({modelReady:true,completeScans:3,elapsedMs:1500,stable:false}),'waiting');
+ assert.equal(sceneAcquisition({modelReady:true,completeScans:3,elapsedMs:1500,stable:true}),'ready');
+ assert.equal(sceneStep('waiting').progress,92);
+});
