@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
-const TRACKY_DATA = __DIR__ . '/../private-data';
+// Keep credentials and SQLite outside the served repository/document root.
+const TRACKY_DATA = __DIR__ . '/../../tracky2-private';
 function tracky_db(): PDO {
     if (!is_dir(TRACKY_DATA) || !is_file(TRACKY_DATA.'/installed.lock')) {
         throw new RuntimeException('Tracky2 is not installed.');
@@ -85,14 +86,14 @@ CREATE TABLE IF NOT EXISTS object_skills(
  skill TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(object_id,skill)
 );
-CREATE TABLE IF NOT EXISTS audit_log(
+CREATE TABLE IF NOT EXISTS provider_credentials(\n provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),\n ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\nCREATE TABLE IF NOT EXISTS audit_log(
  id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 SQL);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve'],
-      'admin'=>['users.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
+      'admin'=>['users.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
       'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review'],
       'viewer'=>['participants.read','scene.read']
     ];
