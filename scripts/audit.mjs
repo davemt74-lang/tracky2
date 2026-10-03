@@ -23,6 +23,8 @@ const requiredFiles = [
   'src/launch-core.js',
   'vertical-motion.js',
   'participants.js',
+  'participants-sidebar.js',
+  'src/roster-layout.js',
   'participant-voice.js',
   'diagnostics.js',
   'styles.css',
@@ -66,6 +68,8 @@ const runtimeJs = [
   'app.js',
   'vertical-motion.js',
   'participants.js',
+  'participants-sidebar.js',
+  'src/roster-layout.js',
   'participant-voice.js',
   'src/tracker-core.js',
   'src/movement-core.js',
@@ -103,7 +107,7 @@ const htmlContracts = [
   ['tracker.html', ['app.js']],
   ['games.html', ['games.js']],
   ['vertical-motion.html', ['vertical-motion.js']],
-  ['participants.html', ['participants.js', 'participant-voice.js']],
+  ['participants.html', ['participants.js', 'participants-sidebar.js', 'participant-voice.js']],
   ['diagnostics.html', ['diagnostics.js']]
 ];
 
@@ -123,8 +127,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.6.3') {
-  fail('package.json version must be 0.6.3');
+if (packageJson.version !== '0.6.4') {
+  fail('package.json version must be 0.6.4');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -234,8 +238,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.6\.3-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.6.3 deploy ZIP');
+if (!/tracky2-v0\.6\.4-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.6.4 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
