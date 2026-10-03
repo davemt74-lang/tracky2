@@ -1,4 +1,5 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
+import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
 import {
   deleteParticipant,
@@ -42,6 +43,9 @@ const ui = {
   recognitionEnabled: $('#recognitionEnabled'),
   sampleCount: $('#sampleCount'),
   enrollmentDots: $('#enrollmentDots'),
+  faceGallery: $('#faceSampleGallery'),
+  sampleGuide: $('#faceSampleGuide'),
+  galleryHint: $('#faceGalleryHint'),
   captureSample: $('#captureSample'),
   message: $('#formMessage'),
   save: $('#saveParticipant'),
@@ -60,7 +64,8 @@ const state = {
   currentFace: null,
   primaryPhoto: null,
   latestPhoto: null,
-  embeddings: [],
+  gallery: [],
+  retakeIndex: null,
   pendingId: null
 };
 
@@ -77,14 +82,92 @@ function setPhoto(img, empty, value) {
 }
 
 function updateEnrollmentUi() {
-  ui.sampleCount.textContent = String(state.embeddings.length);
-  [...ui.enrollmentDots.children].forEach((dot, index) => {
-    dot.classList.toggle('complete', index < state.embeddings.length);
+  const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  ui.sampleCount.textContent=String(status.count);
+  [...ui.enrollmentDots.children].forEach((dot,index)=>{
+    dot.classList.toggle('complete',index<status.count);
+    dot.setAttribute('aria-label',index<status.count?'Sample '+(index+1)+' saved':'Sample '+(index+1)+' pending');
   });
+  ui.enrollmentStatus.textContent=!ui.recognitionEnabled.checked?'Recognition off':
+    status.ready?'Recognition ready':status.count?
+    'Capture '+status.remaining+' more':'Not enrolled';
+  ui.enrollmentStatus.classList.toggle('ok',status.ready&&ui.recognitionEnabled.checked);
+  ui.sampleGuide.textContent=status.ready?
+    'Minimum met. '+(status.maximum-status.count)+' optional additional sample slots.':
+    'Capture '+status.remaining+' more clear face sample'+(status.remaining===1?'':'s')+
+    '. Your first primary photo also counts as sample one.';
+  ui.galleryHint.textContent=status.count+' of '+status.maximum+' samples · '+
+    status.photographed+' photos · '+status.required+' minimum for recognition';
+  ui.captureSample.textContent=state.retakeIndex!==null?
+    'Retake sample '+(state.retakeIndex+1):status.full?'Gallery full · 5/5':
+    'Capture sample '+(status.count+1)+' / '+status.maximum;
+  ui.captureSample.disabled=!state.currentFace?.embedding ||
+    state.currentFace.quality<0.55 || (status.full&&state.retakeIndex===null);
+}
 
-  const enough = state.embeddings.length >= 3;
-  ui.enrollmentStatus.textContent = enough ? 'Recognition ready' : state.embeddings.length ? 'Enrollment in progress' : 'Not enrolled';
-  ui.enrollmentStatus.classList.toggle('ok', enough);
+function renderFaceGallery() {
+  ui.faceGallery.replaceChildren();
+  for(let i=0;i<5;i++){
+    const sample=state.gallery[i];
+    const card=document.createElement('article');
+    card.className='face-gallery-tile';
+    if(state.retakeIndex===i)card.classList.add('retake-selected');
+    const frame=document.createElement('div');
+    frame.className='face-gallery-photo';
+    if(sample?.photo){
+      const img=document.createElement('img');
+      img.src=sample.photo;img.alt='Face sample '+(i+1)+' preview';
+      img.loading='lazy';frame.append(img);
+    } else {
+      const empty=document.createElement('span');
+      empty.textContent=sample?'Photo unavailable':'Empty slot';
+      frame.append(empty);
+    }
+    const title=document.createElement('strong');
+    title.textContent='Sample '+(i+1)+(sample?' · Saved':' · Pending');
+    card.append(frame,title);
+    if(sample){
+      const detail=document.createElement('small');
+      detail.textContent=sample.photo?
+        (sample.quality===null?'Photo saved':'Face quality '+Math.round(sample.quality*100)+'%'):
+        'Legacy sample · retake to add photo';
+      card.append(detail);
+      const actions=document.createElement('div');
+      actions.className='face-gallery-actions';
+      const primary=document.createElement('button');
+      primary.type='button';primary.textContent='Use as primary';
+      primary.disabled=!sample.photo;
+      primary.addEventListener('click',()=>{
+        if(!sample.photo)return;
+        state.primaryPhoto=sample.photo;
+        updatePhotos();setMessage('Sample '+(i+1)+' chosen as primary. Save the profile.','ok');
+      });
+      const retake=document.createElement('button');
+      retake.type='button';retake.textContent=state.retakeIndex===i?'Cancel':'Retake';
+      retake.addEventListener('click',()=>{
+        state.retakeIndex=state.retakeIndex===i?null:i;
+        updateEnrollmentUi();renderFaceGallery();
+        if(state.retakeIndex!==null)
+          setMessage('Sample '+(i+1)+' selected. Face the camera, then click Retake sample.','ok');
+      });
+      const remove=document.createElement('button');
+      remove.type='button';remove.textContent='Remove';
+      remove.setAttribute('aria-label','Remove face sample '+(i+1));
+      remove.addEventListener('click',()=>{
+        const removed=state.gallery[i];
+        state.gallery=removeFaceGallerySample(state.gallery,i);
+        state.retakeIndex=null;
+        if(removed.photo && state.primaryPhoto===removed.photo)
+          state.primaryPhoto=state.gallery.find(x=>x.photo)?.photo||null;
+        state.latestPhoto=state.gallery.slice().reverse().find(x=>x.photo)?.photo||state.primaryPhoto;
+        updatePhotos();renderFaceGallery();updateEnrollmentUi();
+        setMessage('Sample removed. Save the participant to keep changes.','ok');
+      });
+      actions.append(primary,retake,remove);
+      card.append(actions);
+    }
+    ui.faceGallery.append(card);
+  }
 }
 
 function updatePhotos() {
@@ -99,7 +182,8 @@ function clearForm() {
   window.dispatchEvent(new CustomEvent('tracky:participant-cleared'));
   state.primaryPhoto = null;
   state.latestPhoto = null;
-  state.embeddings = [];
+  state.gallery = [];
+  state.retakeIndex = null;
   state.currentFace = null;
 
   ui.formModeLabel.textContent = 'PARTICIPANT ONBOARDING';
@@ -112,6 +196,7 @@ function clearForm() {
 
   updatePhotos();
   updateEnrollmentUi();
+  renderFaceGallery();
   setMessage('');
 }
 
@@ -152,7 +237,7 @@ function renderParticipantList() {
     const title = document.createElement('strong');
     title.textContent = participant.name || 'Unnamed participant';
     const meta = document.createElement('span');
-    const sampleText = (participant.embeddings?.length || 0) + ' face samples';
+    const sampleText = (participant.embeddings?.length || 0) + ' / 3 face samples';
     const voiceReady = voiceProfileReadiness(participant);
     const voiceText = voiceReady.ready
       ? ' · voice profile ready'
@@ -192,7 +277,8 @@ async function loadParticipant(id) {
   window.dispatchEvent(new CustomEvent('tracky:participant-loaded', { detail: { participantId: participant.id } }));
   state.primaryPhoto = participant.primaryPhoto || null;
   state.latestPhoto = participant.latestPhoto || null;
-  state.embeddings = (participant.embeddings || []).map((value) => Array.from(value));
+  state.gallery=loadFaceGallery(participant);
+  state.retakeIndex=null;
 
   ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
   ui.formTitle.textContent = participant.name || 'Participant';
@@ -204,6 +290,7 @@ async function loadParticipant(id) {
 
   updatePhotos();
   updateEnrollmentUi();
+  renderFaceGallery();
   setMessage('Profile loaded. Capture a new primary photo or add enrollment samples at any time.');
 }
 
@@ -322,7 +409,7 @@ async function scanFace() {
 
     const captureReady = face.quality >= 0.55 && Boolean(face.embedding);
     ui.capturePrimary.disabled = !captureReady;
-    ui.captureSample.disabled = !captureReady || state.embeddings.length >= 5;
+    ui.captureSample.disabled = !captureReady || (state.gallery.length >= 5 && state.retakeIndex === null);
   } catch (error) {
     console.error(error);
     ui.modelStatus.textContent = 'Identity scan error';
