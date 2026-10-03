@@ -1782,8 +1782,11 @@ async function startCamera(deviceId = '') {
       height: { ideal: 720 },
       frameRate: { ideal: 60, max: 60 }
     };
-    if (deviceId) video.deviceId = { exact: deviceId };
-    else video.facingMode = { ideal: 'user' };
+    // Empty means the browser-selected default. Never treat the label "Default camera"
+    // or an unrecognized saved value as a hardware deviceId.
+    const available = [...ui.select.options].some(option=>option.value && option.value===deviceId);
+    if(deviceId && available) video.deviceId={exact:deviceId};
+    else video.facingMode={ideal:'user'};
 
     state.stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
     ui.video.srcObject = state.stream;

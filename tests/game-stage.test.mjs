@@ -27,3 +27,10 @@ test('game page exposes browser-safe optional camera startup and keeps explicit 
  assert.ok(controller.includes('cameraPermissionState('));
  assert.ok(controller.includes('cameraStoppedThisPage=true'));
 });
+
+test('default camera option has an empty device ID, never a label passed to getUserMedia',()=>{
+ const option=html.match(/<select id="cameraSelect"[^>]*><option([^>]*)>Default camera<\/option>/);
+ assert.ok(option);
+ assert.match(option[1],/value=""/);
+ assert.ok(controller.includes("if(deviceId && available) video.deviceId={exact:deviceId}"));
+});
