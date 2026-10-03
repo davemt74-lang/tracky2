@@ -9,6 +9,7 @@ import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
 import {createAgentRoom} from './agent-mode.js';
+import {roomMeterState} from './src/participant-audio-meter.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -999,12 +1000,34 @@ function createParticipantCard(track) {
   }
 
   const meter = document.createElement('div');
-  meter.className = 'participant-scan-meter';
   const fill = document.createElement('i');
-  fill.style.width = Math.round(track.scanProgress || 0) + '%';
-  meter.append(fill);
-
-  identity.append(name, detail, meter);
+  if (state.mode === 'agent') {
+    // All cards show the shared room mic. Live VAD does not establish speaker identity.
+    const audio = document.createElement('div');
+    audio.className = 'participant-audio-block';
+    const heading = document.createElement('span');
+    heading.className = 'participant-audio-title';
+    heading.textContent = 'ROOM MIC · SHARED INPUT';
+    meter.className = 'participant-audio-meter';
+    meter.dataset.trackId = String(track.id);
+    meter.setAttribute('role', 'meter');
+    meter.setAttribute('aria-label', 'Shared room input level; speaker not yet attributed');
+    meter.setAttribute('aria-valuemin', '0');
+    meter.setAttribute('aria-valuemax', '100');
+    meter.setAttribute('aria-valuenow', '0');
+    fill.className = 'participant-audio-fill';
+    meter.append(fill);
+    const caption = document.createElement('span');
+    caption.className = 'participant-audio-caption';
+    caption.textContent = 'MIC OFF';
+    audio.append(heading, meter, caption);
+    identity.append(name, detail, audio);
+  } else {
+    meter.className = 'participant-scan-meter';
+    fill.style.width = Math.round(track.scanProgress || 0) + '%';
+    meter.append(fill);
+    identity.append(name, detail, meter);
+  }
   body.append(current, identity);
 
   const participant = track.participantId ? participantById(track.participantId) : null;
@@ -1027,7 +1050,10 @@ function createParticipantCard(track) {
   const voiceRows = [
     ['VOICE PROFILE', participant ? (voiceReadiness.ready ? 'READY' : (voiceReadiness.embeddingCount + '/3')) : '—'],
     ['VOICE MATCH', track.voiceMatchConfidence ? Math.round(track.voiceMatchConfidence * 100) + '%' : '—'],
-    ['AUDIO', recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET'],
+    ['AUDIO', state.mode === 'agent'
+      ? (recentlySpoke ? 'RECENT MATCH' : state.voice.active
+        ? (state.voice.vad ? 'ROOM SPEECH' : 'QUIET') : 'OFF')
+      : (recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET')],
     ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
     ['GROUP', track.conversationGroupId || '—']
   ];
