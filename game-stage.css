@@ -1,0 +1,66 @@
+/* Camera-game HUD layout v0.6.6: center is ONLY the four-zone board.
+   Player metadata is intentionally detached from the board and pinned bottom-left. */
+.game-page .game-playfield{min-height:690px;isolation:isolate}
+.game-page.multiplayer-mode .multiplayer-stage,
+.game-page.pattern-mode .multiplayer-stage{
+  position:absolute;top:49%;left:50%;transform:translate(-50%,-50%);
+  width:auto;max-width:calc(100% - 32px);padding:0;
+  min-width:0;display:flex;align-items:center;justify-content:center;
+  border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;
+  overflow:visible;z-index:6
+}
+.game-page .multiplayer-stage[hidden]{display:none!important}
+.game-page .multiplayer-stage .shared-board{
+  width:clamp(60px,8vw,110px);height:clamp(345px,53vh,480px);
+  max-height:65vh;min-height:270px;
+  background:rgba(1,14,21,.66)
+}
+.game-page .game-player-hud{
+  position:absolute;z-index:11;left:14px;bottom:15px;
+  width:min(247px,calc(38% - 16px));max-height:min(285px,44%);
+  overflow:auto;overscroll-behavior:contain;
+  padding:10px;border:1px solid rgba(78,232,255,.3);border-radius:13px;
+  background:rgba(3,20,28,.86);backdrop-filter:blur(14px);
+  box-shadow:0 10px 30px rgba(0,0,0,.28);display:grid;gap:5px
+}
+.game-page .game-player-hud[hidden]{display:none!important}
+.game-page .game-player-hud-title{font-size:.58rem;letter-spacing:.12em;color:var(--cyan);font-weight:800}
+.game-page .game-player-hud .multi-scorecards{display:grid;grid-template-columns:1fr;gap:7px}
+.game-page .game-player-hud .multi-scorecard{
+  padding:7px 8px;border-radius:9px;background:rgba(1,14,22,.5);
+  border:1px solid rgba(95,195,211,.25)
+}
+.game-page .game-player-hud .multi-scorecard[hidden]{display:none!important}
+.game-page .game-player-hud .multi-name{font-size:.8rem}
+.game-page .game-player-hud .multi-score{font-size:1rem}
+.game-page .game-player-hud .multi-reps,
+.game-page .game-player-hud .multi-travel,
+.game-page .game-player-hud .multi-presence,
+.game-page .game-player-hud .multi-marker-status,
+.game-page .game-player-hud .multi-voice{font-size:.62rem;line-height:1.35}
+.game-page .game-player-hud .pattern-roster-scoreboard{
+  max-height:none;overflow:visible;grid-template-columns:1fr;gap:4px
+}
+.game-page .game-player-hud .pattern-round-timer,
+.game-page .game-player-hud .multi-turn-label,
+.game-page .game-player-hud .stability-status,
+.game-page .game-player-hud .multi-instruction{
+  width:100%;min-height:0;text-align:left;font-size:.67rem;
+  line-height:1.4
+}
+.game-page .game-player-hud .multi-turn-label{color:#c1ffe5;font-weight:850}
+.game-page .game-player-hud .pattern-round-timer{color:var(--cyan);font-variant-numeric:tabular-nums}
+.game-page .camera-autostart-option{flex:1 1 235px;min-width:220px!important;align-self:center}
+.game-page .camera-preference-status{color:var(--muted);font-size:.68rem;align-self:center}
+@media(max-width:1150px){
+ .game-page.multiplayer-mode .multiplayer-stage,
+ .game-page.pattern-mode .multiplayer-stage{left:51%;top:48%}
+ .game-page .game-player-hud{width:min(210px,calc(38% - 16px))}
+}
+@media(max-width:760px){
+ .game-page.multiplayer-mode .multiplayer-stage,
+ .game-page.pattern-mode .multiplayer-stage{left:50%;top:42%}
+ .game-page .game-player-hud{bottom:8px;left:8px;width:min(265px,calc(100% - 16px));
+  max-height:24%;padding:8px}
+ .game-page .multiplayer-stage .shared-board{max-height:39vh;height:300px}
+}
