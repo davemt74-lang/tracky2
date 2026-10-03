@@ -180,6 +180,16 @@ for (const file of runtimeJs) {
   ];
 
   for (const [label, pattern] of banned) {
+    if(label==='insecure HTTP URL'&&file==='src/agent-provider.js'){
+      // This one optional connector only accepts verified browser loopback origins.
+      // Never waive the HTTP prohibition for any other runtime module or host.
+      const nonLoopback=source.replace(/http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?=[:/'"`])/gi,'');
+      if(pattern.test(nonLoopback))fail(file+' contains non-loopback insecure HTTP URL');
+      if(!source.includes("validateLocalAgentEndpoint")||
+         !source.includes("['localhost','127.0.0.1','[::1]']"))
+        fail('Local model exception requires strict loopback hostname validation');
+      continue;
+    }
     if (pattern.test(source)) fail(file + ' contains banned runtime pattern: ' + label);
   }
 
