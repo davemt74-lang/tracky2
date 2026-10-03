@@ -224,6 +224,7 @@ export function participantRecord(input = {}) {
         capturedAt:typeof sample?.capturedAt==='string'?sample.capturedAt:null
       })) : [],
     recognitionEnabled: input.recognitionEnabled !== false,
+    agentGreetingEnabled: input.agentGreetingEnabled !== false,
     voiceEmbeddings: Array.isArray(input.voiceEmbeddings) ? input.voiceEmbeddings.map((v) => Array.from(v)) : [],
     voiceRecognitionEnabled: input.voiceRecognitionEnabled !== false,
     voiceProfileSamples: Array.isArray(input.voiceProfileSamples) ? input.voiceProfileSamples : [],
