@@ -129,7 +129,7 @@ button,select,.button-link,.points-goal input,.participant-fields input,.partici
 .identity-camera-stage{position:relative;aspect-ratio:16/10;overflow:hidden;border:1px solid var(--line);border-radius:13px;background:radial-gradient(circle at center,rgba(78,232,255,.08),#010507 68%)}.identity-camera-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}.camera-placeholder{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;text-align:center;padding:30px}.camera-placeholder[hidden]{display:none}.camera-placeholder p{color:var(--muted);font-size:.75rem;max-width:290px;line-height:1.5;margin:7px 0 0}
 .scan-icon{display:block;width:58px;height:58px;border:1px solid rgba(78,232,255,.42);border-radius:50%;position:relative;margin-bottom:12px;box-shadow:0 0 30px rgba(78,232,255,.1)}.scan-icon:before,.scan-icon:after{content:"";position:absolute;background:var(--cyan)}.scan-icon:before{width:1px;top:8px;bottom:8px;left:50%}.scan-icon:after{height:1px;left:8px;right:8px;top:50%}.scan-icon.mini{width:34px;height:34px;margin:0;flex:none}
 .scan-sweep{position:absolute;left:0;right:0;height:2px;top:20%;background:linear-gradient(90deg,transparent,var(--cyan),transparent);box-shadow:0 0 18px rgba(78,232,255,.8);opacity:.65;animation:scan-sweep 2.8s ease-in-out infinite;pointer-events:none}
-.face-reticle{position:absolute;border:1px solid rgba(92,255,157,.75);transform:scaleX(-1);pointer-events:none;min-width:50px;min-height:50px}.face-reticle i{position:absolute;width:15px;height:15px;border-color:var(--green)}.face-reticle i:nth-child(1){left:-3px;top:-3px;border-left:3px solid;border-top:3px solid}.face-reticle i:nth-child(2){right:-3px;top:-3px;border-right:3px solid;border-top:3px solid}.face-reticle i:nth-child(3){right:-3px;bottom:-3px;border-right:3px solid;border-bottom:3px solid}.face-reticle i:nth-child(4){left:-3px;bottom:-3px;border-left:3px solid;border-bottom:3px solid}.face-reticle span{position:absolute;left:0;bottom:-22px;white-space:nowrap;font-size:.58rem;letter-spacing:.08em;color:var(--green);font-weight:900;transform:scaleX(-1)}
+.face-reticle{position:absolute;border:1px solid rgba(92,255,157,.75);pointer-events:none;box-sizing:border-box;will-change:left,top,width,height}.face-reticle i{position:absolute;width:15px;height:15px;border-color:var(--green)}.face-reticle i:nth-child(1){left:-3px;top:-3px;border-left:3px solid;border-top:3px solid}.face-reticle i:nth-child(2){right:-3px;top:-3px;border-right:3px solid;border-top:3px solid}.face-reticle i:nth-child(3){right:-3px;bottom:-3px;border-right:3px solid;border-bottom:3px solid}.face-reticle i:nth-child(4){left:-3px;bottom:-3px;border-left:3px solid;border-bottom:3px solid}.face-reticle span{position:absolute;left:0;bottom:-22px;white-space:nowrap;font-size:.58rem;letter-spacing:.08em;color:var(--green);font-weight:900}
 .face-quality-meter{margin-top:10px}.face-quality-meter>div:first-child{display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted);font-weight:800;letter-spacing:.08em}.meter,.participant-scan-meter{height:4px;background:rgba(78,232,255,.08);overflow:hidden;margin-top:6px}.meter i,.participant-scan-meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));box-shadow:0 0 10px rgba(78,232,255,.45);transition:width .25s ease}
 .camera-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.camera-actions .hud-button{flex:1;min-width:120px}
 .photo-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.photo-pair figure{margin:0}.portrait-frame{aspect-ratio:1;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,rgba(78,232,255,.05),rgba(0,0,0,.2));color:rgba(78,232,255,.32);font-size:.65rem;font-weight:900;letter-spacing:.14em}.portrait-frame.current{border-style:dashed}.portrait-frame img{width:100%;height:100%;object-fit:cover}.photo-pair figcaption{color:var(--muted);font-size:.64rem;margin-top:5px;text-align:center}.text-action{border:0;background:transparent;color:var(--cyan);min-height:34px;padding:0;margin:2px 0 8px;font-size:.7rem}.text-action:disabled{opacity:.32}
@@ -674,3 +674,26 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 .lobby-game-tiles article{background:#0a2026;border:1px solid #57ba9873;padding:14px;border-radius:12px}
 .lobby-game-tiles article strong{font-size:.86rem;color:#c1f9dd}
 .lobby-game-tiles article p{font-size:.78rem;color:#96c1ad;line-height:1.55}
+
+/* Five real enrollment preview cards, with responsive individual review controls. */
+.face-sample-guide{font-size:.75rem;color:var(--text);padding:9px 11px;background:rgba(63,174,142,.12);border:1px solid rgba(63,174,142,.28);border-radius:8px;margin:10px 0}
+.face-gallery-header{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap;margin-top:16px;font-size:.8rem}
+.face-gallery-header span{color:var(--muted);font-size:.7rem}
+.face-sample-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:9px;margin:10px 0}
+.face-gallery-tile{min-width:0;border:1px solid var(--line);border-radius:11px;padding:7px;background:rgba(4,23,29,.62);display:grid;gap:6px;align-content:start}
+.face-gallery-tile.retake-selected{border-color:#7df1a7;box-shadow:0 0 0 1px #7df1a799}
+.face-gallery-photo{aspect-ratio:1/1;border-radius:8px;background:linear-gradient(145deg,#10282d,#091218);display:grid;place-items:center;overflow:hidden;border:1px dashed #326467}
+.face-gallery-photo img{width:100%;height:100%;object-fit:cover}
+.face-gallery-photo span{text-align:center;color:#93b3ac;padding:7px;font-size:.68rem}
+.face-gallery-tile strong{font-size:.69rem}
+.face-gallery-tile small{font-size:.61rem;line-height:1.3;color:var(--muted);min-height:25px}
+.face-gallery-actions{display:flex;flex-wrap:wrap;gap:5px}
+.face-gallery-actions button{cursor:pointer;border:1px solid #466a66;border-radius:6px;padding:5px 7px;color:var(--text);background:#102c2c;font-size:.66rem;flex:1 1 45%}
+.face-gallery-actions button:disabled{opacity:.4;cursor:not-allowed}
+.face-gallery-actions button:hover:not(:disabled),.face-gallery-actions button:focus-visible{border-color:#8ef4b0}
+.enrollment-block .face-gallery-footnote{font-size:.68rem;line-height:1.5;margin:8px 0}
+@media(max-width:600px){.face-sample-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Camera preview and reticle share the exact same displayed area. The video alone
+   is mirrored; the reticle is placed using geometric mirror/object-fit mapping. */
+.identity-camera-stage video{position:absolute;inset:0;display:block;width:100%;height:100%;object-position:center center}

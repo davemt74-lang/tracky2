@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while a match may be active.
-const CACHE='tracky2-static-v0.6.2';
+const CACHE='tracky2-static-v0.6.3';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
@@ -12,7 +12,7 @@ const ASSETS=[
   './src/game-lobby.js','./src/game-session.js','./src/game-input.js',
   './src/game-presenter.js','./src/color-controllers.js','./src/multiplayer-match.js',
   './src/controller-stability.js','./src/player-presence.js','./src/match-history.js',
-  './src/hardware-diagnostics.js','./src/participant-core.js','./src/participant-store.js',
+  './src/hardware-diagnostics.js','./src/participant-core.js','./src/face-gallery.js','./src/face-preview.js','./src/participant-store.js',
   './src/identity-engine.js','./src/room-tracking-core.js','./src/voice-core.js',
   './src/voice-engine.js','./src/room-audio-engine.js','./src/room-audio-worklet.js',
   './src/model-config.js','./src/games/random-follow-pattern.js',
