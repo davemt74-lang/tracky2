@@ -1,3 +1,7 @@
+# Tracky2 V0.8.0 — Self-hosted installer, accounts and database
+
+Includes v0.7.4 AGENT camera/orb controls and ZZZ shortcut. New: one-time owner setup with no installation API key, private SQLite data, permission-managed users, encrypted provider settings, and consent-based participant migration. See [self-host instructions](docs/SELFHOST-FOUNDATION.md).
+
 # Tracky2 V0.7.4 — Always-accessible Camera / Orb views
 
 On `vertical-motion.html?mode=agent`, the Camera / Orb switch appears immediately without waiting for recognition or the room model. `vertical-motion.html?mode=agent&view=orb` directly opens the no-video floating orb; the camera and audio remain active under existing permissions. The game lobby now offers a dedicated Launch AGENT · Orb button. Press ZZZ (three Z keys rapidly) outside text fields to toggle between Camera and Orb. Conversation remains separate from AGENT settings and v0.7.3 room-level audio meters remain unchanged.
@@ -13,7 +17,9 @@ Update the PWA after stopping camera/room audio when prompted, or install from t
 
 AGENT now opens as a full-screen standalone experience, with the old site header, footer, gameplay score, repetitions, gameboard and below-screen configuration completely hidden in AGENT mode. A top switch selects the original live camera/bounding box visualization or a floating, Jarvis-inspired voice orb. Orb view is only a visual mode: camera/identity/room-audio hardware streams continue operating under existing browser permissions. The orb's outer rings brighten and pulse while the existing browser speech engine is actually speaking; end, error and interruption clear the animation. Reduced-motion users see a static illuminated state.
 
-Conversation remains selected by default when AGENT loads. The third AGENT tab holds only voice, model and history settings; no conversation entries or transcripts are moved.\n\nThe left sidebar provides **Conversation** (room transcription and AGENT conversation history), **Player Activity** (confirmed participant history), and **AGENT** (voice selection, local-model configuration and opt-in history settings) as three separate keyboard-accessible tabs. Nothing moves the conversation transcript into the settings tab. All original audio/voice-capture, participant tracking, optional local model and history semantics remain in the canonical AGENT runtime.
+Conversation remains selected by default when AGENT loads. The third AGENT tab holds only voice, model and history settings; no conversation entries or transcripts are moved.
+
+The left sidebar provides **Conversation** (room transcription and AGENT conversation history), **Player Activity** (confirmed participant history), and **AGENT** (voice selection, local-model configuration and opt-in history settings) as three separate keyboard-accessible tabs. Nothing moves the conversation transcript into the settings tab. All original audio/voice-capture, participant tracking, optional local model and history semantics remain in the canonical AGENT runtime.
 
 # Tracky2 v0.7.0 — AGENT Game
 

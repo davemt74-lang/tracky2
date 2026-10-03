@@ -1,6 +1,6 @@
 // Shell is deliberately limited to same-origin static files only; local profile storage
 // and optional CDN recognition/voice models are NEVER pre-cached or intercepted.
-const STATIC_CACHE='tracky2-static-v0.7.4';
+const STATIC_CACHE='tracky2-static-v0.8.0';
 const SHELL=Object.freeze([
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
