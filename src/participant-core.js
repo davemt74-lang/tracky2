@@ -217,6 +217,12 @@ export function participantRecord(input = {}) {
     primaryPhoto: input.primaryPhoto || null,
     latestPhoto: input.latestPhoto || null,
     embeddings: Array.isArray(input.embeddings) ? input.embeddings.map((v) => Array.from(v)) : [],
+    faceSamples: Array.isArray(input.faceSamples) && input.faceSamples.length===input.embeddings?.length
+      ? input.faceSamples.map(sample=>({
+        photo:typeof sample?.photo==='string' && sample.photo.startsWith('data:image/')?sample.photo:null,
+        quality:Number.isFinite(sample?.quality)?sample.quality:null,
+        capturedAt:typeof sample?.capturedAt==='string'?sample.capturedAt:null
+      })) : [],
     recognitionEnabled: input.recognitionEnabled !== false,
     voiceEmbeddings: Array.isArray(input.voiceEmbeddings) ? input.voiceEmbeddings.map((v) => Array.from(v)) : [],
     voiceRecognitionEnabled: input.voiceRecognitionEnabled !== false,
