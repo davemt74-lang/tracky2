@@ -117,10 +117,10 @@
 .participants-page .participant-camera-dock .face-quality-meter{width:min(190px,100%);margin:0}
 .participants-page .participant-camera-dock .face-quality-meter>div:first-child{font-size:.55rem}
 .participants-page .participants-layout[data-roster="collapsed"] .participant-workspace-head{padding-left:1px}
-.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack [hidden]){transform:none;opacity:1;pointer-events:auto}
-.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack [hidden])~.participant-overlay-stack{
+.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack > .participant-glass-panel[hidden]){transform:none;opacity:1;pointer-events:auto}
+.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack > .participant-glass-panel[hidden])~.participant-overlay-stack{
   top:61px}
-.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack [hidden]){background:none}
+.participants-page .participant-float-toggle-group:has(+ .participant-overlay-stack > .participant-glass-panel[hidden]){background:none}
 @media(max-width:1150px){
   .participants-page .participants-layout{--roster-width:268px}
   .participants-page .participant-overlay-stack{width:min(310px,41vw)}
