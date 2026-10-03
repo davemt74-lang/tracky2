@@ -47,7 +47,7 @@ import {
 } from './src/voice-core.js';
 import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
-import {RoomPresenceLedger,roomObservation,appendRoomObservation} from './src/room-event-core.js';
+import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-event-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -187,7 +187,14 @@ const traceCtx = ui.trace.getContext('2d');
 
 let agentRuntime=null;
 const roomPresence=new RoomPresenceLedger();
-let roomHistory=[],saveRoomHistory=false;
+const roomLedger=new RoomEventLedger();
+const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
+function roomSensorState(sensor,status,message){
+ if(state.mode!=='agent')return;
+ logRoomMessage('system',message,'sensor-lifecycle',
+  {kind:'observation',semantic:'sensor-state',sensor,status});
+}
 const roomAmbientAudit=new RoomAmbientAudit();
 let lastRoomAudioPaint=-Infinity,lastRejectedRoomSegmentAt=-Infinity;
 function renderAmbientAudioMeter(force=false){
@@ -223,6 +230,11 @@ function renderRoomObservations(){
  if(!timeline||!status)return;
  timeline.replaceChildren();
  const visible=state.running?publicRoomTracks():[];
+ const projection=roomLedger.project();
+ const states=document.getElementById('roomSensorStates');
+ if(states)states.textContent='Sensor history: camera '+projection.sensors.camera+
+  ' · microphone '+projection.sensors.microphone+
+  ' · '+projection.events.length+' effective events';
  status.textContent=!state.running?'Camera unavailable · observations paused':
   visible.length?visible.length+' stable participant'+(visible.length===1?'':'s')+' visible · '+(state.voice.active?'audio on':'audio off'):
   'No stable participants visible · '+(state.voice.active?'audio on':'audio off');
@@ -233,8 +245,28 @@ function renderRoomObservations(){
   const heading=document.createElement('strong');heading.textContent=e.message;
   const meta=document.createElement('small');
   const duration=e.evidence?.durationMs;
-  meta.textContent=e.category.toUpperCase()+' · '+e.source+(Number.isFinite(duration)?' · '+Math.round(duration/1000)+'s visible':'');
-  item.append(time,heading,meta);timeline.append(item);
+  const corrected=projection.corrections[e.id];
+  if(corrected?.correction.operation==='retract')item.classList.add('room-retracted');
+  meta.textContent=(e.kind||'observation').toUpperCase()+' / '+e.category.toUpperCase()+
+    ' · '+e.source+(Number.isFinite(e.confidence)?' · '+Math.round(e.confidence*100)+'% confidence':'')+
+    (Number.isFinite(duration)?' · '+Math.round(duration/1000)+'s measured':'')+
+    (corrected?' · CORRECTED':'');
+  item.append(time,heading,meta);
+  if(e.kind!=='correction'&&!corrected){
+   const button=document.createElement('button');button.type='button';
+   button.className='room-mark-incorrect';button.textContent='Mark incorrect';
+   button.setAttribute('aria-label','Retract event: '+e.message);
+   button.addEventListener('click',()=>{
+    const reason=window.prompt('Correction reason (stored in your ROOM history):');
+    if(!reason?.trim())return;
+    logRoomMessage('system','Correction: '+reason.trim().slice(0,175),'owner-correction',{
+     kind:'correction',participantId:e.participantId,
+     correction:{targetId:e.id,operation:'retract'}
+    });
+   });
+   item.append(button);
+  }
+  timeline.append(item);
  }
  if(!roomHistory.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
@@ -243,11 +275,18 @@ function renderRoomObservations(){
 }
 function addRoomObservation(observation){
  if(state.mode!=='agent'||!observation?.message)return;
- roomHistory=appendRoomObservation(roomHistory,observation);renderRoomObservations();
- if(saveRoomHistory)void saveRoomObservation(observation).catch(error=>console.warn('Room observation not saved:',error));
+ const accepted=roomLedger.append(observation);
+ if(!accepted.added)return;
+ roomHistory=roomLedger.entries();renderRoomObservations();
+ if(saveRoomHistory){
+  const epoch=roomPrivacyEpoch,event=accepted.event;
+  roomWrites=roomWrites.catch(()=>{}).then(()=>
+   epoch===roomPrivacyEpoch?saveRoomObservation(event):undefined
+  ).catch(error=>console.warn('Room observation not saved:',error));
+ }
 }
 function logRoomMessage(category,message,source='runtime',options={}){
- addRoomObservation(roomObservation({category,message,source,...options}));
+ addRoomObservation(roomObservation({category,message,source,sessionId:roomSessionId,...options}));
 }
 
 let agentSpeechActive=false;
@@ -1805,6 +1844,7 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
     updateParticipantAudioMeters(true);
     if(state.mode==='agent')renderAmbientAudioMeter(true);
@@ -1819,6 +1859,7 @@ async function startRoomAudio() {
   } catch (error) {
     console.error(error);
     state.voice.active = false;
+    roomSensorState('microphone','degraded','Room microphone start failed');
     pushRoomEvent(
       window.isSecureContext
         ? 'Microphone could not be started.'
@@ -1830,6 +1871,8 @@ async function startRoomAudio() {
 }
 
 function stopRoomAudio() {
+  if(state.mode==='agent'&&state.voice.active)
+   roomSensorState('microphone','offline','Room microphone stopped · silence not inferred');
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
   state.voice.generation += 1;
@@ -2110,7 +2153,7 @@ function maybeScanRoom(now) {
 function stopCamera() {
   if(state.mode==='agent'&&state.running){
    roomPresence.unavailable();
-   logRoomMessage('system','Camera stopped · participant absence not inferred','camera');
+   roomSensorState('camera','offline','Camera stopped · participant absence not inferred');
   }
   state.latestMarkerDetections = { green: null, blue: null };
   state.gameplay.signalLost();
@@ -2179,6 +2222,7 @@ async function startCamera(deviceId = '') {
 
     state.running = true;
     if(state.mode==='agent'){
+      roomSensorState('camera','online','Camera online · observations resumed');
       agentRuntime?.setCameraActive(true);
       void startRoomAudio();
     }
@@ -2195,6 +2239,7 @@ async function startCamera(deviceId = '') {
     return true;
   } catch (error) {
     console.error(error);
+    roomSensorState('camera','degraded','Camera start failed · participant absence not inferred');
     ui.cameraStatus.textContent = window.isSecureContext ? 'Could not start camera' : 'Use localhost or HTTPS';
     updateGameScene('error');
     return false;
@@ -2676,21 +2721,35 @@ if(state.mode==='agent'){
   try{saveRoomHistory=window.localStorage.getItem('tracky2-save-room-observations')==='yes';}
   catch{saveRoomHistory=false;}
   roomOptIn.checked=saveRoomHistory;
-  if(saveRoomHistory)void listRoomObservations().then(rows=>{
-   const seen=new Set(roomHistory.map(x=>x.id));
-   roomHistory=[...rows.filter(row=>!seen.has(row.id)),...roomHistory]
-    .sort((a,b)=>a.at-b.at).slice(-120);
-   renderRoomObservations();
-  }).catch(console.warn);
+  if(saveRoomHistory){
+   const epoch=roomPrivacyEpoch;
+   void listRoomObservations().then(rows=>{
+    if(epoch!==roomPrivacyEpoch)return;
+    roomHistory=roomLedger.restore([...rows,...roomHistory]);
+    renderRoomObservations();
+   }).catch(console.warn);
+  }
   roomOptIn.addEventListener('change',()=>{
+   roomPrivacyEpoch++;
    saveRoomHistory=roomOptIn.checked;
    try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
-   if(saveRoomHistory)for(const event of roomHistory)void saveRoomObservation(event).catch(console.warn);
+   if(saveRoomHistory){
+    const epoch=roomPrivacyEpoch, snapshot=roomLedger.entries();
+    for(const event of snapshot){
+     roomWrites=roomWrites.catch(()=>{}).then(()=>
+      epoch===roomPrivacyEpoch?saveRoomObservation(event):undefined
+     ).catch(console.warn);
+    }
+   }
   });
   roomClear.addEventListener('click',async()=>{
    if(!window.confirm('Clear ROOM observations saved on this device?'))return;
-   roomHistory=[];renderRoomObservations();
-   try{await clearRoomObservations();}catch(error){console.warn('Unable to clear saved room observations',error);}
+   roomPrivacyEpoch++;
+   roomLedger.clear();roomHistory=[];renderRoomObservations();
+   try{
+    await roomWrites.catch(()=>{});
+    await clearRoomObservations();
+   }catch(error){console.warn('Unable to clear saved room observations',error);}
   });
   const hour=new Date().getHours();
   logRoomMessage('system','Local '+(hour<6?'night':hour<12?'morning':hour<18?'daytime':'evening')+' session started','local-clock');
