@@ -8,6 +8,7 @@ import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
+import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
@@ -113,6 +114,11 @@ const ui = {
   voiceStatus: $('#voiceStatus'),
   participantCards: $('#participantCards'),
   participantHudEmpty: $('#participantHudEmpty'),
+  roomDialogueTab: $('#roomDialogueTab'),
+  playerActivityTab: $('#playerActivityTab'),
+  roomDialoguePanel: $('#roomDialoguePanel'),
+  playerActivityPanel: $('#playerActivityPanel'),
+  activityTimeline: $('#playerActivityTimeline'),
   roomRadarTracks: $('#roomRadarTracks'),
   sceneOverlay: $('#gameSceneOverlay'),
   sceneStatus: $('#gameSceneStatus'),
@@ -195,6 +201,7 @@ const state = {
   latestMarkerDetections: { green: null, blue: null },
   trace: [],
   lastUiUpdate: 0,
+  activity:{events:[],lastZones:new Map(),seenParticipants:new Set()},
   identity: {
     engine: new IdentityEngine(),
     ready: false,
@@ -783,6 +790,66 @@ async function reloadIdentityParticipants() {
   }
 }
 
+function showRoomTab(tab){
+ const activity=tab==='activity';
+ ui.roomDialoguePanel.hidden=activity;ui.playerActivityPanel.hidden=!activity;
+ ui.roomDialogueTab.setAttribute('aria-selected',String(!activity));
+ ui.playerActivityTab.setAttribute('aria-selected',String(activity));
+ ui.roomDialogueTab.tabIndex=activity?-1:0;ui.playerActivityTab.tabIndex=activity?0:-1;
+}
+for(const [button,name] of [[ui.roomDialogueTab,'dialogue'],[ui.playerActivityTab,'activity']]){
+ button.addEventListener('click',()=>showRoomTab(name));
+ button.addEventListener('keydown',event=>{
+  if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
+  event.preventDefault();
+  const next=event.key==='ArrowRight'||event.key==='End'?'activity':'dialogue';
+  showRoomTab(next);(next==='activity'?ui.playerActivityTab:ui.roomDialogueTab).focus();
+ });
+}
+function logPlayerActivity(participantId,kind,detail='',source='assigned-player'){
+ const person=state.identity.participants.find(x=>x.id===participantId);
+ if(!person)return;
+ const event=activityEvent({participantId,name:person.name,kind,detail,source,at:Date.now()});
+ if(!event)return;
+ const next=addActivity(state.activity.events,event);
+ if(next.length===state.activity.events.length &&
+    next[next.length-1]===state.activity.events[state.activity.events.length-1])return;
+ state.activity.events=next;renderPlayerActivity();
+}
+const activitySymbols={present:'●',zone:'▣',rep:'↕',target:'◎',hit:'⚡',point:'★',round:'◷',complete:'✓'};
+function renderPlayerActivity(){
+ ui.activityTimeline.replaceChildren();
+ if(!state.activity.events.length){
+  const empty=document.createElement('p');empty.className='player-activity-empty';
+  empty.textContent='Confirmed presence and assigned game actions appear here.';
+  ui.activityTimeline.append(empty);return;
+ }
+ for(const event of state.activity.events.slice().reverse()){
+  const item=document.createElement('article');item.className='player-activity-item activity-'+event.kind;
+  const symbol=document.createElement('span');symbol.className='player-activity-glyph';
+  symbol.textContent=activitySymbols[event.kind]||'●';symbol.setAttribute('aria-hidden','true');
+  const copy=document.createElement('div');copy.className='player-activity-copy';
+  const name=document.createElement('strong');name.textContent=event.name;
+  const detail=document.createElement('p');
+  const labels={present:'Confirmed in view',zone:'Moved marker',rep:'Completed repetition',
+   target:'Completed target',hit:'Reaction hit',point:'Point scored',round:'Round transition',complete:'Game complete'};
+  detail.textContent=labels[event.kind]+(event.detail?' · '+event.detail:'');
+  const qualifier=document.createElement('small');
+  qualifier.textContent=event.source==='confirmed-tracking'?'Camera-confirmed enrolled participant':
+    'Assigned player · marker holder unverified';
+  copy.append(name,detail,qualifier);
+  const time=document.createElement('time');time.dateTime=new Date(event.at).toISOString();
+  time.textContent=new Date(event.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  item.append(symbol,copy,time);ui.activityTimeline.append(item);
+ }
+}
+function recordObservedPresence(now){
+ for(const track of visibleRoomParticipants(now)){
+  if(state.activity.seenParticipants.has(track.participantId))continue;
+  state.activity.seenParticipants.add(track.participantId);
+  logPlayerActivity(track.participantId,'present','Identity match stabilized','confirmed-tracking');
+ }
+}
 function updateGameScene(step){
  const state=sceneStep(step);
  ui.sceneOverlay.hidden=step==='idle'||step==='ready';
@@ -1722,6 +1789,7 @@ async function scanRoom(now) {
       ...nonConflictingCarried
     ]);
     updateConversationGroups();
+    recordObservedPresence(now);
     acknowledgeRoomTracks(now);
 
     state.identity.completeScans+=1;
