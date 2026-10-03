@@ -1,3 +1,14 @@
+# Tracky2 V0.7.4 — Always-accessible Camera / Orb views
+
+On `vertical-motion.html?mode=agent`, the Camera / Orb switch appears immediately without waiting for recognition or the room model. `vertical-motion.html?mode=agent&view=orb` directly opens the no-video floating orb; the camera and audio remain active under existing permissions. The game lobby now offers a dedicated Launch AGENT · Orb button. Press ZZZ (three Z keys rapidly) outside text fields to toggle between Camera and Orb. Conversation remains separate from AGENT settings and v0.7.3 room-level audio meters remain unchanged.
+
+# Tracky2 V0.7.4 — AGENT tabs, live microphone meter and translucent sidebars
+
+AGENT shows the third AGENT controls tab immediately from the mode URL, independent of camera or model initialization. Conversation is still the default tab and exclusively contains transcript and agent messages; AGENT contains voice, model and history preferences.
+
+On every AGENT participant card the former face-progress strip below the match confidence becomes a live meter driven by the existing RoomAudioCapture worklet. It represents the **shared room microphone**, not an isolated per-person input. QUIET and ROOM SPEECH are real noise-gate/VAD states. Live speech is never attributed to the visible person merely because they are on screen; the existing voice matching engine confirms speaker identity after complete segments. Mic OFF and MIC PAUSED during TTS are explicit. Both left and right HUDs and child cards have translucent glass panels. All other games keep their original face-progress and styling.
+
+Update the PWA after stopping camera/room audio when prompted, or install from the v0.7.4 direct deploy ZIP. Hardware-level audio and camera acceptance remains necessary.
 # Tracky2 V0.7.2 — Immersive AGENT camera and voice orb
 
 AGENT now opens as a full-screen standalone experience, with the old site header, footer, gameplay score, repetitions, gameboard and below-screen configuration completely hidden in AGENT mode. A top switch selects the original live camera/bounding box visualization or a floating, Jarvis-inspired voice orb. Orb view is only a visual mode: camera/identity/room-audio hardware streams continue operating under existing browser permissions. The orb's outer rings brighten and pulse while the existing browser speech engine is actually speaking; end, error and interruption clear the animation. Reduced-motion users see a static illuminated state.

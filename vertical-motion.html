@@ -44,6 +44,7 @@
         <button type="button" id="agentCameraView" aria-pressed="true">Camera</button>
         <button type="button" id="agentOrbView" aria-pressed="false">Orb</button>
       </div>
+      <span class="agent-shortcut-hint" title="Press Z three times quickly to switch views">ZZZ ⇄</span>
     </nav>
     <div id="agentOrbStage" class="agent-orb-stage" aria-label="Agent voice orb visualization" hidden>
       <div class="agent-orb-aura" aria-hidden="true"></div>
@@ -155,7 +156,7 @@
       </section>
       <section id="roomAgentPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomAgentTab" hidden>
         <div class="agent-tab-heading"><strong>AGENT</strong><span>Voice, model and history preferences</span></div>
-      <div class="agent-left-controls" id="agentLeftControls" hidden>
+      <div class="agent-left-controls" id="agentLeftControls">
         <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
         <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>

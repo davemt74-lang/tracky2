@@ -6,6 +6,14 @@ const activity=document.getElementById('playerActivityTab');
 const agent=document.getElementById('roomAgentTab');
 const panes={dialogue:document.getElementById('roomDialoguePanel'),
  activity:document.getElementById('playerActivityPanel'),agent:document.getElementById('roomAgentPanel')};
+// The tab must not depend on camera/model initialization to become visible.
+const requestedAgent=typeof window!=='undefined' &&
+ new URLSearchParams(window.location?.search||'').get('mode')==='agent';
+if(agent&&requestedAgent){
+ agent.hidden=false;
+ const controls=document.getElementById('agentLeftControls');
+ if(controls)controls.hidden=false;
+}
 let selected='dialogue';
 function show(tab,focus=false){
  const activeAgent=Boolean(agent&&!agent.hidden);
