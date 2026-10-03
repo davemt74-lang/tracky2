@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="./scene-analysis.css">
 <link rel="stylesheet" href="./room-tabs.css">
 <link rel="stylesheet" href="./agent-mode.css">
-<link rel="stylesheet" href="./agent-mode.css">
+<link rel="stylesheet" href="./agent-presence.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -38,6 +38,21 @@
   <section class="game-playfield" id="playfield">
     <video id="cameraVideo" playsinline muted hidden></video>
     <div id="agentCameraBoxes" class="agent-camera-boxes" aria-hidden="true" hidden></div>
+    <nav id="agentViewChooser" class="agent-view-chooser" aria-label="Agent main view" hidden>
+      <a class="agent-exit" href="./games.html" aria-label="Exit AGENT to games">← Exit</a>
+      <div class="agent-view-buttons" role="group" aria-label="Main visualization">
+        <button type="button" id="agentCameraView" aria-pressed="true">Camera</button>
+        <button type="button" id="agentOrbView" aria-pressed="false">Orb</button>
+      </div>
+    </nav>
+    <div id="agentOrbStage" class="agent-orb-stage" aria-label="Agent voice orb visualization" hidden>
+      <div class="agent-orb-aura" aria-hidden="true"></div>
+      <div id="agentVoiceOrb" class="agent-voice-orb" data-speech="idle" aria-hidden="true">
+        <div class="agent-orb-ring ring-a"></div><div class="agent-orb-ring ring-b"></div>
+        <div class="agent-orb-ring ring-c"></div><div class="agent-orb-core"></div>
+      </div>
+      <strong>AGENT</strong><span id="agentOrbCaption" role="status">Listening for participants</span>
+    </div>
     <div id="agentCameraBadge" class="agent-camera-badge" hidden><i></i><b>AGENT · CAMERA VIEW</b><span id="agentSceneLabel">Preparing room</span></div>
     <div id="agentCameraControls" class="agent-camera-controls" hidden>
       <button type="button" id="agentCameraStart">Start camera + room audio</button>
@@ -88,25 +103,10 @@
     </aside>
 
     <aside id="roomLeftPanel" class="room-left-panel" aria-label="Room dialogue and player activity">
-      <div class="agent-left-controls" id="agentLeftControls" hidden>
-        <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
-        <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
-        <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
-        <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
-        <details class="agent-model-settings">
-          <summary>Conversational AI · optional local model</summary>
-          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
-          <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
-          <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
-          <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
-          <small>Your browser must be able to reach this localhost service (CORS may need configuring). No images, audio or biometrics are sent.</small>
-        </details>
-        <button type="button" id="agentClearHistory">Clear agent history</button>
-        <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
-      </div>
       <div class="room-left-tabs" role="tablist" aria-label="Room information">
-        <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Room Dialogue</button>
+        <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Conversation</button>
         <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
+        <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1" hidden>AGENT</button>
       </div>
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
 
@@ -152,6 +152,27 @@
       <div id="patternRosterScoreboard" class="pattern-roster-scoreboard" aria-label="Timed pattern player roster" hidden></div>
     
         </section>
+      </section>
+      <section id="roomAgentPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomAgentTab" hidden>
+        <div class="agent-tab-heading"><strong>AGENT</strong><span>Voice, model and history preferences</span></div>
+      <div class="agent-left-controls" id="agentLeftControls" hidden>
+        <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
+        <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
+        <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
+        <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
+        <details class="agent-model-settings">
+          <summary>Conversational AI · optional local model</summary>
+          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
+          <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
+          <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
+          <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
+          <small>Your browser must be able to reach this localhost service (CORS may need configuring). No images, audio or biometrics are sent.</small>
+        </details>
+        <button type="button" id="agentClearHistory">Clear agent history</button>
+        <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
+      </div>
+
+        <p class="agent-tab-note">Conversation and transcript history remain in the Conversation tab. Voice, model and history controls are configured here.</p>
       </section>
     </aside>
     <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
@@ -391,6 +412,7 @@
   </section>
 </div>
 <script type="module" src="./room-tabs-controller.js"></script>
+<script type="module" src="./agent-presence.js"></script>
 <script type="module" src="./vertical-motion.js"></script>
 <script type="module" src="./pwa.js"></script>
 </body>

@@ -1,0 +1,97 @@
+/* Canonical AGENT immersive skin. Scoped to AGENT only: other games unchanged. */
+.game-page.agent-mode{background:#020b13;overflow:hidden}
+.game-page.agent-mode .game-shell{height:100dvh;width:100%;max-width:none;padding:0;margin:0;display:block}
+.game-page.agent-mode .game-topbar,
+.game-page.agent-mode .game-shell>section:not(#playfield),
+.game-page.agent-mode .game-shell>footer{display:none!important}
+.game-page.agent-mode .game-playfield{
+ width:100vw;max-width:none;height:100dvh;min-height:100dvh;max-height:100dvh;
+ margin:0;border:0;border-radius:0;overflow:hidden;background:
+ radial-gradient(ellipse at center,#102b3b 0%,#061626 52%,#020713 100%)
+}
+.game-page.agent-mode .live-strip{display:none!important}
+.game-page.agent-mode .agent-view-chooser{display:flex;position:absolute;top:16px;left:50%;
+ transform:translateX(-50%);z-index:45;align-items:center;gap:14px;
+ background:rgba(3,19,31,.87);border:1px solid #5ed2d16b;border-radius:40px;
+ padding:6px 10px;backdrop-filter:blur(15px);box-shadow:0 9px 34px #0008}
+.game-page.agent-mode .agent-view-chooser[hidden]{display:none!important}
+.agent-view-chooser .agent-exit{color:#b4dae5;font-size:.73rem;white-space:nowrap;
+ padding:8px 12px;text-decoration:none}
+.agent-view-buttons{display:flex;gap:3px;border-radius:24px;background:#051c2a;padding:3px}
+.agent-view-buttons button{cursor:pointer;padding:8px 18px;border-radius:19px;border:0;
+ font-size:.75rem;font-weight:750;color:#a0c9d4;background:transparent}
+.agent-view-buttons button[aria-pressed="true"]{background:#135365;color:#f3fffe;
+ box-shadow:inset 0 0 0 1px #64e6d57f}
+.game-page.agent-mode .room-left-panel{top:83px;max-height:calc(100dvh - 107px)}
+.game-page.agent-mode .room-identity-hud{top:83px;max-height:calc(100dvh - 107px)}
+.game-page.agent-mode .room-left-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.game-page.agent-mode .room-left-tabs button{padding:8px 3px;font-size:.69rem}
+.game-page.agent-mode .agent-tab-heading{display:grid;gap:3px;padding:8px 4px;border-bottom:1px solid #76e3d632}
+.game-page.agent-mode .agent-tab-heading strong{font-size:.9rem;color:#c9fff3}
+.game-page.agent-mode .agent-tab-heading span{font-size:.65rem;color:#a8d0d5}
+.game-page.agent-mode #roomAgentPanel{display:flex;flex-direction:column;gap:8px}
+.game-page.agent-mode #roomAgentPanel[hidden]{display:none!important}
+.game-page.agent-mode #roomAgentPanel .agent-left-controls{display:grid;padding:6px;
+ border:0;gap:9px;flex:none}
+.game-page.agent-mode .agent-tab-thread-mount{min-height:30px}
+.game-page.agent-mode .agent-tab-thread-mount .agent-conversation-thread{
+ display:grid;max-height:none;gap:7px;overflow:visible;margin:4px 0 8px}
+.game-page.agent-mode #agentCameraBadge{top:83px}
+.game-page.agent-mode #agentCameraControls{bottom:16px;max-width:min(560px,95vw)}
+/* Orb view uses the SAME camera and tracked participant state, only hides pixels. */
+.game-page.agent-mode.agent-orb-view #cameraVideo,
+.game-page.agent-mode.agent-orb-view #agentCameraBoxes,
+.game-page.agent-mode.agent-orb-view #agentCameraBadge{display:none!important}
+.game-page.agent-mode.agent-orb-view #agentCameraControls{display:none!important}
+.game-page.agent-mode.agent-orb-view #gameSceneOverlay{display:none!important}
+.game-page.agent-mode #agentOrbStage{display:flex;position:absolute;inset:0;z-index:2;
+ align-items:center;justify-content:center;flex-direction:column;gap:12px;
+ pointer-events:none;background:radial-gradient(ellipse at center,#12314a 0%,#071725 45%,#010611 100%);overflow:hidden}
+.game-page.agent-mode #agentOrbStage[hidden]{display:none!important}
+.agent-orb-aura{position:absolute;width:60vmin;height:60vmin;border-radius:50%;
+ background:radial-gradient(circle,#3cd6ef12 0%,#155b9a14 35%,transparent 70%);
+ filter:blur(20px);animation:orb-aura 6s ease-in-out infinite}
+.agent-voice-orb{--orb-color:#5cdaf4;--orb-strong:#26a9f2;position:relative;
+ width:clamp(160px,29vmin,330px);height:clamp(160px,29vmin,330px);
+ display:grid;place-items:center;isolation:isolate;filter:drop-shadow(0 0 30px #39b5eb88)}
+.agent-voice-orb .agent-orb-core{position:absolute;width:55%;height:55%;border-radius:50%;
+ background:radial-gradient(circle at 38% 32%,#f2ffff 0%,#9eecfb 12%,#259be6 49%,#05336c 75%,#031426 100%);
+ box-shadow:inset -14px -15px 35px #021b53c2,0 0 35px #21bafb70,0 0 88px #1f80ff30}
+.agent-orb-ring{position:absolute;border-radius:50%;border:2px solid #78dffa91;
+ box-shadow:0 0 17px #41bdfa52,inset 0 0 14px #4abff63a;
+ animation:orb-idle 8s ease-in-out infinite}
+.agent-orb-ring.ring-a{inset:12%;transform:rotateX(66deg) rotateZ(25deg)}
+.agent-orb-ring.ring-b{inset:5%;border-color:#49aef0a0;transform:rotateY(66deg) rotateZ(35deg);animation-delay:-3s}
+.agent-orb-ring.ring-c{inset:0;border-style:dashed;border-width:1px;border-color:#9adeff7b;animation-delay:-5s}
+.agent-voice-orb[data-speech="speaking"] .agent-orb-ring{
+ border-color:#c2ffff;box-shadow:0 0 26px #83eeffdc,inset 0 0 23px #34cafc8f;
+ animation:orb-talk .72s ease-in-out infinite alternate}
+.agent-voice-orb[data-speech="speaking"] .ring-b{animation-delay:-.24s;animation-duration:.56s}
+.agent-voice-orb[data-speech="speaking"] .ring-c{animation-delay:-.36s;animation-duration:.96s}
+.agent-voice-orb[data-speech="speaking"] .agent-orb-core{
+ animation:orb-core-talk .42s ease-in-out infinite alternate;
+ box-shadow:0 0 48px #93f5ffb3,0 0 110px #26aaff7f}
+.game-page.agent-mode .agent-orb-stage>strong{font-size:clamp(.85rem,2vw,1.3rem);font-weight:800;
+ letter-spacing:.42em;color:#d3f8ff;text-shadow:0 0 17px #58ccff7d}
+.game-page.agent-mode .agent-orb-stage>span{color:#9fc8d6;font-size:.74rem}
+@keyframes orb-idle{50%{scale:1.045;opacity:.65}100%{scale:1;opacity:1}}
+@keyframes orb-aura{50%{scale:1.12;opacity:.55}}
+@keyframes orb-talk{to{scale:1.21;opacity:.77;filter:brightness(1.2)}}
+@keyframes orb-core-talk{to{scale:1.12;filter:brightness(1.38)}}
+@media(max-width:770px){
+ .game-page.agent-mode .room-left-panel{top:65px;left:7px;width:min(320px,52vw);max-height:45vh}
+ .game-page.agent-mode .room-identity-hud{top:65px;right:7px;width:min(290px,45vw);max-height:50vh}
+ .game-page.agent-mode .agent-view-chooser{top:8px}
+ .agent-voice-orb{width:190px;height:190px}
+}
+@media(max-width:530px){
+ .game-page.agent-mode .room-left-panel{top:58px;left:6px;width:min(270px,65vw);max-height:37vh}
+ .game-page.agent-mode .room-identity-hud{top:58px;right:6px;width:min(205px,42vw);max-height:37vh}
+ .game-page.agent-mode .agent-voice-orb{width:170px;height:170px}
+ .game-page.agent-mode .room-left-tabs button{font-size:.6rem}
+ .game-page.agent-mode #agentOrbStage{padding-top:28vh}
+}
+@media(prefers-reduced-motion:reduce){
+ .agent-voice-orb .agent-orb-ring,.agent-voice-orb .agent-orb-core,.agent-orb-aura{animation:none!important}
+ .agent-voice-orb[data-speech="speaking"]{filter:drop-shadow(0 0 55px #a8f5ff)}
+}

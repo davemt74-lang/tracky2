@@ -48,9 +48,12 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   }
   ui.voice.value=prior&&[...ui.voice.options].some(o=>o.value===prior)?prior:'';
  }
+ function notifySpeech(speaking){
+  window.dispatchEvent(new CustomEvent('tracky:agent-speech-state',{detail:{speaking}}));
+ }
  function stopSpeech(){
   if(speech?.speaking)speech.cancel();
-  suppressMic(false);ui.speaker.textContent='Agent listening';
+  notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
  }
  function say(text){
   if(!text)return;
@@ -63,7 +66,8 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   const voice=voices().find(v=>v.voiceURI===ui.voice.value);
   if(voice)utterance.voice=voice;
   let released=false;
-  const release=()=>{if(released)return;released=true;suppressMic(false);ui.speaker.textContent='Agent listening';};
+  const release=()=>{if(released)return;released=true;notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';};
+  utterance.addEventListener('start',()=>notifySpeech(true),{once:true});
   utterance.addEventListener('end',release,{once:true});
   utterance.addEventListener('error',release,{once:true});
   speech.speak(utterance);
@@ -167,6 +171,8 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  function init(){
   ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
   ui.heading.hidden=false;ui.thread.hidden=false;
+  $('agentLeftControls').hidden=false;
+  // Dialogue and agent conversation remain in the dedicated Conversation tab.
   const map=$('roomRadar'),live=document.querySelector('.room-voice-fusion');
   if(map)$('agentRoomMapMount').append(map);
   if(live)$('agentLiveStatusMount').append(live);
@@ -208,6 +214,8 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   });
   window.addEventListener('tracky:participant-voice-updated',()=>refreshModalName(document.body.dataset.participantId));
   showThread();
+  window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
+  window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
  return {init,greet,onDialogue,renderBoxes,openVoice,setCameraActive(active){
   if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';}
@@ -216,5 +224,5 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  },setAudioActive(active){
   ui.resume.hidden=active;
   if(!open)ui.speaker.textContent=active?'Agent listening':'Microphone unavailable · enable audio';
- },destroy(){modelController?.abort();stopSpeech();}};
+ },destroy(){modelController?.abort();stopSpeech();window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:false}}));}};
 }

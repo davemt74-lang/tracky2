@@ -1,3 +1,9 @@
+# Tracky2 V0.7.1 — Immersive AGENT camera and voice orb
+
+AGENT now opens as a full-screen standalone experience, with the old site header, footer, gameplay score, repetitions, gameboard and below-screen configuration completely hidden in AGENT mode. A top switch selects the original live camera/bounding box visualization or a floating, Jarvis-inspired voice orb. Orb view is only a visual mode: camera/identity/room-audio hardware streams continue operating under existing browser permissions. The orb's outer rings brighten and pulse while the existing browser speech engine is actually speaking; end, error and interruption clear the animation. Reduced-motion users see a static illuminated state.
+
+The left sidebar provides **Conversation** (room transcription and AGENT conversation history), **Player Activity** (confirmed participant history), and **AGENT** (voice selection, local-model configuration and opt-in history settings) as three separate keyboard-accessible tabs. Nothing moves the conversation transcript into the settings tab. All original audio/voice-capture, participant tracking, optional local model and history semantics remain in the canonical AGENT runtime.
+
 # Tracky2 v0.7.0 — AGENT Game
 
 AGENT is a new boardless mode in the Tracky2 Games lobby. It reuses the existing browser camera, enrolled participant records, local face/body detection, room transcription, room audio and voice-profile enrollment. The live full-area camera is the gameplay canvas: stabilized face/body bounding boxes and participant labels appear on top of the image. The right sidebar has native expandable **Room display** and **Live status** sections followed by current room participants. Enrolled participant cards have a **Voice** button that opens the existing three-sample participant voice enrollment interface inside an accessible modal. Room audio is paused during separate voice capture and automatically retried on closing.

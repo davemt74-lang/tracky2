@@ -11,7 +11,7 @@ test('manifest has standalone entry, explicit 192 and 512 PNG icons and scoped s
  }
 });
 test('all required offline shell files exist locally and have no external links',()=>{
- assert.match(STATIC_CACHE,/v0\.7\.0/);
+ assert.match(STATIC_CACHE,/v0\.7\.1/);
  assert.equal(new Set(SHELL).size,SHELL.length);
  for(const path of SHELL){
   assert.ok(path.startsWith('./')&&!path.includes('?')&&!path.includes('http:'));
