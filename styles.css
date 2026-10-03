@@ -697,3 +697,72 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 /* Camera preview and reticle share the exact same displayed area. The video alone
    is mirrored; the reticle is placed using geometric mirror/object-fit mapping. */
 .identity-camera-stage video{position:absolute;inset:0;display:block;width:100%;height:100%;object-position:center center}
+
+/* v0.6.4: Participants roster is retractable on desktop, off-canvas on mobile.
+   Gallery and voice remain attached to the right-hand enrollment form. */
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;
+  padding:0!important;margin:-1px!important;overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.participants-page .system-strip{display:none!important}
+.participants-page .participants-layout{--roster-width:340px;position:relative;
+  grid-template-columns:var(--roster-width) minmax(0,1fr);align-items:stretch;
+  transition:grid-template-columns .24s ease}
+.participants-page .participants-roster{position:relative;overflow:auto;max-height:calc(100dvh - 108px);min-height:440px}
+.participants-page .participant-roster-actions{display:flex;align-items:center;gap:7px}
+.participants-page .participant-roster-actions .roster-collapse-button{font-size:1.5rem;padding:0;width:38px;flex:none}
+.participants-page .participant-count-chip{display:inline-flex;min-width:23px;justify-content:center;
+  background:rgba(78,232,255,.12);border:1px solid var(--line);border-radius:999px;
+  font-size:.65rem;padding:3px 7px;vertical-align:middle}
+.participants-page .participant-header-tools{display:flex;align-items:center;gap:8px}
+.participants-page .roster-open-button{font-size:.76rem;white-space:nowrap;flex:none}
+.participants-page .participant-roster-edge{display:none}
+.participants-page .participant-camera-chip{position:absolute;top:14px;left:14px;z-index:5;
+  display:flex;gap:9px;align-items:center;background:rgba(2,18,23,.74);
+  backdrop-filter:blur(12px);border:1px solid rgba(78,232,255,.35);
+  padding:9px 11px;border-radius:11px;color:var(--text);font-size:.72rem}
+.participants-page .participant-live-dot{width:9px;height:9px;flex:none;border-radius:50%;
+  background:var(--green);box-shadow:0 0 11px rgba(92,255,157,.7)}
+.participants-page .onboarding-grid{grid-template-columns:minmax(290px,1.1fr) minmax(290px,1fr)}
+.participants-page .participants-layout[data-roster="collapsed"]{--roster-width:54px}
+.participants-page .participants-layout[data-roster="collapsed"] .participants-roster{
+  padding:6px;overflow:hidden;min-height:0}
+.participants-page .participants-layout[data-roster="collapsed"] .participants-roster
+  :is(.roster-heading,#newParticipant,#participantList,.privacy-note){display:none!important}
+.participants-page .participants-layout[data-roster="collapsed"] .participants-roster .hud-panel-head{
+  justify-content:center;margin:0}
+.participants-page .participants-layout[data-roster="collapsed"] .participant-roster-actions{width:100%;justify-content:center}
+.participants-page .participants-layout[data-roster="collapsed"] .roster-collapse-button{display:none}
+.participants-page .participants-layout[data-roster="collapsed"] .participant-roster-edge{
+  display:flex;position:absolute;left:5px;top:10px;width:44px;height:44px;z-index:2;
+  align-items:center;justify-content:center;background:rgba(8,36,43,.92);
+  border:1px solid var(--line);border-radius:10px;color:var(--cyan);cursor:pointer}
+.participants-page .participant-roster-edge .edge-label{display:none}
+.participants-page .participant-roster-backdrop[hidden]{display:none!important}
+@media(max-width:1200px){
+  .participants-page .participants-layout{--roster-width:275px}
+  .participants-page .onboarding-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:900px){
+  .participants-page .participants-layout,
+  .participants-page .participants-layout[data-roster="collapsed"]{display:block}
+  .participants-page .participants-roster{position:fixed;z-index:350;top:0;bottom:0;
+    left:0;width:min(340px,87vw);max-height:none!important;min-height:0!important;
+    background:rgba(3,18,25,.96);backdrop-filter:blur(18px);border-radius:0 16px 16px 0;
+    overflow:auto!important;transform:translateX(-105%);visibility:hidden;
+    transition:transform .23s ease,visibility .23s}
+  .participants-page .participants-roster.roster-visible{transform:translateX(0);visibility:visible}
+  .participants-page .participant-roster-backdrop:not([hidden]){display:block;
+    position:fixed;inset:0;z-index:340;background:rgba(0,5,10,.68)}
+  .participants-page .participants-layout .participants-roster :is(.roster-heading,#newParticipant,#participantList,.privacy-note){
+    display:revert!important}
+  .participants-page .participants-layout .participants-roster .roster-heading{display:block!important}
+  .participants-page .participants-layout .participants-roster .roster-collapse-button{
+    display:inline-flex!important;align-items:center;justify-content:center}
+  .participants-page .participants-layout .participant-roster-edge{display:none!important}
+  .participants-page .roster-open-button{display:inline-flex}
+  .participants-page .onboarding-grid{grid-template-columns:minmax(0,1fr)}
+  .participant-roster-modal{overflow:hidden}
+}
+@media(prefers-reduced-motion:reduce){
+  .participants-page .participants-layout,.participants-page .participants-roster{transition:none}
+}
