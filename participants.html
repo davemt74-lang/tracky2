@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#02070a">
-  <title>Tracky — Participants</title>
+  <title>Tracky2 — Participants</title>
   <link rel="stylesheet" href="./styles.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
@@ -28,18 +28,10 @@
     </nav>
   </header>
 
-  <section class="system-strip" aria-live="polite">
-    <div><span>IDENTITY CORE</span><b id="modelStatus">Standby</b></div>
-    <div><span>STORAGE</span><b>Local device</b></div>
-    <div><span>ENROLLED</span><b id="participantCount">0</b></div>
-    <div><span>CAMERA</span><b id="participantCameraStatus">Offline</b></div>
-    <div><span>VOICE PROFILE</span><b>Local speaker identity</b></div>
-  </section>
-
   <section class="participants-layout">
     <aside class="hud-panel participants-roster">
       <div class="hud-panel-head">
-        <div><small>CONTACT / PARTICIPANT LIST</small><h2>Known participants</h2></div>
+        <div><small>CONTACT / PARTICIPANT LIST</small><h2>Known participants <span id="participantCount" class="participant-count-chip">0</span></h2></div>
         <button id="newParticipant" class="hud-button primary">+ Add</button>
       </div>
       <div id="participantList" class="participant-list" aria-live="polite"></div>
@@ -49,12 +41,14 @@
     <section class="hud-panel onboarding-panel">
       <div class="hud-panel-head">
         <div><small id="formModeLabel">PARTICIPANT ONBOARDING</small><h2 id="formTitle">Create participant</h2></div>
-        <span class="status-chip" id="enrollmentStatus">Not enrolled</span>
+        <div class="participant-header-tools"><span class="status-chip" id="enrollmentStatus">Not enrolled</span><button type="button" id="openParticipantGalleryTop" class="hud-button">Photos</button><button type="button" id="openParticipantVoiceTop" class="hud-button">Voice</button></div>
       </div>
 
       <div class="onboarding-grid">
         <div class="identity-camera-column">
           <div class="identity-camera-stage" id="identityCameraStage">
+            <div class="participant-live-chip" aria-live="polite"><span class="participant-live-dot" aria-hidden="true"></span><span>Camera <b id="participantCameraStatus">Offline</b></span></div>
+            <div class="participant-floating-rail" aria-label="Participant tools"><button type="button" id="openParticipantGallery" class="participant-rail-button" aria-controls="participantDrawer" aria-expanded="false"><span aria-hidden="true">▦</span> Photos</button><button type="button" id="openParticipantVoice" class="participant-rail-button" aria-controls="participantDrawer" aria-expanded="false"><span aria-hidden="true">◖))</span> Voice</button></div>
             <video id="participantVideo" playsinline muted></video>
             <div class="face-reticle" id="faceReticle" hidden>
               <i></i><i></i><i></i><i></i>
@@ -81,19 +75,7 @@
         </div>
 
         <div class="participant-form-column">
-          <div class="photo-pair">
-            <figure>
-              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
-              <figcaption>Primary photo</figcaption>
-            </figure>
-            <figure>
-              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
-              <figcaption>Latest capture</figcaption>
-            </figure>
-          </div>
-
-          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
-
+          <div id="modelStatus" class="visually-hidden" role="status">Standby</div>
           <div class="participant-fields">
             <label>Name<input id="participantName" type="text" maxlength="80" autocomplete="off" placeholder="Participant name"></label>
             <label>Nickname<input id="participantNickname" type="text" maxlength="80" autocomplete="off" placeholder="Optional"></label>
@@ -111,12 +93,53 @@
               <i></i><i></i><i></i><i></i><i></i>
             </div>
             <p id="faceGalleryHint">0 of 5 slots filled. A minimum of 3 samples enables recognition.</p>
+            <button type="button" class="hud-button participant-inline-gallery" id="openParticipantGalleryInline">View and manage photos →</button>
+          </div>
+
+          <div class="form-message" id="formMessage" aria-live="polite"></div>
+
+          <div class="participant-form-actions">
+            <button id="saveParticipant" class="hud-button primary">Save participant</button>
+            <button id="resetParticipantForm" class="hud-button">Reset</button>
+            <button id="deleteParticipant" class="hud-button danger" hidden>Delete participant</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div id="participantDrawerScrim" class="participant-drawer-scrim" hidden></div>
+    <aside id="participantDrawer" class="participant-drawer" role="dialog" aria-modal="true" aria-label="Participant photo and voice tools" aria-hidden="true" inert data-open="false">
+      <header class="participant-drawer-header">
+        <div><small>PARTICIPANT TOOLS</small><h2 id="participantDrawerTitle">Photo Gallery</h2></div>
+        <button type="button" id="closeParticipantDrawer" class="participant-drawer-close" aria-label="Close participant tools">×</button>
+      </header>
+      <div class="participant-drawer-tabs" role="tablist" aria-label="Participant tool panels">
+        <button type="button" id="participantGalleryTab" role="tab" aria-controls="participantGalleryPanel" aria-selected="true" tabindex="0">Photos</button>
+        <button type="button" id="participantVoiceTab" role="tab" aria-controls="participantVoicePanel" aria-selected="false" tabindex="-1">Voice Profile</button>
+      </div>
+      <div class="participant-drawer-scroll">
+        <section id="participantGalleryPanel" role="tabpanel" aria-labelledby="participantGalleryTab">
+          <p class="participant-drawer-description">Keep up to five individual face samples. Three are required for recognition.</p>
+          <div class="photo-pair">
+            <figure>
+              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
+              <figcaption>Primary photo</figcaption>
+            </figure>
+            <figure>
+              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
+              <figcaption>Latest capture</figcaption>
+            </figure>
+          </div>
+
+          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
+
+
             <div class="face-gallery-header"><strong>Enrollment photo gallery</strong>
               <span>3 required · 5 maximum</span></div>
             <div id="faceSampleGallery" class="face-sample-gallery" aria-label="Saved face sample photos and retake controls"></div>
             <p class="face-gallery-footnote">Capture distinct clear angles. Select any saved image as the primary photo, retake an individual sample or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos because previous versions did not store them.</p>
-          </div>
 
+        </section>
+        <section id="participantVoicePanel" role="tabpanel" aria-labelledby="participantVoiceTab" hidden>
           <div class="voice-enrollment-block" id="voiceEnrollmentBlock">
             <div class="voice-enrollment-head">
               <div>
@@ -172,18 +195,13 @@
             </div>
           </div>
 
-          <div class="form-message" id="formMessage" aria-live="polite"></div>
 
-          <div class="participant-form-actions">
-            <button id="saveParticipant" class="hud-button primary">Save participant</button>
-            <button id="resetParticipantForm" class="hud-button">Reset</button>
-            <button id="deleteParticipant" class="hud-button danger" hidden>Delete participant</button>
-          </div>
-        </div>
+        </section>
       </div>
-    </section>
+    </aside>
   </section>
 </main>
+<script type="module" src="./participant-drawer.js"></script>
 <script type="module" src="./participants.js"></script>
 <script type="module" src="./participant-voice.js"></script>
 <script type="module" src="./pwa.js"></script>
