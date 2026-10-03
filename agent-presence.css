@@ -367,3 +367,15 @@
 .game-page.agent-mode .room-scene-occupants{padding:7px 9px;border-radius:8px;
  border:1px solid rgba(139,220,221,.3);background:rgba(11,50,52,.3);
  color:#b6e6dd;font-size:.66rem;line-height:1.6;margin:7px 0}
+
+/* 10C: factual, non-diagnostic movement and time summaries. */
+.game-page.agent-mode .room-temporal-panel{display:grid;gap:7px;margin:10px 0;
+ border:1px solid rgba(107,207,220,.4);border-radius:12px;padding:10px;
+ background:rgba(5,33,44,.45)}
+.game-page.agent-mode .room-temporal-panel>strong{font-size:.69rem;color:#c8fff5;letter-spacing:.04em}
+.game-page.agent-mode .room-temporal-panel>small{font-size:.62rem;line-height:1.5;color:#b8cfd7}
+.game-page.agent-mode .room-temporal-summary{display:grid;gap:7px;font-size:.71rem;color:#bedfe4}
+.game-page.agent-mode .room-temporal-entry{display:grid;gap:4px;padding:8px;border-radius:8px;
+ background:rgba(5,34,44,.6);border:1px solid rgba(98,198,207,.23)}
+.game-page.agent-mode .room-temporal-entry strong{color:#e3fffa;font-size:.72rem}
+.game-page.agent-mode .room-temporal-entry span{line-height:1.45;color:#b5d4db;font-size:.67rem}
