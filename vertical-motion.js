@@ -49,6 +49,8 @@ import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
 import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-event-core.js';
 import {createRoomSceneUi} from './src/room-scene-ui.js';
+import {emptyRoomScene} from './src/room-scene-graph.js';
+import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -188,6 +190,7 @@ const traceCtx = ui.trace.getContext('2d');
 
 let agentRuntime=null,sceneUI=null;
 const roomPresence=new RoomPresenceLedger();
+const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
@@ -225,6 +228,34 @@ function saveRoomAudioSummary(summary){
   {at:summary.at,evidence:{durationMs:summary.durationMs}});
 }
 
+function renderRoomTemporalSummary(){
+ const mount=document.getElementById('roomTemporalSummary');
+ if(state.mode!=='agent'||!mount)return;
+ mount.replaceChildren();
+ if(!state.running){
+  mount.textContent='Camera offline · movement and dwell estimates paused';
+  return;
+ }
+ const scene=sceneUI?.getScene()||emptyRoomScene();
+ const records=roomTemporal.summary(scene,Date.now());
+ if(!records.length){mount.textContent='Waiting for stable camera measurements';return;}
+ for(const record of records){
+  const item=document.createElement('article');item.className='room-temporal-entry';
+  const name=document.createElement('strong');
+  name.textContent=record.name+(record.participantId?' · enrolled':' · unverified');
+  const detail=document.createElement('span');
+  const parts=[record.visibility==='observed'?'Visible in camera view':'Position uncertain'];
+  if(record.visibility==='observed'&&record.areaName)parts.push(
+   'Camera area: '+record.areaName);
+  if(record.visibility==='observed'&&Number.isFinite(record.areaDwellMs)&&record.areaName)
+   parts.push('Uninterrupted area observation: '+Math.floor(record.areaDwellMs/1000)+'s');
+  if(record.visibility==='observed'&&Number.isFinite(record.stationaryMs))
+   parts.push('Relative stillness: '+Math.floor(record.stationaryMs/1000)+'s');
+  parts.push(record.lastActivity);
+  detail.textContent=parts.join(' · ');
+  item.append(name,detail);mount.append(item);
+ }
+}
 function renderRoomObservations(){
  const timeline=document.getElementById('roomObservationsTimeline');
  const status=document.getElementById('roomCurrentState');
@@ -1278,9 +1309,13 @@ function renderParticipantCards() {
   const visible=publicRoomTracks();
   if(state.mode==='agent'&&state.running){
    for(const event of roomPresence.update(visible,Date.now()))addRoomObservation(event);
+   const scene=sceneUI?.getScene()||emptyRoomScene();
+   for(const event of roomTemporal.update(visible,scene,Date.now()))addRoomObservation(event);
+   renderRoomTemporalSummary();
    renderRoomObservations();
   }
 
+  if(state.mode==='agent'&&!state.running)renderRoomTemporalSummary();
   ui.participantHudEmpty.hidden = visible.length > 0;
   renderRoomRadar(visible);
 
@@ -2160,6 +2195,7 @@ function maybeScanRoom(now) {
 function stopCamera() {
   if(state.mode==='agent'&&state.running){
    roomPresence.unavailable();
+   roomTemporal.unavailable();
    roomSensorState('camera','offline','Camera stopped · participant absence not inferred');
   }
   state.latestMarkerDetections = { green: null, blue: null };
@@ -2734,10 +2770,15 @@ if(state.mode==='agent'){
   sceneUI=createRoomSceneUi({
    getTracks:()=>state.running?publicRoomTracks():[],
    mirror:()=>ui.mirror.checked,
-   onChange:message=>logRoomMessage('activity',message,'owner-scene',
-    {semantic:'owner-map-edit'})
+   onChange:message=>{
+    roomTemporal.sceneChanged();
+    renderRoomTemporalSummary();
+    logRoomMessage('activity',message,'owner-scene',{semantic:'owner-map-edit'});
+   }
   });
-  void sceneUI.init();
+  void sceneUI.init().then(ok=>{
+   if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();}
+  }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
   const roomOptIn=document.getElementById('roomSaveObservations');
