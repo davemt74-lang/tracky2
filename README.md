@@ -1,3 +1,13 @@
+# Tracky2 v0.6.9 — AGENT interactive room
+
+AGENT is a distinct mode in the Game Lobby and game selector, reusing the existing local room camera, face/body tracking, room audio capture, speaker profiling, dialogue transcription and local participant database. It has no gameboard, markers or timed rounds: the video preview fills the live-room canvas and mature detected participants/visitors have properly mirrored labeled full-body bounding boxes. Existing Room Dialogue and Player Activity tabs remain on the left.
+
+The right ROOM IDENTITY · FULL BODY panel has a **Room view & live status** accordion, with the stable participant/visitor cards beneath it. Each enrolled participant card has a **Voice** button that opens the SAME canonical voice profile enrollment flow inside a modal. Room audio pauses while the separate enrollment microphone runs and resumes on closure when permitted.
+
+Opening AGENT automatically attempts room listening using browser microphone consent. If the browser refuses or lacks permission, the Enable agent listening control allows explicit retry. The user-facing Stop action ends active camera AND room listening. The browser retains hardware permission authority. No camera or microphone access bypasses permission prompts.
+
+When recognition *confirms an enrolled visual identity*, AGENT greets the person once per active session using the selected browser speech voice. Accepted transcript turns trigger simple local back-and-forth **only if the speaker's voice profile matches** (being the sole visible person is never proof of who spoke). A typed chat box is also available. The local response engine is deliberately limited, not a connected general-purpose LLM. AGENT Voice is selected from the device's real browser speech synthesis voices, and bounded conversation text history is saved on this browser only with explicit opt-in; raw audio and biometric data are never added to AGENT history. The existing room dialogue remains separately governed by its own settings.
+
 # Tracky2 v0.6.8 — Visitor history, working player tab, visible scene acquisition
 
 **Room Dialogue / Player Activity** now has a self-contained controller loaded separately from the camera model runtime. A click or keyboard selection reliably opens the requested tab even if the camera model fails. The activity timeline remains a bounded, in-memory history of meaningful events.

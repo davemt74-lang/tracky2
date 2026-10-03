@@ -123,3 +123,11 @@ Next development phase starts only once this PR is green and merged.
 - Suppress one-frame ghost tracks, face-less background detections and cross-session Visitor N history collisions
 - Keep scene progress through multiple real scans. On both game and Participants cameras, display nonblocking waiting animation until stable tracking is available; avoid concealing the view when none is found
 - Include unit, DOM-interaction, PWA, release-audit and deploy-package smoke tests; certify actual camera/audio recognition with real hardware separately
+
+## v0.6.9 — AGENT interactive room foundation
+- Separate selectable AGENT mode with large camera preview and labeled mirrored full-body boxes; existing camera/identity, audio and transcript runtimes shared
+- Active AGENT mode attempts consent-governed microphone start; clearly indicates blocked microphone and exposes a retry, with Stop privacy override
+- Room view and live audio status are an accordion above persistent Room participants; enrolled participant Voice button launches original enrollment runtime in modal, pausing competing room mic
+- Confirmed visual identity prompts one greeting per session through configurable browser speechSynthesis voice, with echo suppression from canonical room runtime
+- Transcript-driven local conversation only on verified voice match; typed conversation works without enrollment. Bounded agent text timeline and user-opt-in local persistence; no secret AI key or unfounded general intelligence claims
+- CI tests cover AGENT lobby, camera board removal, original voice controls, greeting/attribution/history, PWA files and direct deploy package. Live camera/mic/TTS acceptance requires user testing
