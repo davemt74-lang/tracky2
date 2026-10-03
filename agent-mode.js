@@ -94,7 +94,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,
   utterance.addEventListener('start',()=>notifySpeech(true),{once:true});
   // Word boundaries pulse the orb in real speech cadence. CSS handles unsupported voices.
   utterance.addEventListener('boundary',event=>{
-   const word=(text.slice(Math.max(0,event.charIndex||0)).match(/^\\S+/)||[''])[0];
+   const word=(text.slice(Math.max(0,event.charIndex||0)).match(/^\S+/)||[''])[0];
    window.dispatchEvent(new CustomEvent('tracky:agent-speech-cadence',{
     detail:{strength:Math.min(1,Math.max(.24,word.length/11)),
       durationMs:Math.max(200,Math.min(490,word.length*48))}}));
