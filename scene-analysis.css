@@ -1,6 +1,6 @@
 /* Only visible during actual camera/model/first-observation initialization. */
 .scene-analysis-overlay[hidden]{display:none!important}
-.scene-analysis-overlay{position:absolute;z-index:28;inset:0;display:flex;align-items:center;
+.scene-analysis-overlay{position:absolute;z-index:5;pointer-events:none;inset:0;display:flex;align-items:center;
  justify-content:center;flex-direction:column;text-align:center;gap:13px;padding:28px;
  background:radial-gradient(ellipse at center,rgba(13,48,51,.86),rgba(1,13,23,.93) 65%);
  backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);color:#dcfffc}

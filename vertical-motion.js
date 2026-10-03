@@ -857,7 +857,22 @@ function renderPlayerActivity(){
   const qualifier=document.createElement('small');
   qualifier.textContent=event.source==='confirmed-tracking'?'Camera-confirmed enrolled participant':
     'Assigned player · marker holder unverified';
-  copy.append(name,detail,qualifier);
+  copy.append(name,detail);
+  if(event.kind==='zone'){
+   const zone=Number(event.detail.match(/Zone ([1-4])/)?.[1]);
+   if(zone){
+    const path=document.createElement('div');path.className='player-zone-path';
+    path.setAttribute('aria-label','Four-section board, marker in zone '+zone);
+    for(let z=1;z<=4;z++){
+      const section=document.createElement('span');
+      if(z===zone)section.classList.add('active');
+      section.setAttribute('aria-hidden','true');
+      path.append(section);
+    }
+    copy.append(path);
+   }
+  }
+  copy.append(qualifier);
   const time=document.createElement('time');time.dateTime=new Date(event.at).toISOString();
   time.textContent=new Date(event.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   item.append(symbol,copy,time);ui.activityTimeline.append(item);
