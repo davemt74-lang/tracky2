@@ -1833,14 +1833,19 @@ async function startRoomAudio() {
   state.voice.generation += 1;
   try {
     await reloadIdentityParticipants();
-    state.voice.audio = new RoomAudioCapture({
+    const capture=new RoomAudioCapture({
       minSegmentSeconds: 1.05,
       hangoverMs: 650,
       onLevel: onRoomAudioLevel,
-      onSegment: async (segment) => onRoomAudioSegment(segment)
+      onSegment: async (segment) => onRoomAudioSegment(segment),
+      onUnavailable:()=>{
+        if(state.voice.audio!==capture||!state.voice.active)return;
+        stopRoomAudio();
+        roomSensorState('microphone','degraded','Microphone interrupted · room silence not inferred');
+      }
     });
-
-    await state.voice.audio.start();
+    state.voice.audio=capture;
+    await capture.start();
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
@@ -2221,6 +2226,14 @@ async function startCamera(deviceId = '') {
     await enumerateCameras();
 
     state.running = true;
+    const capturedStream=state.stream;
+    for(const track of capturedStream.getVideoTracks()){
+      track.addEventListener('ended',()=>{
+        if(state.stream!==capturedStream||!state.running)return;
+        stopCamera();
+        roomSensorState('camera','degraded','Camera interrupted · participant absence not inferred');
+      },{once:true});
+    }
     if(state.mode==='agent'){
       roomSensorState('camera','online','Camera online · observations resumed');
       agentRuntime?.setCameraActive(true);
