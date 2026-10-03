@@ -1,0 +1,75 @@
+/* Left floating dashboard: room conversation and visual player history are tabs
+   inside the SAME panel, never separate competing overlays. */
+.room-left-panel{
+ position:absolute;left:18px;top:18px;z-index:13;
+ width:min(370px,calc(100% - 36px));max-height:calc(100% - 36px);
+ display:flex;flex-direction:column;overflow:hidden;
+ padding:0;border:1px solid rgba(78,232,255,.35);border-radius:14px;
+ background:rgba(2,18,26,.84);backdrop-filter:blur(16px);
+ -webkit-backdrop-filter:blur(16px);box-shadow:0 15px 46px rgba(0,0,0,.38);
+ color:#e7faff;
+}
+.room-left-tabs{display:grid;grid-template-columns:1fr 1fr;flex:none;
+ padding:7px 7px 0;gap:5px;border-bottom:1px solid rgba(90,236,244,.16)}
+.room-left-tabs [role="tab"]{appearance:none;min-height:40px;cursor:pointer;
+ background:rgba(9,29,35,.6);color:#abd1d9;border:1px solid transparent;
+ border-radius:9px 9px 0 0;font-size:.73rem;font-weight:800;letter-spacing:.015em}
+.room-left-tabs [role="tab"][aria-selected="true"]{
+ color:#c9ffff;border-color:rgba(92,247,224,.48);
+ border-bottom-color:transparent;background:rgba(39,147,144,.2);
+ box-shadow:inset 0 3px 0 #5be6dc}
+.room-left-tabs [role="tab"]:focus-visible{outline:2px solid #72f3e6;outline-offset:-2px}
+.room-left-tabpanel{min-height:0;overflow-y:auto;overscroll-behavior:contain;
+ scrollbar-width:thin;scrollbar-color:rgba(91,229,218,.55) transparent;
+ padding:10px}
+.room-left-tabpanel[hidden]{display:none!important}
+.room-left-tabpanel .dialogue-hud-head{align-items:center}
+.room-left-tabpanel .room-events{gap:6px}
+.room-left-tabpanel .room-event{border-radius:5px}
+.player-activity-intro{display:grid;gap:4px;margin:0 0 13px;
+ padding:7px 8px 10px;border-bottom:1px solid rgba(104,227,241,.15)}
+.player-activity-intro strong{font-size:.76rem;color:#e2fff6}
+.player-activity-intro span{font-size:.61rem;line-height:1.5;color:#a9cdd0}
+.player-activity-timeline{position:relative;display:grid;gap:8px;min-height:64px;
+ padding-left:5px;margin:0 0 13px}
+.player-activity-timeline:before{content:"";position:absolute;top:12px;bottom:12px;
+ left:20px;width:1px;background:linear-gradient(#6fe7cf,rgba(79,232,240,.12));
+ pointer-events:none}
+.player-activity-empty{font-size:.7rem;color:#a9cbd1;padding:13px 8px 13px 29px;
+ line-height:1.55}
+.player-activity-item{display:grid;grid-template-columns:34px minmax(0,1fr) auto;
+ gap:8px;align-items:start;border:1px solid rgba(88,214,223,.17);
+ border-radius:10px;padding:9px 7px;background:rgba(7,31,39,.65);
+ min-width:0}
+.player-activity-glyph{display:grid;place-items:center;width:28px;height:28px;
+ position:relative;z-index:1;border-radius:50%;border:1px solid #5bdccd;
+ background:#0b3b40;color:#92ffe0;font-size:.98rem;font-weight:900;
+ box-shadow:0 0 14px #24ddba32}
+.player-activity-item.activity-zone .player-activity-glyph{color:#8acfff;border-color:#519fe1}
+.player-activity-item.activity-hit .player-activity-glyph,
+.player-activity-item.activity-point .player-activity-glyph{color:#ffdc81;border-color:#f0c879}
+.player-activity-copy{min-width:0;display:grid;gap:4px}
+.player-activity-copy strong{font-size:.74rem;color:#f4fffc}
+.player-activity-copy p{font-size:.7rem;line-height:1.3;color:#e3f3f3;margin:0}
+.player-activity-copy small{font-size:.55rem;line-height:1.45;color:#8eafb7}
+.player-activity-item time{font-size:.56rem;white-space:nowrap;color:#8ec9d5;font-variant-numeric:tabular-nums}
+.player-zone-path{display:flex;gap:3px;margin:3px 0}
+.player-zone-path span{height:9px;width:24px;border:1px solid #4b7a7c;border-radius:2px;
+ background:rgba(13,36,39,.76)}
+.player-zone-path span.active{background:#60e8ba;border-color:#98ffcd;box-shadow:0 0 8px #60e8ba66}
+/* The prior bottom-left floating player score HUD is now INSIDE the Player Activity tab. */
+.game-page .room-left-panel .game-player-hud{
+ position:static;display:grid;overflow:visible;width:auto;max-height:none;
+ padding:11px 6px 4px;background:transparent;backdrop-filter:none;
+ border:0;border-top:1px solid rgba(104,235,240,.2);
+ border-radius:0;box-shadow:none
+}
+.game-page .room-left-panel .game-player-hud[hidden]{display:none!important}
+.game-page .room-left-panel .game-player-hud-title{font-size:.63rem}
+@media(max-width:760px){
+ .room-left-panel{left:8px;top:8px;width:min(355px,calc(100% - 16px));
+  max-height:min(48%,480px)}
+}
+@media(prefers-reduced-motion:reduce){
+ .room-left-panel *{scroll-behavior:auto}
+}
