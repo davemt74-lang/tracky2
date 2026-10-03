@@ -24,7 +24,7 @@ try {
   $name=trim((string)($data['name']??''));$profile=$data['profile']??[];
   if(strlen($name)<1||strlen($name)>120||!is_array($profile))tracky_reply(['error'=>'Invalid participant'],422);
   // Biometric data requires explicit participant consent; there is no silent migration.
-  if(!$data['consent'] && array_intersect(['faceSamples','faceEmbeddings','voiceSamples','voiceEmbedding'],array_keys($profile)))tracky_reply(['error'=>'Consent required for biometric records'],422);
+  if(empty($data['consent']) && array_intersect(['faceSamples','faceEmbeddings','voiceSamples','voiceEmbedding'],array_keys($profile)))tracky_reply(['error'=>'Consent required for biometric records'],422);
   $db->prepare('INSERT INTO participants(id,name,profile_json,consent,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,profile_json=excluded.profile_json,consent=excluded.consent,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP')->execute([$id,$name,json_encode($profile,JSON_THROW_ON_ERROR),!empty($data['consent'])?1:0,$actor['id']]);
  }elseif($resource==='scenes'){
   $title=trim((string)($data['title']??'Untitled scene'));
