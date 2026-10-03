@@ -17,12 +17,12 @@ test('mirrored room radar applies horizontal projection without modifying source
  assert.equal(cameraFacingPoint({x:NaN,y:1}),null);
 });
 test('false-positive provisional bodies and transient identities remain internal',()=>{
- const now=3000,base={firstSeenAt:1000,lastBodySeenAt:2900,bodyObservations:3,status:'matched',
+ const now=6000,base={firstSeenAt:1000,lastBodySeenAt:5900,bodyObservations:3,status:'matched',
  participantId:'p1',participantName:'Dave',similarity:.82};
  const list=[
   {...base,id:'real'},
   {...base,id:'ghost',participantId:null,status:'body-detected'},
-  {...base,id:'short',participantId:'p2',firstSeenAt:2800},
+  {...base,id:'short',participantId:'p2',firstSeenAt:5800},
   {...base,id:'one-frame',participantId:'p3',bodyObservations:1},
   {...base,id:'stale',participantId:'p4',lastBodySeenAt:0},
   {...base,id:'ambiguous',participantId:'p5',status:'new'},
