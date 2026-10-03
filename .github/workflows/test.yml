@@ -132,6 +132,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Documentation-only merges must not try to recreate an existing immutable release.
+          if gh release view v0.9.2 >/dev/null 2>&1; then
+            echo 'v0.9.2 already published; leaving its original assets untouched.'
+            exit 0
+          fi
           gh release create v0.9.2 \
             tracky2-v0.9.2-deploy.zip \
             tracky2-v0.9.2-deploy.zip.sha256 \
