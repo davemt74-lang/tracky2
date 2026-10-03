@@ -72,7 +72,13 @@
       </div>
     </aside>
 
-    <aside class="dialogue-hud" aria-label="Room transcript and acknowledgements">
+    <aside id="roomLeftPanel" class="room-left-panel" aria-label="Room dialogue and player activity">
+      <div class="room-left-tabs" role="tablist" aria-label="Room information">
+        <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Room Dialogue</button>
+        <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
+      </div>
+      <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
+
       <div class="dialogue-hud-head">
         <div><small>ROOM DIALOGUE</small><strong>Speaker-attributed transcription</strong></div>
         <span id="transcriptModelState">Transcription standby</span>
@@ -81,18 +87,15 @@
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">
         <div class="dialogue-empty">Enable room audio to begin speaker tracking.</div>
       </div>
-    </aside>
+    
+      </section>
+      <section id="playerActivityPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="playerActivityTab" hidden>
+        <div class="player-activity-intro"><strong>Live player history</strong><span>Confirmed presence and assigned game actions. Marker ownership is not inferred.</span></div>
+        <div id="playerActivityTimeline" class="player-activity-timeline" aria-live="off">
+          <p class="player-activity-empty">Activity appears here as enrolled participants are confirmed or play.</p>
+        </div>
+        <section id="gamePlayerHud" class="game-player-hud" aria-label="Current scores and game state" hidden>
 
-    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
-      <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
-        <div data-board-zone="0"><b>1</b></div><div data-board-zone="1"><b>2</b></div>
-        <div data-board-zone="2"><b>3</b></div><div data-board-zone="3"><b>4</b></div>
-        <div id="boardCursor" class="multi-cursor" hidden></div>
-      </div>
-
-    </section>
-
-    <aside id="gamePlayerHud" class="game-player-hud" aria-label="Player scores and tracking details" hidden>
       <div class="game-player-hud-title">PLAYER STATUS</div>
       <div id="roundTimer" class="pattern-round-timer" aria-live="off">Select players, interval and rounds</div>
       <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
@@ -115,7 +118,20 @@
         </article>
       </div>
       <div id="patternRosterScoreboard" class="pattern-roster-scoreboard" aria-label="Timed pattern player roster" hidden></div>
+    
+        </section>
+      </section>
     </aside>
+    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
+      <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
+        <div data-board-zone="0"><b>1</b></div><div data-board-zone="1"><b>2</b></div>
+        <div data-board-zone="2"><b>3</b></div><div data-board-zone="3"><b>4</b></div>
+        <div id="boardCursor" class="multi-cursor" hidden></div>
+      </div>
+
+    </section>
+
+
     <div class="movement-lane" id="movementLane" aria-label="Three-zone vertical movement lane">
       <div class="lane-zone zone-top"><span>1</span><b class="zone-rep-target" data-target-zone="0" hidden></b></div>
       <div class="lane-zone zone-middle"><span>2</span><b class="zone-rep-target" data-target-zone="1" hidden></b></div>
