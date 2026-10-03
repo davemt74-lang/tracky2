@@ -2202,6 +2202,7 @@ async function startCamera(deviceId = '') {
   stopCamera();
 
   if (!navigator.mediaDevices?.getUserMedia) {
+    roomSensorState('camera','degraded','Camera unavailable in this browser');
     ui.cameraStatus.textContent = 'Camera API unavailable';
     return false;
   }
