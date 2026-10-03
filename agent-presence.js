@@ -11,6 +11,7 @@ const initialView=new URLSearchParams(window.location.search).get('view');
 let mode=normalizeAgentView(initialView),speaking=false,agentEnabled=requested,panelsHidden=false;
 let mobilePanel=null,shortcut={key:'',count:0,lastAt:0};
 if(requested)document.body.classList.add('agent-mode');
+if(ui.follower)ui.follower.dataset.follow='idle';
 function render(){
  const state=orbPresentation({view:mode,speaking});
  ui.nav.hidden=!agentEnabled;
