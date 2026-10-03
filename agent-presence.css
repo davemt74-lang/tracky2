@@ -315,3 +315,51 @@
 @media(prefers-reduced-motion:reduce){
  .game-page.agent-mode .room-ambient-audio-meter i{transition:none}
 }
+
+
+/* 10B standalone, camera-relative owner map. Not calibrated physical geometry. */
+.game-page.agent-mode .room-scene-editor{margin:9px 0;padding:9px 11px;
+ border:1px solid rgba(104,224,228,.39);border-radius:12px;
+ background:rgba(5,29,37,.63);font-size:.72rem;color:#d8fbf5}
+.game-page.agent-mode .room-scene-editor>summary{font-weight:800;cursor:pointer;line-height:1.6}
+.game-page.agent-mode .room-scene-editor>small{display:block;color:#b8d3da;
+ font-size:.66rem;line-height:1.5;margin:6px 0}
+.game-page.agent-mode .room-scene-preview{position:relative;overflow:hidden;touch-action:none;
+ aspect-ratio:16/9;margin:11px 0;border:1px solid rgba(130,225,217,.55);
+ border-radius:10px;cursor:crosshair;background:
+ linear-gradient(90deg,transparent 49.75%,rgba(90,198,203,.11) 50%,transparent 50.25%),
+ linear-gradient(transparent 49.75%,rgba(90,198,203,.11) 50%,transparent 50.25%),
+ repeating-linear-gradient(90deg,rgba(89,193,203,.08) 0 1px,transparent 1px 20%),
+ repeating-linear-gradient(0deg,rgba(89,193,203,.08) 0 1px,transparent 1px 20%),
+ rgba(1,15,25,.83)}
+.game-page.agent-mode .room-scene-layers{position:absolute;inset:0;pointer-events:none}
+.game-page.agent-mode .room-scene-area{position:absolute;display:grid;place-items:center;
+ background:rgba(25,154,161,.17);border:1px solid rgba(103,229,222,.78);
+ color:#d8fff9;font-size:.55rem;font-weight:700;text-align:center;
+ padding:2px;overflow:hidden;word-break:break-word}
+.game-page.agent-mode .room-scene-track{position:absolute;transform:translate(-50%,-50%);
+ min-width:16px;min-height:16px;border-radius:50%;background:#96f4d1;
+ border:2px solid #fff;box-shadow:0 0 8px #66dfdb99;z-index:3}
+.game-page.agent-mode .room-scene-track.unverified{background:#a9aabd;border-style:dashed}
+.game-page.agent-mode .room-scene-draft{position:absolute;border:2px dashed #ffeab4;
+ background:rgba(244,191,112,.14);pointer-events:none}
+.game-page.agent-mode .room-scene-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:7px;margin:11px 0;padding:10px;border:1px solid rgba(130,220,218,.2);border-radius:8px}
+.game-page.agent-mode .room-scene-form>label{display:grid;gap:4px;font-size:.66rem;color:#d5f4ee}
+.game-page.agent-mode .room-scene-form input:not([type="hidden"]),
+.game-page.agent-mode .room-scene-form select{width:100%;min-width:0;color:#eafffc;
+ background:#123743;border:1px solid #699b9c;border-radius:6px;padding:7px;font-size:.76rem}
+.game-page.agent-mode .room-scene-form input:focus-visible,
+.game-page.agent-mode .room-scene-form select:focus-visible{outline:2px solid #a2ebd7}
+.game-page.agent-mode .room-scene-coords{grid-column:1/-1;display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.game-page.agent-mode .room-scene-coords label{display:grid;gap:3px;font-size:.62rem}
+.game-page.agent-mode .room-scene-editor button{padding:6px 9px;border:1px solid #5dabab;
+ border-radius:7px;color:#effffb;background:rgba(18,74,79,.72);cursor:pointer;font-size:.68rem}
+.game-page.agent-mode .room-scene-editor button:focus-visible{outline:2px solid #b1f7e2}
+.game-page.agent-mode .room-scene-items{display:grid;gap:6px;margin:8px 0}
+.game-page.agent-mode .room-scene-item{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+ border:1px solid rgba(104,224,228,.25);padding:7px;border-radius:7px;font-size:.68rem}
+.game-page.agent-mode .room-scene-item strong{flex:1;min-width:100px}
+.game-page.agent-mode #roomSceneMessage{display:block;color:#b3dadb;margin:8px 0}
+@media(max-width:380px){.game-page.agent-mode .room-scene-form{grid-template-columns:1fr}}
