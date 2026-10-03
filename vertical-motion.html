@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="./game-stage.css">
 <link rel="stylesheet" href="./scene-analysis.css">
 <link rel="stylesheet" href="./room-tabs.css">
+<link rel="stylesheet" href="./agent-mode.css">
+<link rel="stylesheet" href="./agent-mode.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +21,7 @@
   <header class="game-topbar">
     <div class="game-title-row">
       <a class="back-link" href="./games.html">← Games</a>
-      <div><small>GAME 01 · LIVE ROOM</small><strong>Random Follow Pattern</strong></div>
+      <div><small id="activeGameKicker">GAME 01 · LIVE ROOM</small><strong id="activeGameTitle">Random Follow Pattern</strong></div>
     </div>
     <div class="game-top-actions">
       <a class="button-link" href="./participants.html">Participants</a>
@@ -35,6 +37,13 @@
 
   <section class="game-playfield" id="playfield">
     <video id="cameraVideo" playsinline muted hidden></video>
+    <div id="agentCameraBoxes" class="agent-camera-boxes" aria-hidden="true" hidden></div>
+    <div id="agentCameraBadge" class="agent-camera-badge" hidden><i></i><b>AGENT · CAMERA VIEW</b><span id="agentSceneLabel">Preparing room</span></div>
+    <div id="agentCameraControls" class="agent-camera-controls" hidden>
+      <button type="button" id="agentCameraStart">Start camera + room audio</button>
+      <button type="button" id="agentCameraStop" disabled>Stop camera</button>
+      <span id="agentCameraControlStatus" role="status">Camera starts when browser permits</span>
+    </div>
     <canvas id="trackingCanvas" width="320" height="180" hidden></canvas>
     <div class="scene-analysis-overlay" id="gameSceneOverlay" role="status" aria-live="polite" hidden>
   <div class="scene-analysis-orbit" aria-hidden="true"><i></i><i></i><i></i><b>◎</b></div>
@@ -66,6 +75,11 @@
         <div><span>BODY LOCK</span><b id="roomBodyLock">—</b></div>
         <div><span>DIALOGUE GROUP</span><b id="roomDialogueGroup">—</b></div>
       </div>
+      <div class="agent-room-accordion" id="agentRoomAccordion" hidden>
+        <details id="agentRoomMapAccordion" open><summary>Room display <span>⌄</span></summary><div id="agentRoomMapMount"></div></details>
+        <details id="agentLiveStatusAccordion"><summary>Live status <span>⌄</span></summary><div id="agentLiveStatusMount"></div></details>
+      </div>
+      <div class="agent-participant-heading" id="agentParticipantHeading" hidden><strong>ROOM PARTICIPANTS</strong><small>Known participants and stable visitors</small></div>
       <div id="participantCards" class="room-participant-cards" aria-live="polite"></div>
       <div id="participantHudEmpty" class="participant-hud-empty">
         <span class="scan-icon mini" aria-hidden="true"></span>
@@ -74,6 +88,22 @@
     </aside>
 
     <aside id="roomLeftPanel" class="room-left-panel" aria-label="Room dialogue and player activity">
+      <div class="agent-left-controls" id="agentLeftControls" hidden>
+        <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
+        <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
+        <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
+        <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
+        <details class="agent-model-settings">
+          <summary>Conversational AI · optional local model</summary>
+          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
+          <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
+          <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
+          <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
+          <small>Your browser must be able to reach this localhost service (CORS may need configuring). No images, audio or biometrics are sent.</small>
+        </details>
+        <button type="button" id="agentClearHistory">Clear agent history</button>
+        <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
+      </div>
       <div class="room-left-tabs" role="tablist" aria-label="Room information">
         <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Room Dialogue</button>
         <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
@@ -85,6 +115,7 @@
         <span id="transcriptModelState">Transcription standby</span>
       </div>
       <div id="roomEvents" class="room-events" aria-live="polite"></div>
+      <div class="agent-conversation-thread" id="agentConversationThread" hidden aria-label="Agent conversation history"></div>
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">
         <div class="dialogue-empty">Enable room audio to begin speaker tracking.</div>
       </div>
@@ -159,6 +190,7 @@
     <label>Game mode
       <select id="gameMode"><option value="pattern" selected>Random Follow Pattern · timed rounds</option>
         <option value="reaction">Reaction Challenge · target speed</option>
+        <option value="agent">AGENT · live room conversation</option>
         <option value="solo">Classic solo · green controller</option>
         <option value="multiplayer">Classic two-player · point goal</option></select>
     </label>
@@ -297,6 +329,67 @@
 
   <footer>The 1″ × 5″ lane uses CSS physical units. Exact physical size depends on display scaling and monitor calibration.</footer>
 </main>
+<div id="agentVoiceModal" class="agent-voice-modal" hidden aria-hidden="true">
+  <div class="agent-modal-backdrop" id="agentVoiceBackdrop"></div>
+  <section class="agent-modal-content" role="dialog" aria-modal="true" aria-labelledby="agentVoiceModalTitle" tabindex="-1">
+    <header><div><small>PARTICIPANT · VOICE ENROLLMENT</small><h2 id="agentVoiceModalTitle">Voice Profile</h2></div><button type="button" id="agentCloseVoiceModal" aria-label="Close voice profile">×</button></header>
+    <p id="agentVoiceModalNotice">Voice capture pauses room audio until the modal closes.</p>
+    <div class="voice-enrollment-block" id="voiceEnrollmentBlock">
+            <div class="voice-enrollment-head">
+              <div>
+                <small>VOICE PROFILE</small>
+                <strong id="voiceEnrollmentStatus">Save participant to enable voice profiling</strong>
+              </div>
+              <span class="voice-orb" id="voiceOrb" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
+
+            <div class="voice-data-grid">
+              <div><span>PROFILE SAMPLES</span><b id="voiceSampleCount">0 / 3</b></div>
+              <div><span>PROFILE AUDIO</span><b id="voiceTotalSeconds">0.0s</b></div>
+              <div><span>LIVE LEVEL</span><b id="voiceLiveDb">— dB</b></div>
+              <div><span>SPEAKER MODEL</span><b id="voiceModelState">Standby</b></div>
+            </div>
+
+            <div class="voice-meter-shell">
+              <div class="voice-wave-bars" id="voiceWaveBars" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+              <div class="voice-capture-progress"><i id="voiceCaptureProgress"></i></div>
+              <div class="voice-stage-text">
+                <span id="voiceStageLabel">VOICE CORE STANDBY</span>
+                <b id="voiceStageDetail">Enroll a participant profile first.</b>
+              </div>
+            </div>
+
+            <div class="voice-profile-pipeline" aria-label="Voice profile pipeline">
+              <span data-voice-stage="capture">CAPTURE</span><i></i>
+              <span data-voice-stage="clean">NOISE GATE</span><i></i>
+              <span data-voice-stage="embed">VOICE ID</span><i></i>
+              <span data-voice-stage="redundancy">REDUNDANCY</span><i></i>
+              <span data-voice-stage="ready">PROFILE READY</span>
+            </div>
+
+            <div class="voice-actions">
+              <button id="recordVoiceSample" class="hud-button primary" disabled>Capture voice profile sample</button>
+              <button id="stopVoiceSample" class="hud-button" disabled>Stop recording</button>
+              <label class="switch-row voice-switch"><input id="voiceRecognitionEnabled" type="checkbox" checked disabled> Use voice profile for speaker tracking + transcription attribution</label>
+            </div>
+
+            <div class="voice-profile-console">
+              <small>REDUNDANT IDENTITY SIGNALS</small>
+              <div class="redundancy-grid">
+                <span>VOICE ACTIVITY<b>Noise-gated</b></span>
+                <span>VOICE PROFILE<b>Speaker match</b></span>
+                <span>FACE ID<b>When visible</b></span>
+                <span>BODY LOCK<b>Persistent</b></span>
+                <span>PROXIMITY<b>Dialogue grouping</b></span>
+                <span>TRANSCRIPT<b>Confidence gated</b></span>
+              </div>
+              <p>Tracky combines these signals to reject background noise and attribute transcript turns conservatively. Raw enrollment audio is processed into speaker embeddings and discarded after the profile sample is created.</p>
+            </div>
+          </div>
+  </section>
+</div>
 <script type="module" src="./room-tabs-controller.js"></script>
 <script type="module" src="./vertical-motion.js"></script>
 <script type="module" src="./pwa.js"></script>

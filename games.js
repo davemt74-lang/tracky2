@@ -4,6 +4,7 @@ import {selectGamePlayer,LAST_PARTICIPANT_KEY} from './src/camera-preference.js'
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
+import {agentGame} from './src/games/agent.js';
 import {
  LOBBY_TICKET_KEY,validateLobbySelection,makeLobbyTicket,roundRosterPreview
 } from './src/game-lobby.js';
@@ -18,6 +19,7 @@ const ui={
 const games=createGamePlatform();
 games.register(randomFollowPatternGame);
 games.register(reactionChallengeGame);
+games.register(agentGame);
 let roster=[];
 let picks=[];
 let preferredParticipant='';
@@ -63,7 +65,13 @@ function renderPreview() {
   ui.settings.hidden=!pattern;
   ui.status.textContent='';
   ui.preview.replaceChildren();
-  ui.start.textContent=pattern?'Go to game setup':'Open classic game';
+  ui.start.textContent=ui.game.value==='agent'?'Launch AGENT':pattern?'Go to game setup':'Open classic game';
+  if(ui.game.value==='agent'){
+    ui.gameSummary.textContent='Live room camera and voice conversation with enrolled participants, spoken agent greetings and local history.';
+    const p=document.createElement('p');
+    p.textContent='Uses your existing camera, voice and participant system. Browser microphone permission is required.';
+    ui.preview.append(p);return;
+  }
   if(!pattern){
     ui.gameSummary.textContent=ui.game.value==='solo'?
       'Original classic solo game with one green controller.':
@@ -113,6 +121,9 @@ ui.players.addEventListener('change',event=>{
   renderPreview();
 });
 ui.start.addEventListener('click',()=>{
+  if(ui.game.value==='agent'){
+    window.location.assign('./vertical-motion.html?mode=agent');return;
+  }
   if(ui.game.value==='solo'||ui.game.value==='multiplayer'){
     const mode=ui.game.value;
     window.location.assign('./vertical-motion.html?mode='+encodeURIComponent(mode));

@@ -8,6 +8,7 @@ import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
+import {createAgentRoom} from './agent-mode.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -180,6 +181,8 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
+let agentRuntime=null;
+let agentSpeechActive=false;
 const state = {
   stream: null,
   running: false,
@@ -384,7 +387,19 @@ function updatePatternSetup() {
   for(const select of ui.patternExtraPlayers.querySelectorAll('select'))select.disabled=locked;
 }
 
-function renderMode() {
+function renderMode(){
+  const agent=state.mode==='agent';
+  document.body.classList.toggle('agent-mode',agent);
+  if(agent){
+    ui.video.hidden=false;
+    ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
+    ui.playerHud.hidden=true;
+    ui.multiplayerStage.hidden=true;
+    ui.multiplayerSettings.hidden=true;
+    ui.matchHistoryPanel.hidden=true;
+    return;
+  }
+  ui.video.hidden=true;
   const multi = state.mode !== 'solo';
   ui.playerHud.hidden=!multi;
   document.body.classList.toggle('multiplayer-mode', multi);
@@ -1131,9 +1146,19 @@ function renderParticipantCards() {
   ui.participantHudEmpty.hidden = visible.length > 0;
   renderRoomRadar(visible);
 
-  for (const track of visible) {
-    ui.participantCards.append(createParticipantCard(track));
+  for(const track of visible){
+    const card=createParticipantCard(track);
+    if(state.mode==='agent'&&track.participantId){
+      const button=document.createElement('button');
+      button.type='button';button.className='agent-participant-voice-button';
+      button.textContent='◉ Voice';
+      button.setAttribute('aria-label','Capture voice profile for '+(track.participantName||'participant'));
+      button.addEventListener('click',()=>void agentRuntime?.openVoice(track.participantId));
+      card.append(button);
+    }
+    ui.participantCards.append(card);
   }
+  if(state.mode==='agent')agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
 }
 
 
@@ -1227,7 +1252,8 @@ function acknowledgeRoomTracks(now) {
       state.voice.announcedTracks.add(track.id);
       const participant = participantById(track.participantId);
       const event = acknowledgeNewTrack(track, participant);
-      pushRoomEvent(event.message, 'recognized', true);
+      pushRoomEvent(event.message,'recognized',state.mode!=='agent');
+      if(state.mode==='agent'&&participant)agentRuntime?.greet(track,participant);
       continue;
     }
 
@@ -1514,6 +1540,7 @@ async function processRoomSegment(segment) {
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     state.voice.turns.push(turn);
+    if(state.mode==='agent')agentRuntime?.onDialogue(turn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     state.voice.lastDecision = 'accepted';
 
@@ -1620,8 +1647,9 @@ async function startRoomAudio() {
 
     await state.voice.audio.start();
     state.voice.captureMode = state.voice.audio.captureMode;
-    if (state.voice.ttsPending > 0) state.voice.audio.setSuppressed(true);
+    if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    agentRuntime?.setAudioActive(true);
     state.voice.lastDecision = 'listening';
     ui.startRoomAudio.disabled = true;
     ui.stopRoomAudio.disabled = false;
@@ -1647,6 +1675,7 @@ function stopRoomAudio() {
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
+  agentRuntime?.setAudioActive(false);
   state.voice.vad = false;
   state.voice.micDb = -100;
   state.voice.currentSpeakerId = null;
@@ -1930,6 +1959,7 @@ function stopCamera() {
   }
   if (state.voice.active) stopRoomAudio();
   state.running = false;
+  agentRuntime?.setCameraActive(false);
   cancelAnimationFrame(state.raf);
   state.stream?.getTracks().forEach((track) => track.stop());
   state.stream = null;
@@ -1978,6 +2008,10 @@ async function startCamera(deviceId = '') {
     await enumerateCameras();
 
     state.running = true;
+    if(state.mode==='agent'){
+      agentRuntime?.setCameraActive(true);
+      void startRoomAudio();
+    }
     ui.start.disabled = true;
     ui.stop.disabled = false;
     ui.cameraStatus.textContent = 'Camera live';
@@ -2283,6 +2317,9 @@ function loop(now) {
 }
 
 ui.gameMode.addEventListener('change', () => {
+  if(ui.gameMode.value==='agent'){
+    window.location.assign('./vertical-motion.html?mode=agent');return;
+  }
   if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
   state.mode = ['solo','multiplayer','pattern','reaction'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
   state.pattern=null;
@@ -2378,7 +2415,10 @@ ui.pointGoal.addEventListener('change', () => {
   }
 });
 ui.select.addEventListener('change', () => state.running && startCamera(ui.select.value));
-ui.mirror.addEventListener('change',renderParticipantCards);
+ui.mirror.addEventListener('change',()=>{
+  ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
+  renderParticipantCards();
+});
 ui.pause.addEventListener('click', () => {
   state.paused = !state.paused;
   ui.pause.textContent = state.paused ? 'Resume stats' : 'Pause stats';
@@ -2406,7 +2446,7 @@ ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
 // No timed game ever starts automatically.
 try {
   const requestedMode=new URL(window.location.href).searchParams.get('mode');
-  if(['solo','multiplayer'].includes(requestedMode)){
+  if(['solo','multiplayer','agent'].includes(requestedMode)){
     state.mode=requestedMode;
     ui.gameMode.value=requestedMode;
   } else {
@@ -2446,6 +2486,25 @@ renderDialogueTurns();
 renderVoiceHud();
 renderStats(performance.now());
 renderMode();
+if(state.mode==='agent'){
+  agentRuntime=createAgentRoom({
+    participants:()=>state.identity.participants,
+    stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
+    startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
+    startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
+    stopCamera:()=>{cameraStoppedThisPage=true;stopCamera();},
+    suppressMic:suppressed=>{
+      agentSpeechActive=Boolean(suppressed);
+      state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
+    }
+  });
+  agentRuntime.init();
+  document.getElementById('activeGameKicker').textContent='GAME 03 · LIVE ROOM';
+  document.getElementById('activeGameTitle').textContent='AGENT';
+  document.getElementById('roomDialogueTab').textContent='Conversation';
+  ui.voiceAcknowledgements.checked=false;
+  ui.liveTranscription.checked=true;
+}
 drawTrace();
 async function maybeStartApprovedCamera(){
  if(state.running||!loadCameraPreference(window.localStorage)||cameraStoppedThisPage)return;

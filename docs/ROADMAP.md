@@ -123,3 +123,11 @@ Next development phase starts only once this PR is green and merged.
 - Suppress one-frame ghost tracks, face-less background detections and cross-session Visitor N history collisions
 - Keep scene progress through multiple real scans. On both game and Participants cameras, display nonblocking waiting animation until stable tracking is available; avoid concealing the view when none is found
 - Include unit, DOM-interaction, PWA, release-audit and deploy-package smoke tests; certify actual camera/audio recognition with real hardware separately
+
+## v0.7.0 — AGENT conversational game foundation
+- Register third AGENT game in lobby, separate boardless live camera view sharing canonical tracking and speaker engines
+- Full camera with normalized, preview-oriented bounding-box overlays; native Room display and Live status accordions, participant list Voice modal using original local voice enrollment controls
+- Room audio starts when camera runs with explicit browser consent/fallback, pauses for voice enrollment and while AGENT speaks to avoid feedback
+- Stable enrolled participant detection triggers a one-time per-session greeting with configurable browser speech synthesis. Accepted room transcripts feed an in-memory, privacy-aware conversation thread and baseline contextual replies
+- Optional, explicitly enabled loopback-only Ollama endpoint permits genuine conversational model responses; bounded text-only prompts and failure-safe local fallback
+- Bounded text history only saved with opt-in. No biometric or raw microphone sharing. Browser and physical hardware certification remains outstanding
