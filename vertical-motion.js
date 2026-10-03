@@ -46,6 +46,7 @@ import {
 } from './src/voice-core.js';
 import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
+import {RoomPresenceLedger,roomObservation,appendRoomObservation} from './src/room-event-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -53,7 +54,8 @@ import {
   listParticipants,
   patchParticipant,
   saveDialogueTurn,
-  savePendingCapture
+  savePendingCapture,
+  listRoomObservations,saveRoomObservation,clearRoomObservations
 } from './src/participant-store.js';
 
 const $ = (s) => document.querySelector(s);
@@ -183,6 +185,41 @@ const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
 let agentRuntime=null;
+const roomPresence=new RoomPresenceLedger();
+let roomHistory=[],saveRoomHistory=false;
+function renderRoomObservations(){
+ const timeline=document.getElementById('roomObservationsTimeline');
+ const status=document.getElementById('roomCurrentState');
+ if(!timeline||!status)return;
+ timeline.replaceChildren();
+ const visible=state.running?publicRoomTracks():[];
+ status.textContent=!state.running?'Camera unavailable · observations paused':
+  visible.length?visible.length+' stable participant'+(visible.length===1?'':'s')+' visible · '+(state.voice.active?'audio on':'audio off'):
+  'No stable participants visible · '+(state.voice.active?'audio on':'audio off');
+ for(const e of roomHistory.slice(-65).reverse()){
+  const item=document.createElement('article');item.className='room-observation';
+  const time=document.createElement('time');time.dateTime=new Date(e.at).toISOString();
+  time.textContent=new Date(e.at).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const heading=document.createElement('strong');heading.textContent=e.message;
+  const meta=document.createElement('small');
+  const duration=e.evidence?.durationMs;
+  meta.textContent=e.category.toUpperCase()+' · '+e.source+(Number.isFinite(duration)?' · '+Math.round(duration/1000)+'s visible':'');
+  item.append(time,heading,meta);timeline.append(item);
+ }
+ if(!roomHistory.length){
+  const empty=document.createElement('p');empty.className='dialogue-empty';
+  empty.textContent='Room observations appear as participant and device events occur.';timeline.append(empty);
+ }
+}
+function addRoomObservation(observation){
+ if(state.mode!=='agent'||!observation?.message)return;
+ roomHistory=appendRoomObservation(roomHistory,observation);renderRoomObservations();
+ if(saveRoomHistory)void saveRoomObservation(observation).catch(error=>console.warn('Room observation not saved:',error));
+}
+function logRoomMessage(category,message,source='runtime',options={}){
+ addRoomObservation(roomObservation({category,message,source,...options}));
+}
+
 let agentSpeechActive=false;
 const state = {
   stream: null,
@@ -1168,6 +1205,10 @@ function renderRoomRadar(visibleTracks) {
 function renderParticipantCards() {
   ui.participantCards.replaceChildren();
   const visible=publicRoomTracks();
+  if(state.mode==='agent'&&state.running){
+   for(const event of roomPresence.update(visible,Date.now()))addRoomObservation(event);
+   renderRoomObservations();
+  }
 
   ui.participantHudEmpty.hidden = visible.length > 0;
   renderRoomRadar(visible);
@@ -1298,6 +1339,7 @@ function pushRoomEvent(message, type = 'info', speak = false) {
   });
   if (state.voice.events.length > 30) state.voice.events.splice(0, state.voice.events.length - 30);
   renderRoomEvents();
+  if(state.mode==='agent')logRoomMessage(type==='recognized'?'presence':type==='error'?'system':'audio',message,'room-runtime');
   if (speak) speakAcknowledgement(message);
 }
 
@@ -1368,6 +1410,7 @@ function renderVoiceHud() {
 }
 
 function renderDialogueTurns() {
+  if(state.mode==='agent'&&agentRuntime){agentRuntime.refreshConversation();return;}
   ui.dialogueTurns.replaceChildren();
 
   const turns = state.voice.turns.slice(-8).reverse();
@@ -1596,8 +1639,12 @@ async function processRoomSegment(segment) {
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
+    turn.at=Date.now();
     state.voice.turns.push(turn);
-    if(state.mode==='agent')agentRuntime?.onDialogue(turn);
+    if(state.mode==='agent'){
+      logRoomMessage('audio',turn.participantId?'Verified participant speech turn':'Unverified speaker turn','room-voice');
+      agentRuntime?.onDialogue(turn);
+    }
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     state.voice.lastDecision = 'accepted';
 
@@ -1682,6 +1729,7 @@ async function clearSavedDialogue() {
     await clearDialogueTurns();
     state.voice.turns = [];
     renderDialogueTurns();
+    agentRuntime?.refreshConversation();
     pushRoomEvent('Saved dialogue history cleared from this device.', 'system');
   } catch (error) {
     console.error(error);
@@ -2001,6 +2049,10 @@ function maybeScanRoom(now) {
 }
 
 function stopCamera() {
+  if(state.mode==='agent'&&state.running){
+   roomPresence.unavailable();
+   logRoomMessage('system','Camera stopped · participant absence not inferred','camera');
+  }
   state.latestMarkerDetections = { green: null, blue: null };
   state.gameplay.signalLost();
   state.markerTracker.reset();
@@ -2548,6 +2600,7 @@ renderMode();
 if(state.mode==='agent'){
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
+    getDialogueTurns:()=>state.voice.turns,
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
     startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
     startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
@@ -2558,6 +2611,29 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  const roomOptIn=document.getElementById('roomSaveObservations');
+  const roomClear=document.getElementById('roomClearObservations');
+  try{saveRoomHistory=window.localStorage.getItem('tracky2-save-room-observations')==='yes';}
+  catch{saveRoomHistory=false;}
+  roomOptIn.checked=saveRoomHistory;
+  if(saveRoomHistory)void listRoomObservations().then(rows=>{
+   const seen=new Set(roomHistory.map(x=>x.id));
+   roomHistory=[...rows.filter(row=>!seen.has(row.id)),...roomHistory]
+    .sort((a,b)=>a.at-b.at).slice(-120);
+   renderRoomObservations();
+  }).catch(console.warn);
+  roomOptIn.addEventListener('change',()=>{
+   saveRoomHistory=roomOptIn.checked;
+   try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
+   if(saveRoomHistory)for(const event of roomHistory)void saveRoomObservation(event).catch(console.warn);
+  });
+  roomClear.addEventListener('click',async()=>{
+   if(!window.confirm('Clear ROOM observations saved on this device?'))return;
+   roomHistory=[];renderRoomObservations();
+   try{await clearRoomObservations();}catch(error){console.warn('Unable to clear saved room observations',error);}
+  });
+  const hour=new Date().getHours();
+  logRoomMessage('system','Local '+(hour<6?'night':hour<12?'morning':hour<18?'daytime':'evening')+' session started','local-clock');
   document.getElementById('activeGameKicker').textContent='GAME 03 · LIVE ROOM';
   document.getElementById('activeGameTitle').textContent='AGENT';
   document.getElementById('roomDialogueTab').textContent='Conversation';

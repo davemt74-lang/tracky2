@@ -37,6 +37,9 @@
 
   <section class="game-playfield" id="playfield">
     <video id="cameraVideo" playsinline muted hidden></video>
+    <button type="button" id="agentMobileLeftRail" class="agent-mobile-rail left" aria-controls="roomLeftPanel" aria-expanded="false" aria-label="Open Conversation and ROOM sidebar" hidden><span>CHAT · ROOM</span></button>
+    <button type="button" id="agentMobileRightRail" class="agent-mobile-rail right" aria-controls="roomIdentityPanel" aria-expanded="false" aria-label="Open participants sidebar" hidden><span>PEOPLE</span></button>
+    <button type="button" id="agentMobileBackdrop" class="agent-mobile-backdrop" aria-label="Close open sidebar" hidden></button>
     <div id="agentCameraBoxes" class="agent-camera-boxes" aria-hidden="true" hidden></div>
     <nav id="agentViewChooser" class="agent-view-chooser" aria-label="Agent main view" hidden>
       <a class="agent-exit" href="./games.html" aria-label="Exit AGENT to games">← Exit</a>
@@ -44,14 +47,15 @@
         <button type="button" id="agentCameraView" aria-pressed="true">Camera</button>
         <button type="button" id="agentOrbView" aria-pressed="false">Orb</button>
       </div>
-      <span class="agent-shortcut-hint" title="Press Z three times quickly to switch views">ZZZ ⇄</span>
+      <span class="agent-shortcut-hint" title="ZZZ switches camera/orb · XXX hides or restores panels">ZZZ ⇄ · XXX ⇔</span>
     </nav>
     <div id="agentOrbStage" class="agent-orb-stage" aria-label="Agent voice orb visualization" hidden>
+      <div id="agentOrbFollower" class="agent-orb-follower" aria-hidden="true">
       <div class="agent-orb-aura" aria-hidden="true"></div>
       <div id="agentVoiceOrb" class="agent-voice-orb" data-speech="idle" aria-hidden="true">
         <div class="agent-orb-ring ring-a"></div><div class="agent-orb-ring ring-b"></div>
         <div class="agent-orb-ring ring-c"></div><div class="agent-orb-core"></div>
-      </div>
+      </div></div>
       <strong>AGENT</strong><span id="agentOrbCaption" role="status">Listening for participants</span>
     </div>
     <div id="agentCameraBadge" class="agent-camera-badge" hidden><i></i><b>AGENT · CAMERA VIEW</b><span id="agentSceneLabel">Preparing room</span></div>
@@ -70,7 +74,7 @@
   <small>Checking camera, loading models and establishing stable tracking</small>
 </div>
 
-    <aside class="room-identity-hud" aria-label="Detected participants">
+    <aside id="roomIdentityPanel" class="room-identity-hud" aria-label="Detected participants">
       <div class="room-identity-head">
         <div><small>ROOM IDENTITY · FULL BODY</small><strong>Persistent participant tracking</strong></div>
         <span class="hud-pulse" aria-hidden="true"></span>
@@ -103,20 +107,21 @@
       </div>
     </aside>
 
-    <aside id="roomLeftPanel" class="room-left-panel" aria-label="Room dialogue and player activity">
+    <aside id="roomLeftPanel" class="room-left-panel" aria-label="Conversation, player activity, agent and room observations">
       <div class="room-left-tabs" role="tablist" aria-label="Room information">
         <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Conversation</button>
         <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
         <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1" hidden>AGENT</button>
+        <button type="button" id="roomTab" role="tab" aria-controls="roomObservationsPanel" aria-selected="false" tabindex="-1" hidden>ROOM</button>
       </div>
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
 
       <div class="dialogue-hud-head">
-        <div><small>ROOM DIALOGUE</small><strong>Speaker-attributed transcription</strong></div>
+        <div><small>ROOM CONVERSATION</small><strong>Participants + AGENT</strong></div>
         <span id="transcriptModelState">Transcription standby</span>
       </div>
       <div id="roomEvents" class="room-events" aria-live="polite"></div>
-      <div class="agent-conversation-thread" id="agentConversationThread" hidden aria-label="Agent conversation history"></div>
+      <div class="agent-conversation-thread agent-chat-thread" id="agentConversationThread" hidden aria-label="Chronological participant and agent messages"></div>
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">
         <div class="dialogue-empty">Enable room audio to begin speaker tracking.</div>
       </div>
@@ -160,6 +165,8 @@
         <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
         <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
+        <label class="agent-check"><input type="checkbox" id="agentDistanceAudio" checked> Adjust reply volume for apparent participant proximity</label>
+        <label>Follow participant <select id="agentFollowParticipant"><option value="">Auto · main visible participant</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
@@ -174,6 +181,14 @@
       </div>
 
         <p class="agent-tab-note">Conversation and transcript history remain in the Conversation tab. Voice, model and history controls are configured here.</p>
+      </section>
+      <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
+        <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
+        <div id="roomCurrentState" class="room-current-state" role="status">Waiting for room observations</div>
+        <div id="roomObservationsTimeline" class="room-observations-timeline" aria-live="off"></div>
+        <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations"> Save observation history on this device</label>
+        <button type="button" id="roomClearObservations">Clear room observations</button>
+        <small class="room-privacy-notice">Room observations use existing camera/mic permissions. This view does not diagnose health, infer sleep from stillness or automatically capture screenshots.</small>
       </section>
     </aside>
     <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>

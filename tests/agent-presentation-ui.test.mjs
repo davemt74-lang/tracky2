@@ -1,10 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
-test('fullscreen AGENT keeps only three separate sidebar tabs; transcripts never move to settings',()=>{
+test('fullscreen AGENT keeps four separate sidebar tabs; transcripts never move to settings',()=>{
  const h=fs.readFileSync('vertical-motion.html','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const css=fs.readFileSync('agent-presence.css','utf8');
  for(const id of ['roomDialoguePanel','playerActivityPanel','roomAgentPanel','roomAgentTab',
-  'agentConversationThread','agentViewChooser','agentOrbStage','agentVoiceOrb']){
+  'roomTab','roomObservationsPanel','agentConversationThread','agentViewChooser','agentOrbStage','agentVoiceOrb']){
   assert.equal(h.split('id="'+id+'"').length,2,id);
  }
  const d=h.indexOf('id="roomDialoguePanel"'),p=h.indexOf('id="playerActivityPanel"');

@@ -168,3 +168,97 @@
 
 .agent-shortcut-hint{white-space:nowrap;color:#a8e7e0;font-size:.65rem;font-weight:800;letter-spacing:.1em}
 @media(max-width:530px){.agent-shortcut-hint{display:none}}
+
+
+/* V0.9: one flowing chat, the fourth ROOM tab, and immersive shortcuts. */
+.game-page.agent-mode .room-left-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+.game-page.agent-mode .agent-chat-thread{display:flex;flex-direction:column;gap:12px;max-height:none;overflow:visible;padding:5px 2px 15px}
+.game-page.agent-mode .agent-chat-thread[hidden]{display:none!important}
+.game-page.agent-mode #roomDialoguePanel{scrollbar-gutter:stable;min-height:150px}
+.game-page.agent-mode #dialogueTurns[hidden],.game-page.agent-mode #roomEvents[hidden]{display:none!important}
+.agent-chat-message{display:flex;align-items:flex-end;gap:8px;max-width:98%;min-width:0}
+.agent-chat-message.agent{align-self:flex-end;flex-direction:row-reverse}
+.agent-chat-avatar{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;overflow:hidden;
+ background:rgba(56,143,156,.52);border:1px solid #55b5c59c;color:#e8fffc;font-size:.68rem;font-weight:800}
+.agent-chat-message.agent .agent-chat-avatar{background:linear-gradient(140deg,#28b4bf,#1b5765)}
+.agent-chat-avatar img{width:100%;height:100%;object-fit:cover}
+.agent-chat-bubble{min-width:0;max-width:calc(100% - 42px);padding:9px 11px;border:1px solid #73d9df44;
+ background:rgba(5,37,50,.72);border-radius:12px 12px 12px 3px;overflow-wrap:anywhere}
+.agent-chat-message.agent .agent-chat-bubble{background:rgba(18,98,99,.68);border-color:#80e6ba7c;border-radius:12px 12px 3px 12px}
+.agent-chat-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.59rem;color:#bde1ea}
+.agent-chat-meta time{flex:none;opacity:.85}
+.agent-chat-bubble p{margin:6px 0 0;color:#f1ffff;font-size:.76rem;line-height:1.48}
+.agent-chat-unverified{font-size:.56rem;color:#c0d4df}
+.room-current-state{padding:12px;border:1px solid #75d9d94a;border-radius:10px;
+ background:rgba(10,57,62,.38);font-size:.74rem;line-height:1.5;margin:9px 0}
+.room-observations-timeline{display:grid;gap:7px;padding:4px 0 12px}
+.room-observation{padding:10px;border-radius:9px;border:1px solid #7da4b04b;background:rgba(4,29,40,.54)}
+.room-observation time{color:#9bdac9;font-size:.62rem}
+.room-observation strong{display:block;color:#effffe;font-size:.73rem;margin:5px 0}
+.room-observation small,.room-privacy-notice{display:block;color:#bed2db;font-size:.61rem;line-height:1.5}
+.room-consent{display:flex;align-items:center;gap:9px;padding:10px 0;font-size:.69rem}
+#roomClearObservations{color:#dcf5f4;border:1px solid #659fa0;border-radius:7px;
+ background:rgba(8,42,48,.8);padding:8px;cursor:pointer}
+/* Move the visual wrapper only; independent ring animations remain free to breathe. */
+.game-page.agent-mode .agent-orb-follower{position:absolute;left:var(--orb-x,50%);top:var(--orb-y,44%);
+ transform:translate(-50%,-50%) scale(var(--orb-scale,1));width:clamp(160px,29vmin,330px);
+ height:clamp(160px,29vmin,330px);display:grid;place-items:center;
+ transition:left .88s cubic-bezier(.22,.61,.36,1),top .88s cubic-bezier(.22,.61,.36,1),
+ transform 1.08s cubic-bezier(.22,.61,.36,1);will-change:left,top,transform}
+.game-page.agent-mode #agentOrbStage{justify-content:flex-end;padding-bottom:clamp(30px,7vh,100px)}
+.game-page.agent-mode #agentOrbStage>strong,.game-page.agent-mode #agentOrbStage>span{z-index:3;position:relative}
+.agent-voice-orb[data-speech="speaking"] .agent-orb-core{animation:orb-cadence-fallback .62s ease-in-out infinite alternate}
+@keyframes orb-cadence-fallback{to{scale:1.16;filter:brightness(1.28)}}
+.game-page.agent-mode.room-sidebars-hidden .room-left-panel,
+.game-page.agent-mode.room-sidebars-hidden .room-identity-hud{display:none!important}
+/* Narrow viewports: edge rails are intentionally large, clear tap targets. */
+.game-page.agent-mode .agent-mobile-rail,
+.game-page.agent-mode .agent-mobile-backdrop{display:none}
+@media(max-width:760px){
+ .game-page.agent-mode .agent-mobile-rail{display:flex;position:absolute;top:25%;bottom:25%;width:34px;z-index:47;
+ align-items:center;justify-content:center;padding:3px;border:1px solid #5fdbdcb8;
+ background:rgba(5,33,46,.83);color:#e5ffff;backdrop-filter:blur(9px);cursor:pointer}
+ .game-page.agent-mode .agent-mobile-rail.left{left:0;border-radius:0 14px 14px 0;border-left:0}
+ .game-page.agent-mode .agent-mobile-rail.right{right:0;border-radius:14px 0 0 14px;border-right:0}
+ .agent-mobile-rail span{writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.14em;font-size:.66rem;font-weight:800}
+ .game-page.agent-mode .room-left-panel,.game-page.agent-mode .room-identity-hud{
+  display:flex;position:absolute;top:60px;bottom:12px;max-height:none;width:min(355px,calc(100vw - 66px));
+  z-index:49;transition:transform .32s ease,opacity .32s ease;opacity:0;pointer-events:none}
+ .game-page.agent-mode .room-left-panel{left:0;transform:translateX(calc(-100% - 20px))}
+ .game-page.agent-mode .room-identity-hud{right:0;transform:translateX(calc(100% + 20px))}
+ .game-page.agent-mode.agent-mobile-panel-left .room-left-panel{transform:translateX(0);opacity:1;pointer-events:auto}
+ .game-page.agent-mode.agent-mobile-panel-right .room-identity-hud{transform:translateX(0);opacity:1;pointer-events:auto}
+ .game-page.agent-mode .agent-mobile-backdrop:not([hidden]){display:block;position:absolute;inset:0;z-index:46;
+  border:0;background:rgba(0,5,9,.46);cursor:pointer}
+ .game-page.agent-mode .room-left-tabs button{font-size:.6rem;white-space:normal}
+ .game-page.agent-mode .agent-view-chooser{max-width:calc(100vw - 76px);gap:6px;padding:4px 5px}
+ .game-page.agent-mode .agent-view-buttons button{padding:6px 10px}
+ .game-page.agent-mode .agent-shortcut-hint{display:none}
+ .game-page.agent-mode #agentOrbStage{padding-top:0}
+}
+@media(prefers-reduced-motion:reduce){
+ .game-page.agent-mode .agent-orb-follower,.game-page.agent-mode .room-left-panel,
+ .game-page.agent-mode .room-identity-hud{transition:none!important}
+ .agent-voice-orb[data-speech="speaking"] .agent-orb-core{animation:none}
+}
+
+/* The orb meanders gently when no reliable primary track is available. */
+.agent-orb-follower[data-follow="idle"]{animation:agent-orb-drift 13s ease-in-out infinite alternate}
+@keyframes agent-orb-drift{
+  0%{transform:translate(-52%,-53%) scale(.94)}
+  50%{transform:translate(-47%,-48%) scale(1.035)}
+  100%{transform:translate(-51%,-51%) scale(.99)}
+}
+.game-page.agent-mode .agent-mobile-rail[hidden]{display:none!important}
+@media(max-width:760px){
+ .game-page.agent-mode.agent-mobile-panel-left #agentMobileLeftRail{
+   left:min(355px,calc(100vw - 66px));z-index:52}
+ .game-page.agent-mode.agent-mobile-panel-right #agentMobileRightRail{
+   right:min(355px,calc(100vw - 66px));z-index:52}
+ .game-page.agent-mode.agent-mobile-panel-left #agentMobileLeftRail span,
+ .game-page.agent-mode.agent-mobile-panel-right #agentMobileRightRail span{
+   letter-spacing:.07em}
+}
+@media(prefers-reduced-motion:reduce){
+ .agent-orb-follower[data-follow="idle"]{animation:none!important}
+}
