@@ -9,7 +9,7 @@ export function nextAgentTab(current,action){
  if(action==='Home')return tabs[0];
  if(action==='End')return tabs[3];
  if(action==='ArrowRight')return tabs[((index<0?0:index)+1)%4];
- if(action==='ArrowLeft')return tabs[((index<0?0:index)+2)%3];
+ if(action==='ArrowLeft')return tabs[((index<0?0:index)+3)%4];
  return index<0?'dialogue':current;
 }
 export function orbPresentation({view='camera',speaking=false}={}){
