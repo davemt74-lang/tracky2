@@ -185,6 +185,17 @@
       <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
         <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
         <div id="roomCurrentState" class="room-current-state" role="status">Waiting for room observations</div>
+        <section class="room-audio-audit-panel" aria-label="Shared room ambient audio diagnostics">
+          <strong>SHARED ROOM AUDIO · UNATTRIBUTED</strong>
+          <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
+            aria-label="Combined ambient room microphone level, not participant-specific"
+            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <i id="roomAmbientAudioFill"></i>
+          </div>
+          <div id="roomAmbientAudioStatus" class="room-ambient-audio-status" role="status">Room mic offline · no ambient audio captured</div>
+          <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
+          <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
+        </section>
         <div id="roomObservationsTimeline" class="room-observations-timeline" aria-live="off"></div>
         <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations"> Save observation history on this device</label>
         <button type="button" id="roomClearObservations">Clear room observations</button>

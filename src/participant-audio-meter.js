@@ -1,14 +1,21 @@
-// Display ONLY the shared room microphone level. One microphone cannot isolate
-// a participant's live speech; voice verification arrives after a full segment.
-export function roomMeterState({active=false,suppressed=false,db=-100,vad=false,track=null,now=0}={}){
- const level=active&&!suppressed&&Number.isFinite(db)
-   ? Math.max(0,Math.min(100,Math.round((db+70)*100/62))) : 0;
- const recentMatch=Boolean(track?.participantId && Number.isFinite(track.lastVoiceAt) &&
-   Number(track.lastVoiceAt)>0 && now-Number(track.lastVoiceAt)>=0 &&
-   now-Number(track.lastVoiceAt)<2600 && Number(track.voiceMatchConfidence)>0);
- const mode=!active?'off':suppressed?'suppressed':vad?'speech':'quiet';
- const text=mode==='off'?'MIC OFF':mode==='suppressed'?'MIC PAUSED · AGENT SPEAKING':
-   mode==='speech'?'ROOM SPEECH · SPEAKER UNVERIFIED':
-   recentMatch?'QUIET · RECENT VOICE MATCH':'QUIET · ROOM MIC';
- return Object.freeze({mode,level,text,recentMatch});
+// Per-participant display is a RECENT VERIFIED VOICE PROFILE segment only.
+// A shared room microphone cannot deliver a continuous isolated waveform.
+// Never use raw dB, room VAD, proximity or unverified voice similarity here.
+export const VERIFIED_SEGMENT_DISPLAY_MS=2600;
+export function roomMeterState({active=false,suppressed=false,track=null,now=0,voiceProfileReady=false}={}){
+ const enrolled=Boolean(track?.participantId && voiceProfileReady);
+ const age=now-Number(track?.lastVoiceAt);
+ const recentMatch=Boolean(active&&!suppressed&&enrolled&&
+   Number.isFinite(track?.lastVoiceAt)&&track.lastVoiceAt>0 &&
+   Number.isFinite(age)&&age>=0&&age<VERIFIED_SEGMENT_DISPLAY_MS &&
+   track.verifiedVoiceSegment===true &&
+   Number(track.voiceMatchConfidence)>0 && Number.isFinite(track.voiceLevelDb));
+ if(!active)return Object.freeze({mode:'off',level:0,text:'MIC OFF',recentMatch:false});
+ if(!enrolled)return Object.freeze({mode:'unenrolled',level:0,text:'VOICE PROFILE REQUIRED',recentMatch:false});
+ if(suppressed)return Object.freeze({mode:'suppressed',level:0,text:'PAUSED · AGENT SPEAKING',recentMatch:false});
+ if(!recentMatch)return Object.freeze({mode:'waiting',level:0,text:'WAITING FOR VOICE MATCH',recentMatch:false});
+ const strength=Math.max(0,Math.min(100,Math.round((track.voiceLevelDb+70)*100/62)));
+ const fade=Math.min(1,Math.max(0,(VERIFIED_SEGMENT_DISPLAY_MS-age)/900));
+ return Object.freeze({mode:'verified',level:Math.round(strength*fade),
+  text:'VERIFIED VOICE · LAST SEGMENT',recentMatch:true});
 }

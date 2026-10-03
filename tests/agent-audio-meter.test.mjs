@@ -1,61 +1,54 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {roomMeterState} from '../src/participant-audio-meter.js';
+import {roomMeterState,VERIFIED_SEGMENT_DISPLAY_MS} from '../src/participant-audio-meter.js';
 
-test('AGENT room microphone meter is silent when offline or TTS suppresses capture',()=>{
- assert.deepEqual(roomMeterState(),{mode:'off',level:0,text:'MIC OFF',recentMatch:false});
- const suppressed=roomMeterState({active:true,suppressed:true,db:-8,vad:true});
- assert.equal(suppressed.level,0);
- assert.equal(suppressed.mode,'suppressed');
- assert.match(suppressed.text,/PAUSED/);
+test('individual participant meters never react to raw room noise or unverified VAD',()=>{
+ const offline=roomMeterState();
+ assert.deepEqual(offline,{mode:'off',level:0,text:'MIC OFF',recentMatch:false});
+ const track={participantId:'person-a',voiceMatchConfidence:.98,voiceLevelDb:-16,
+  lastVoiceAt:1000,verifiedVoiceSegment:false};
+ const noise=roomMeterState({active:true,track,voiceProfileReady:true,
+  db:-4,vad:true,now:1500});
+ assert.equal(noise.level,0);
+ assert.equal(noise.mode,'waiting');
+ assert.equal(noise.recentMatch,false);
+ assert.equal(roomMeterState({active:true,track,voiceProfileReady:false,db:-4,vad:true,now:1500}).level,0);
 });
-test('meter follows real room dB and VAD, without identifying speech from camera proximity',()=>{
- const quiet=roomMeterState({active:true,db:-61,vad:false});
- const speaking=roomMeterState({active:true,db:-20,vad:true});
- assert.equal(quiet.mode,'quiet');
- assert.equal(speaking.mode,'speech');
- assert.ok(speaking.level>quiet.level);
- assert.match(speaking.text,/UNVERIFIED/);
- assert.equal(speaking.recentMatch,false);
+test('only an enrolled, gated, correctly attributed voice segment activates its own card',()=>{
+ const verified={participantId:'alice',lastVoiceAt:3000,verifiedVoiceSegment:true,
+  voiceMatchConfidence:.88,voiceLevelDb:-24};
+ const a=roomMeterState({active:true,track:verified,voiceProfileReady:true,now:3300,db:-1,vad:true});
+ assert.equal(a.mode,'verified');
+ assert.ok(a.level>0);
+ assert.match(a.text,/LAST SEGMENT/);
+ const other={participantId:'bob',lastVoiceAt:0,voiceLevelDb:-8,verifiedVoiceSegment:false};
+ assert.equal(roomMeterState({active:true,track:other,voiceProfileReady:true,now:3300,db:0,vad:true}).level,0);
+ const aged=roomMeterState({active:true,track:verified,voiceProfileReady:true,now:3000+VERIFIED_SEGMENT_DISPLAY_MS});
+ assert.equal(aged.level,0);
+ assert.equal(aged.recentMatch,false);
 });
-test('a previous voice match is not proof of the current live speaker',()=>{
- const track={participantId:'one',lastVoiceAt:1000,voiceMatchConfidence:.86};
- assert.equal(roomMeterState({active:true,db:-18,vad:true,track,now:2000}).text,
-   'ROOM SPEECH · SPEAKER UNVERIFIED');
- assert.equal(roomMeterState({active:true,db:-40,vad:false,track,now:2000}).recentMatch,true);
- assert.equal(roomMeterState({active:true,db:-40,vad:false,track,now:6000}).recentMatch,false);
+test('suppression, profile removal and replay rejection fail closed',()=>{
+ const track={participantId:'p',lastVoiceAt:1000,verifiedVoiceSegment:true,
+  voiceMatchConfidence:.86,voiceLevelDb:-15};
+ assert.equal(roomMeterState({active:true,suppressed:true,track,voiceProfileReady:true,now:1400}).level,0);
+ assert.equal(roomMeterState({active:true,track,voiceProfileReady:false,now:1400}).level,0);
+ assert.equal(roomMeterState({active:true,track,voiceProfileReady:true,now:500}).level,0);
+ assert.equal(roomMeterState({active:false,track,voiceProfileReady:true,now:1400}).level,0);
 });
-test('AGENT replaces face-progress strip with accessible live-input bar only in AGENT',()=>{
+test('AGENT sidebar consumes only verified segment; ambient monitoring is in ROOM',()=>{
  const source=fs.readFileSync('vertical-motion.js','utf8');
  const css=fs.readFileSync('agent-presence.css','utf8');
  const html=fs.readFileSync('vertical-motion.html','utf8');
- assert.match(source,/roomMeterState\(\{\.\.\.shared,track:/);
- assert.match(source,/updateParticipantAudioMeters\(\)/);
- assert.match(source,/heading\.textContent = 'ROOM MIC · SHARED INPUT'/);
- assert.match(source,/meter\.setAttribute\('role', 'meter'\)/);
- assert.match(source,/} else \{\s*meter\.className = 'participant-scan-meter'/);
- assert.match(css,/participant-audio-meter\[data-mode="speech"\]/);
- assert.match(css,/backdrop-filter:blur\(15px\)/);
+ const agent=fs.readFileSync('agent-mode.js','utf8');
+ assert.match(source,/roomMeterState\(\{\.\.\.shared,track,voiceProfileReady:enrolled\}\)/);
+ assert.match(source,/liveTrack\.verifiedVoiceSegment=true/);
+ assert.ok(source.indexOf('liveTrack.verifiedVoiceSegment=true')>
+   source.indexOf("if (!gate.accept)"));
+ assert.doesNotMatch(source,/heading\.textContent = 'ROOM MIC · SHARED INPUT'/);
+ assert.match(agent,/\$\('roomAudioDiagnosticsMount'\)\.append\(live\)/);
+ assert.match(html,/id="roomAmbientAudioMeter"/);
+ assert.match(css,/participant-audio-meter\[data-mode="verified"\]/);
  assert.match(html,/id="roomAgentTab"/);
  assert.match(html,/id="agentLeftControls"(?! hidden)/);
-});
-test('AGENT tab is exposed immediately by URL; Conversation remains default',async()=>{
- const ids=['roomDialogueTab','playerActivityTab','roomAgentTab','roomDialoguePanel',
-   'playerActivityPanel','roomAgentPanel','agentLeftControls'];
- const entries=new Map(ids.map(id=>[id,{id,
-   hidden:['roomAgentTab','roomAgentPanel'].includes(id),style:{},tabIndex:0,attributes:{},handlers:{},
-   setAttribute(k,v){this.attributes[k]=v;},
-   addEventListener(k,fn){this.handlers[k]=fn;},focus(){this.focused=true;}}]));
- globalThis.document={getElementById:id=>entries.get(id)};
- globalThis.window={location:{search:'?mode=agent'},addEventListener(){}};
- try{
-  await import('../room-tabs-controller.js?agent-early-init-meter-test');
-  assert.equal(entries.get('roomAgentTab').hidden,false);
-  assert.equal(entries.get('agentLeftControls').hidden,false);
-  assert.equal(entries.get('roomDialoguePanel').hidden,false);
-  entries.get('roomAgentTab').handlers.click();
-  assert.equal(entries.get('roomAgentPanel').hidden,false);
-  assert.equal(entries.get('roomDialoguePanel').hidden,true);
- }finally{delete globalThis.document;delete globalThis.window;}
 });

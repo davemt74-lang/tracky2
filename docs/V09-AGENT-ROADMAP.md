@@ -52,3 +52,9 @@ Review actual existing implementation before adding new code. Build targeted tes
 - Participant deletion also clears attributed room-observation metadata in the same IndexedDB transaction; automatic duplicate named recognition messages are not saved as unattributed event records.
 - Cadence pulse uses additive scale without resetting ring orientation and respects the browser reduced-motion preference.
 - The packaged release remains feature-scoped: live physical-distance calibration, autonomous cognitive skills, server-side event sync and hardware validation are separate future milestones.
+
+## V0.9.2: separated voice-profile meters and ROOM ambient audit
+- AGENT participant meters never visualize the shared microphone dB or generic voice activity; they show a short, fading indication from an accepted, enrolled, voice-profile-matched segment after model verification, with explicit `VERIFIED VOICE · LAST SEGMENT` labeling. This is **not live isolated per-person waveform extraction**.
+- Shared microphone activity, current dB level/noise floor, and unattributed/ambiguous/rejected audio metadata reside in ROOM. A bounded 15-second rolling metadata summary records the shared audio signal, noise floor, peak and approximate VAD frame percentage, all with timestamps.
+- No ambient PCM, conversation content or media recordings are stored by the ROOM audit. ROOM summaries remain session-only unless the existing Save room observations control is explicitly enabled, in which case the existing bounded local IndexedDB retention applies.
+- The same canonical audio capture, voice identity and transcript engine drive both views; no duplicated mic/AI runtime. Actual per-person live isolation, detailed sound identification and raw recording require separately consented future infrastructure.
