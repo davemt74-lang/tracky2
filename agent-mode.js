@@ -5,7 +5,7 @@ import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
@@ -48,6 +48,34 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,
    meta.append(name,time);
    const body=document.createElement('p');body.textContent=entry.text;
    bubble.append(meta,body);
+   if(entry.source==='transcript'){
+    const controls=document.createElement('div');controls.className='agent-transcript-controls';
+    if(entry.edited){
+     const badge=document.createElement('small');badge.textContent='Transcript corrected by owner · original retained locally';
+     badge.className='agent-transcript-edited';controls.append(badge);
+    }
+    const edit=document.createElement('button');edit.type='button';edit.textContent='Edit transcript';
+    edit.setAttribute('aria-label','Correct transcript without changing speaker attribution');
+    edit.addEventListener('click',()=>{
+     edit.hidden=true;
+     const form=document.createElement('form');form.className='agent-transcript-edit-form';
+     const field=document.createElement('textarea');field.value=entry.text;field.maxLength=800;
+     field.required=true;field.rows=3;field.setAttribute('aria-label','Correct transcript wording');
+     const save=document.createElement('button');save.type='submit';save.textContent='Save correction';
+     const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
+     const message=document.createElement('span');message.setAttribute('role','status');
+     cancel.addEventListener('click',()=>{form.remove();edit.hidden=false;});
+     form.addEventListener('submit',async event=>{
+      event.preventDefault();save.disabled=true;
+      try{
+       const revised=await editTranscript(entry.id,field.value);
+       if(revised)showThread();else{message.textContent='Correction was not saved';save.disabled=false;}
+      }catch(error){message.textContent=error?.message||'Correction failed';save.disabled=false;}
+     });
+     form.append(field,save,cancel,message);controls.append(form);field.focus();
+    });
+    controls.append(edit);bubble.append(controls);
+   }
    if(entry.role==='participant'&&!entry.verified){
     const note=document.createElement('small');note.className='agent-chat-unverified';
     note.textContent='Speaker unverified';bubble.append(note);
@@ -112,9 +140,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,
  }
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
-  const prior=entries.slice();
+  // The canonical IndexedDB dialogue turn is the ONLY participant transcript.
+  // Avoid duplicate localStorage copies that survive transcript deletion/correction.
+  const prior=[
+   ...getDialogueTurns().filter(t=>t.id!==turn.id&&String(t.transcript||'').trim())
+    .map(t=>({role:'participant',text:t.transcript,at:Date.parse(t.createdAt||'')||t.at||0})),
+   ...entries.filter(e=>e.role==='agent')
+  ].sort((a,b)=>a.at-b.at).slice(-12);
   lastSpeakerId=turn.participantId||null;
-  append('participant',turn.transcript,turn.participantId||null);
+  showThread();
   const now=Date.now();
   if(now-lastTurnAt<4000||responsePending||open)return;
   lastTurnAt=now;responsePending=true;
@@ -248,7 +282,12 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,
     showThread();
   });
   ui.save.addEventListener('change',()=>{
-    if(ui.save.checked){entries=entries.length?entries:loadAgentHistory(localStorage);saveAgentHistory(localStorage,entries,true);}
+    if(ui.save.checked){
+     entries=(entries.length?entries:loadAgentHistory(localStorage))
+      .filter(item=>item.role!=='participant');
+     // Migration purges old duplicated participant speech stored in AGENT history.
+     saveAgentHistory(localStorage,entries,true);
+    }
     showThread();
   });
   ui.resume.addEventListener('click',async()=>{await startAudio();});

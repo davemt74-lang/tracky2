@@ -14,4 +14,11 @@
 - Deliver a bounded ephemeral temporal engine, robust area-transition confirmation, stationary and area dwell metadata, movement summaries, conservative handling of occlusion, reconnect and owner map edits, plus a readable ROOM activity state.
 - Never classify stillness as sleep, absence from view as exiting the room, or camera-perspective motion as calibrated physical travel. Event persistence follows the existing explicit ROOM opt-in only.
 - Target next version **V0.10.2**; tests and package must include any new files and update PWA cache.
-- **Next action:** implement pure `src/room-temporal-core.js` and tests, connect to existing ROOM and owner map; open PR; merge only after Node and PHP checks green; verify post-merge release ZIP + SHA before beginning 10D.
+- **10C VERIFIED:** [PR #35](https://github.com/davemt74-lang/tracky2/pull/35) merged `ebbcb71d71253aedf8981cc5124b8f7e60d4ca84`; 224/224 Node tests, PHP and both post-merge jobs passed; direct [V0.10.2 release](https://github.com/davemt74-lang/tracky2/releases/tag/v0.10.2) with deployment SHA-256 `375d6b90e281b6151581411a0ca659e1644ba507e1851c7812e636a883038441`. Delivery gates 10/10; physical camera acceptance remains separate.
+
+## Active section: 10D — audio/dialogue integrity
+- **Branch:** `feat/v010d-audio-dialogue-integrity`, based on verified 10C main.
+- Audit: the existing shared microphone uses `src/room-audio-engine.js`; enrolled speaker verification/gating is `src/voice-core.js`, transcripts are canonical IndexedDB `dialogue-turns`, AGENT chat currently duplicates participant transcripts into its separate localStorage reply history, and ROOM acoustic audit only measures amplitude/VAD. This section must eliminate duplicate transcript persistence before adding owner corrections.
+- Build privacy-gated optional **acoustic pattern metadata** (sustained/intermittent energy patterns only; never label music, television, cough, specific acoustic source or a medical condition), interruption-safe ambient summaries, owner transcript correction with immutable attribution metadata and correction history, deduplicated unified chat that respects deletion, and speaker/TTS fail-closed tests.
+- Advanced music/TV identification and multi-speaker source separation remain separately scoped until an appropriate explicitly authorized model/service and real hardware acceptance.
+- **Gate:** do not mark complete or start 10E until PR Node/PHP checks, merge, post-merge jobs, direct V0.10.3 deploy ZIP and SHA are all verified. Real-device testing remains independent.

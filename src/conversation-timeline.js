@@ -10,10 +10,12 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    at:Number.isFinite(time)?time:(Number.isFinite(t.at)?t.at:0),
    name:verified?(person?.nickname||person?.name||t.participantName||'Participant'):'Unknown speaker',
    photo:verified?(person?.primaryPhoto||null):null,
-   verified,source:'transcript'};
+   verified,source:'transcript',edited:Boolean(t.transcriptEditedAt),
+   participantId:t.participantId||null};
  });
- const saved=history.filter(h=>['agent','system','participant'].includes(h.role)&&String(h.text||'').trim())
-  .filter(h=>h.role!=='participant'||!rows.some(r=>r.text===h.text&&Math.abs(r.at-h.at)<6000))
+ // Remove historical duplicated participant entries in AGENT localStorage.
+ // Canonical IndexedDB transcript changes/deletion must never resurrect stale copies.
+ const saved=history.filter(h=>['agent','system'].includes(h.role)&&String(h.text||'').trim())
   .map((h,i)=>{
    const person=h.participantId?people.get(h.participantId):null;
    const verified=h.role==='participant'&&Boolean(h.participantId&&person&&h.verified===true);
