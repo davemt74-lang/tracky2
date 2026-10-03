@@ -70,6 +70,20 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
   if(!els.layers||!ready)return;
   els.layers.replaceChildren();
   const graph=roomSceneGraph(scene,tracks);
+  if(els.occupants){
+   const summary=graph.links.map((entry,index)=>{
+    const track=tracks[index]||{},a=entry.association;
+    const identity=track.participantId?
+      (track.participantName||'Enrolled participant'):'Unverified visitor';
+    const zone=graph.scene.areas.find(item=>item.id===a.areaId);
+    const position=zone?zone.name+' (camera-relative)':
+      a.status==='ambiguous'?'overlapping areas · ambiguous':
+      a.status==='uncertain-footpoint'?'position uncertain':
+      a.status==='unavailable'?'tracking unavailable':'unmapped';
+    return identity+' · '+position;
+   }).join(' | ')||'No stable participant associations yet.';
+   if(els.occupants.textContent!==summary)els.occupants.textContent=summary;
+  }
   for(const area of graph.scene.areas){
    const rect=mirroredAreaRect(area,mirror());
    const block=document.createElement('div');block.className='room-scene-area';
