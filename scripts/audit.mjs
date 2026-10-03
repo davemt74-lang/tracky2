@@ -24,6 +24,7 @@ const requiredFiles = [
   'vertical-motion.js',
   'room-tabs-controller.js',
   'agent-mode.js',
+  'agent-presence.js',
   'participants.js',
   'participants-sidebar.js',
   'participants-stage.js',
@@ -36,6 +37,7 @@ const requiredFiles = [
   'scene-analysis.css',
   'room-tabs.css',
   'agent-mode.css',
+  'agent-presence.css',
   'README.md',
   'package.json',
   'src/tracker-core.js',
@@ -70,6 +72,7 @@ const requiredFiles = [
   'src/room-tabs-state.js',
   'src/agent-conversation.js',
   'src/agent-provider.js',
+  'src/agent-presentation.js',
   'src/voice-core.js',
   'src/voice-engine.js',
   'src/room-audio-engine.js',
@@ -85,6 +88,7 @@ const runtimeJs = [
   'vertical-motion.js',
   'room-tabs-controller.js',
   'agent-mode.js',
+  'agent-presence.js',
   'participants.js',
   'participants-sidebar.js',
   'participants-stage.js',
@@ -122,6 +126,7 @@ const runtimeJs = [
   'src/room-tabs-state.js',
   'src/agent-conversation.js',
   'src/agent-provider.js',
+  'src/agent-presentation.js',
   'src/voice-core.js',
   'src/voice-engine.js',
   'src/room-audio-engine.js',
@@ -133,7 +138,7 @@ const htmlContracts = [
   ['index.html', ['launch.js']],
   ['tracker.html', ['app.js']],
   ['games.html', ['games.js']],
-  ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-mode.css']],
+  ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-presence.js', 'agent-mode.css', 'agent-presence.css']],
   ['participants.html', ['participants.js', 'participants-sidebar.js', 'participants-stage.js', 'participant-voice.js']],
   ['diagnostics.html', ['diagnostics.js']]
 ];
@@ -154,8 +159,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.7.0') {
-  fail('package.json version must be 0.7.0');
+if (packageJson.version !== '0.7.1') {
+  fail('package.json version must be 0.7.1');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -275,8 +280,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.7\.0-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.7.0 deploy ZIP');
+if (!/tracky2-v0\.7\.1-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.7.1 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
