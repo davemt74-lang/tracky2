@@ -108,3 +108,14 @@ test('10A UI adopts same event ledger, privacy write queue and permission-safe c
  assert.match(store,/event\.participantId === id\) observations\.delete\(event\.id\)/);
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|fetch\(/);
 });
+
+test('10A device shutdown and revocation hooks are wired only to canonical captures',()=>{
+ const controller=fs.readFileSync('vertical-motion.js','utf8');
+ const capture=fs.readFileSync('src/room-audio-engine.js','utf8');
+ assert.match(controller,/track\.addEventListener\('ended'/);
+ assert.match(controller,/roomSensorState\('camera','degraded','Camera interrupted/);
+ assert.match(controller,/roomSensorState\('microphone','degraded','Microphone interrupted/);
+ assert.match(capture,/getAudioTracks\(\)/);
+ assert.match(capture,/this\.onUnavailable\('microphone-track-ended'\)/);
+ assert.match(controller,/roomSensorState\('camera','degraded','Camera unavailable/);
+});
