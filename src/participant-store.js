@@ -293,11 +293,31 @@ export function listRoomObservations(){
 export async function saveRoomObservation(record){
  if(!record||!['presence','audio','system','activity','media','decision'].includes(record.category))
   throw new Error('Invalid room observation');
+ // Persist only bounded, audited metadata. No raw media, embeddings, transcripts,
+ // free-form evidence, images or cross-source identity guesses are copied.
+ const correction=record.kind==='correction'&&record.correction?{
+  targetId:String(record.correction.targetId||'').slice(0,96),
+  operation:['retract','replace'].includes(record.correction.operation)?record.correction.operation:'retract',
+  replacement:record.correction.operation==='replace'?{
+   message:String(record.correction.replacement?.message||'').slice(0,240),
+   confidence:Number.isFinite(record.correction.replacement?.confidence)?
+    Math.max(0,Math.min(1,record.correction.replacement.confidence)):null
+  }:null
+ }:null;
  const safe={id:record.id,at:record.at,category:record.category,
-  message:record.message,participantId:record.participantId||null,
+  message:String(record.message||'').slice(0,240),participantId:record.participantId||null,
   confidence:record.confidence??null,source:record.source||'local',
-  evidence:record.evidence?.durationMs===null||Number.isFinite(record.evidence?.durationMs)?
-   {durationMs:record.evidence.durationMs}:null};
+  evidence:Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null?
+   {durationMs:record.evidence.durationMs}:null,
+  version:record.version===1?1:null,kind:record.kind||'observation',
+  semantic:String(record.semantic||'').slice(0,48),
+  deviceId:String(record.deviceId||'browser').slice(0,40),
+  sessionId:String(record.sessionId||'room-session').slice(0,64),
+  sensor:['camera','microphone'].includes(record.sensor)?record.sensor:null,
+  status:['online','offline','paused','degraded'].includes(record.status)?record.status:null,
+  dedupeKey:record.dedupeKey?String(record.dedupeKey).slice(0,96):null,
+  retention:'local',correction
+ };
  return storeAction(ROOM_OBSERVATIONS,'readwrite',async store=>{
   await requestToPromise(store.put(safe));
   const rows=await requestToPromise(store.getAll());

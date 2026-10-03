@@ -39,7 +39,9 @@ test('AGENT room audit stores only bounded metadata via existing opt-in ROOM led
  const module=fs.readFileSync('src/room-audio-audit.js','utf8');
  assert.match(source,/roomAmbientAudit\.update\(\{\.\.\.level,/);
  assert.match(source,/logRoomMessage\('audio',roomAudioAuditMessage\(summary\),'shared-room-mic'/);
- assert.match(source,/if\(saveRoomHistory\)void saveRoomObservation/);
+ assert.match(source,/if\(saveRoomHistory\)\{/);
+ assert.match(source,/epoch===roomPrivacyEpoch\?saveRoomObservation\(event\)/);
+ assert.match(source,/await roomWrites\.catch/);
  assert.match(source,/state.voice.currentSpeakerId=null/);
  assert.match(source,/level.suppressed\|\|state.voice.audio\?\.suppressed/);
  assert.doesNotMatch(module,/getUserMedia|MediaRecorder|transcribe|\.samples\b|\.pcm\b/);

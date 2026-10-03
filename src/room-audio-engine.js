@@ -117,6 +117,7 @@ export class RoomAudioCapture {
   constructor(options = {}) {
     this.onLevel = options.onLevel || (() => {});
     this.onSegment = options.onSegment || (() => {});
+    this.onUnavailable = options.onUnavailable || (() => {});
     this.stream = null;
     this.context = null;
     this.source = null;
@@ -157,6 +158,18 @@ export class RoomAudioCapture {
       },
       video: false
     });
+
+    // The browser may revoke the microphone or the physical device may disconnect.
+    // Neither event proves room silence, nor is it a participant departure.
+    const captured=this.stream;
+    for(const track of captured.getAudioTracks()){
+      track.addEventListener('ended',()=>{
+        if(this.stream===captured&&this.running){
+          this.running=false;this.discardSegment();
+          this.onUnavailable('microphone-track-ended');
+        }
+      },{once:true});
+    }
 
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) {
