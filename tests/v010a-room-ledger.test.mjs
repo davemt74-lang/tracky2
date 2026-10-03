@@ -73,7 +73,7 @@ test('10A sensor outage cannot manufacture room departures or microphone silence
  assert.equal(l.entries().filter(e=>e.semantic==='participant-out-of-view').length,0);
  l.append(sensor('cam-resumed',5000,'camera','online'));
  assert.equal(l.project().sensors.camera,'online');
- assert.equal(l.project().participants.p.visibility,'observed','last measured presence is historical until new camera evidence; UI must not claim confirmed current presence solely from replay');
+ assert.equal(l.project().participants.p.visibility,'unknown','camera reconnection must wait for new evidence before claiming presence');
 });
 test('10A project replay, retraction and max memory enforce deterministic bounded history',()=>{
  const l=new RoomEventLedger({max:4});
