@@ -1,14 +1,17 @@
-# Tracky2 — Development execution checkpoint
+# Tracky2 — Standalone development execution checkpoint
 
-Updated after Phase 0 audit; source-of-truth for resuming work is **GitHub main and CI**. Read `docs/V010-MASTER-PLAN.md` first, then compare the live repository and open PRs before resuming. Do not assume this document supersedes newer GitHub state.
+GitHub main is authoritative. Resume: read `docs/V010-MASTER-PLAN.md`, then check main, open PRs and CI before any new edits. Do not infer that unmerged sections are complete.
 
-- **Scope:** standalone Tracky2, no Cloud/HomeServer integration.
-- **Released baseline verified:** V0.9.2; main `ef70eb2c1691903e4ab7e3c4f2ede7ea5b8d5641` at audit; deployment ZIP and checksum under the V0.9.2 GitHub release.
-- **Phase 0:** [PR #32](https://github.com/davemt74-lang/tracky2/pull/32) merged, CI and post-merge checks passed. Main at phase completion: b706945c09c1b30798857b05cd46f5545e9d6db9.
-- **Current section:** 10A — canonical ROOM event ledger, tests and release V0.10.0 in PR; do not call 10A complete before all required PR and post-merge checks pass and release asset is verified.
-- **Next section after completed 10A:** 10B owner-defined standalone scene graph.
-- **Working interfaces:** `src/room-event-core.js`, `vertical-motion.js`, `src/participant-store.js`; preserve their exported legacy APIs. Do not add another microphone, camera, memory store or remote backend.
-- **10A scope:** stable normalized event contract, corrected/duplicate handling, sensor-state transitions and replay/projection; integration with current existing session/opt-in ROOM observation view; deterministic tests for privacy, outages, stable replay and bounded storage.
-- **Expected PR release process:** use a new version and matching package, PWA cache, CI deploy ZIP and SHA sidecar. Check exact build artifacts *after* PR and main workflows finish.
-- **Hardware:** no installed-camera/microphone certification performed by this audit; automated CI must not be mislabeled as hardware testing.
-- **Resume first action:** inspect the active 10A PR and CI, reconcile main; merge only after required checks are green, verify direct V0.10.0 deploy ZIP and SHA-256, then update the checkpoint and begin 10B. Subsequent section PRs use current `main`, never a guessed earlier SHA.
+## Completed
+- **Phase 0**: [PR #32](https://github.com/davemt74-lang/tracky2/pull/32) merged `b706945c09c1b30798857b05cd46f5545e9d6db9`; PR and post-merge CI green. Baseline audit, ten-section plan and release idempotence guard delivered.
+- **10A**: [PR #33](https://github.com/davemt74-lang/tracky2/pull/33) merged `08fc61ea25892a941eee4bf49ebd8281f36e302a`; PR and post-merge Node/PHP CI green. Delivery gate **10/10** (audit, contract, tests, reuse, privacy, recovery, review, PR, CI, package); no physical hardware acceptance claimed.
+- **Latest verified deployment:** [V0.10.0 standalone ZIP](https://github.com/davemt74-lang/tracky2/releases/download/v0.10.0/tracky2-v0.10.0-deploy.zip), SHA-256 `b9ea8253396ea890b9fb4c1c9d9c95cd0a153758075069d983ec5d823ed0010e`. Full ZIP + checksum sidecar verified in GitHub release.
+
+## Current section: 10B — standalone scene graph
+- **Working branch:** `feat/v010b-standalone-scene-graph`, based on 10A main merge; status is **implementation in progress**, not released.
+- **Scope:** owner-editable local camera-relative areas; bounded semantic object labels/area relationships; runtime conservative associations of visible tracks to areas; uncertainty and human corrections; one local IndexedDB scene map, no new camera/recognition system.
+- **Privacy and correctness:** no automatic physical distance claims, snapshots, biometric uploads or Cloud/HomeServer integration. Unmatched visitors must not receive enrolled participant IDs. Do not equate a camera-defined region with calibrated floor coordinates.
+- **Next exact work:** add deterministic `src/room-scene-graph.js` and tests; wire a labelled room-area editor/preview to ROOM and existing IndexedDB; update npm/PWA/deploy package/version; open 10B PR, wait for both required checks, merge then verify post-merge V0.10.1 direct ZIP+SHA before starting 10C.
+- **Hardware:** no installed real-camera acceptance for 10B yet. Record separately from automated fixtures.
+
+All subsequent work stays inside standalone Tracky2. Do not alter the HomeServer or VP3 Cloud repositories.
