@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#02070a">
-  <title>Tracky — Participants</title>
+  <title>Tracky2 — Participants</title>
   <link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./participants-stage.css">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -31,8 +32,8 @@
   <section class="participants-layout" id="participantsLayout" data-roster="expanded">
     <div id="participantRosterBackdrop" class="participant-roster-backdrop" hidden></div>
     <button type="button" class="participant-roster-edge" id="expandParticipantRoster"
-       aria-label="Expand Participants sidebar" aria-controls="participantRoster" aria-expanded="true" hidden>
-       <span aria-hidden="true">☰</span><span class="edge-label">Participants</span>
+      aria-label="Expand Participants sidebar" aria-controls="participantRoster" aria-expanded="true" hidden>
+      <span aria-hidden="true">☰</span><span class="edge-label">Participants</span>
     </button>
     <aside class="hud-panel participants-roster" id="participantRoster" aria-label="Participant list">
       <div class="hud-panel-head">
@@ -45,65 +46,43 @@
       <p class="privacy-note">Recognition only compares faces with participants enrolled on this device. Unknown faces remain guests until you explicitly create a participant.</p>
     </aside>
 
-    <section class="hud-panel onboarding-panel">
-      <div class="hud-panel-head">
+
+    <section class="participant-capture-workspace" aria-label="Participant camera and profiling">
+      <div class="participant-workspace-head">
         <button type="button" id="openParticipantRoster" class="hud-button roster-open-button"
           aria-controls="participantRoster" aria-expanded="true">☰ <span>Participants</span></button>
-        <div class="onboarding-heading"><small id="formModeLabel">PARTICIPANT ONBOARDING</small><h2 id="formTitle">Create participant</h2></div>
+        <div class="participant-workspace-title"><small id="formModeLabel">PARTICIPANT ONBOARDING</small>
+          <h2 id="formTitle">Create participant</h2></div>
         <span class="status-chip" id="enrollmentStatus">Not enrolled</span>
       </div>
+      <div class="identity-camera-stage participant-main-stage" id="identityCameraStage">
+        <div class="participant-camera-live" role="status">
+          <span class="participant-live-dot" aria-hidden="true"></span>
+          <div><strong>Camera <span id="participantCameraStatus">Offline</span></strong>
+            <small id="participantVideoDetails">Ready for capture</small></div>
+        </div>
+        <video id="participantVideo" playsinline muted aria-label="Participant live camera preview"></video>
+        <div class="face-reticle" id="faceReticle" hidden>
+          <i></i><i></i><i></i><i></i><span id="faceQualityText">SCANNING</span>
+        </div>
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <span class="scan-icon" aria-hidden="true"></span><strong>Camera offline</strong>
+          <p>Start the camera to capture a primary photo and enroll recognition.</p>
+        </div>
+        <div class="scan-sweep" aria-hidden="true"></div>
 
-      <div class="onboarding-grid">
-        <div class="identity-camera-column">
-          <div class="identity-camera-stage" id="identityCameraStage">
-            <div class="participant-camera-chip" role="status"><span class="participant-live-dot" aria-hidden="true"></span><strong>Camera <span id="participantCameraStatus">Offline</span></strong></div>
-            <video id="participantVideo" playsinline muted></video>
-            <div class="face-reticle" id="faceReticle" hidden>
-              <i></i><i></i><i></i><i></i>
-              <span id="faceQualityText">SCANNING</span>
-            </div>
-            <div class="camera-placeholder" id="cameraPlaceholder">
-              <span class="scan-icon" aria-hidden="true"></span>
-              <strong>Camera offline</strong>
-              <p>Start the camera to capture a primary photo and enroll face recognition.</p>
-            </div>
-            <div class="scan-sweep" aria-hidden="true"></div>
-          </div>
-
-          <div class="face-quality-meter">
-            <div><span>FACE QUALITY</span><b id="faceQualityValue">0%</b></div>
-            <div class="meter"><i id="faceQualityBar"></i></div>
-          </div>
-
-          <div class="camera-actions">
-            <button id="startParticipantCamera" class="hud-button primary">Start camera</button>
-            <button id="stopParticipantCamera" class="hud-button" disabled>Stop</button>
-            <button id="capturePrimary" class="hud-button" disabled>Capture / replace primary photo</button>
-          </div>
+        <div class="participant-float-toggle-group" aria-label="Floating panel controls">
+          <button type="button" id="toggleGallery" class="participant-float-toggle" aria-controls="participantGalleryOverlay" aria-expanded="true">▦ <span>Photos</span></button>
+          <button type="button" id="toggleVoice" class="participant-float-toggle" aria-controls="participantVoiceOverlay" aria-expanded="true">◉ <span>Voice</span></button>
         </div>
 
-        <div class="participant-form-column">
-          <span id="modelStatus" class="visually-hidden" role="status">Standby</span>
-          <div class="photo-pair">
-            <figure>
-              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
-              <figcaption>Primary photo</figcaption>
-            </figure>
-            <figure>
-              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
-              <figcaption>Latest capture</figcaption>
-            </figure>
-          </div>
-
-          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
-
-          <div class="participant-fields">
-            <label>Name<input id="participantName" type="text" maxlength="80" autocomplete="off" placeholder="Participant name"></label>
-            <label>Nickname<input id="participantNickname" type="text" maxlength="80" autocomplete="off" placeholder="Optional"></label>
-            <label class="wide">Notes<textarea id="participantNotes" rows="3" maxlength="500" placeholder="Optional notes"></textarea></label>
-            <label class="switch-row wide"><input id="recognitionEnabled" type="checkbox" checked> Enable face recognition for this participant</label>
-          </div>
-
+        <div class="participant-overlay-stack" id="participantOverlayStack">
+          <section class="participant-glass-panel participant-gallery-overlay" id="participantGalleryOverlay" aria-labelledby="galleryOverlayTitle">
+            <header class="participant-float-head">
+              <h3 id="galleryOverlayTitle"><span aria-hidden="true">▦</span> Photo Gallery</h3>
+              <button type="button" class="participant-panel-close" id="closeGallery" aria-label="Minimize Photo Gallery">×</button>
+            </header>
+            <div class="participant-panel-body">
           <div class="enrollment-block">
             <div class="enrollment-head">
               <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 minimum samples</strong></div>
@@ -120,6 +99,29 @@
             <p class="face-gallery-footnote">Capture distinct clear angles. Select any saved image as the primary photo, retake an individual sample or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos because previous versions did not store them.</p>
           </div>
 
+
+          <div class="photo-pair">
+            <figure>
+              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
+              <figcaption>Primary photo</figcaption>
+            </figure>
+            <figure>
+              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
+              <figcaption>Latest capture</figcaption>
+            </figure>
+          </div>
+
+          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
+
+
+            </div>
+          </section>
+          <section class="participant-glass-panel participant-voice-overlay" id="participantVoiceOverlay" aria-labelledby="voiceOverlayTitle">
+            <header class="participant-float-head">
+              <h3 id="voiceOverlayTitle"><span aria-hidden="true">◉</span> Voice Profile</h3>
+              <button type="button" class="participant-panel-close" id="closeVoice" aria-label="Minimize Voice Profile">×</button>
+            </header>
+            <div class="participant-panel-body">
           <div class="voice-enrollment-block" id="voiceEnrollmentBlock">
             <div class="voice-enrollment-head">
               <div>
@@ -175,6 +177,25 @@
             </div>
           </div>
 
+
+            </div>
+          </section>
+        </div>
+
+        <section class="participant-glass-panel participant-settings-sheet" id="participantSettingsSheet" aria-label="Participant settings" hidden>
+          <header class="participant-float-head"><h3>Participant Settings</h3>
+            <button type="button" id="closeParticipantSettings" class="participant-panel-close" aria-label="Close participant settings">×</button>
+          </header>
+          <div class="participant-settings-inner">
+            <span id="modelStatus" class="visually-hidden" role="status">Standby</span>
+          <div class="participant-fields">
+            <label>Name<input id="participantName" type="text" maxlength="80" autocomplete="off" placeholder="Participant name"></label>
+            <label>Nickname<input id="participantNickname" type="text" maxlength="80" autocomplete="off" placeholder="Optional"></label>
+            <label class="wide">Notes<textarea id="participantNotes" rows="3" maxlength="500" placeholder="Optional notes"></textarea></label>
+            <label class="switch-row wide"><input id="recognitionEnabled" type="checkbox" checked> Enable face recognition for this participant</label>
+          </div>
+
+
           <div class="form-message" id="formMessage" aria-live="polite"></div>
 
           <div class="participant-form-actions">
@@ -182,12 +203,38 @@
             <button id="resetParticipantForm" class="hud-button">Reset</button>
             <button id="deleteParticipant" class="hud-button danger" hidden>Delete participant</button>
           </div>
+
+          </div>
+        </section>
+
+        <div class="participant-camera-dock" role="group" aria-label="Camera capture controls">
+          <div class="participant-dock-side">
+            <button type="button" id="openParticipantSettings" class="participant-dock-action" aria-controls="participantSettingsSheet" aria-expanded="false"><span aria-hidden="true">⚙</span> Settings</button>
+          <div class="face-quality-meter">
+            <div><span>FACE QUALITY</span><b id="faceQualityValue">0%</b></div>
+            <div class="meter"><i id="faceQualityBar"></i></div>
+          </div>
+
+
+          </div>
+          <div class="participant-dock-center">
+            <button type="button" id="capturePrimary" class="participant-shutter" disabled aria-label="Capture primary photo" title="Capture primary photo">📷</button>
+            <span>Capture Photo</span>
+          </div>
+          <div class="participant-dock-side participant-dock-end">
+            <button type="button" id="switchParticipantCamera" class="participant-dock-action" aria-label="Switch camera" disabled>↻ Switch Camera</button>
+            <div class="participant-camera-runtime">
+              <button id="startParticipantCamera" class="hud-button primary">Start camera</button>
+              <button id="stopParticipantCamera" class="hud-button" disabled>Stop</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   </section>
 </main>
 <script type="module" src="./participants-sidebar.js"></script>
+<script type="module" src="./participants-stage.js"></script>
 <script type="module" src="./participants.js"></script>
 <script type="module" src="./participant-voice.js"></script>
 <script type="module" src="./pwa.js"></script>

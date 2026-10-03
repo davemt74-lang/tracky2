@@ -98,3 +98,8 @@ Next development phase starts only once this PR is green and merged.
 - Remove redundant Identity/Storage/Enrolled/Camera/Voice status strip beneath header. Keep the enrolled count with the participant roster and camera indicator inside the capture area; preserve the identity engine status for screen readers.
 - Make the LEFT participant roster retractable to a small desktop rail, with an accessible mobile slide-out (backdrop, Escape close, focus containment). Preserve current participant selection and uninterrupted camera/voice operation.
 - Keep full five-sample photo gallery and voice-profile controls in the RIGHT-hand onboarding form. No replacement recognition or audio services; updated PWA cache and direct ZIP release.
+
+## v0.6.5 — Camera-first Participants layout
+- Full main-column live camera with correct face reticle and translucent camera status; screenshot-driven floating right Photo Gallery and Voice Profile cards that can independently retract and reopen without stopping media streams.
+- Keep retractable LEFT participant roster, remove redundant status strip, maintain working local participant and voice enrollment controls within floating panels, and make the participant form a deliberate Settings overlay. Bottom glass dock exposes Settings, capture, Start/Stop and device switching when multiple cameras exist.
+- Package the dedicated Participants layout CSS and JS in PWA shell and direct deploy ZIP. Visual browser/device inspection remains a separate physical acceptance gate.
