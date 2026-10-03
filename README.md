@@ -1,3 +1,11 @@
+# Tracky2 v0.6.7 — Scene initialization and visual player activity
+
+Both the camera-first Participants page and the live game now show an **Analyzing Scene** progress animation tied to real milestones: camera opened, model loaded, first scene/face scan completed. The progress does not artificially complete on a timer. Stop and retry controls remain available during loading.
+
+Unconfirmed body-detection tests, single-frame false positives and unknown provisional tracks are retained ONLY in the room-tracking engine; they no longer appear as additional participant cards, radar labels or proactive announcements. Public participant presence requires a stable, enrolled identity and repeated observations. The room radar explicitly uses camera-facing coordinates and mirrors horizontally when the preview is set to Mirror; raw detector and identity coordinates are never flipped. Participant photo capture follows the currently displayed preview orientation.
+
+The live game's two LEFT panels are now **Room Dialogue** and **Player Activity** tabs in a single glass panel. Player Activity displays a bounded visual history: confirmed enrolled presence, the scheduled player's four-zone transitions, completed targets, reaction hits and timing, scored points and round transitions. Each entry clearly distinguishes a confirmed camera match from a score credited to the scheduled player; it does not claim camera evidence that the marker holder is that person. These events remain in page memory, not permanent biometric or media storage.
+
 # Tracky2 v0.6.6 — Game participant assignment, camera permissions and centered gameplay
 
 Saving a participant remembers only that profile's local ID as the preferred player. Game lobby/game setup reads enrollment from same-origin IndexedDB and restores the preferred participant, with safe one-player defaults when exactly one profile is enrolled. This assigns the participant to scoring but does not falsely claim biometric face or marker-holder verification. Recognition only reports verified observations when the camera is active and the identity model actually matches.
