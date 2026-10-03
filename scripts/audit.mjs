@@ -160,8 +160,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.7.4') {
-  fail('package.json version must be 0.7.4');
+if (packageJson.version !== '0.8.0') {
+  fail('package.json version must be 0.8.0');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -281,8 +281,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.7\.4-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.7.4 deploy ZIP');
+if (!/tracky2-v0\.8\.0-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.8.0 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
@@ -299,6 +299,12 @@ if (!/registerProcessor\(['"]tracky-pcm-processor['"]/.test(worklet)) {
 const roomAudio = read('src/room-audio-engine.js');
 if (!/audioWorklet\.addModule/.test(roomAudio) || !/createScriptProcessor/.test(roomAudio)) {
   fail('Room audio must provide AudioWorklet primary path and ScriptProcessor fallback');
+}
+
+for(const file of ['server/bootstrap.php','server/install.php','server/admin.php','server/api.php',
+  'server/session.php','server/providers.php','server/sync.js','docs/SELFHOST-FOUNDATION.md']){
+ if(!workflow.includes(file))fail('Self-hosted deploy manifest missing: '+file);
+ if(!fs.existsSync(path.join(root,file)))fail('Missing self-hosted runtime file: '+file);
 }
 
 if (failures.length) {
