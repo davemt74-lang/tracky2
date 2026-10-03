@@ -182,6 +182,7 @@ const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
 let agentRuntime=null;
+let agentSpeechActive=false;
 const state = {
   stream: null,
   running: false,
@@ -1646,7 +1647,7 @@ async function startRoomAudio() {
 
     await state.voice.audio.start();
     state.voice.captureMode = state.voice.audio.captureMode;
-    if (state.voice.ttsPending > 0) state.voice.audio.setSuppressed(true);
+    if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
     agentRuntime?.setAudioActive(true);
     state.voice.lastDecision = 'listening';
@@ -2492,7 +2493,10 @@ if(state.mode==='agent'){
     startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
     startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
     stopCamera:()=>{cameraStoppedThisPage=true;stopCamera();},
-    suppressMic:suppressed=>state.voice.audio?.setSuppressed(Boolean(suppressed))
+    suppressMic:suppressed=>{
+      agentSpeechActive=Boolean(suppressed);
+      state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
+    }
   });
   agentRuntime.init();
   document.getElementById('activeGameKicker').textContent='GAME 03 · LIVE ROOM';

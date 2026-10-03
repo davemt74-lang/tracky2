@@ -29,3 +29,13 @@ test('browser sound suppression and voice modal use existing speaker and partici
  assert.ok(code.includes('suppressMic(true)'));
  assert.ok(code.includes('await stopAudio()'));
 });
+
+test('AGENT microphone cannot re-enable itself during a current spoken response',()=>{
+ const controller=fs.readFileSync('vertical-motion.js','utf8');
+ const agent=fs.readFileSync('agent-mode.js','utf8');
+ assert.ok(controller.includes('agentSpeechActive'));
+ assert.ok(controller.includes('agentSpeechActive) state.voice.audio.setSuppressed(true)'));
+ assert.ok(agent.includes('lastFocusedElement'));
+ assert.ok(agent.includes("event.key!=='Tab'"));
+ assert.ok(agent.includes('ui.box.replaceChildren()'));
+});

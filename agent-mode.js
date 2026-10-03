@@ -17,6 +17,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  };
  let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
  let modelController=null;
+ let lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
  function showThread(){
@@ -141,6 +142,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   modelController?.abort();
   stopSpeech();
   await stopAudio();
+  lastFocusedElement=document.activeElement;
   ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
   refreshModalName(participantId);
   document.body.dataset.participantId=participantId;
@@ -158,7 +160,9 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   const stop=$('stopVoiceSample');
   if(stop&&!stop.disabled)stop.click();
   ui.modal.hidden=true;ui.modal.setAttribute('aria-hidden','true');
-  open=false;await startAudio();
+  open=false;
+  if(lastFocusedElement?.isConnected)lastFocusedElement.focus();
+  await startAudio();
  }
  function init(){
   ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
@@ -191,11 +195,22 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   ui.camStop.addEventListener('click',()=>stopCamera());
   ui.close.addEventListener('click',()=>{void closeVoice();});
   ui.backdrop.addEventListener('click',()=>{void closeVoice();});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&open){event.preventDefault();void closeVoice();}});
+  document.addEventListener('keydown',event=>{
+    if(!open)return;
+    if(event.key==='Escape'){event.preventDefault();void closeVoice();return;}
+    if(event.key!=='Tab')return;
+    const focusable=[...ui.modal.querySelectorAll('button,input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+      .filter(node=>!node.disabled&&!node.hidden&&node.getClientRects().length>0);
+    if(!focusable.length)return;
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
   window.addEventListener('tracky:participant-voice-updated',()=>refreshModalName(document.body.dataset.participantId));
   showThread();
  }
  return {init,greet,onDialogue,renderBoxes,openVoice,setCameraActive(active){
+  if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';}
   ui.camStart.disabled=active;ui.camStop.disabled=!active;
   ui.camStatus.textContent=active?'Camera live':'Camera offline · start when ready';
  },setAudioActive(active){
