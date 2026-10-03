@@ -363,3 +363,7 @@
 .game-page.agent-mode .room-scene-item strong{flex:1;min-width:100px}
 .game-page.agent-mode #roomSceneMessage{display:block;color:#b3dadb;margin:8px 0}
 @media(max-width:380px){.game-page.agent-mode .room-scene-form{grid-template-columns:1fr}}
+
+.game-page.agent-mode .room-scene-occupants{padding:7px 9px;border-radius:8px;
+ border:1px solid rgba(139,220,221,.3);background:rgba(11,50,52,.3);
+ color:#b6e6dd;font-size:.66rem;line-height:1.6;margin:7px 0}
