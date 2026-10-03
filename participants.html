@@ -83,20 +83,6 @@
               <button type="button" class="participant-panel-close" id="closeGallery" aria-label="Minimize Photo Gallery">×</button>
             </header>
             <div class="participant-panel-body">
-          <div class="photo-pair">
-            <figure>
-              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
-              <figcaption>Primary photo</figcaption>
-            </figure>
-            <figure>
-              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
-              <figcaption>Latest capture</figcaption>
-            </figure>
-          </div>
-
-          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
-
-
           <div class="enrollment-block">
             <div class="enrollment-head">
               <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 minimum samples</strong></div>
@@ -112,6 +98,20 @@
             <div id="faceSampleGallery" class="face-sample-gallery" aria-label="Saved face sample photos and retake controls"></div>
             <p class="face-gallery-footnote">Capture distinct clear angles. Select any saved image as the primary photo, retake an individual sample or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos because previous versions did not store them.</p>
           </div>
+
+
+          <div class="photo-pair">
+            <figure>
+              <div class="portrait-frame"><img id="primaryPhotoPreview" alt="Primary participant portrait" hidden><span id="primaryPhotoEmpty">PRIMARY</span></div>
+              <figcaption>Primary photo</figcaption>
+            </figure>
+            <figure>
+              <div class="portrait-frame current"><img id="latestPhotoPreview" alt="Latest participant capture" hidden><span id="latestPhotoEmpty">CURRENT</span></div>
+              <figcaption>Latest capture</figcaption>
+            </figure>
+          </div>
+
+          <button id="useLatestPrimary" class="text-action" disabled>Use latest capture as primary photo</button>
 
 
             </div>

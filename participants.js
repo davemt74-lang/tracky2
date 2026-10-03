@@ -67,7 +67,10 @@ const state = {
   latestPhoto: null,
   gallery: [],
   retakeIndex: null,
-  pendingId: null
+  pendingId: null,
+  cameraDeviceId: null,
+  cameraDevices: [],
+  mirrorPreview: true
 };
 
 function setMessage(message = '', kind = '') {
@@ -293,6 +296,7 @@ async function loadParticipant(id) {
   updateEnrollmentUi();
   renderFaceGallery();
   setMessage('Profile loaded. Capture a new primary photo or add enrollment samples at any time.');
+  window.dispatchEvent(new CustomEvent('tracky:participant-editing'));
 }
 
 async function ensureEngine() {
@@ -321,15 +325,26 @@ async function startCamera() {
   stopCamera();
 
   try {
+    const videoConstraints={
+      width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:60}
+    };
+    if(state.cameraDeviceId)videoConstraints.deviceId={exact:state.cameraDeviceId};
+    else videoConstraints.facingMode={ideal:'user'};
     state.stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 60 },
-        facingMode: { ideal: 'user' }
-      },
-      audio: false
+      video:videoConstraints,audio:false
     });
+    const active=state.stream.getVideoTracks()[0];
+    const settings=active?.getSettings?.()||{};
+    state.cameraDeviceId=settings.deviceId||state.cameraDeviceId;
+    state.mirrorPreview=settings.facingMode!=='environment';
+    ui.cameraStage.dataset.mirror=String(state.mirrorPreview);
+    try{
+      state.cameraDevices=(await navigator.mediaDevices.enumerateDevices())
+        .filter(device=>device.kind==='videoinput'&&device.deviceId);
+    }catch{
+      state.cameraDevices=[];
+    }
+    document.getElementById('switchParticipantCamera').disabled=state.cameraDevices.length<2;
 
     ui.video.srcObject = state.stream;
     await ui.video.play();
@@ -360,6 +375,7 @@ function stopCamera() {
   ui.startCamera.disabled = false;
   ui.stopCamera.disabled = true;
   ui.cameraStatus.textContent = 'Offline';
+  document.getElementById('switchParticipantCamera').disabled=state.cameraDevices.length<2;
   ui.reticle.hidden = true;
   lastPreviewRect=null;
   ui.capturePrimary.disabled = true;
@@ -380,7 +396,7 @@ function positionReticle(face) {
   const projected=facePreviewRect(face.box,{
     videoWidth:ui.video.videoWidth,videoHeight:ui.video.videoHeight,
     displayWidth:layout.width,displayHeight:layout.height,
-    mirror:true,fit:'cover'
+    mirror:state.mirrorPreview,fit:'cover'
   });
   if(!projected){ui.reticle.hidden=true;lastPreviewRect=null;return;}
   const rect=smoothPreviewRect(lastPreviewRect,projected);
@@ -452,6 +468,7 @@ function capturePrimaryPhoto() {
   updatePhotos();updateEnrollmentUi();renderFaceGallery();
   setMessage(state.gallery.length===1?'Primary photo saved as sample 1 of 3. Take two more clear angles.':
     'Primary photo replaced. Your enrollment samples are unchanged.','ok');
+  window.dispatchEvent(new CustomEvent('tracky:participant-photo-captured'));
 }
 
 function captureFaceSample(){
@@ -474,6 +491,7 @@ function captureFaceSample(){
   setMessage(replacing!==null?'Face sample '+(replacing+1)+' retaken successfully.':
     status.remaining?'Sample '+status.count+' saved. '+status.remaining+' more required.':
       'Enrollment complete! All three required samples are saved. Additional angles are optional.','ok');
+  window.dispatchEvent(new CustomEvent('tracky:participant-photo-captured'));
 }
 
 async function saveForm() {
@@ -560,6 +578,13 @@ async function loadPendingFromUrl() {
 ui.newParticipant.addEventListener('click', clearForm);
 ui.startCamera.addEventListener('click', startCamera);
 ui.stopCamera.addEventListener('click', stopCamera);
+document.getElementById('switchParticipantCamera').addEventListener('click',async()=>{
+  const list=state.cameraDevices;
+  const current=list.findIndex(device=>device.deviceId===state.cameraDeviceId);
+  if(list.length<2)return;
+  state.cameraDeviceId=list[(current+1)%list.length].deviceId;
+  await startCamera();
+});
 ui.capturePrimary.addEventListener('click', capturePrimaryPhoto);
 ui.captureSample.addEventListener('click', captureFaceSample);
 ui.recognitionEnabled.addEventListener('change', updateEnrollmentUi);
