@@ -12,7 +12,7 @@ const ASSETS=[
   './src/game-lobby.js','./src/game-session.js','./src/game-input.js',
   './src/game-presenter.js','./src/color-controllers.js','./src/multiplayer-match.js',
   './src/controller-stability.js','./src/player-presence.js','./src/match-history.js',
-  './src/hardware-diagnostics.js','./src/participant-core.js','./src/face-gallery.js','./src/participant-store.js',
+  './src/hardware-diagnostics.js','./src/participant-core.js','./src/face-gallery.js','./src/face-preview.js','./src/participant-store.js',
   './src/identity-engine.js','./src/room-tracking-core.js','./src/voice-core.js',
   './src/voice-engine.js','./src/room-audio-engine.js','./src/room-audio-worklet.js',
   './src/model-config.js','./src/games/random-follow-pattern.js',

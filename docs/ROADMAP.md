@@ -91,3 +91,5 @@ Next development phase starts only once this PR is green and merged.
 - Show all five enrollment slots, with current valid saved-sample count, required minimum and real per-sample image thumbnails. Capture primary creates sample #1, and capture sample adds the second and third (up to five optional angles).
 - Individual retake updates both photo and recognition embedding atomically in the in-memory gallery; choose gallery image as primary; remove a sample and update the recognition requirement immediately. Save persists paired images and descriptors in the existing local participant record.
 - Preserve all historical descriptors and mark any missing historical photo accurately. No remote image upload, forced camera start or implied biometric ownership. Invalidate the PWA cache for upgraded participant UI.
+
+- Fix enrollment camera reticle mapping for mirrored, cropped video. Correct left/right edge alignment, clip offscreen rectangles and smooth small detector jitter without retaining stale boxes after a large move. Add deterministic geometry tests for both mirror modes, aspect ratios and off-axis positions.

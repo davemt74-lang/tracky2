@@ -16,7 +16,7 @@ test('nonmirrored cover respects clipping and contains precisely across off-axis
  assert.equal(rect.left,0);
  assert.ok(rect.width<.15*1280*(600/720),'leftmost edge cropped under cover');
  const contained=facePreviewRect(box,{...config,fit:'contain',mirror:false});
- assert.ok(contained.left>0);
+ assert.ok(contained.top>0);
  assert.equal(contained.width,.15*960);
 });
 test('portrait aspect preview accounts for severe horizontal crop and can hide fully cropped faces',()=>{
