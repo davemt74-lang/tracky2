@@ -44,6 +44,9 @@ export class RoomTemporalLedger{
    const point=asPoint(track);
    const association=sceneTrackAssociation(areas,track);
    let record=this.records.get(key);
+   const observationSeq=finite(track.bodyObservations)?track.bodyObservations:null;
+   // UI repaints and transcript callbacks are not new camera measurements.
+   if(record&&observationSeq!==null&&record.lastObservationSeq===observationSeq)continue;
    // An occluded body is not evidence for motion, location or stationary time.
    if(!point||association.status==='unavailable'||association.status==='uncertain-footpoint'){
     if(record){record.visibility='uncertain';record.lastAt=at;}
@@ -52,6 +55,7 @@ export class RoomTemporalLedger{
    const name=displayName(track),participantId=track.participantId||null;
    if(!record){
     record={key,name,participantId,lastAt:at,lastSeenAt:at,visibility:'observed',
+     lastObservationSeq:observationSeq,
      anchor:point,stationarySince:at,stationaryEmitted:false,
      candidateKey:null,candidateSince:null,candidateCount:0,
      confirmedKey:null,areaSince:null,dwellEmitted:false,motionEvents:0,
@@ -67,6 +71,7 @@ export class RoomTemporalLedger{
     record.lastAt=at;record.lastSeenAt=at;record.visibility='observed';
    }
    record.name=name;record.participantId=participantId;
+   record.lastObservationSeq=observationSeq;
    const delta=distance(record.anchor,point);
    if(delta>options.motionThreshold){
     const priorStationary=record.stationarySince;
