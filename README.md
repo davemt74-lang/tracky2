@@ -1,3 +1,13 @@
+# Tracky2 v0.7.0 — AGENT Game
+
+AGENT is a new boardless mode in the Tracky2 Games lobby. It reuses the existing browser camera, enrolled participant records, local face/body detection, room transcription, room audio and voice-profile enrollment. The live full-area camera is the gameplay canvas: stabilized face/body bounding boxes and participant labels appear on top of the image. The right sidebar has native expandable **Room display** and **Live status** sections followed by current room participants. Enrolled participant cards have a **Voice** button that opens the existing three-sample participant voice enrollment interface inside an accessible modal. Room audio is paused during separate voice capture and automatically retried on closing.
+
+In AGENT, the room microphone starts alongside the camera, provided the browser grants access. Browsers can require an explicit click after navigation or a new permission grant, so dedicated Start camera + room audio and Enable room audio controls remain available. Mic audio is suppressed while the browser agent is speaking to prevent it hearing its own output. Microphone permission is never bypassed.
+
+When stable identity observation matches an enrolled participant, AGENT greets that participant using the selected browser text-to-speech voice. Confirmed transcription turns receive concise local rule-based contextual replies and appear in the session conversation thread. AGENT never claims that merely being the only visible person proves speaker identity. **Optional local conversational AI** is available by deliberately enabling a loopback-only Ollama endpoint; the explicit setting sends bounded conversation text only (no camera frames, biometrics or raw microphone audio). It requires a locally installed model, reachable local Ollama service and appropriately configured browser/CORS support. When disabled or unavailable, clear rule-based conversation continues.
+
+History is in-memory by default. Enabling *Save conversation history* explicitly stores bounded text history in this browser's localStorage, with a dedicated Clear action. Agent voice selection is from the browser's speech-synthesis voice list, not a cloned participant voice.
+
 # Tracky2 v0.6.8 — Visitor history, working player tab, visible scene acquisition
 
 **Room Dialogue / Player Activity** now has a self-contained controller loaded separately from the camera model runtime. A click or keyboard selection reliably opens the requested tab even if the camera model fails. The activity timeline remains a bounded, in-memory history of meaningful events.
