@@ -1,3 +1,7 @@
+# Tracky2 V0.6.3 — Complete Face Enrollment Gallery
+
+The participant page now shows **five gallery positions**, with a clear minimum of three actual recognition samples. The first primary capture automatically creates sample 1; Capture sample adds samples 2–5 and retains each new photo alongside its descriptor. Gallery actions allow selecting any stored sample as primary, retaking one sample (replacing its photo and recognition descriptor together) and removing individual samples. Removing samples updates readiness immediately; recognition cannot be enabled with fewer than three. Existing enrolled participants keep every historical descriptor; older samples without stored photos display honest placeholders until retaken. All images and biometric descriptors stay in the existing browser-local participant database. Installable PWA assets and cache are bumped to V0.6.3.
+
 # Direct deployment download
 
 Install from the GitHub **v0.6.2 release assets**, not the GitHub Actions artifact download. The release provides the standalone `tracky2-v0.6.2-deploy.zip` and `tracky2-v0.6.2-deploy.zip.sha256` as two separate files, avoiding Actions' automatic ZIP wrapper. CI still retains its Actions artifact as a build backup.

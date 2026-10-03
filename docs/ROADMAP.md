@@ -86,3 +86,8 @@ Next development phase starts only once this PR is green and merged.
 - Reaction Challenge uses exactly the same 30/60/90/120-second interval and 5/10/15/20-round setup options and manual green/blue or group shared-marker handoff.
 - A score requires moving outside the highlighted random target and entering it after marker stabilization. Holding a marker inside or losing tracking cannot create repeated scores.
 - Track successful hits, reaction time in milliseconds, best/average response and accuracy based on discrete incorrect-zone transitions rather than repeated camera frames. Physical camera/voice certification remains a separate human test.
+
+## V0.6.3 — Face enrollment gallery and three-sample acceptance repair
+- Show all five enrollment slots, with current valid saved-sample count, required minimum and real per-sample image thumbnails. Capture primary creates sample #1, and capture sample adds the second and third (up to five optional angles).
+- Individual retake updates both photo and recognition embedding atomically in the in-memory gallery; choose gallery image as primary; remove a sample and update the recognition requirement immediately. Save persists paired images and descriptors in the existing local participant record.
+- Preserve all historical descriptors and mark any missing historical photo accurately. No remote image upload, forced camera start or implied biometric ownership. Invalidate the PWA cache for upgraded participant UI.
