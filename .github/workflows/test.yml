@@ -138,3 +138,9 @@ jobs:
           php -m | grep -i '^pdo_sqlite$'
           php -m | grep -i '^sodium$'
           for file in server/*.php; do php -l "$file"; done
+
+      - name: Security and persistence integration tests
+        run: |
+          set -euo pipefail
+          php server/foundation-test.php
+          bash server/installer-smoke.sh
