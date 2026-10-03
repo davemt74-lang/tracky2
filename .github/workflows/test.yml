@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -72,3 +72,23 @@ jobs:
             tracky2-v0.6.2-deploy.zip.sha256
           if-no-files-found: error
           retention-days: 30
+
+      # Actions artifacts are automatically wrapped in another ZIP on download.
+      # Publish the deploy ZIP itself as a release asset for a direct, single-ZIP download.
+      - name: Publish direct deployment download
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v0.6.2 \
+            tracky2-v0.6.2-deploy.zip \
+            tracky2-v0.6.2-deploy.zip.sha256 \
+            --target "$GITHUB_SHA" \
+            --title "Tracky2 v0.6.2 — Direct deployment" \
+            --notes "Single deploy ZIP (not an artifact ZIP within a ZIP). Includes the verified SHA-256 file. Splash, PWA, Random Follow Pattern and Reaction Challenge."
+          gh release view v0.6.2 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.2-deploy.zip'
+          gh release view v0.6.2 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.2-deploy.zip.sha256'

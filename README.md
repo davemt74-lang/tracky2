@@ -1,3 +1,7 @@
+# Direct deployment download
+
+Install from the GitHub **v0.6.2 release assets**, not the GitHub Actions artifact download. The release provides the standalone `tracky2-v0.6.2-deploy.zip` and `tracky2-v0.6.2-deploy.zip.sha256` as two separate files, avoiding Actions' automatic ZIP wrapper. CI still retains its Actions artifact as a build backup.
+
 # Tracky2 V0.6.2 — Reaction Challenge
 The game lobby includes a second game, **Reaction Challenge**, alongside Random Follow Pattern and the classic games. Choose 1–6 enrolled participants, 30/60/90/120-second turns and 5/10/15/20 rounds on the existing shared four-section board. Move your current marker **outside** a randomly highlighted section and then into it to record a timed hit. Results count hits, incorrect-zone transitions, accuracy and best/average response time per player. The board changes turns only when an interval expires. For larger groups the same green marker must be passed manually; face/voice recognition is not proof of marker ownership. The updated PWA pre-caches the new game's source, but actual camera and optional recognition hardware still require device testing.
 
