@@ -1184,7 +1184,37 @@ function renderParticipantCards() {
     }
     ui.participantCards.append(card);
   }
-  if(state.mode==='agent')agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
+  if(state.mode==='agent'){
+    updateParticipantAudioMeters(true);
+    agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
+  }
+}
+
+// RoomAudioCapture already emits live dB / VAD; change only the existing bars.
+// This is one shared microphone, never a claim of per-person live speech.
+let lastAudioMeterPaint = -Infinity;
+function updateParticipantAudioMeters(force = false) {
+  if(state.mode !== 'agent')return;
+  const now = performance.now();
+  if(!force && now-lastAudioMeterPaint<70)return;
+  lastAudioMeterPaint=now;
+  const tracks=new Map(publicRoomTracks(now).map(t=>[String(t.id),t]));
+  const shared={
+    active:state.voice.active,
+    suppressed:Boolean(state.voice.audio?.suppressed || agentSpeechActive || state.voice.ttsPending>0),
+    db:state.voice.micDb,
+    vad:state.voice.vad,
+    now
+  };
+  for(const el of ui.participantCards.querySelectorAll('.participant-audio-meter')){
+    const result=roomMeterState({...shared,track:tracks.get(el.dataset.trackId)});
+    const fill=el.querySelector('.participant-audio-fill');
+    if(fill)fill.style.width=result.level+'%';
+    el.dataset.mode=result.mode;
+    el.setAttribute('aria-valuenow',String(result.level));
+    const caption=el.parentElement?.querySelector('.participant-audio-caption');
+    if(caption && caption.textContent!==result.text)caption.textContent=result.text;
+  }
 }
 
 
@@ -1444,6 +1474,7 @@ function onRoomAudioLevel(level) {
   state.voice.vad = level.speaking;
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
   renderVoiceHud();
+  updateParticipantAudioMeters();
 }
 
 function voiceSegmentIsCurrent(segment) {
@@ -1675,6 +1706,7 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    updateParticipantAudioMeters(true);
     agentRuntime?.setAudioActive(true);
     state.voice.lastDecision = 'listening';
     ui.startRoomAudio.disabled = true;
@@ -1701,6 +1733,7 @@ function stopRoomAudio() {
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
+  updateParticipantAudioMeters(true);
   agentRuntime?.setAudioActive(false);
   state.voice.vad = false;
   state.voice.micDb = -100;
