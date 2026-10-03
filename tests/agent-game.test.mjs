@@ -14,7 +14,7 @@ test('AGENT layout includes a live camera overlay, independent accordions, Voice
  'agentLiveStatusAccordion','agentVoiceModal','agentVoiceSelect','agentConversationThread']){
   assert.equal(h.split('id="'+id+'"').length,2,id);
  }
- assert.ok(h.includes('src="./agent-mode.css"'));
+ assert.ok(h.includes('href="./agent-mode.css"'));
  const game=fs.readFileSync('games.html','utf8');
  assert.ok(game.includes('value="agent"'));
  const controller=fs.readFileSync('vertical-motion.js','utf8');
