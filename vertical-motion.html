@@ -92,6 +92,14 @@
         <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
         <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
+        <details class="agent-model-settings">
+          <summary>Conversational AI · optional local model</summary>
+          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
+          <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
+          <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
+          <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
+          <small>Your browser must be able to reach this localhost service (CORS may need configuring). No images, audio or biometrics are sent.</small>
+        </details>
         <button type="button" id="agentClearHistory">Clear agent history</button>
         <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
       </div>

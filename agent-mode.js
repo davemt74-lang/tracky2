@@ -1,4 +1,5 @@
 import {facePreviewRect} from './src/face-preview.js';
+import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './src/agent-provider.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
@@ -8,11 +9,14 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
   thread:$('agentConversationThread'),speaker:$('agentSpeakingIndicator'),
   voice:$('agentVoiceSelect'),speak:$('agentSpeakEnabled'),save:$('agentSaveHistory'),
+  useModel:$('agentUseModel'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
+  modelStatus:$('agentModelStatus'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
   heading:$('agentParticipantHeading'),modal:$('agentVoiceModal'),
   close:$('agentCloseVoiceModal'),backdrop:$('agentVoiceBackdrop'),title:$('agentVoiceModalTitle')
  };
- let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0;
+ let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
+ let modelController=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
  function showThread(){
@@ -70,16 +74,40 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   greeted.set(person.id,now);
   say(greetingForParticipant(person));
  }
- function onDialogue(turn){
+ async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
+  const prior=entries.slice();
   append('participant',turn.transcript,turn.participantId||null);
   const now=Date.now();
-  if(now-lastTurnAt<4000)return;
-  lastTurnAt=now;
-  const known=participants().find(x=>x.id===turn.participantId);
-  const recent=entries.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
-  const reply=localAgentReply(turn.transcript,{name:known?.name||'',previousTopics:recent.slice(0,-1)});
-  if(reply)say(reply);
+  if(now-lastTurnAt<4000||responsePending||open)return;
+  lastTurnAt=now;responsePending=true;
+  try{
+   const known=participants().find(x=>x.id===turn.participantId);
+   if(ui.useModel.checked){
+    let endpoint;
+    try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
+    catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
+    if(endpoint){
+     modelController=new AbortController();
+     const timeout=setTimeout(()=>modelController.abort(),16000);
+     ui.modelStatus.textContent='Local model thinking…';
+     try{
+      const reply=await queryLocalOllama({
+       endpoint,model:ui.modelName.value.trim(),
+       messages:buildAgentMessages(prior,turn.transcript,known?.name||''),
+       signal:modelController.signal
+      });
+      if(!open){say(reply);ui.modelStatus.textContent='Local model connected · text-only';}
+      return;
+     }catch(error){
+      ui.modelStatus.textContent='Local model unavailable: '+error.message+' · using basic reply';
+     }finally{clearTimeout(timeout);modelController=null;}
+    }
+   }
+   const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
+   const reply=localAgentReply(turn.transcript,{name:known?.name||'',previousTopics:recent});
+   if(reply&&!open)say(reply);
+  }finally{responsePending=false;}
  }
  function renderBoxes(tracks,video,mirror){
   if(!video?.videoWidth||!video?.videoHeight)return;
@@ -110,6 +138,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   const person=participants().find(x=>x.id===participantId);
   if(!person)return;
   open=true;
+  modelController?.abort();
   stopSpeech();
   await stopAudio();
   ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
@@ -138,6 +167,14 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   if(map)$('agentRoomMapMount').append(map);
   if(live)$('agentLiveStatusMount').append(live);
   ui.save.checked=false;
+  ui.useModel.checked=false;
+  ui.useModel.addEventListener('change',()=>{
+    if(ui.useModel.checked){
+      try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
+       ui.modelStatus.textContent='Enabled · messages will be sent only to the local model.';
+      }catch(error){ui.useModel.checked=false;ui.modelStatus.textContent=error.message;}
+    }else ui.modelStatus.textContent='Off. Local scripted conversation is active.';
+  });
   refillVoices();
   if(speech?.addEventListener)speech.addEventListener('voiceschanged',refillVoices);
   ui.clear.addEventListener('click',()=>{
@@ -164,5 +201,5 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  },setAudioActive(active){
   ui.resume.hidden=active;
   if(!open)ui.speaker.textContent=active?'Agent listening':'Microphone unavailable · enable audio';
- },destroy(){stopSpeech();}};
+ },destroy(){modelController?.abort();stopSpeech();}};
 }

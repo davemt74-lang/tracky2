@@ -92,3 +92,12 @@
 .game-page.agent-mode .agent-camera-controls span{font-size:.64rem;color:#bef5e2}
 .game-page.agent-mode .room-left-panel{width:min(360px,calc(100% - 32px))}
 .game-page.agent-mode .room-identity-hud{width:min(340px,calc(100% - 32px))}
+
+.game-page.agent-mode .agent-model-settings{padding:8px;background:#042634c0;
+ border:1px solid #4babab55;border-radius:9px}
+.game-page.agent-mode .agent-model-settings summary{cursor:pointer;color:#adfae1;font-weight:750}
+.game-page.agent-mode .agent-model-settings label{display:grid;gap:5px;margin:8px 0}
+.game-page.agent-mode .agent-model-settings input:not([type="checkbox"]){
+ width:100%;min-width:0;padding:8px;border-radius:7px;background:#041b25;
+ border:1px solid #429ba7;color:#d8fffa}
+.game-page.agent-mode .agent-model-settings small{display:block;line-height:1.45;color:#accad2}
