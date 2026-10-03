@@ -60,3 +60,17 @@ background:rgba(4,23,32,.84);border:1px solid #4ac5d366;border-radius:15px;backd
 .game-page.agent-mode .room-identity-hud{right:6px;top:28%;left:auto;width:min(94%,310px);max-height:27%}
 .game-page.agent-mode .agent-conversation-panel{max-height:38%;min-height:195px}
 }
+
+.game-page.agent-mode .motion-section,
+.game-page.agent-mode .game-rules,
+.game-page.agent-mode main>footer,
+.game-page.agent-mode #startGame,
+.game-page.agent-mode #endGame,
+.game-page.agent-mode #resetSession,
+.game-page.agent-mode .points-goal,
+.game-page.agent-mode #stopRoomAudio{display:none!important}
+.game-page.agent-mode .room-identity-hud .room-identity-head>.hud-pulse{display:none}
+.game-page.agent-mode .room-identity-hud .room-identity-head>div{margin:0 0 6px}
+.voice-standalone{min-height:100%;padding:12px;background:#071b24;color:#e2fcfa}
+.voice-modal-content{width:100%;padding:12px}
+.voice-standalone .voice-enrollment-block{display:block!important}

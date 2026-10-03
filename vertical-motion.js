@@ -398,8 +398,12 @@ async function agentEnsureAudio(){
  try{await startRoomAudio();}
  finally{agentAudioStarting=false;}
 }
+let wasAgentMode=false;
 function configureAgent(){
  const on=agentMode();
+ if(!on && wasAgentMode){stopRoomAudio();agentAudioPaused=false;}
+ if(on && !wasAgentMode)state.voice.announcedParticipants.clear();
+ wasAgentMode=on;
  document.body.classList.toggle('agent-mode',on);
  document.body.classList.toggle('mirrored-agent',on&&ui.mirror.checked);
  ui.video.hidden=!on;

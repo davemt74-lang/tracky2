@@ -14,7 +14,10 @@ const ui={feed:$('agentConversationFeed'),form:$('agentConversationForm'),
  video:$('cameraVideo'),mirror:$('mirrorCamera')
 };
 let active=false,history=[],voiceURI='',greeted=new Set(),micWasActive=false;
-try{voiceURI=localStorage.getItem(AGENT_VOICE_KEY)||'';}catch{}
+try{
+ voiceURI=localStorage.getItem(AGENT_VOICE_KEY)||'';
+ ui.keep.checked=localStorage.getItem(AGENT_HISTORY_KEY)!==null;
+}catch{}
 function render(){
  ui.feed.replaceChildren();
  for(const item of history){
@@ -147,7 +150,7 @@ window.addEventListener('tracky:agent-voice-enroll',async event=>{
  try{person=await getParticipant(id);}catch{}
  if(!person||!active)return;
  micWasActive=Boolean(event.detail?.roomAudioActive);
- if(micWasActive)window.dispatchEvent(new CustomEvent('tracky:agent-pause-audio'));
+ window.dispatchEvent(new CustomEvent('tracky:agent-pause-audio'));
  ui.dialogName.textContent='Voice profile · '+person.name;
  ui.frame.src='./voice-capture.html?participant='+encodeURIComponent(id);
  ui.dialog.showModal();
@@ -156,8 +159,7 @@ function closeVoice(){if(ui.dialog.open)ui.dialog.close();}
 ui.close.addEventListener('click',closeVoice);
 ui.dialog.addEventListener('close',()=>{
  ui.frame.removeAttribute('src');
- if(micWasActive && active)
-  window.dispatchEvent(new CustomEvent('tracky:agent-resume-audio'));
+ if(active)window.dispatchEvent(new CustomEvent('tracky:agent-resume-audio'));
  micWasActive=false;
 });
 refreshVoices();
