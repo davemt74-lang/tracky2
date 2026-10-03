@@ -1,3 +1,11 @@
+# Tracky2 v0.6.8 — Visitor history, working player tab, visible scene acquisition
+
+**Room Dialogue / Player Activity** now has a self-contained controller loaded separately from the camera model runtime. A click or keyboard selection reliably opens the requested tab even if the camera model fails. The activity timeline remains a bounded, in-memory history of meaningful events.
+
+**Stable visitors** are introduced only when repeated real face-and-body observations pass quality and duration checks. Provisional detections remain hidden. Each mature unmatched track becomes a unique numbered Visitor within the current camera session. The visitor's observed events persist in the current session; when that SAME continuous body track matches an enrolled participant, the timeline is relabeled with the participant's name, preserving the former visitor label. Session-namespaced IDs prevent accidentally merging separate visitors after camera restart. Saved dialogue that was cautiously associated as near that visitor is updated to mention the nearby enrolled participant, but an unverified speaker is NEVER retroactively marked as voice verified. If there is one reliably visible enrolled participant, an unmatched voice can be shown as **Unknown speaker · near [participant]**, never asserted as their voice. More than one possible person leaves speech unattributed.
+
+**Analyzing Scene** stays visible through camera startup, model initialization and repeated scans. The full central progress animation only completes once a stable face or room identity is established. If no valid subject is visible after multiple scans, it reduces to a compact nonblocking searching animation rather than vanishing after the first frame. Browser camera approval, Stop controls, recognition quality safeguards and the gameplay board are unchanged. Final behavior still requires live device testing.
+
 # Tracky2 v0.6.7 — Scene initialization and visual player activity
 
 Both the camera-first Participants page and the live game now show an **Analyzing Scene** progress animation tied to real milestones: camera opened, model loaded, first scene/face scan completed. The progress does not artificially complete on a timer. Stop and retry controls remain available during loading.

@@ -116,3 +116,10 @@ Next development phase starts only once this PR is green and merged.
 - Keep provisional detections inside the internal perception engine; present/announce only stable known enrolled identities, with observation gates and bounded time-limited track retention.
 - Combine LEFT Room Dialogue and Player Activity into keyboard-accessible tabs. Visual, ephemeral activity history shows meaningful zone changes, reaction times, targets, points and confirmed participant presence; all scheduled-player gameplay labels disclose unverified marker ownership.
 - Test false-positive exclusion, mirrored projection, milestone progress, tab contracts, visual activity history and direct ZIP PWA assets.
+
+## v0.6.8 — Visitor continuity and reliable scene acquisition
+- Independent, keyboard-accessible Room Dialogue / Player Activity controller; test actual click changes and pane visibility without invoking camera engine
+- Promote stable unmatched face+body evidence to provisional Visitor 1, 2, etc.; preserve session activity on track-to-enrollment match and cautiously update saved nearby dialogue without claiming unverified speaker identity
+- Suppress one-frame ghost tracks, face-less background detections and cross-session Visitor N history collisions
+- Keep scene progress through multiple real scans. On both game and Participants cameras, display nonblocking waiting animation until stable tracking is available; avoid concealing the view when none is found
+- Include unit, DOM-interaction, PWA, release-audit and deploy-package smoke tests; certify actual camera/audio recognition with real hardware separately
