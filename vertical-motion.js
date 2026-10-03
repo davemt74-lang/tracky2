@@ -217,17 +217,16 @@ function considerCognitiveObservation(event){
     state.voice.ttsPending>0)
  });
  if(!decision)return;
- logRoomMessage('decision',decision.reason,'agent-cognitive-loop',{
+ const decisionEvent=logRoomMessage('decision',decision.reason,'agent-cognitive-loop',{
   kind:'decision',semantic:'agent-engagement-decision',
-  participantId:decision.participantId,
-  confidence:decision.action?1:null
+  participantId:decision.participantId,relatedEventId:event.id
  });
  if(decision.action==='greet'){
   const executed=agentRuntime?.greet(track,person)===true;
   const result=cognitiveLoop.recordOutcome(decision,{executed,at:Date.now()});
   if(result)logRoomMessage('decision',result.reason,'agent-cognitive-loop',{
    kind:'outcome',semantic:'agent-greeting-outcome',
-   participantId:result.participantId
+   participantId:result.participantId,relatedEventId:decisionEvent?.id||event.id
   });
  }
  renderCognitiveStatus();
@@ -364,9 +363,10 @@ function addRoomObservation(observation){
    epoch===roomPrivacyEpoch?saveRoomObservation(event):undefined
   ).catch(error=>console.warn('Room observation not saved:',error));
  }
+ return accepted.event;
 }
 function logRoomMessage(category,message,source='runtime',options={}){
- addRoomObservation(roomObservation({category,message,source,sessionId:roomSessionId,...options}));
+ return addRoomObservation(roomObservation({category,message,source,sessionId:roomSessionId,...options}));
 }
 
 let agentSpeechActive=false;
@@ -1005,6 +1005,7 @@ async function enumerateCameras() {
 async function reloadIdentityParticipants() {
   try {
     state.identity.participants = await listParticipants();
+    cognitiveLoop.forgetRemovedParticipants(state.identity.participants.map(p=>p.id));
     refreshPlayerChoices();
     if(!state.identity.participants.length){ui.multiplayerSetupStatus.textContent='No enrolled participants on this site in this browser. Open Participants, save a profile and return to Games.';}
   } catch (error) {
