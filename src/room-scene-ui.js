@@ -7,6 +7,7 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
  const $=id=>document.getElementById(id);
  const els={
   editor:$('roomSceneEditor'),preview:$('roomAreaPreview'),layers:$('roomAreaPreviewLayers'),
+  occupants:$('roomAreaOccupants'),
   areaForm:$('roomAreaForm'),areaId:$('roomAreaId'),areaName:$('roomAreaName'),
   areaKind:$('roomAreaKind'),x:$('roomAreaX'),y:$('roomAreaY'),w:$('roomAreaW'),
   h:$('roomAreaH'),cancel:$('roomCancelAreaEdit'),areas:$('roomAreaList'),
