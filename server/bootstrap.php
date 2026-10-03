@@ -2,8 +2,18 @@
 declare(strict_types=1);
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
-const TRACKY_DATA = __DIR__ . '/../../tracky2-private';
+// Default three levels above server/ so shared-hosted public_html is never the data directory.
+define('TRACKY_DATA', getenv('TRACKY2_DATA_DIR') ?: dirname(__DIR__,3).'/tracky2-private');
+function tracky_safe_data_dir(): void {
+    // Fail closed if custom path would expose the database on this web host.
+    if (PHP_SAPI === 'cli' || empty($_SERVER['DOCUMENT_ROOT'])) return;
+    $parent=realpath(dirname(TRACKY_DATA));
+    $root=realpath((string)$_SERVER['DOCUMENT_ROOT']);
+    if (!$parent || !$root || str_starts_with($parent.'/',rtrim($root,'/').'/')
+        || $parent===$root) throw new RuntimeException('Private data location must be outside the web root.');
+}
 function tracky_db(): PDO {
+    tracky_safe_data_dir();
     if (!is_dir(TRACKY_DATA) || !is_file(TRACKY_DATA.'/installed.lock')) {
         throw new RuntimeException('Tracky2 is not installed.');
     }
@@ -17,7 +27,9 @@ function tracky_db(): PDO {
 }
 function tracky_session(): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
-    if (PHP_SAPI !== 'cli' && empty($_SERVER['HTTPS']) && ($_SERVER['HTTP_HOST'] ?? '') !== 'localhost') {
+    $host=parse_url('http://'.($_SERVER['HTTP_HOST'] ?? ''),PHP_URL_HOST);
+    if (PHP_SAPI !== 'cli' && (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS']==='off')
+        && !in_array($host,['localhost','127.0.0.1','[::1]'],true)) {
         throw new RuntimeException('HTTPS required for authenticated server access.');
     }
     ini_set('session.use_strict_mode', '1');
@@ -52,7 +64,7 @@ function tracky_csrf(): string {
     return $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 }
 function tracky_check_csrf(): void {
-    $given=$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    $given=$_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf'] ?? '';
     if (!is_string($given) || !hash_equals(tracky_csrf(),$given)) {
         http_response_code(403); throw new RuntimeException('Invalid CSRF token.');
     }
@@ -86,7 +98,11 @@ CREATE TABLE IF NOT EXISTS object_skills(
  skill TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(object_id,skill)
 );
-CREATE TABLE IF NOT EXISTS provider_credentials(\n provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),\n ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\nCREATE TABLE IF NOT EXISTS audit_log(
+CREATE TABLE IF NOT EXISTS provider_credentials(
+ provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),
+ ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS audit_log(
  id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
