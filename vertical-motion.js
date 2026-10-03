@@ -7,6 +7,7 @@ import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
+import {sceneStep,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
@@ -113,6 +114,10 @@ const ui = {
   participantCards: $('#participantCards'),
   participantHudEmpty: $('#participantHudEmpty'),
   roomRadarTracks: $('#roomRadarTracks'),
+  sceneOverlay: $('#gameSceneOverlay'),
+  sceneStatus: $('#gameSceneStatus'),
+  sceneBar: $('#gameSceneBar'),
+  sceneFill: $('#gameSceneFill'),
   roomMicDb: $('#roomMicDb'),
   roomNoiseDb: $('#roomNoiseDb'),
   roomVadState: $('#roomVadState'),
@@ -198,7 +203,9 @@ const state = {
     lastScanAt: 0,
     tracks: [],
     participants: [],
-    counter: 0
+    counter: 0,
+    sceneGeneration:0,
+    completeScans:0
   },
   voice: {
     engine: new VoiceIdentityEngine(),
@@ -776,6 +783,19 @@ async function reloadIdentityParticipants() {
   }
 }
 
+function updateGameScene(step){
+ const state=sceneStep(step);
+ ui.sceneOverlay.hidden=step==='idle'||step==='ready';
+ ui.sceneStatus.textContent=state.label;
+ ui.sceneBar.setAttribute('aria-valuenow',String(state.progress??0));
+ ui.sceneBar.setAttribute('aria-valuetext',state.label);
+ ui.sceneFill.style.width=(state.progress??0)+'%';
+ ui.sceneOverlay.dataset.stage=step;
+}
+function visibleRoomParticipants(now=performance.now()){
+ return stablePublicTracks(state.identity.tracks,now,{graceMs:TRACK_GRACE_MS});
+}
+
 async function initRoomIdentity() {
   if (state.identity.ready || state.identity.loading) return;
   state.identity.loading = true;
@@ -786,9 +806,11 @@ async function initRoomIdentity() {
     await state.identity.engine.init();
     state.identity.ready = true;
     ui.identityStatus.textContent = 'Identity online';
+    if(state.running)updateGameScene('models');
   } catch (error) {
     console.error(error);
     ui.identityStatus.textContent = 'Identity unavailable';
+    if(state.running)updateGameScene('error');
   } finally {
     state.identity.loading = false;
   }
@@ -956,8 +978,11 @@ function renderRoomRadar(visibleTracks) {
     if (track.status === 'occluded') dot.classList.add('occluded');
     if (track.lastVoiceAt && performance.now() - track.lastVoiceAt < 2600) dot.classList.add('speaking');
 
-    dot.style.left = ((track.cx || 0.5) * 100) + '%';
-    dot.style.top = ((track.cy || 0.5) * 100) + '%';
+    // The radar is labeled CAMERA VIEW, not a room floor plan. Only its projection
+    // is mirrored; body association and recognition stay in raw camera coordinates.
+    const point=cameraFacingPoint({x:track.cx??0.5,y:track.cy??0.5},ui.mirror.checked);
+    dot.style.left=(point.x*100)+'%';
+    dot.style.top=(point.y*100)+'%';
     dot.title = (track.participantName || 'Unknown') + ' · ' + track.id;
 
     const label = document.createElement('span');
@@ -969,9 +994,7 @@ function renderRoomRadar(visibleTracks) {
 
 function renderParticipantCards() {
   ui.participantCards.replaceChildren();
-  const visible = state.identity.tracks
-    .filter((track) => performance.now() - (track.lastBodySeenAt || track.lastSeenAt) < TRACK_GRACE_MS)
-    .slice(0, 8);
+  const visible=visibleRoomParticipants().slice(0,8);
 
   ui.participantHudEmpty.hidden = visible.length > 0;
   renderRoomRadar(visible);
@@ -1066,7 +1089,7 @@ function pushRoomEvent(message, type = 'info', speak = false) {
 }
 
 function acknowledgeRoomTracks(now) {
-  for (const track of state.identity.tracks) {
+  for (const track of visibleRoomParticipants(now)) {
     if (track.participantId && !state.voice.announcedParticipants.has(track.participantId)) {
       state.voice.announcedParticipants.add(track.participantId);
       state.voice.announcedTracks.add(track.id);
@@ -1076,15 +1099,8 @@ function acknowledgeRoomTracks(now) {
       continue;
     }
 
-    if (
-      !track.participantId &&
-      !state.voice.announcedTracks.has(track.id) &&
-      now - (track.firstSeenAt || now) >= 1200
-    ) {
-      state.voice.announcedTracks.add(track.id);
-      const event = acknowledgeNewTrack(track);
-      pushRoomEvent(event.message, 'new', true);
-    }
+    // Provisional strangers and false-positive tests never produce public announcements.
+
   }
 }
 
@@ -1594,6 +1610,7 @@ async function scanRoom(now) {
   state.identity.lastScanAt = now;
 
   try {
+    if(state.identity.completeScans===0)updateGameScene('detecting');
     const room = await state.identity.engine.detectRoom(ui.video);
     const faces = room.faces || [];
     const bodies = augmentBodiesWithFaceFallbacks(faces, room.bodies || []);
@@ -1707,22 +1724,20 @@ async function scanRoom(now) {
     updateConversationGroups();
     acknowledgeRoomTracks(now);
 
-    const identified = state.identity.tracks.filter((track) => track.participantId).length;
+    state.identity.completeScans+=1;
+    if(state.running && state.identity.completeScans===1)updateGameScene('ready');
+    const identified=visibleRoomParticipants(now).length;
     const bodyLocked = state.identity.tracks.filter((track) => track.status === 'body-lock').length;
-    ui.identityStatus.textContent = bodies.length
-      ? bodies.length + ' person' + (bodies.length === 1 ? '' : 's') +
-        ' · ' + identified + ' identified' +
-        (bodyLocked ? ' · ' + bodyLocked + ' body lock' : '')
-      : faces.length
-        ? faces.length + ' face' + (faces.length === 1 ? '' : 's') + ' · acquiring body'
-        : state.identity.tracks.some((track) => track.status === 'occluded')
-          ? 'Occlusion recovery active'
-          : 'Scanning room';
-
+    // Raw detections remain internal until repeated observation and enrolled
+    // identity have been established. Exclude single-frame ghosts from normal UI.
+    ui.identityStatus.textContent=identified?
+      identified+' enrolled participant'+(identified===1?'':'s')+' tracked':
+      'Analyzing scene · no confirmed participant';
     renderParticipantCards();
   } catch (error) {
     console.error(error);
     ui.identityStatus.textContent = 'Room tracking error';
+    if(state.identity.completeScans===0)updateGameScene('error');
   } finally {
     state.identity.busy = false;
   }
@@ -1763,6 +1778,9 @@ function stopCamera() {
   ui.trackingStatus.textContent = 'No signal';
   ui.identityStatus.textContent = state.identity.ready ? 'Identity standby' : 'Identity offline';
   state.identity.tracks = [];
+  state.identity.sceneGeneration+=1;
+  state.identity.completeScans=0;
+  updateGameScene('idle');
   renderParticipantCards();
   setCursor(0.5, 0.5, false);
 }
@@ -1776,6 +1794,7 @@ async function startCamera(deviceId = '') {
   }
 
   try {
+    updateGameScene('camera');
     ui.cameraStatus.textContent = 'Requesting camera…';
     const video = {
       width: { ideal: 1280 },
@@ -1799,12 +1818,15 @@ async function startCamera(deviceId = '') {
     ui.cameraStatus.textContent = 'Camera live';
     ui.trackingStatus.textContent = 'Searching for green…';
     state.identity.lastScanAt = 0;
-    void initRoomIdentity();
+    state.identity.completeScans=0;
+    if(state.identity.ready)updateGameScene('models');
+    else void initRoomIdentity();
     state.raf = requestAnimationFrame(loop);
     return true;
   } catch (error) {
     console.error(error);
     ui.cameraStatus.textContent = window.isSecureContext ? 'Could not start camera' : 'Use localhost or HTTPS';
+    updateGameScene('error');
     return false;
   }
 }
@@ -2181,6 +2203,7 @@ ui.pointGoal.addEventListener('change', () => {
   }
 });
 ui.select.addEventListener('change', () => state.running && startCamera(ui.select.value));
+ui.mirror.addEventListener('change',renderParticipantCards);
 ui.pause.addEventListener('click', () => {
   state.paused = !state.paused;
   ui.pause.textContent = state.paused ? 'Resume stats' : 'Pause stats';
