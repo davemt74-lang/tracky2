@@ -165,3 +165,6 @@
 @media(prefers-reduced-motion:reduce){
  .game-page.agent-mode .participant-audio-fill {transition:none}
 }
+
+.agent-shortcut-hint{white-space:nowrap;color:#a8e7e0;font-size:.65rem;font-weight:800;letter-spacing:.1em}
+@media(max-width:530px){.agent-shortcut-hint{display:none}}
