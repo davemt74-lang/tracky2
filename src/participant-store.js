@@ -2,10 +2,12 @@ import { participantRecord, cryptoRandomId } from './participant-core.js';
 import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
+const ROOM_OBSERVATIONS = 'room-observations';
+export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
@@ -62,6 +64,10 @@ export async function openParticipantDb() {
         db.createObjectStore(PENDING, { keyPath: 'id' });
       }
 
+      if (!db.objectStoreNames.contains(ROOM_OBSERVATIONS)) {
+        const observations=db.createObjectStore(ROOM_OBSERVATIONS,{keyPath:'id'});
+        observations.createIndex('at','at',{unique:false});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -269,4 +275,31 @@ export function deleteDialogueTurn(id) {
     await requestToPromise(store.delete(id));
     return true;
   });
+}
+
+/* Metadata only; never persist snapshots, audio or raw biometrics in room events. */
+export function listRoomObservations(){
+ return storeAction(ROOM_OBSERVATIONS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.sort((a,b)=>a.at-b.at).slice(-MAX_PERSISTED_ROOM_OBSERVATIONS);
+ });
+}
+export async function saveRoomObservation(record){
+ if(!record||!['presence','audio','system','activity','media','decision'].includes(record.category))
+  throw new Error('Invalid room observation');
+ const safe={id:record.id,at:record.at,category:record.category,
+  message:record.message,participantId:record.participantId||null,
+  confidence:record.confidence??null,source:record.source||'local',
+  evidence:record.evidence?.durationMs===null||Number.isFinite(record.evidence?.durationMs)?
+   {durationMs:record.evidence.durationMs}:null};
+ return storeAction(ROOM_OBSERVATIONS,'readwrite',async store=>{
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const item of rows.sort((a,b)=>a.at-b.at).slice(0,Math.max(0,rows.length-MAX_PERSISTED_ROOM_OBSERVATIONS)))
+   store.delete(item.id);
+  return safe;
+ });
+}
+export function clearRoomObservations(){
+ return storeAction(ROOM_OBSERVATIONS,'readwrite',store=>requestToPromise(store.clear()));
 }
