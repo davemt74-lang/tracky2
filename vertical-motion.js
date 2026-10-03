@@ -10,6 +10,7 @@ import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
 import {createAgentRoom} from './agent-mode.js';
 import {roomMeterState} from './src/participant-audio-meter.js';
+import {RoomAmbientAudit,roomAudioAuditMessage} from './src/room-audio-audit.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -187,6 +188,35 @@ const traceCtx = ui.trace.getContext('2d');
 let agentRuntime=null;
 const roomPresence=new RoomPresenceLedger();
 let roomHistory=[],saveRoomHistory=false;
+const roomAmbientAudit=new RoomAmbientAudit();
+let lastRoomAudioPaint=-Infinity,lastRejectedRoomSegmentAt=-Infinity;
+function renderAmbientAudioMeter(force=false){
+ const bar=document.getElementById('roomAmbientAudioMeter');
+ const fill=document.getElementById('roomAmbientAudioFill');
+ const status=document.getElementById('roomAmbientAudioStatus');
+ if(!bar||!fill||!status)return;
+ const now=performance.now();
+ if(!force&&now-lastRoomAudioPaint<120)return;
+ lastRoomAudioPaint=now;
+ const active=Boolean(state.voice.active);
+ const suppressed=Boolean(state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0);
+ const db=active&&!suppressed?state.voice.micDb:-100;
+ const level=Math.max(0,Math.min(100,Math.round((db+70)*100/62)));
+ fill.style.width=level+'%';
+ bar.setAttribute('aria-valuenow',String(level));
+ bar.dataset.mode=!active?'off':suppressed?'suppressed':state.voice.vad?'activity':'ambient';
+ status.textContent=!active?'Room mic offline · no ambient audio captured':
+  suppressed?'Room mic paused · agent speaking / enrollment':
+  (state.voice.vad?'Room acoustic activity (speaker not yet attributed)':'Ambient room level')+
+  ' · '+(Number.isFinite(db)?db.toFixed(1):'—')+' dB · floor '+
+  (Number.isFinite(state.voice.noiseFloorDb)?state.voice.noiseFloorDb.toFixed(1):'—')+' dB';
+}
+function saveRoomAudioSummary(summary){
+ if(!summary||state.mode!=='agent')return;
+ logRoomMessage('audio',roomAudioAuditMessage(summary),'shared-room-mic',
+  {at:summary.at,evidence:{durationMs:summary.durationMs}});
+}
+
 function renderRoomObservations(){
  const timeline=document.getElementById('roomObservationsTimeline');
  const status=document.getElementById('roomCurrentState');
@@ -1044,11 +1074,11 @@ function createParticipantCard(track) {
     audio.className = 'participant-audio-block';
     const heading = document.createElement('span');
     heading.className = 'participant-audio-title';
-    heading.textContent = 'ROOM MIC · SHARED INPUT';
+    heading.textContent = 'VERIFIED VOICE PROFILE';
     meter.className = 'participant-audio-meter';
     meter.dataset.trackId = String(track.id);
     meter.setAttribute('role', 'meter');
-    meter.setAttribute('aria-label', 'Shared room input level; speaker not yet attributed');
+    meter.setAttribute('aria-label', 'Recent post-verified speech segment for this participant only');
     meter.setAttribute('aria-valuemin', '0');
     meter.setAttribute('aria-valuemax', '100');
     meter.setAttribute('aria-valuenow', '0');
@@ -1069,7 +1099,8 @@ function createParticipantCard(track) {
 
   const participant = track.participantId ? participantById(track.participantId) : null;
   const voiceReadiness = voiceProfileReadiness(participant || {});
-  const recentlySpoke = Boolean(track.lastVoiceAt && performance.now() - track.lastVoiceAt < 2600);
+  const recentlySpoke = Boolean(track.verifiedVoiceSegment===true && track.lastVoiceAt &&
+    performance.now() - track.lastVoiceAt < 2600 && voiceReadiness.ready);
   if (recentlySpoke) card.classList.add('speaking');
 
   if (participant?.primaryPhoto) {
@@ -1088,8 +1119,8 @@ function createParticipantCard(track) {
     ['VOICE PROFILE', participant ? (voiceReadiness.ready ? 'READY' : (voiceReadiness.embeddingCount + '/3')) : '—'],
     ['VOICE MATCH', track.voiceMatchConfidence ? Math.round(track.voiceMatchConfidence * 100) + '%' : '—'],
     ['AUDIO', state.mode === 'agent'
-      ? (recentlySpoke ? 'RECENT MATCH' : state.voice.active
-        ? (state.voice.vad ? 'ROOM SPEECH' : 'QUIET') : 'OFF')
+      ? (recentlySpoke ? 'VERIFIED SEGMENT' : !state.voice.active?'OFF':
+        voiceReadiness.ready?'AWAIT VOICE MATCH':'PROFILE REQUIRED')
       : (recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET')],
     ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
     ['GROUP', track.conversationGroupId || '—']
@@ -1231,8 +1262,8 @@ function renderParticipantCards() {
   }
 }
 
-// RoomAudioCapture already emits live dB / VAD; change only the existing bars.
-// This is one shared microphone, never a claim of per-person live speech.
+// Identity cards only show previously verified profile-matched speech segments.
+// Raw room VAD/dB must NEVER animate or label any participant-specific input meter.
 let lastAudioMeterPaint = -Infinity;
 function updateParticipantAudioMeters(force = false) {
   if(state.mode !== 'agent')return;
@@ -1243,12 +1274,12 @@ function updateParticipantAudioMeters(force = false) {
   const shared={
     active:state.voice.active,
     suppressed:Boolean(state.voice.audio?.suppressed || agentSpeechActive || state.voice.ttsPending>0),
-    db:state.voice.micDb,
-    vad:state.voice.vad,
     now
   };
   for(const el of ui.participantCards.querySelectorAll('.participant-audio-meter')){
-    const result=roomMeterState({...shared,track:tracks.get(el.dataset.trackId)});
+    const track=tracks.get(el.dataset.trackId);
+    const enrolled=track?.participantId?voiceProfileReadiness(participantById(track.participantId)||{}).ready:false;
+    const result=roomMeterState({...shared,track,voiceProfileReady:enrolled});
     const fill=el.querySelector('.participant-audio-fill');
     if(fill)fill.style.width=result.level+'%';
     el.dataset.mode=result.mode;
@@ -1257,7 +1288,6 @@ function updateParticipantAudioMeters(force = false) {
     if(caption && caption.textContent!==result.text)caption.textContent=result.text;
   }
 }
-
 
 function updateConversationGroups() {
   const groups = buildConversationGroups(state.identity.tracks);
@@ -1518,6 +1548,11 @@ function onRoomAudioLevel(level) {
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
   renderVoiceHud();
   updateParticipantAudioMeters();
+  if(state.mode==='agent'&&state.voice.active){
+   renderAmbientAudioMeter();
+   const summary=roomAmbientAudit.update(level,Date.now());
+   if(summary)saveRoomAudioSummary(summary);
+  }
 }
 
 function voiceSegmentIsCurrent(segment) {
@@ -1580,16 +1615,6 @@ async function processRoomSegment(segment) {
         .map((candidate) => candidate.participantId)
         .filter(Boolean);
 
-      const liveTrack = state.identity.tracks.find(
-        (candidate) =>
-          candidate.id === track.id &&
-          candidate.participantId === participant?.id
-      );
-      if (liveTrack) {
-        liveTrack.voiceMatchConfidence = voiceMatch.similarity;
-        liveTrack.lastVoiceAt = performance.now();
-        liveTrack.voiceLevelDb = segment.avgDb;
-      }
     }
 
     state.voice.currentSpeakerId = participant?.id || null;
@@ -1604,6 +1629,12 @@ async function processRoomSegment(segment) {
     if (!gate.accept) {
       state.voice.rejectedSegments += 1;
       state.voice.lastDecision = voiceMatch.ambiguous ? 'ambiguous-speaker' : 'noise-rejected';
+      if(state.mode==='agent'&&Date.now()-lastRejectedRoomSegmentAt>8000){
+        lastRejectedRoomSegmentAt=Date.now();
+        logRoomMessage('audio',voiceMatch.ambiguous
+          ?'Room segment: ambiguous voice profiles · not attributed'
+          :'Room segment: rejected by speech/noise gate · not attributed','room-voice');
+      }
       renderParticipantCards();
       renderVoiceHud();
       return;
@@ -1618,6 +1649,18 @@ async function processRoomSegment(segment) {
       }
     }
 
+    // Gate and transcription have completed: only NOW may a matched participant
+    // receive their own brief post-verified audio meter display.
+    if(participant&&track&&voiceSegmentIsCurrent(segment)){
+      const liveTrack=state.identity.tracks.find(candidate=>
+        candidate.id===track.id&&candidate.participantId===participant.id);
+      if(liveTrack){
+        liveTrack.voiceMatchConfidence=voiceMatch.similarity;
+        liveTrack.lastVoiceAt=performance.now();
+        liveTrack.voiceLevelDb=segment.avgDb;
+        liveTrack.verifiedVoiceSegment=true;
+      }
+    }
     let turn = createSpeakerTurn({
       participantId: participant?.id || null,
       participantName: participant?.name || null,
@@ -1642,7 +1685,8 @@ async function processRoomSegment(segment) {
     turn.at=Date.now();
     state.voice.turns.push(turn);
     if(state.mode==='agent'){
-      logRoomMessage('audio',turn.participantId?'Verified participant speech turn':'Unverified speaker turn','room-voice');
+      logRoomMessage('audio',turn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
+       'room-voice',turn.participantId?{participantId:turn.participantId}:{});
       agentRuntime?.onDialogue(turn);
     }
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
@@ -1754,7 +1798,9 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    roomAmbientAudit.reset();
     updateParticipantAudioMeters(true);
+    if(state.mode==='agent')renderAmbientAudioMeter(true);
     agentRuntime?.setAudioActive(true);
     state.voice.lastDecision = 'listening';
     ui.startRoomAudio.disabled = true;
@@ -1777,6 +1823,8 @@ async function startRoomAudio() {
 }
 
 function stopRoomAudio() {
+  if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
+  roomAmbientAudit.reset();
   state.voice.generation += 1;
   void state.voice.audio?.stop();
   state.voice.audio = null;
@@ -1792,6 +1840,10 @@ function stopRoomAudio() {
   state.voice.currentGroupId = null;
   state.voice.captureMode = 'offline';
   state.voice.queue = [];
+  for(const track of state.identity.tracks){
+   track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
+  }
+  if(state.mode==='agent')renderAmbientAudioMeter(true);
   ui.startRoomAudio.disabled = false;
   ui.stopRoomAudio.disabled = true;
   renderDialogueTurns();
@@ -2611,6 +2663,7 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  renderAmbientAudioMeter(true);
   const roomOptIn=document.getElementById('roomSaveObservations');
   const roomClear=document.getElementById('roomClearObservations');
   try{saveRoomHistory=window.localStorage.getItem('tracky2-save-room-observations')==='yes';}
