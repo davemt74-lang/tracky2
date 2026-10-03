@@ -1339,7 +1339,7 @@ function pushRoomEvent(message, type = 'info', speak = false) {
   });
   if (state.voice.events.length > 30) state.voice.events.splice(0, state.voice.events.length - 30);
   renderRoomEvents();
-  if(state.mode==='agent')logRoomMessage(type==='recognized'?'presence':type==='error'?'system':'audio',message,'room-runtime');
+  if(state.mode==='agent'&&type!=='recognized')logRoomMessage(type==='error'?'system':'audio',message,'room-runtime');
   if (speak) speakAcknowledgement(message);
 }
 
