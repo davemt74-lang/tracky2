@@ -95,6 +95,9 @@ export class RoomTemporalLedger{
      'area:'+association.areaId:association.status==='unmapped'?'unmapped':null;
    if(nextKey===null){
     record.candidateKey=null;record.candidateSince=null;record.candidateCount=0;
+    // Invalid/overlapping positions break location continuity; never infer a
+    // transition when the camera regains an unambiguous position.
+    record.confirmedKey=null;record.previousAreaSince=null;
     record.areaSince=null;record.dwellEmitted=false;
     continue;
    }
