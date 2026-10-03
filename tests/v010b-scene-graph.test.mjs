@@ -83,6 +83,8 @@ test('10B is integrated into existing IndexedDB, ROOM timeline and release witho
  assert.match(controller,/semantic:'owner-map-edit'/);
  assert.match(markup,/id="roomAreaPreview"/);
  assert.match(markup,/id="roomAreaForm"/);
+ assert.match(markup,/id="roomAreaOccupants"/);
+ assert.match(ui,/a\.status==='ambiguous'\?'overlapping areas/);
  assert.match(markup,/id="roomObjectForm"/);
  assert.doesNotMatch(ui,/getUserMedia|MediaRecorder|captureStream|rawAudio/);
 });
