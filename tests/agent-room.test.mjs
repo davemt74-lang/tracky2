@@ -11,7 +11,7 @@ test('agent canvas hides zones and stats but exposes video and independently col
  assert.match(css,/agent-mode #multiplayerStage/);
  assert.match(css,/agent-mode #cameraVideo/);
  assert.match(css,/agentRoomStatus\[hidden\]/);
- assert.match(h,/agent-room\\.js/);
+ assert.ok(h.includes('src="./agent-room.js"'));
  assert.match(fs.readFileSync('agent-room.js','utf8'),/agent-conversation/);
 });
 test('voice modal reuses canonical voice profile controls',()=>{
