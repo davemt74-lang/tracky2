@@ -48,6 +48,7 @@ import {
 import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
 import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-event-core.js';
+import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -185,7 +186,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null;
+let agentRuntime=null,sceneUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomLedger=new RoomEventLedger();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -1298,6 +1299,7 @@ function renderParticipantCards() {
   if(state.mode==='agent'){
     updateParticipantAudioMeters(true);
     agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
+    sceneUI?.renderTracks(visible);
   }
 }
 
@@ -2729,6 +2731,14 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  sceneUI=createRoomSceneUi({
+   getTracks:()=>state.running?publicRoomTracks():[],
+   mirror:()=>ui.mirror.checked,
+   onChange:message=>logRoomMessage('activity',message,'owner-scene',
+    {semantic:'owner-map-edit'})
+  });
+  void sceneUI.init();
+  ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
   const roomOptIn=document.getElementById('roomSaveObservations');
   const roomClear=document.getElementById('roomClearObservations');

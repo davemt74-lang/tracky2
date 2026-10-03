@@ -186,6 +186,41 @@
         <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
         <div id="roomCurrentState" class="room-current-state" role="status">Waiting for room observations</div>
         <div id="roomSensorStates" class="room-sensor-states" aria-live="polite">Sensor history: unavailable</div>
+        <details class="room-scene-editor" id="roomSceneEditor">
+          <summary>ROOM MAP · Configure camera-relative areas</summary>
+          <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
+          <div id="roomAreaPreview" class="room-scene-preview" role="img"
+               aria-label="Owner-defined camera view rectangles and temporary visible-track positions">
+            <div id="roomAreaPreviewLayers" class="room-scene-layers" aria-hidden="true"></div>
+          </div>
+          <div id="roomAreaOccupants" class="room-scene-occupants" aria-label="Current camera-relative participant area associations">No stable participant associations yet.</div>
+          <form id="roomAreaForm" class="room-scene-form">
+            <input type="hidden" id="roomAreaId">
+            <label>Area name<input id="roomAreaName" required maxlength="64" placeholder="Desk / Entry / Couch"></label>
+            <label>Area type<select id="roomAreaKind">
+              <option value="zone">Zone</option><option value="entrance">Entrance</option>
+              <option value="desk">Desk</option><option value="seat">Seat</option><option value="other">Other</option>
+            </select></label>
+            <div class="room-scene-coords">
+              <label>X<input id="roomAreaX" type="number" required min="0" max="1" step=".001" value=".15"></label>
+              <label>Y<input id="roomAreaY" type="number" required min="0" max="1" step=".001" value=".2"></label>
+              <label>Width<input id="roomAreaW" type="number" required min=".025" max="1" step=".001" value=".35"></label>
+              <label>Height<input id="roomAreaH" type="number" required min=".025" max="1" step=".001" value=".5"></label>
+            </div>
+            <button type="submit" id="roomSaveArea">Save area</button>
+            <button type="button" id="roomCancelAreaEdit">Cancel edit</button>
+          </form>
+          <div id="roomAreaList" class="room-scene-items" aria-label="Owner-defined areas"></div>
+          <form id="roomObjectForm" class="room-scene-form">
+            <label>Object name<input id="roomObjectName" maxlength="64" required placeholder="Monitor / Chair / Lamp"></label>
+            <label>Kind<select id="roomObjectKind"><option value="furniture">Furniture</option><option value="device">Device</option><option value="other">Other</option></select></label>
+            <label>Located in<select id="roomObjectArea"><option value="">Unassigned</option></select></label>
+            <button type="submit">Add owner-defined object</button>
+          </form>
+          <div id="roomObjectList" class="room-scene-items" aria-label="Owner-defined objects"></div>
+          <button type="button" id="roomClearScene">Clear owner-defined map</button>
+          <small id="roomSceneMessage" role="status">Not calibrated. Owner labels never establish a participant's physical location.</small>
+        </details>
         <section class="room-audio-audit-panel" aria-label="Shared room ambient audio diagnostics">
           <strong>SHARED ROOM AUDIO · UNATTRIBUTED</strong>
           <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
