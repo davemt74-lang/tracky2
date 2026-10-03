@@ -73,3 +73,8 @@
 @media(prefers-reduced-motion:reduce){
  .room-left-panel *{scroll-behavior:auto}
 }
+
+/* Native buttons are interactive regardless of the tracking engine's readiness. */
+.room-left-tabs{position:relative;z-index:2;pointer-events:auto}
+.room-left-tabs [role="tab"]{position:relative;pointer-events:auto;touch-action:manipulation}
+.room-left-tabpanel[hidden]{display:none!important}
