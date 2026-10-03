@@ -4,7 +4,7 @@ function check(bool $ok,string $name):void{if(!$ok)throw new RuntimeException('F
 $temp=sys_get_temp_dir().'/tracky2-foundation-'.bin2hex(random_bytes(5));
 if(!mkdir($temp,0700))throw new RuntimeException('Cannot prepare temporary test DB.');
 putenv('TRACKY2_DATA_DIR='.$temp);
-require dirname(__DIR__).'/providers.php';
+require __DIR__.'/providers.php';
 tracky_session(); // Session must start before PASS output in the CLI test runner.
 try{
  $db=new PDO('sqlite:'.$temp.'/tracky.sqlite',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
