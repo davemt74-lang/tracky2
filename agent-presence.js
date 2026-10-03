@@ -62,14 +62,14 @@ window.addEventListener('tracky:agent-room-tracks',event=>{
  ui.follower.style.setProperty('--orb-scale',String(t.scale));
 });
 window.addEventListener('tracky:agent-speech-cadence',event=>{
- if(!speaking||!ui.orbArt?.animate)return;
+ if(!speaking||!ui.orbArt?.animate||window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)return;
  const strength=Math.max(.08,Math.min(1,Number(event.detail?.strength)||.4));
  const duration=Math.max(150,Math.min(520,Number(event.detail?.durationMs)||300));
  // Pulse independent inner layers, never the tracking-positioned wrapper.
  for(const node of [ui.orbArt.querySelector?.('.agent-orb-core'),...Array.from(ui.orbArt.querySelectorAll?.('.agent-orb-ring')||[])]){
-  node?.animate?.([{transform:'scale(1)',opacity:.83,filter:'brightness(1)'},
-   {transform:'scale('+(1+strength*.2)+')',opacity:1,filter:'brightness('+(1+strength*.35)+')'},
-   {transform:'scale(1)',opacity:.92,filter:'brightness(1)'}],
+  node?.animate?.([{scale:1,opacity:.83,filter:'brightness(1)'},
+   {scale:1+strength*.2,opacity:1,filter:'brightness('+(1+strength*.35)+')'},
+   {scale:1,opacity:.92,filter:'brightness(1)'}],
   {duration,easing:'ease-out',iterations:1});
  }
 });

@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while a match may be active.
-const CACHE='tracky2-static-v0.9.0';
+const CACHE='tracky2-static-v0.9.1';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',

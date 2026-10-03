@@ -47,3 +47,8 @@
 
 ## Mandatory section gates
 Review actual existing implementation before adding new code. Build targeted tests first. Run relevant checks without restarting long-running suites. No next section until the current PR has green required checks and is merged. Deployment ZIP must contain every new dependency and SHA-256 sidecar. Installed camera/microphone certification must be reported separately from CI simulation.
+
+## V0.9.1 follow-up safeguards
+- Participant deletion also clears attributed room-observation metadata in the same IndexedDB transaction; automatic duplicate named recognition messages are not saved as unattributed event records.
+- Cadence pulse uses additive scale without resetting ring orientation and respects the browser reduced-motion preference.
+- The packaged release remains feature-scoped: live physical-distance calibration, autonomous cognitive skills, server-side event sync and hardware validation are separate future milestones.

@@ -128,10 +128,11 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
+    const observations = tx.objectStore(ROOM_OBSERVATIONS);
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -159,6 +160,11 @@ export async function deleteParticipant(id) {
       }
     }
 
+    // Erase attributed room observations in the same transaction as the profile.
+    const roomRows = await requestToPromise(observations.getAll());
+    for (const event of roomRows) {
+      if (event.participantId === id) observations.delete(event.id);
+    }
     await done;
     // Follow participant deletion with local game-history cleanup on the same device.
     deleteParticipantMatchHistory(browserMatchStorage(), id);
