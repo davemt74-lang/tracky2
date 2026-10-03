@@ -241,3 +241,24 @@
  .game-page.agent-mode .room-identity-hud{transition:none!important}
  .agent-voice-orb[data-speech="speaking"] .agent-orb-core{animation:none}
 }
+
+/* The orb meanders gently when no reliable primary track is available. */
+.agent-orb-follower[data-follow="idle"]{animation:agent-orb-drift 13s ease-in-out infinite alternate}
+@keyframes agent-orb-drift{
+  0%{transform:translate(-52%,-53%) scale(.94)}
+  50%{transform:translate(-47%,-48%) scale(1.035)}
+  100%{transform:translate(-51%,-51%) scale(.99)}
+}
+.game-page.agent-mode .agent-mobile-rail[hidden]{display:none!important}
+@media(max-width:760px){
+ .game-page.agent-mode.agent-mobile-panel-left #agentMobileLeftRail{
+   left:min(355px,calc(100vw - 66px));z-index:52}
+ .game-page.agent-mode.agent-mobile-panel-right #agentMobileRightRail{
+   right:min(355px,calc(100vw - 66px));z-index:52}
+ .game-page.agent-mode.agent-mobile-panel-left #agentMobileLeftRail span,
+ .game-page.agent-mode.agent-mobile-panel-right #agentMobileRightRail span{
+   letter-spacing:.07em}
+}
+@media(prefers-reduced-motion:reduce){
+ .agent-orb-follower[data-follow="idle"]{animation:none!important}
+}
