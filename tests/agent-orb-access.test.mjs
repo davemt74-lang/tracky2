@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+test('orb can launch directly and camera/orb controls do not depend on recognition startup', async()=>{
+ const code=fs.readFileSync('agent-presence.js','utf8');
+ assert.match(code,/const requested=new URLSearchParams\(window.location.search\).get\('mode'\)==='agent'/);
+ assert.match(code,/render\(\);\s*$/);
+ const ids=['agentViewChooser','agentCameraView','agentOrbView','agentOrbStage','agentVoiceOrb','agentOrbCaption'];
+ const el=new Map(ids.map(id=>[id,{id,hidden:true,dataset:{},attributes:{},events:{},
+ setAttribute(name,value){this.attributes[name]=value},
+ addEventListener(name,fn){this.events[name]=fn}
+ }]));
+ const classes=new Map(),events={};
+ globalThis.window={location:{search:'?mode=agent&view=orb'},addEventListener:(name,fn)=>events[name]=fn};
+ globalThis.document={getElementById:id=>el.get(id),body:{classList:{toggle:(name,on)=>classes.set(name,on),add:(name)=>classes.set(name,true)}}};
+ try{
+  await import('../agent-presence.js?immediate-orb=1');
+  assert.equal(el.get('agentViewChooser').hidden,false,'view switch visible before agent-ready');
+  assert.equal(el.get('agentOrbStage').hidden,false,'orb directly opened before agent-ready');
+  assert.equal(classes.get('agent-mode'),true);
+  assert.equal(classes.get('agent-orb-view'),true);
+  el.get('agentCameraView').events.click();
+  assert.equal(el.get('agentOrbStage').hidden,true);
+  el.get('agentOrbView').events.click();
+  assert.equal(el.get('agentOrbStage').hidden,false);
+  events['tracky:agent-speech-state']({detail:{speaking:true}});
+  assert.equal(el.get('agentVoiceOrb').dataset.speech,'speaking');
+ }finally{delete globalThis.window;delete globalThis.document;}
+});
+test('lobby includes dedicated Orb entry point',()=>{
+ const html=fs.readFileSync('games.html','utf8'),js=fs.readFileSync('games.js','utf8');
+ assert.match(html,/id="lobbyOrbLaunch"/);
+ assert.match(js,/\.\/vertical-motion\.html\?mode=agent&view=orb/);
+});
