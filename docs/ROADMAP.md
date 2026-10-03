@@ -109,3 +109,10 @@ Next development phase starts only once this PR is green and merged.
 - Opt-in auto-start permission preference for previously granted browser camera access on Participants and Games. The browser remains permission authority; denied, prompt, unsupported and same-page manual Stop fail closed. Camera preference never enables microphone/voice capture.
 - Isolate centered four-zone board from scores and instructions; a separate lower-left HUD shows score, identity evidence, marker evidence, voice readiness, round timer and group roster. Improve readability without changing game rules or the physical marker requirements.
 - Add deterministic tests for permission gate, saved profile selection, layout contracts, PWA asset manifest and packaged deployment smoke imports. Live device certification still requires browser hardware checks.
+
+## v0.6.7 — Scene analysis, participant false-positive control and left activity tabs
+- Show actual camera/model/first-scan loading stages with a reduced-motion-compatible radar-style animation on Participants and game pages. Loading does not automatically certify unknown faces or block camera Stop controls.
+- Reconcile mirrored camera-facing room radar with participant face previews, leaving raw computer-vision coordinates unchanged; actual camera-side orientation still needs user hardware verification.
+- Keep provisional detections inside the internal perception engine; present/announce only stable known enrolled identities, with observation gates and bounded time-limited track retention.
+- Combine LEFT Room Dialogue and Player Activity into keyboard-accessible tabs. Visual, ephemeral activity history shows meaningful zone changes, reaction times, targets, points and confirmed participant presence; all scheduled-player gameplay labels disclose unverified marker ownership.
+- Test false-positive exclusion, mirrored projection, milestone progress, tab contracts, visual activity history and direct ZIP PWA assets.

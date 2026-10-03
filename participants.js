@@ -2,6 +2,7 @@ import { voiceProfileReadiness } from './src/voice-core.js';
 import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference,cameraAutostartEligible,cameraPermissionState} from './src/camera-preference.js';
 import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
 import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
+import {sceneStep} from './src/scene-analysis.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
 import {
   deleteParticipant,
@@ -17,6 +18,10 @@ const $ = (selector) => document.querySelector(selector);
 
 const ui = {
   modelStatus: $('#modelStatus'),
+  sceneOverlay: $('#participantSceneOverlay'),
+  sceneStatus: $('#participantSceneStatus'),
+  sceneBar: $('#participantSceneBar'),
+  sceneFill: $('#participantSceneFill'),
   participantCount: $('#participantCount'),
   cameraStatus: $('#participantCameraStatus'),
   list: $('#participantList'),
@@ -72,7 +77,9 @@ const state = {
   manuallyStoppedThisPage: false,
   cameraDeviceId: null,
   cameraDevices: [],
-  mirrorPreview: true
+  mirrorPreview: true,
+  completeScans: 0,
+  cameraGeneration: 0
 };
 
 function setMessage(message = '', kind = '') {
@@ -301,6 +308,16 @@ async function loadParticipant(id) {
   window.dispatchEvent(new CustomEvent('tracky:participant-editing'));
 }
 
+function updateParticipantScene(step){
+ const progress=sceneStep(step);
+ ui.sceneOverlay.hidden=step==='idle'||step==='ready';
+ ui.sceneStatus.textContent=progress.label;
+ ui.sceneBar.setAttribute('aria-valuenow',String(progress.progress??0));
+ ui.sceneBar.setAttribute('aria-valuetext',progress.label);
+ ui.sceneFill.style.width=(progress.progress??0)+'%';
+ ui.sceneOverlay.dataset.stage=step;
+}
+
 async function ensureEngine() {
   if (state.engineReady) return true;
   ui.modelStatus.textContent = 'Loading models…';
@@ -309,10 +326,12 @@ async function ensureEngine() {
     await state.engine.init();
     state.engineReady = true;
     ui.modelStatus.textContent = 'Identity core online';
+    if(state.stream)updateParticipantScene('models');
     return true;
   } catch (error) {
     console.error(error);
     ui.modelStatus.textContent = 'Model unavailable';
+    if(state.stream)updateParticipantScene('error');
     setMessage('Face models could not load. Participant profiles still work, but face enrollment is unavailable.', 'error');
     return false;
   }
@@ -325,6 +344,8 @@ async function startCamera() {
   }
 
   stopCamera();
+  updateParticipantScene('camera');
+  const generation=state.cameraGeneration;
 
   try {
     const videoConstraints={
@@ -350,24 +371,31 @@ async function startCamera() {
 
     ui.video.srcObject = state.stream;
     await ui.video.play();
+    if(generation!==state.cameraGeneration)return;
     ui.cameraPlaceholder.hidden = true;
     ui.startCamera.disabled = true;
     ui.stopCamera.disabled = false;
     ui.cameraStatus.textContent = 'Live';
 
     await ensureEngine();
-    if (state.engineReady) {
+    if (state.engineReady && generation===state.cameraGeneration) {
+      state.completeScans=0;
+      updateParticipantScene('detecting');
       state.scanning = true;
       scheduleScan(80);
     }
   } catch (error) {
     console.error(error);
     ui.cameraStatus.textContent = 'Denied / unavailable';
+    if(generation===state.cameraGeneration)updateParticipantScene('error');
     setMessage(window.isSecureContext ? 'Could not open camera.' : 'Camera access requires localhost or HTTPS.', 'error');
   }
 }
 
 function stopCamera() {
+  state.cameraGeneration+=1;
+  state.completeScans=0;
+  updateParticipantScene('idle');
   state.scanning = false;
   clearTimeout(state.scanTimer);
   state.stream?.getTracks().forEach((track) => track.stop());
@@ -417,7 +445,11 @@ async function scanFace() {
   }
 
   try {
+    const generation=state.cameraGeneration;
     const faces = await state.engine.detect(ui.video);
+    if(!state.scanning || generation!==state.cameraGeneration)return;
+    state.completeScans+=1;
+    if(state.completeScans===1)updateParticipantScene('ready');
     const face = faces.sort((a, b) => b.quality - a.quality)[0] || null;
     state.currentFace = face;
 
@@ -444,6 +476,7 @@ async function scanFace() {
   } catch (error) {
     console.error(error);
     ui.modelStatus.textContent = 'Identity scan error';
+    if(state.completeScans===0)updateParticipantScene('error');
   } finally {
     scheduleScan(550);
   }
@@ -451,7 +484,7 @@ async function scanFace() {
 
 function captureCurrentPhoto() {
   if (!state.currentFace) return null;
-  return cropFacePhoto(ui.video, state.currentFace.box, { mirror: true, size: 360, quality: 0.9 });
+  return cropFacePhoto(ui.video, state.currentFace.box, { mirror: state.mirrorPreview, size: 360, quality: 0.9 });
 }
 
 function capturePrimaryPhoto() {
