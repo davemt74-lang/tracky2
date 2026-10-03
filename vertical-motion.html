@@ -75,19 +75,20 @@
     </aside>
 
     <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
-      <div id="roundTimer" class="pattern-round-timer" aria-live="off">Select players, interval and rounds</div>
-      <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
-      <div id="stabilityStatus" class="stability-status" role="status" aria-live="polite">Waiting for a stable marker</div>
       <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
         <div data-board-zone="0"><b>1</b></div><div data-board-zone="1"><b>2</b></div>
         <div data-board-zone="2"><b>3</b></div><div data-board-zone="3"><b>4</b></div>
         <div id="boardCursor" class="multi-cursor" hidden></div>
       </div>
-      <div id="boardInstruction" class="multi-instruction">One four-section board for both players. Green takes the first turn.</div>
+
     </section>
 
     <aside id="gamePlayerHud" class="game-player-hud" aria-label="Player scores and tracking details" hidden>
       <div class="game-player-hud-title">PLAYER STATUS</div>
+      <div id="roundTimer" class="pattern-round-timer" aria-live="off">Select players, interval and rounds</div>
+      <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
+      <div id="stabilityStatus" class="stability-status" role="status" aria-live="polite">Waiting for a stable marker</div>
+      <div id="boardInstruction" class="multi-instruction">One four-section board for both players. Green takes the first turn.</div>
       <div class="multi-scorecards" id="classicPatternScorecards" aria-label="Individual player scores">
         <article class="multi-scorecard" data-player-color="green">
           <strong class="multi-name">Green player</strong><b class="multi-score">0 / 5</b>
