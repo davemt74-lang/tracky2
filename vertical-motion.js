@@ -52,6 +52,7 @@ import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-eve
 import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
+import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -194,8 +195,44 @@ let agentRuntime=null,sceneUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
+const cognitiveLoop=new AgentCognitiveLoop();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
+function renderCognitiveStatus(){
+ const label=document.getElementById('agentCognitiveStatus');
+ if(!label||state.mode!=='agent')return;
+ const snapshot=cognitiveLoop.snapshot();
+ label.textContent=snapshot.lastDecision?
+  snapshot.lastDecision.reason+' · '+snapshot.greetedThisHour+' greetings this hour':
+  'Waiting for stable room evidence · no engagement decisions yet';
+}
+function considerCognitiveObservation(event){
+ if(state.mode!=='agent'||event.semantic!=='participant-observed')return;
+ const person=event.participantId?participantById(event.participantId):null;
+ const track=event.participantId?publicRoomTracks().find(x=>
+   x.participantId===event.participantId&&['matched','body-lock'].includes(x.status)):null;
+ const decision=cognitiveLoop.evaluate(event,{
+  participant:person,track,now:Date.now(),
+  busy:Boolean(state.voice.vad||state.voice.processing||agentSpeechActive||
+    state.voice.ttsPending>0)
+ });
+ if(!decision)return;
+ logRoomMessage('decision',decision.reason,'agent-cognitive-loop',{
+  kind:'decision',semantic:'agent-engagement-decision',
+  participantId:decision.participantId,
+  confidence:decision.action?1:null
+ });
+ if(decision.action==='greet'){
+  const executed=agentRuntime?.greet(track,person)===true;
+  const result=cognitiveLoop.recordOutcome(decision,{executed,at:Date.now()});
+  if(result)logRoomMessage('decision',result.reason,'agent-cognitive-loop',{
+   kind:'outcome',semantic:'agent-greeting-outcome',
+   participantId:result.participantId
+  });
+ }
+ renderCognitiveStatus();
+}
+
 function roomSensorState(sensor,status,message){
  if(state.mode!=='agent')return;
  logRoomMessage('system',message,'sensor-lifecycle',
@@ -320,6 +357,7 @@ function addRoomObservation(observation){
  const accepted=roomLedger.append(observation);
  if(!accepted.added)return;
  roomHistory=roomLedger.entries();renderRoomObservations();
+ considerCognitiveObservation(accepted.event);
  if(saveRoomHistory){
   const epoch=roomPrivacyEpoch,event=accepted.event;
   roomWrites=roomWrites.catch(()=>{}).then(()=>
@@ -1238,6 +1276,24 @@ function createParticipantCard(track) {
     open.href = './participants.html';
     open.textContent = 'Profiles';
 
+    if(state.mode==='agent'){
+     const greetPref=document.createElement('button');greetPref.type='button';
+     greetPref.textContent=participant?.agentGreetingEnabled===false?'Allow greetings':'Mute greetings';
+     greetPref.setAttribute('aria-label',
+      (participant?.agentGreetingEnabled===false?'Enable':'Disable')+
+      ' automatic greetings for '+(participant?.name||'participant'));
+     greetPref.addEventListener('click',async()=>{
+      try{
+       const enabled=participant.agentGreetingEnabled===false;
+       await patchParticipant(participant.id,{agentGreetingEnabled:enabled});
+       await reloadIdentityParticipants();renderParticipantCards();
+       logRoomMessage('system','Owner '+(enabled?'enabled':'disabled')+
+        ' automatic greeting for an enrolled participant','participant-policy',
+        {participantId:participant.id});
+      }catch(error){console.error('Could not update greeting preference',error);}
+     });
+     actions.append(greetPref);
+    }
     actions.append(updatePhoto, wrong, open);
   } else if (track.status === 'new' && track.embedding) {
     const create = document.createElement('button');
@@ -1467,7 +1523,8 @@ function acknowledgeRoomTracks(now) {
       const participant = participantById(track.participantId);
       const event = acknowledgeNewTrack(track, participant);
       pushRoomEvent(event.message,'recognized',state.mode!=='agent');
-      if(state.mode==='agent'&&participant)agentRuntime?.greet(track,participant);
+      // AGENT greetings are governed by canonical ROOM cognitive decisions,
+      // not direct recognition callbacks; prevents bypassing owner quiet hours.
       continue;
     }
 
@@ -2792,6 +2849,20 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  const autoGreet=document.getElementById('agentAutoGreet');
+  const quietHours=document.getElementById('agentQuietHours');
+  const quietStart=document.getElementById('agentQuietStart');
+  const quietEnd=document.getElementById('agentQuietEnd');
+  const refreshCognitivePolicy=()=>{
+   cognitiveLoop.setPolicy({...DEFAULT_COGNITIVE_POLICY,
+    autoGreet:autoGreet.checked,quietEnabled:quietHours.checked,
+    quietStart:quietStart.value,quietEnd:quietEnd.value});
+   renderCognitiveStatus();
+  };
+  for(const control of [autoGreet,quietHours,quietStart,quietEnd])
+   control.addEventListener('change',refreshCognitivePolicy);
+  autoGreet.checked=true;quietHours.checked=false;
+  refreshCognitivePolicy();
   sceneUI=createRoomSceneUi({
    getTracks:()=>state.running?publicRoomTracks():[],
    mirror:()=>ui.mirror.checked,
