@@ -753,10 +753,10 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
   .participants-page .participants-roster.roster-visible{transform:translateX(0);visibility:visible}
   .participants-page .participant-roster-backdrop:not([hidden]){display:block;
     position:fixed;inset:0;z-index:340;background:rgba(0,5,10,.68)}
-  .participants-page .participants-layout .participants-roster :is(.roster-heading,#newParticipant,#participantList,.privacy-note){
+  .participants-page .participants-layout[data-roster^="mobile"] .participants-roster :is(.roster-heading,#newParticipant,#participantList,.privacy-note){
     display:revert!important}
   .participants-page .participants-layout .participants-roster .roster-heading{display:block!important}
-  .participants-page .participants-layout .participants-roster .roster-collapse-button{
+  .participants-page .participants-layout[data-roster^="mobile"] .participants-roster .roster-collapse-button{
     display:inline-flex!important;align-items:center;justify-content:center}
   .participants-page .participants-layout .participant-roster-edge{display:none!important}
   .participants-page .roster-open-button{display:inline-flex}
