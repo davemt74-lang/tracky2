@@ -93,3 +93,8 @@ Next development phase starts only once this PR is green and merged.
 - Preserve all historical descriptors and mark any missing historical photo accurately. No remote image upload, forced camera start or implied biometric ownership. Invalidate the PWA cache for upgraded participant UI.
 
 - Fix enrollment camera reticle mapping for mirrored, cropped video. Correct left/right edge alignment, clip offscreen rectangles and smooth small detector jitter without retaining stale boxes after a large move. Add deterministic geometry tests for both mirror modes, aspect ratios and off-axis positions.
+
+## V0.6.4 — Participants page layout refinement
+- Remove redundant Identity/Storage/Enrolled/Camera/Voice status strip beneath header. Keep the enrolled count with the participant roster and camera indicator inside the capture area; preserve the identity engine status for screen readers.
+- Make the LEFT participant roster retractable to a small desktop rail, with an accessible mobile slide-out (backdrop, Escape close, focus containment). Preserve current participant selection and uninterrupted camera/voice operation.
+- Keep full five-sample photo gallery and voice-profile controls in the RIGHT-hand onboarding form. No replacement recognition or audio services; updated PWA cache and direct ZIP release.
