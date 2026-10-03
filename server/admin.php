@@ -4,7 +4,7 @@ require_once __DIR__.'/providers.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 try {$db=tracky_db();tracky_session();}
-catch(Throwable $e){http_response_code(503);exit('Tracky2 is not installed or the private data directory is unavailable.');}
+catch(Throwable $e){http_response_code(503);exit('Tracky2 setup or storage required. <a href="./install.php">First-time setup</a>');}
 function tracky_html(string $s):string{return htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function tracky_rank(string $role):int{return ['viewer'=>0,'operator'=>1,'admin'=>2,'owner'=>3][$role]??-1;}
 $error='';
