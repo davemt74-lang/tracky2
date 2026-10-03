@@ -11,6 +11,7 @@ import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from '.
 import {createAgentRoom} from './agent-mode.js';
 import {roomMeterState} from './src/participant-audio-meter.js';
 import {RoomAmbientAudit,roomAudioAuditMessage} from './src/room-audio-audit.js';
+import {describeAcousticPattern} from './src/room-acoustic-patterns.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -58,6 +59,7 @@ import {
   listParticipants,
   patchParticipant,
   saveDialogueTurn,
+  reviseDialogueTurn,
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations
 } from './src/participant-store.js';
@@ -200,6 +202,7 @@ function roomSensorState(sensor,status,message){
   {kind:'observation',semantic:'sensor-state',sensor,status});
 }
 const roomAmbientAudit=new RoomAmbientAudit();
+let analyzeAmbientPatterns=false;
 let lastRoomAudioPaint=-Infinity,lastRejectedRoomSegmentAt=-Infinity;
 function renderAmbientAudioMeter(force=false){
  const bar=document.getElementById('roomAmbientAudioMeter');
@@ -226,6 +229,13 @@ function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
  logRoomMessage('audio',roomAudioAuditMessage(summary),'shared-room-mic',
   {at:summary.at,evidence:{durationMs:summary.durationMs}});
+ if(analyzeAmbientPatterns){
+  const pattern=describeAcousticPattern(summary);
+  if(pattern)logRoomMessage('audio',pattern.description,pattern.source,{
+   at:pattern.at,semantic:'acoustic-pattern',confidence:pattern.confidence,
+   evidence:{durationMs:pattern.durationMs}
+  });
+ }
 }
 
 function renderRoomTemporalSummary(){
@@ -1626,9 +1636,16 @@ function onRoomAudioLevel(level) {
   updateParticipantAudioMeters();
   if(state.mode==='agent'&&state.voice.active){
    renderAmbientAudioMeter();
-   const summary=roomAmbientAudit.update({...level,
-     suppressed:Boolean(level.suppressed||state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0)},Date.now());
-   if(summary)saveRoomAudioSummary(summary);
+   const suppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
+    agentSpeechActive||state.voice.ttsPending>0);
+   if(suppressed){
+    // Close partial windows before TTS/permissions gaps; suppressed duration is unknown.
+    saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
+    roomAmbientAudit.reset();
+   }else{
+    const summary=roomAmbientAudit.update(level,Date.now());
+    if(summary)saveRoomAudioSummary(summary);
+   }
   }
 }
 
@@ -2757,6 +2774,14 @@ if(state.mode==='agent'){
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
     getDialogueTurns:()=>state.voice.turns,
+    editTranscript:async(id,text)=>{
+     const revised=await reviseDialogueTurn(id,text);
+     state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
+     logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
+      'transcript-correction',{participantId:revised.participantId||null});
+     agentRuntime?.refreshConversation();
+     return revised;
+    },
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
     startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
     startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
@@ -2781,6 +2806,16 @@ if(state.mode==='agent'){
   }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
+  const ambientAnalysis=document.getElementById('roomAnalyzeAcousticPatterns');
+  if(ambientAnalysis){
+   ambientAnalysis.checked=false;
+   ambientAnalysis.addEventListener('change',()=>{
+    analyzeAmbientPatterns=ambientAnalysis.checked;
+    if(analyzeAmbientPatterns)logRoomMessage('system',
+     'Owner enabled local room energy-pattern notes · no sound identification','audio-consent');
+    else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
+   });
+  }
   const roomOptIn=document.getElementById('roomSaveObservations');
   const roomClear=document.getElementById('roomClearObservations');
   try{saveRoomHistory=window.localStorage.getItem('tracky2-save-room-observations')==='yes';}
