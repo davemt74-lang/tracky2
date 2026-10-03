@@ -379,3 +379,19 @@
  background:rgba(5,34,44,.6);border:1px solid rgba(98,198,207,.23)}
 .game-page.agent-mode .room-temporal-entry strong{color:#e3fffa;font-size:.72rem}
 .game-page.agent-mode .room-temporal-entry span{line-height:1.45;color:#b5d4db;font-size:.67rem}
+
+
+/* 10D: accessible local transcript correction without changing speaker attribution */
+.game-page.agent-mode .agent-transcript-controls{display:grid;justify-items:start;gap:5px;margin-top:6px}
+.game-page.agent-mode .agent-transcript-controls>button,
+.game-page.agent-mode .agent-transcript-edit-form button{padding:4px 9px;border-radius:7px;
+ border:1px solid rgba(122,217,222,.52);color:#d1f5f5;
+ background:rgba(7,57,63,.82);font-size:.66rem;cursor:pointer}
+.game-page.agent-mode .agent-transcript-edit-form{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.game-page.agent-mode .agent-transcript-edit-form textarea{width:100%;min-height:70px;
+ color:#e9fffc;background:rgba(5,31,38,.92);border:1px solid #87d6d3;
+ border-radius:7px;padding:7px;font-size:.75rem;resize:vertical}
+.game-page.agent-mode .agent-transcript-edit-form [role="status"]{font-size:.65rem;color:#ffdfb5}
+.game-page.agent-mode .agent-transcript-edited{font-size:.61rem;color:#c3dcd9}
+.game-page.agent-mode .room-acoustic-consent{display:flex;align-items:center;
+ gap:8px;font-size:.7rem;line-height:1.5;color:#e5fff4}
