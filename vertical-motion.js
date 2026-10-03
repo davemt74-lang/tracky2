@@ -7,7 +7,8 @@ import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
-import {sceneStep,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
+import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
+import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
@@ -202,6 +203,7 @@ const state = {
   trace: [],
   lastUiUpdate: 0,
   activity:{events:[],lastZones:new Map(),seenParticipants:new Set()},
+  visitors:createVisitorSession(),
   identity: {
     engine: new IdentityEngine(),
     ready: false,
@@ -212,7 +214,8 @@ const state = {
     participants: [],
     counter: 0,
     sceneGeneration:0,
-    completeScans:0
+    completeScans:0,
+    initStartedAt:0
   },
   voice: {
     engine: new VoiceIdentityEngine(),
@@ -810,22 +813,6 @@ async function reloadIdentityParticipants() {
   }
 }
 
-function showRoomTab(tab){
- const activity=tab==='activity';
- ui.roomDialoguePanel.hidden=activity;ui.playerActivityPanel.hidden=!activity;
- ui.roomDialogueTab.setAttribute('aria-selected',String(!activity));
- ui.playerActivityTab.setAttribute('aria-selected',String(activity));
- ui.roomDialogueTab.tabIndex=activity?-1:0;ui.playerActivityTab.tabIndex=activity?0:-1;
-}
-for(const [button,name] of [[ui.roomDialogueTab,'dialogue'],[ui.playerActivityTab,'activity']]){
- button.addEventListener('click',()=>showRoomTab(name));
- button.addEventListener('keydown',event=>{
-  if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
-  event.preventDefault();
-  const next=event.key==='ArrowRight'||event.key==='End'?'activity':'dialogue';
-  showRoomTab(next);(next==='activity'?ui.playerActivityTab:ui.roomDialogueTab).focus();
- });
-}
 function logPlayerActivity(participantId,kind,detail='',source='assigned-player'){
  const person=state.identity.participants.find(x=>x.id===participantId);
  if(!person)return;
@@ -836,7 +823,7 @@ function logPlayerActivity(participantId,kind,detail='',source='assigned-player'
     next[next.length-1]===state.activity.events[state.activity.events.length-1])return;
  state.activity.events=next;renderPlayerActivity();
 }
-const activitySymbols={present:'●',zone:'▣',rep:'↕',target:'◎',hit:'⚡',point:'★',round:'◷',complete:'✓'};
+const activitySymbols={arrived:'◉',departed:'◌',matched:'✓',present:'●',zone:'▣',rep:'↕',target:'◎',hit:'⚡',point:'★',round:'◷',complete:'✓'};
 function renderPlayerActivity(){
  ui.activityTimeline.replaceChildren();
  if(!state.activity.events.length){
@@ -851,11 +838,12 @@ function renderPlayerActivity(){
   const copy=document.createElement('div');copy.className='player-activity-copy';
   const name=document.createElement('strong');name.textContent=event.name;
   const detail=document.createElement('p');
-  const labels={present:'Confirmed in view',zone:'Moved marker',rep:'Completed repetition',
+  const labels={arrived:'Stable visitor observed',departed:'Visitor left view',matched:'Matched enrolled participant',present:'Confirmed in view',zone:'Moved marker',rep:'Completed repetition',
    target:'Completed target',hit:'Reaction hit',point:'Point scored',round:'Round transition',complete:'Game complete'};
   detail.textContent=labels[event.kind]+(event.detail?' · '+event.detail:'');
   const qualifier=document.createElement('small');
   qualifier.textContent=event.source==='confirmed-tracking'?'Camera-confirmed enrolled participant':
+    event.source==='visitor-observation'?'Temporary visitor observation · identity unverified':
     'Assigned player · marker holder unverified';
   copy.append(name,detail);
   if(event.kind==='zone'){
@@ -886,12 +874,12 @@ function recordObservedPresence(now){
  }
 }
 function updateGameScene(step){
- const state=sceneStep(step);
+ const progress=sceneStep(step);
  ui.sceneOverlay.hidden=step==='idle'||step==='ready';
- ui.sceneStatus.textContent=state.label;
- ui.sceneBar.setAttribute('aria-valuenow',String(state.progress??0));
- ui.sceneBar.setAttribute('aria-valuetext',state.label);
- ui.sceneFill.style.width=(state.progress??0)+'%';
+ ui.sceneStatus.textContent=progress.label;
+ ui.sceneBar.setAttribute('aria-valuenow',String(progress.progress??0));
+ ui.sceneBar.setAttribute('aria-valuetext',progress.label);
+ ui.sceneFill.style.width=(progress.progress??0)+'%';
  ui.sceneOverlay.dataset.stage=step;
 }
 function visibleRoomParticipants(now=performance.now()){
@@ -1881,6 +1869,8 @@ function stopCamera() {
   ui.trackingStatus.textContent = 'No signal';
   ui.identityStatus.textContent = state.identity.ready ? 'Identity standby' : 'Identity offline';
   state.identity.tracks = [];
+  state.visitors=createVisitorSession();
+  state.activity.seenParticipants.clear();
   state.identity.sceneGeneration+=1;
   state.identity.completeScans=0;
   updateGameScene('idle');
@@ -1922,6 +1912,7 @@ async function startCamera(deviceId = '') {
     ui.trackingStatus.textContent = 'Searching for green…';
     state.identity.lastScanAt = 0;
     state.identity.completeScans=0;
+    state.identity.initStartedAt=performance.now();
     if(state.identity.ready)updateGameScene('models');
     else void initRoomIdentity();
     state.raf = requestAnimationFrame(loop);
