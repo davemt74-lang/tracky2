@@ -9,6 +9,7 @@ import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
 import {createAgentRoom} from './agent-mode.js';
+import {roomMeterState} from './src/participant-audio-meter.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -999,12 +1000,34 @@ function createParticipantCard(track) {
   }
 
   const meter = document.createElement('div');
-  meter.className = 'participant-scan-meter';
   const fill = document.createElement('i');
-  fill.style.width = Math.round(track.scanProgress || 0) + '%';
-  meter.append(fill);
-
-  identity.append(name, detail, meter);
+  if (state.mode === 'agent') {
+    // All cards show the shared room mic. Live VAD does not establish speaker identity.
+    const audio = document.createElement('div');
+    audio.className = 'participant-audio-block';
+    const heading = document.createElement('span');
+    heading.className = 'participant-audio-title';
+    heading.textContent = 'ROOM MIC · SHARED INPUT';
+    meter.className = 'participant-audio-meter';
+    meter.dataset.trackId = String(track.id);
+    meter.setAttribute('role', 'meter');
+    meter.setAttribute('aria-label', 'Shared room input level; speaker not yet attributed');
+    meter.setAttribute('aria-valuemin', '0');
+    meter.setAttribute('aria-valuemax', '100');
+    meter.setAttribute('aria-valuenow', '0');
+    fill.className = 'participant-audio-fill';
+    meter.append(fill);
+    const caption = document.createElement('span');
+    caption.className = 'participant-audio-caption';
+    caption.textContent = 'MIC OFF';
+    audio.append(heading, meter, caption);
+    identity.append(name, detail, audio);
+  } else {
+    meter.className = 'participant-scan-meter';
+    fill.style.width = Math.round(track.scanProgress || 0) + '%';
+    meter.append(fill);
+    identity.append(name, detail, meter);
+  }
   body.append(current, identity);
 
   const participant = track.participantId ? participantById(track.participantId) : null;
@@ -1027,7 +1050,10 @@ function createParticipantCard(track) {
   const voiceRows = [
     ['VOICE PROFILE', participant ? (voiceReadiness.ready ? 'READY' : (voiceReadiness.embeddingCount + '/3')) : '—'],
     ['VOICE MATCH', track.voiceMatchConfidence ? Math.round(track.voiceMatchConfidence * 100) + '%' : '—'],
-    ['AUDIO', recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET'],
+    ['AUDIO', state.mode === 'agent'
+      ? (recentlySpoke ? 'RECENT MATCH' : state.voice.active
+        ? (state.voice.vad ? 'ROOM SPEECH' : 'QUIET') : 'OFF')
+      : (recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET')],
     ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
     ['GROUP', track.conversationGroupId || '—']
   ];
@@ -1158,7 +1184,37 @@ function renderParticipantCards() {
     }
     ui.participantCards.append(card);
   }
-  if(state.mode==='agent')agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
+  if(state.mode==='agent'){
+    updateParticipantAudioMeters(true);
+    agentRuntime?.renderBoxes(visible,ui.video,ui.mirror.checked);
+  }
+}
+
+// RoomAudioCapture already emits live dB / VAD; change only the existing bars.
+// This is one shared microphone, never a claim of per-person live speech.
+let lastAudioMeterPaint = -Infinity;
+function updateParticipantAudioMeters(force = false) {
+  if(state.mode !== 'agent')return;
+  const now = performance.now();
+  if(!force && now-lastAudioMeterPaint<70)return;
+  lastAudioMeterPaint=now;
+  const tracks=new Map(publicRoomTracks(now).map(t=>[String(t.id),t]));
+  const shared={
+    active:state.voice.active,
+    suppressed:Boolean(state.voice.audio?.suppressed || agentSpeechActive || state.voice.ttsPending>0),
+    db:state.voice.micDb,
+    vad:state.voice.vad,
+    now
+  };
+  for(const el of ui.participantCards.querySelectorAll('.participant-audio-meter')){
+    const result=roomMeterState({...shared,track:tracks.get(el.dataset.trackId)});
+    const fill=el.querySelector('.participant-audio-fill');
+    if(fill)fill.style.width=result.level+'%';
+    el.dataset.mode=result.mode;
+    el.setAttribute('aria-valuenow',String(result.level));
+    const caption=el.parentElement?.querySelector('.participant-audio-caption');
+    if(caption && caption.textContent!==result.text)caption.textContent=result.text;
+  }
 }
 
 
@@ -1418,6 +1474,7 @@ function onRoomAudioLevel(level) {
   state.voice.vad = level.speaking;
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
   renderVoiceHud();
+  updateParticipantAudioMeters();
 }
 
 function voiceSegmentIsCurrent(segment) {
@@ -1649,6 +1706,7 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    updateParticipantAudioMeters(true);
     agentRuntime?.setAudioActive(true);
     state.voice.lastDecision = 'listening';
     ui.startRoomAudio.disabled = true;
@@ -1675,6 +1733,7 @@ function stopRoomAudio() {
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
+  updateParticipantAudioMeters(true);
   agentRuntime?.setAudioActive(false);
   state.voice.vad = false;
   state.voice.micDb = -100;
