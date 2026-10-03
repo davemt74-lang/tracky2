@@ -1306,7 +1306,9 @@ function renderDialogueTurns() {
     top.className = 'dialogue-turn-top';
 
     const speaker = document.createElement('strong');
-    speaker.textContent = turn.participantName || 'Unknown speaker';
+    speaker.textContent=turn.participantName ||
+      (turn.visitorMatchName?'Unknown speaker · near '+turn.visitorMatchName:
+       turn.visitorLabel?'Unknown speaker · near '+turn.visitorLabel:'Unknown speaker');
 
     const meta = document.createElement('span');
     const bits = [];
@@ -1321,11 +1323,14 @@ function renderDialogueTurns() {
     transcript.textContent = turn.transcript || '[speaker turn detected — transcription unavailable]';
 
     const context = document.createElement('small');
-    context.textContent = turn.nearbyParticipantNames.length
-      ? 'Nearby: ' + turn.nearbyParticipantNames.join(', ')
-      : turn.trackId
-        ? 'Body track: ' + turn.trackId
-        : 'No confirmed body association';
+    context.textContent=turn.speakerAssociation==='nearby-identified-person-unverified'?
+      'Enrolled participant visible nearby · speaker identity not verified':
+      turn.speakerAssociation==='nearby-visitor-unverified'?
+      'Possible nearby '+turn.visitorLabel+' · speaker identity not verified':
+      turn.participantId?'Speaker identity linked'+(turn.trackId?' · body track '+turn.trackId:' · body match pending'):
+      turn.nearbyParticipantNames?.length?
+        'Nearby: '+turn.nearbyParticipantNames.join(', ')+' · speaker not verified':
+      'Speaker not matched · no reliable person association yet';
 
     card.append(top, transcript, context);
     ui.dialogueTurns.append(card);
@@ -1410,6 +1415,14 @@ async function processRoomSegment(segment) {
     const voiceMatch = bestVoiceMatch(embedding, state.identity.participants);
     const participant = voiceMatch.matched ? voiceMatch.participant : null;
     const roomTracks = segment.roomTracks || [];
+    const possibleNearby=roomTracks.filter(candidate=>
+      candidate.participantId || candidate.visitorId);
+    // A single stable body is contextual proximity, not proof of speaking.
+    const soleNearby=possibleNearby.length===1?possibleNearby[0]:null;
+    const nearestVisitor=!participant&&soleNearby?.visitorId?
+      state.visitors.records.get(soleNearby.visitorId):null;
+    const nearestEnrolled=!participant&&soleNearby?.participantId?
+      participantById(soleNearby.participantId):null;
     const roomGroups = buildConversationGroups(roomTracks);
     const track = participant
       ? roomTracks.find((candidate) => candidate.participantId === participant.id)
@@ -1478,7 +1491,7 @@ async function processRoomSegment(segment) {
       }
     }
 
-    const turn = createSpeakerTurn({
+    let turn = createSpeakerTurn({
       participantId: participant?.id || null,
       participantName: participant?.name || null,
       trackId: track?.id || null,
@@ -1491,12 +1504,14 @@ async function processRoomSegment(segment) {
       peakDb: segment.peakDb,
       avgDb: segment.avgDb,
       noiseFloorDb: segment.noiseFloorDb,
-      nearbyParticipantIds: nearbyIds,
-      nearbyParticipantNames: nearbyNames,
+      nearbyParticipantIds:nearestEnrolled?[nearestEnrolled.id]:nearbyIds,
+      nearbyParticipantNames:nearestEnrolled?[nearestEnrolled.name]:nearbyNames,
       transcript,
       attribution: participant ? (bodyConfirmed ? 'voice+body' : 'voice-only') : 'unknown'
     });
-
+    if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
+    if(nearestEnrolled && !participant)
+      turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     state.voice.turns.push(turn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     state.voice.lastDecision = 'accepted';
@@ -1539,10 +1554,13 @@ async function drainRoomAudioQueue() {
 }
 
 function roomTrackSnapshot() {
-  return state.identity.tracks.map((track) => ({
+  // Audio only sees mature room tracks; synthetic/provisional detections cannot
+  // lend credibility to speaker/body association.
+  return publicRoomTracks().map((track) => ({
     id: track.id,
     participantId: track.participantId || null,
     participantName: track.participantName || null,
+    visitorId:track.visitorId||null,
     cx: track.cx,
     cy: track.cy,
     status: track.status,
