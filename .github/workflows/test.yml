@@ -31,7 +31,7 @@ jobs:
           rm -rf dist tracky2-v0.6.9-deploy.zip
           mkdir -p dist/tracky2-v0.6.9/src/games dist/tracky2-v0.6.9/docs dist/tracky2-v0.6.9/assets
           cp manifest.webmanifest sw.js pwa.js index.html tracker.html launch.js games.html games.js vertical-motion.html voice-capture.html participants.html diagnostics.html app.js vertical-motion.js agent-room.js room-tabs-controller.js participants.js participants-sidebar.js participants-stage.js participant-voice.js diagnostics.js styles.css participants-stage.css game-stage.css scene-analysis.css room-tabs.css agent-room.css README.md package.json dist/tracky2-v0.6.9/
-          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/camera-preference.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/scene-analysis.js src/player-activity.js src/visitor-session.js src/room-tabs-state.js src/agent-conversation.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.6.9/src/
+          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/camera-preference.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/scene-analysis.js src/player-activity.js src/agent-conversation.js src/visitor-session.js src/room-tabs-state.js src/agent-conversation.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.6.9/src/
           cp src/games/random-follow-pattern.js src/games/pattern-setup.js src/games/reaction-challenge.js dist/tracky2-v0.6.9/src/games/
           cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md dist/tracky2-v0.6.9/docs/
           cp assets/tracky-mark.svg assets/icon-192.png assets/icon-512.png dist/tracky2-v0.6.9/assets/
@@ -89,6 +89,11 @@ jobs:
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.9/src/visitor-session.js').then(m=>{if(!m.createVisitorSession || !m.reconcileVisitors || !m.promoteVisitorTurn) process.exit(1);})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.9/src/room-tabs-state.js').then(m=>{if(m.nextRoomTab('dialogue','activity')!=='activity') process.exit(1);})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.9/src/agent-conversation.js').then(m=>{if(!m.greetingFor || !m.respondToAgentTurn || !m.selectAgentVoice)process.exit(1);})"
+          unzip -l tracky2-v0.6.9-deploy.zip | grep -F 'tracky2-v0.6.9/agent-room.js'
+          unzip -l tracky2-v0.6.9-deploy.zip | grep -F 'tracky2-v0.6.9/agent-room.css'
+          unzip -l tracky2-v0.6.9-deploy.zip | grep -F 'tracky2-v0.6.9/voice-capture.html'
+          unzip -l tracky2-v0.6.9-deploy.zip | grep -F 'tracky2-v0.6.9/src/agent-conversation.js'
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.9/src/agent-conversation.js').then(m=>{if(!m.greetingFor||!m.respondToAgentTurn) process.exit(1)})"
           sha256sum tracky2-v0.6.9-deploy.zip | tee tracky2-v0.6.9-deploy.zip.sha256
 
       - name: Upload deploy ZIP
