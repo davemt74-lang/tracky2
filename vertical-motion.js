@@ -393,7 +393,7 @@ function agentMode(){return state.mode==='agent';}
 let agentAudioStarting=false;
 let agentAudioPaused=false;
 async function agentEnsureAudio(){
- if(!agentMode()||agentAudioPaused||state.voice.active||agentAudioStarting)return;
+ if(!agentMode()||agentAudioPaused||cameraStoppedThisPage||state.voice.active||agentAudioStarting)return;
  agentAudioStarting=true;
  try{await startRoomAudio();}
  finally{agentAudioStarting=false;}
