@@ -306,7 +306,7 @@ function refreshPlayerChoices() {
       select.append(option);
     }
     const wanted=color==='green' ? selectGamePlayer(state.identity.participants,chosen,retainedPlayerId) :
-      selectGamePlayer(state.identity.participants,chosen,'');
+      state.identity.participants.some(p=>p.id===chosen) ? chosen : '';
     select.value=wanted;
   }
   renderExtraPlayerFields();
@@ -389,7 +389,7 @@ function renderMode() {
 }
 
 function playerScoreCard(color) {
-  return ui.multiplayerStage.querySelector('[data-player-color="' + color + '"]');
+  return ui.playerHud.querySelector('[data-player-color="' + color + '"]');
 }
 
 function renderPattern(now = performance.now()) {
@@ -1827,6 +1827,9 @@ async function beginGameplay() {
   const goal = pointGoalValue();
   let patternPlayers = null;
   if (timedMode()) {
+    // Enrollment can have changed since this game page opened in a separate tab.
+    // Refresh from the canonical same-origin IndexedDB before validating a match.
+    await reloadIdentityParticipants();
     try {
       patternPlayers = resolvePatternPlayers(state.identity.participants, {
         count:Number(ui.playerCount.value),
@@ -2198,7 +2201,8 @@ ui.cameraAutostart.checked=loadCameraPreference(window.localStorage);
 ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
   'Saved preference · checking browser permission…':'Camera starts manually until approved.';
 // Handoff is consumed once and every participant ID is rechecked against live local enrollment.
-// Never auto-start a camera or silently start a game from lobby navigation.
+// Camera autostart requires saved opt-in AND a pre-existing browser permission grant.
+// No timed game ever starts automatically.
 try {
   const requestedMode=new URL(window.location.href).searchParams.get('mode');
   if(['solo','multiplayer'].includes(requestedMode)){
@@ -2215,6 +2219,7 @@ try {
       ui.rounds.value=String(setup.rounds);
       ui.greenPlayer.value=setup.players[0].participantId;
       retainedPlayerId=setup.players[0].participantId;
+      try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,retainedPlayerId);}catch{}
       if(setup.players.length>1)ui.bluePlayer.value=setup.players[1].participantId;
       extraPlayerIds=setup.players.slice(2).map(p=>p.participantId);
       ui.multiplayerSetupStatus.textContent='Lobby setup loaded. Check player assignments and start when ready.';
@@ -2224,6 +2229,13 @@ try {
   }
 } catch {
   ui.multiplayerSetupStatus.textContent='Lobby handoff unavailable; use the game setup controls directly.';
+}
+if(state.identity.participants.length===1 && !ui.greenPlayer.value){
+  ui.greenPlayer.value=state.identity.participants[0].id;
+}
+if(state.identity.participants.length===1 && timedMode() && !extraPlayerIds.length){
+  ui.playerCount.value='1';
+  ui.bluePlayer.value='';
 }
 await loadSavedDialogue();
 updateConversationGroups();
