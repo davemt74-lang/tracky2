@@ -1,6 +1,7 @@
 import { participantRecord, cryptoRandomId } from './participant-core.js';
 import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
+import {reviseTranscriptRecord} from './transcript-correction.js';
 
 const DB_NAME = 'tracky-participants-v1';
 const DB_VERSION = 4;
@@ -254,6 +255,18 @@ export async function saveDialogueTurn(input) {
   });
   await pruneDialogueTurns().catch(() => {});
   return record;
+}
+
+// Transactional owner correction retains original source text and speaker attribution.
+export function reviseDialogueTurn(id,text,at=Date.now()){
+ if(typeof id!=='string'||!id)return Promise.reject(new TypeError('Invalid transcript ID.'));
+ return storeAction(DIALOGUE,'readwrite',async store=>{
+  const current=await requestToPromise(store.get(id));
+  if(!current)throw new Error('Transcript no longer exists.');
+  const corrected=reviseTranscriptRecord(current,text,at);
+  await requestToPromise(store.put(corrected));
+  return corrected;
+ });
 }
 
 export function listDialogueTurns(sessionId = null) {
