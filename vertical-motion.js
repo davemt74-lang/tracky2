@@ -1876,7 +1876,15 @@ async function scanRoom(now) {
     acknowledgeRoomTracks(now);
 
     state.identity.completeScans+=1;
-    if(state.running && state.identity.completeScans===1)updateGameScene('ready');
+    if(state.running){
+      const acquisition=sceneAcquisition({
+        completeScans:state.identity.completeScans,
+        elapsedMs:performance.now()-state.identity.initStartedAt,
+        stable:publicRoomTracks(now).length>0,
+        modelReady:state.identity.ready
+      });
+      updateGameScene(acquisition);
+    }
     const identified=visibleRoomParticipants(now).length;
     const visitorCount=visibleVisitors(state.visitors,state.identity.tracks,now).length;
     const bodyLocked = state.identity.tracks.filter((track) => track.status === 'body-lock').length;
