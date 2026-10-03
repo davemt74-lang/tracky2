@@ -35,6 +35,13 @@ export class AgentCognitiveLoop{
   this.greetings=new Map();this.history=[];this.lastDecision=null;
  }
  setPolicy(policy){this.policy=normalizedCognitivePolicy(policy);}
+ forgetRemovedParticipants(validIds=[]){
+  const allowed=new Set(validIds);
+  for(const id of this.greetings.keys())if(!allowed.has(id))this.greetings.delete(id);
+  this.history=this.history.filter(item=>allowed.has(item.participantId));
+  if(this.lastDecision?.participantId&&!allowed.has(this.lastDecision.participantId))
+   this.lastDecision=null;
+ }
  evaluate(event,{participant=null,track=null,busy=false,now=Date.now(),
   localMinute=null}={}){
   if(!event||event.semantic!=='participant-observed'||event.category!=='presence')return null;
