@@ -227,7 +227,10 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,
   // Dialogue and agent conversation remain in the dedicated Conversation tab.
   const map=$('roomRadar'),live=document.querySelector('.room-voice-fusion');
   if(map)$('agentRoomMapMount').append(map);
-  if(live)$('agentLiveStatusMount').append(live);
+  // The shared ambient microphone belongs to ROOM, never to participant cards.
+  if(live)$('roomAudioDiagnosticsMount').append(live);
+  const sharedStatus=$('agentLiveStatusAccordion');
+  if(sharedStatus)sharedStatus.hidden=true;
   ui.save.checked=false;
   ui.useModel.checked=false;
   ui.useModel.addEventListener('change',()=>{
