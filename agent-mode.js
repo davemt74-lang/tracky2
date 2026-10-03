@@ -1,14 +1,17 @@
 import {facePreviewRect} from './src/face-preview.js';
+import {conversationTimeline} from './src/conversation-timeline.js';
+import {orbSpatialTarget} from './src/orb-spatial-core.js';
 import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './src/agent-provider.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
   thread:$('agentConversationThread'),speaker:$('agentSpeakingIndicator'),
   voice:$('agentVoiceSelect'),speak:$('agentSpeakEnabled'),save:$('agentSaveHistory'),
+  follow:$('agentFollowParticipant'),distanceAudio:$('agentDistanceAudio'),
   useModel:$('agentUseModel'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
   modelStatus:$('agentModelStatus'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
@@ -16,19 +19,40 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   close:$('agentCloseVoiceModal'),backdrop:$('agentVoiceBackdrop'),title:$('agentVoiceModalTitle')
  };
  let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
- let modelController=null;
+ let modelController=null,lastProximityVolume=.85,lastSpeakerId=null;
  let lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
  function showThread(){
   ui.thread.replaceChildren();
-  for(const entry of entries.slice(-45)){
-   const row=document.createElement('article');row.className='agent-thread-entry '+entry.role;
-   const title=document.createElement('strong');title.textContent=entry.role==='agent'?'AGENT':entry.role==='participant'?'Participant':'System';
+  const items=conversationTimeline(getDialogueTurns(),entries,participants()).slice(-75);
+  if(!items.length){
+   const empty=document.createElement('p');empty.className='dialogue-empty';
+   empty.textContent='Start room audio to begin your conversation with AGENT.';
+   ui.thread.append(empty);return;
+  }
+  for(const entry of items){
+   const row=document.createElement('article');row.className='agent-chat-message '+entry.role;
+   const avatar=document.createElement('span');avatar.className='agent-chat-avatar';
+   if(entry.photo&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(entry.photo)){
+    const photo=document.createElement('img');photo.src=entry.photo;photo.alt='';avatar.append(photo);
+   }else avatar.textContent=entry.role==='agent'?'◎':entry.name?.slice(0,1)?.toUpperCase()||'?';
+   const bubble=document.createElement('div');bubble.className='agent-chat-bubble';
+   const meta=document.createElement('div');meta.className='agent-chat-meta';
+   const name=document.createElement('strong');name.textContent=entry.name;
+   const time=document.createElement('time');
+   if(Number.isFinite(entry.at)&&entry.at>0){
+    time.dateTime=new Date(entry.at).toISOString();
+    time.textContent=new Date(entry.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+   }
+   meta.append(name,time);
    const body=document.createElement('p');body.textContent=entry.text;
-   const time=document.createElement('time');time.dateTime=new Date(entry.at).toISOString();
-   time.textContent=new Date(entry.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-   row.append(title,body,time);ui.thread.append(row);
+   bubble.append(meta,body);
+   if(entry.role==='participant'&&!entry.verified){
+    const note=document.createElement('small');note.className='agent-chat-unverified';
+    note.textContent='Speaker unverified';bubble.append(note);
+   }
+   row.append(avatar,bubble);ui.thread.append(row);
   }
   ui.thread.scrollTop=ui.thread.scrollHeight;
  }
@@ -62,12 +86,19 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   stopSpeech();suppressMic(true);
   ui.speaker.textContent='Agent speaking';
   const utterance=new SpeechSynthesisUtterance(text);
-  utterance.rate=.98;utterance.volume=.85;
+  utterance.rate=.98;utterance.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
   const voice=voices().find(v=>v.voiceURI===ui.voice.value);
   if(voice)utterance.voice=voice;
   let released=false;
   const release=()=>{if(released)return;released=true;notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';};
   utterance.addEventListener('start',()=>notifySpeech(true),{once:true});
+  // Word boundaries pulse the orb in real speech cadence. CSS handles unsupported voices.
+  utterance.addEventListener('boundary',event=>{
+   const word=(text.slice(Math.max(0,event.charIndex||0)).match(/^\\S+/)||[''])[0];
+   window.dispatchEvent(new CustomEvent('tracky:agent-speech-cadence',{
+    detail:{strength:Math.min(1,Math.max(.24,word.length/11)),
+      durationMs:Math.max(200,Math.min(490,word.length*48))}}));
+  });
   utterance.addEventListener('end',release,{once:true});
   utterance.addEventListener('error',release,{once:true});
   speech.speak(utterance);
@@ -82,6 +113,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
   const prior=entries.slice();
+  lastSpeakerId=turn.participantId||null;
   append('participant',turn.transcript,turn.participantId||null);
   const now=Date.now();
   if(now-lastTurnAt<4000||responsePending||open)return;
@@ -116,7 +148,13 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  }
  function renderBoxes(tracks,video,mirror){
   if(!video?.videoWidth||!video?.videoHeight)return;
-  const width=ui.box.clientWidth,height=ui.box.clientHeight;
+  const playfield=$('playfield');
+  const width=playfield.clientWidth,height=playfield.clientHeight;
+  const target=orbSpatialTarget(tracks,{videoWidth:video.videoWidth,videoHeight:video.videoHeight,
+   displayWidth:width,displayHeight:height,mirror},ui.follow?.value||lastSpeakerId);
+  if(target)lastProximityVolume=target.volume;
+  window.dispatchEvent(new CustomEvent('tracky:agent-room-tracks',{detail:{target}}));
+  refreshFollowOptions(tracks);
   ui.scene.textContent=tracks.length?tracks.length+' stable person'+(tracks.length===1?'':'s')+' in view':'Searching for participants';
   ui.box.replaceChildren();
   for(const track of tracks){
@@ -133,6 +171,19 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
    label.textContent=track.participantName||track.visitorLabel||'Person';
    outline.append(label);ui.box.append(outline);
   }
+ }
+ function refreshFollowOptions(tracks){
+  if(!ui.follow)return;
+  const current=ui.follow.value,listed=new Map();
+  for(const t of tracks)if(t.participantId)listed.set(t.participantId,t.participantName||'Participant');
+  const prior=[...ui.follow.options].slice(1).map(o=>o.value+':'+o.textContent).join('|');
+  const next=[...listed].map(([id,name])=>id+':'+name).join('|');
+  if(prior===next)return;
+  ui.follow.replaceChildren();
+  const auto=document.createElement('option');auto.value='';auto.textContent='Auto · active/nearest visible participant';
+  ui.follow.append(auto);
+  for(const [id,name] of listed){const option=document.createElement('option');option.value=id;option.textContent=name;ui.follow.append(option);}
+  ui.follow.value=listed.has(current)?current:'';
  }
  function refreshModalName(id){
   const person=participants().find(x=>x.id===id);
@@ -171,6 +222,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  function init(){
   ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
   ui.heading.hidden=false;ui.thread.hidden=false;
+  $('dialogueTurns').hidden=true;$('roomEvents').hidden=true;
   $('agentLeftControls').hidden=false;
   // Dialogue and agent conversation remain in the dedicated Conversation tab.
   const map=$('roomRadar'),live=document.querySelector('.room-voice-fusion');
@@ -217,8 +269,9 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
- return {init,greet,onDialogue,renderBoxes,openVoice,setCameraActive(active){
-  if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';}
+ return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,setCameraActive(active){
+  if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';
+   window.dispatchEvent(new CustomEvent('tracky:agent-room-tracks',{detail:{target:null}}));}
   ui.camStart.disabled=active;ui.camStop.disabled=!active;
   ui.camStatus.textContent=active?'Camera live':'Camera offline · start when ready';
  },setAudioActive(active){
