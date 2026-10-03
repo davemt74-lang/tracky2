@@ -2,9 +2,10 @@ import {facePreviewRect} from './src/face-preview.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,stopAudio,startAudio,suppressMic}){
+export function createAgentRoom({participants,stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
+  camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
   thread:$('agentConversationThread'),speaker:$('agentSpeakingIndicator'),
   voice:$('agentVoiceSelect'),speak:$('agentSpeakEnabled'),save:$('agentSaveHistory'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
@@ -129,7 +130,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,suppressMic})
   open=false;await startAudio();
  }
  function init(){
-  ui.box.hidden=false;ui.badge.hidden=false;ui.accordion.hidden=false;
+  ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
   ui.heading.hidden=false;ui.thread.hidden=false;
   const map=$('roomRadar'),live=document.querySelector('.room-voice-fusion');
   if(map)$('agentRoomMapMount').append(map);
@@ -147,13 +148,18 @@ export function createAgentRoom({participants,stopAudio,startAudio,suppressMic})
     showThread();
   });
   ui.resume.addEventListener('click',async()=>{await startAudio();});
+  ui.camStart.addEventListener('click',()=>void startCamera());
+  ui.camStop.addEventListener('click',()=>stopCamera());
   ui.close.addEventListener('click',()=>{void closeVoice();});
   ui.backdrop.addEventListener('click',()=>{void closeVoice();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&open){event.preventDefault();void closeVoice();}});
   window.addEventListener('tracky:participant-voice-updated',()=>refreshModalName(document.body.dataset.participantId));
   showThread();
  }
- return {init,greet,onDialogue,renderBoxes,openVoice,setAudioActive(active){
+ return {init,greet,onDialogue,renderBoxes,openVoice,setCameraActive(active){
+  ui.camStart.disabled=active;ui.camStop.disabled=!active;
+  ui.camStatus.textContent=active?'Camera live':'Camera offline · start when ready';
+ },setAudioActive(active){
   ui.resume.hidden=active;
   if(!open)ui.speaker.textContent=active?'Agent listening':'Microphone unavailable · enable audio';
  },destroy(){stopSpeech();}};

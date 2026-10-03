@@ -1958,6 +1958,7 @@ function stopCamera() {
   }
   if (state.voice.active) stopRoomAudio();
   state.running = false;
+  agentRuntime?.setCameraActive(false);
   cancelAnimationFrame(state.raf);
   state.stream?.getTracks().forEach((track) => track.stop());
   state.stream = null;
@@ -2006,7 +2007,10 @@ async function startCamera(deviceId = '') {
     await enumerateCameras();
 
     state.running = true;
-    if(state.mode==='agent')void startRoomAudio();
+    if(state.mode==='agent'){
+      agentRuntime?.setCameraActive(true);
+      void startRoomAudio();
+    }
     ui.start.disabled = true;
     ui.stop.disabled = false;
     ui.cameraStatus.textContent = 'Camera live';
@@ -2483,6 +2487,8 @@ if(state.mode==='agent'){
     participants:()=>state.identity.participants,
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
     startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
+    startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
+    stopCamera:()=>{cameraStoppedThisPage=true;stopCamera();},
     suppressMic:suppressed=>state.voice.audio?.setSuppressed(Boolean(suppressed))
   });
   agentRuntime.init();

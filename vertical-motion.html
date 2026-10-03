@@ -38,6 +38,11 @@
     <video id="cameraVideo" playsinline muted hidden></video>
     <div id="agentCameraBoxes" class="agent-camera-boxes" aria-hidden="true" hidden></div>
     <div id="agentCameraBadge" class="agent-camera-badge" hidden><i></i><b>AGENT · CAMERA VIEW</b><span id="agentSceneLabel">Preparing room</span></div>
+    <div id="agentCameraControls" class="agent-camera-controls" hidden>
+      <button type="button" id="agentCameraStart">Start camera + room audio</button>
+      <button type="button" id="agentCameraStop" disabled>Stop camera</button>
+      <span id="agentCameraControlStatus" role="status">Camera starts when browser permits</span>
+    </div>
     <canvas id="trackingCanvas" width="320" height="180" hidden></canvas>
     <div class="scene-analysis-overlay" id="gameSceneOverlay" role="status" aria-live="polite" hidden>
   <div class="scene-analysis-orbit" aria-hidden="true"><i></i><i></i><i></i><b>◎</b></div>
