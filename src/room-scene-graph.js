@@ -18,7 +18,7 @@ export function normalizeAreaRect(input){
  return Object.freeze({x:clamp(x),y:clamp(y),width:clamp(width),height:clamp(height)});
 }
 export function emptyRoomScene(){
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:[],objects:[]});
+ return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze([]),objects:Object.freeze([])});
 }
 export function normalizeRoomScene(input={}){
  const areas=[],objects=[],ids=new Set(),objectIds=new Set();
@@ -37,7 +37,7 @@ export function normalizeRoomScene(input={}){
   objects.push(Object.freeze({id:objectId,name,kind:OBJECT_KINDS.includes(row.kind)?row.kind:'other',
    areaId:ids.has(row.areaId)?row.areaId:null,provenance:'owner-defined'}));
  }
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas,objects});
+ return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze(areas),objects:Object.freeze(objects)});
 }
 export function upsertRoomArea(scene,input){
  const base=normalizeRoomScene(scene);
