@@ -59,8 +59,16 @@ function choices() {
   };
 }
 function renderPreview() {
+  const agent=ui.game.value==='agent';
   const pattern=['random-follow-pattern','reaction-challenge'].includes(ui.game.value);
   ui.settings.hidden=!pattern;
+  ui.players.hidden=agent;
+  if(agent){
+    ui.gameSummary.textContent='AGENT is a camera-first interactive room. It starts room listening with browser permission, greets verified participants and uses your chosen browser voice. No gameboard or markers required.';
+    ui.start.textContent='Enter AGENT room';
+    const p=document.createElement('p');p.textContent='Camera and microphone need browser permission. Conversations use bounded local responses; no external AI provider is configured.';
+    ui.preview.append(p);return;
+  }
   ui.status.textContent='';
   ui.preview.replaceChildren();
   ui.start.textContent=pattern?'Go to game setup':'Open classic game';
@@ -113,6 +121,10 @@ ui.players.addEventListener('change',event=>{
   renderPreview();
 });
 ui.start.addEventListener('click',()=>{
+  if(ui.game.value==='agent'){
+    window.location.assign('./vertical-motion.html?mode=agent');
+    return;
+  }
   if(ui.game.value==='solo'||ui.game.value==='multiplayer'){
     const mode=ui.game.value;
     window.location.assign('./vertical-motion.html?mode='+encodeURIComponent(mode));
