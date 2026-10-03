@@ -4,6 +4,7 @@ import {selectGamePlayer,LAST_PARTICIPANT_KEY} from './src/camera-preference.js'
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
+import {agentGame} from './src/games/agent.js';
 import {
  LOBBY_TICKET_KEY,validateLobbySelection,makeLobbyTicket,roundRosterPreview
 } from './src/game-lobby.js';
@@ -18,6 +19,7 @@ const ui={
 const games=createGamePlatform();
 games.register(randomFollowPatternGame);
 games.register(reactionChallengeGame);
+games.register(agentGame);
 let roster=[];
 let picks=[];
 let preferredParticipant='';

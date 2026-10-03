@@ -110,6 +110,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
   const person=participants().find(x=>x.id===participantId);
   if(!person)return;
   open=true;
+  stopSpeech();
   await stopAudio();
   ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
   refreshModalName(participantId);

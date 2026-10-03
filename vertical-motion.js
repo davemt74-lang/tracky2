@@ -2316,6 +2316,9 @@ function loop(now) {
 }
 
 ui.gameMode.addEventListener('change', () => {
+  if(ui.gameMode.value==='agent'){
+    window.location.assign('./vertical-motion.html?mode=agent');return;
+  }
   if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
   state.mode = ['solo','multiplayer','pattern','reaction'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
   state.pattern=null;
@@ -2492,6 +2495,9 @@ if(state.mode==='agent'){
     suppressMic:suppressed=>state.voice.audio?.setSuppressed(Boolean(suppressed))
   });
   agentRuntime.init();
+  document.getElementById('activeGameKicker').textContent='GAME 03 · LIVE ROOM';
+  document.getElementById('activeGameTitle').textContent='AGENT';
+  document.getElementById('roomDialogueTab').textContent='Conversation';
   ui.voiceAcknowledgements.checked=false;
   ui.liveTranscription.checked=true;
 }
