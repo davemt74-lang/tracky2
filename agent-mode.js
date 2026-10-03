@@ -171,8 +171,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  function init(){
   ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
   ui.heading.hidden=false;ui.thread.hidden=false;
-  const transcriptMount=$('agentTabThreadMount');
-  if(transcriptMount)transcriptMount.append(ui.thread);
+  // Dialogue and agent conversation remain in the dedicated Conversation tab.
   const map=$('roomRadar'),live=document.querySelector('.room-voice-fusion');
   if(map)$('agentRoomMapMount').append(map);
   if(live)$('agentLiveStatusMount').append(live);
