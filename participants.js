@@ -1,5 +1,6 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
 import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
+import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
 import {
   deleteParticipant,
@@ -360,6 +361,7 @@ function stopCamera() {
   ui.stopCamera.disabled = true;
   ui.cameraStatus.textContent = 'Offline';
   ui.reticle.hidden = true;
+  lastPreviewRect=null;
   ui.capturePrimary.disabled = true;
   ui.captureSample.disabled = true;
   state.currentFace = null;
@@ -371,13 +373,23 @@ function scheduleScan(delay = 500) {
   state.scanTimer = setTimeout(scanFace, delay);
 }
 
+let lastPreviewRect=null;
 function positionReticle(face) {
-  const box = face.box;
-  ui.reticle.style.left = (box.x * 100) + '%';
-  ui.reticle.style.top = (box.y * 100) + '%';
-  ui.reticle.style.width = (box.width * 100) + '%';
-  ui.reticle.style.height = (box.height * 100) + '%';
-  ui.reticle.hidden = false;
+  const layout=ui.video.getBoundingClientRect();
+  const stage=ui.cameraStage.getBoundingClientRect();
+  const projected=facePreviewRect(face.box,{
+    videoWidth:ui.video.videoWidth,videoHeight:ui.video.videoHeight,
+    displayWidth:layout.width,displayHeight:layout.height,
+    mirror:true,fit:'cover'
+  });
+  if(!projected){ui.reticle.hidden=true;lastPreviewRect=null;return;}
+  const rect=smoothPreviewRect(lastPreviewRect,projected);
+  lastPreviewRect=rect;
+  ui.reticle.style.left=(layout.left-stage.left+rect.left)+'px';
+  ui.reticle.style.top=(layout.top-stage.top+rect.top)+'px';
+  ui.reticle.style.width=rect.width+'px';
+  ui.reticle.style.height=rect.height+'px';
+  ui.reticle.hidden=false;
 }
 
 async function scanFace() {
@@ -393,6 +405,7 @@ async function scanFace() {
 
     if (!face) {
       ui.reticle.hidden = true;
+      lastPreviewRect=null;
       ui.qualityValue.textContent = '0%';
       ui.qualityBar.style.width = '0%';
       ui.capturePrimary.disabled = true;
