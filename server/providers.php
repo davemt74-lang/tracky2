@@ -4,14 +4,26 @@ require_once __DIR__.'/bootstrap.php';
 const TRACKY_PROVIDERS=['openai','anthropic','elevenlabs'];
 function tracky_secret_key(): string {
     if(!extension_loaded('sodium')) throw new RuntimeException('PHP sodium extension required for API keys.');
+    tracky_safe_data_dir();
     $path=TRACKY_DATA.'/secret.key';
-    if(!is_file($path)) {
+    if(!is_file($path)){
+        if(is_file(TRACKY_DATA.'/installed.lock'))
+            throw new RuntimeException('Encryption key missing. Restore the original instance key from backup.');
         if(!is_dir(TRACKY_DATA)) throw new RuntimeException('Install Tracky2 first.');
-        $f=fopen($path,'x');
-        if($f) { try {chmod($path,0600);$key=random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES);fwrite($f,$key);}finally{fclose($f);} }
+        // Installer serializes initial key creation using install.guard; recovery never rotates a key.
+        $f=@fopen($path,'x');
+        if($f) {
+            try {
+                chmod($path,0600);
+                if(fwrite($f,random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES))!==SODIUM_CRYPTO_SECRETBOX_KEYBYTES)
+                    throw new RuntimeException('Cannot write encryption key.');
+                fflush($f);
+            } finally { fclose($f); }
+        }
     }
     $key=@file_get_contents($path);
-    if(!is_string($key)||strlen($key)!==SODIUM_CRYPTO_SECRETBOX_KEYBYTES) throw new RuntimeException('Credential encryption key unavailable.');
+    if(!is_string($key)||strlen($key)!==SODIUM_CRYPTO_SECRETBOX_KEYBYTES)
+        throw new RuntimeException('Credential encryption key unavailable.');
     return $key;
 }
 function tracky_store_provider(PDO $db,int $actor,string $provider,string $secret): void {
