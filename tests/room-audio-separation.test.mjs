@@ -37,7 +37,9 @@ test('suppressed, invalid and paused samples never imply silence or fabricate ba
 test('AGENT room audit stores only bounded metadata via existing opt-in ROOM ledger',()=>{
  const source=fs.readFileSync('vertical-motion.js','utf8');
  const module=fs.readFileSync('src/room-audio-audit.js','utf8');
- assert.match(source,/roomAmbientAudit\.update\(\{\.\.\.level,/);
+ assert.match(source,/roomAmbientAudit\.update\(level,Date\.now\(\)\)/);
+ assert.match(source,/if\(suppressed\)\{/);
+ assert.match(source,/saveRoomAudioSummary\(roomAmbientAudit\.flush\(Date\.now\(\)\)\)/);
  assert.match(source,/logRoomMessage\('audio',roomAudioAuditMessage\(summary\),'shared-room-mic'/);
  assert.match(source,/if\(saveRoomHistory\)\{/);
  assert.match(source,/epoch===roomPrivacyEpoch\?saveRoomObservation\(event\)/);
