@@ -325,6 +325,7 @@ export async function saveRoomObservation(record){
  const safe={id:record.id,at:record.at,category:record.category,
   message:String(record.message||'').slice(0,240),participantId:record.participantId||null,
   confidence:record.confidence??null,source:record.source||'local',
+  relatedEventId:record.relatedEventId?String(record.relatedEventId).slice(0,96):null,
   evidence:Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null?
    {durationMs:record.evidence.durationMs}:null,
   version:record.version===1?1:null,kind:record.kind||'observation',
