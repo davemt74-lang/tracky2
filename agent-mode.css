@@ -72,3 +72,23 @@
  .game-page.agent-mode .game-playfield{min-height:850px}
  .game-page.agent-mode .agent-camera-badge{top:8px;font-size:.58rem;min-width:180px}
 }
+
+.game-page.agent-mode .game-controls,
+.game-page.agent-mode .game-setup,
+.game-page.agent-mode .game-instructions,
+.game-page.agent-mode .game-history,
+.game-page.agent-mode .lower-grid,
+.game-page.agent-mode .movement-dashboard{display:none!important}
+.game-page.agent-mode .game-title-row small{color:#77f9cf}
+.game-page.agent-mode .agent-camera-controls{
+ position:absolute;z-index:13;left:50%;bottom:15px;transform:translateX(-50%);
+ max-width:calc(100% - 28px);display:flex;align-items:center;justify-content:center;
+ gap:9px;flex-wrap:wrap;padding:10px 15px;border-radius:12px;
+ border:1px solid #69e9d299;background:#021c28db;backdrop-filter:blur(15px)
+}
+.game-page.agent-mode .agent-camera-controls button{min-height:35px;border:1px solid #4cddd0;
+ border-radius:9px;background:#085460;color:#e8ffff;padding:6px 12px;cursor:pointer}
+.game-page.agent-mode .agent-camera-controls button:disabled{opacity:.5;cursor:not-allowed}
+.game-page.agent-mode .agent-camera-controls span{font-size:.64rem;color:#bef5e2}
+.game-page.agent-mode .room-left-panel{width:min(360px,calc(100% - 32px))}
+.game-page.agent-mode .room-identity-hud{width:min(340px,calc(100% - 32px))}

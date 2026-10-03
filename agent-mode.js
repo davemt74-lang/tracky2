@@ -84,6 +84,7 @@ export function createAgentRoom({participants,stopAudio,startAudio,startCamera,s
  function renderBoxes(tracks,video,mirror){
   if(!video?.videoWidth||!video?.videoHeight)return;
   const width=ui.box.clientWidth,height=ui.box.clientHeight;
+  ui.scene.textContent=tracks.length?tracks.length+' stable person'+(tracks.length===1?'':'s')+' in view':'Searching for participants';
   ui.box.replaceChildren();
   for(const track of tracks){
    const box=track.face?.box||track.box;
