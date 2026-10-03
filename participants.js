@@ -1,4 +1,5 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
+import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference} from './src/camera-preference.js';
 import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
 import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
@@ -523,6 +524,7 @@ async function saveForm() {
 
   state.editingId = record.id;
   document.body.dataset.participantId = record.id;
+  try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,record.id);}catch{}
   window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id } }));
   ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
   ui.formTitle.textContent = record.name;
@@ -593,6 +595,11 @@ ui.useLatestPrimary.addEventListener('click', () => {
   state.primaryPhoto = state.latestPhoto;
   updatePhotos();
   setMessage('Latest capture selected as primary photo. Save the profile to keep the change.', 'ok');
+});
+const enrollmentAutostart=document.getElementById('participantCameraAutostart');
+enrollmentAutostart.checked=loadCameraPreference(window.localStorage);
+enrollmentAutostart.addEventListener('change',()=>{
+ saveCameraPreference(window.localStorage,enrollmentAutostart.checked);
 });
 ui.save.addEventListener('click', saveForm);
 ui.reset.addEventListener('click', clearForm);
