@@ -186,6 +186,11 @@
         <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
         <div id="roomCurrentState" class="room-current-state" role="status">Waiting for room observations</div>
         <div id="roomSensorStates" class="room-sensor-states" aria-live="polite">Sensor history: unavailable</div>
+        <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
+          <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
+          <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
+          <small>Area dwell and relative stillness are observations, not calibrated physical movement, sitting or sleeping assessments. Camera interruption suspends estimates.</small>
+        </section>
         <details class="room-scene-editor" id="roomSceneEditor">
           <summary>ROOM MAP · Configure camera-relative areas</summary>
           <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
