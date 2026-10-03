@@ -103,3 +103,9 @@ Next development phase starts only once this PR is green and merged.
 - Full main-column live camera with correct face reticle and translucent camera status; screenshot-driven floating right Photo Gallery and Voice Profile cards that can independently retract and reopen without stopping media streams.
 - Keep retractable LEFT participant roster, remove redundant status strip, maintain working local participant and voice enrollment controls within floating panels, and make the participant form a deliberate Settings overlay. Bottom glass dock exposes Settings, capture, Start/Stop and device switching when multiple cameras exist.
 - Package the dedicated Participants layout CSS and JS in PWA shell and direct deploy ZIP. Visual browser/device inspection remains a separate physical acceptance gate.
+
+## v0.6.6 — Player-to-game continuity and layout correction
+- Reconcile same-origin saved participant selections when entering the lobby/game. Persist last manually enrolled/selected participant ID only; never synchronize biometric enrollment to other origins or claim a selected profile is camera-verified.
+- Opt-in auto-start permission preference for previously granted browser camera access on Participants and Games. The browser remains permission authority; denied, prompt, unsupported and same-page manual Stop fail closed. Camera preference never enables microphone/voice capture.
+- Isolate centered four-zone board from scores and instructions; a separate lower-left HUD shows score, identity evidence, marker evidence, voice readiness, round timer and group roster. Improve readability without changing game rules or the physical marker requirements.
+- Add deterministic tests for permission gate, saved profile selection, layout contracts, PWA asset manifest and packaged deployment smoke imports. Live device certification still requires browser hardware checks.
