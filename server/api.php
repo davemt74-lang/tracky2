@@ -4,6 +4,7 @@ require_once __DIR__.'/bootstrap.php';
 header('Cache-Control: no-store');
 try {
  $db=tracky_db();
+ if((int)($_SERVER['CONTENT_LENGTH']??0)>3_000_000)tracky_reply(['error'=>'Request too large'],413);
  $method=$_SERVER['REQUEST_METHOD']??'GET';$resource=(string)($_GET['resource']??'');
  $read=['participants'=>'participants.read','scenes'=>'scene.read','objects'=>'scene.read','skills'=>'scene.read'];
  $write=['participants'=>'participants.write','scenes'=>'scene.capture','objects'=>'objects.review','skills'=>'skills.approve'];
@@ -11,7 +12,9 @@ try {
  $actor=tracky_require($db,($method==='GET'?$read:$write)[$resource]);
  if($method==='GET') {
   $query=match($resource){
-   'participants'=>'SELECT id,name,profile_json,consent,updated_at FROM participants ORDER BY updated_at DESC',
+   'participants'=>tracky_permission($db,$actor,'participants.write')
+     ?'SELECT id,name,profile_json,consent,updated_at FROM participants ORDER BY updated_at DESC'
+     :'SELECT id,name,consent,updated_at FROM participants ORDER BY updated_at DESC',
    'scenes'=>'SELECT id,title,created_at FROM scenes ORDER BY created_at DESC',
    'objects'=>'SELECT id,scene_id,label,confidence,bbox_json,status FROM scene_objects ORDER BY created_at DESC',
    'skills'=>'SELECT object_id,skill,enabled FROM object_skills ORDER BY object_id,skill'
@@ -23,8 +26,13 @@ try {
  if($resource==='participants'){
   $name=trim((string)($data['name']??''));$profile=$data['profile']??[];
   if(strlen($name)<1||strlen($name)>120||!is_array($profile))tracky_reply(['error'=>'Invalid participant'],422);
-  // Biometric data requires explicit participant consent; there is no silent migration.
-  if(empty($data['consent']) && array_intersect(['faceSamples','faceEmbeddings','voiceSamples','voiceEmbedding'],array_keys($profile)))tracky_reply(['error'=>'Consent required for biometric records'],422);
+  // No silent transfer of photos or face/voice profile data.
+  $biometricFields=['primaryPhoto','latestPhoto','faceSamples','faceEmbeddings','embeddings',
+    'voiceSamples','voiceEmbedding','voiceEmbeddings','voiceProfileSamples'];
+  $hasBiometricData=false;
+  foreach($biometricFields as $key)if(!empty($profile[$key]))$hasBiometricData=true;
+  if(empty($data['consent']) && $hasBiometricData)
+      tracky_reply(['error'=>'Explicit participant consent required for biometric records'],422);
   $db->prepare('INSERT INTO participants(id,name,profile_json,consent,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,profile_json=excluded.profile_json,consent=excluded.consent,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP')->execute([$id,$name,json_encode($profile,JSON_THROW_ON_ERROR),!empty($data['consent'])?1:0,$actor['id']]);
  }elseif($resource==='scenes'){
   $title=trim((string)($data['title']??'Untitled scene'));
