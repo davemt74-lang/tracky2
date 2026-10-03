@@ -511,6 +511,16 @@ function loopPattern(image,now) {
         noiseFloor:Number(ui.sensitivity.value),microThreshold:MICRO_THRESHOLD
       });
       const result=state.pattern.sample(color,input);
+      const scheduled=before.players?.[before.activePlayerIndex];
+      if(scheduled){
+        const zone=zoneForY(input.y,4)+1;
+        if(state.activity.lastZones.get(scheduled.participantId)!==zone){
+          state.activity.lastZones.set(scheduled.participantId,zone);
+          logPlayerActivity(scheduled.participantId,'zone','Zone '+zone);
+        }
+        if(result.type==='target-complete')logPlayerActivity(scheduled.participantId,'target','Target completed');
+        if(result.type==='hit')logPlayerActivity(scheduled.participantId,'hit',result.reactionMs+' ms');
+      }
       if(result.type==='target-complete'||result.type==='hit')renderPattern(now);
     }
   }
@@ -606,6 +616,16 @@ function loopMultiplayer(image, now) {
         noiseFloor: Number(ui.sensitivity.value), microThreshold: MICRO_THRESHOLD
       });
       const result = state.multiplayer.sample(color, input);
+      const scheduled=before.players.find(p=>p.color===color);
+      if(scheduled){
+        const zone=zoneForY(input.y,4)+1;
+        if(state.activity.lastZones.get(scheduled.participantId)!==zone){
+          state.activity.lastZones.set(scheduled.participantId,zone);
+          logPlayerActivity(scheduled.participantId,'zone','Zone '+zone);
+        }
+        if(result.type==='point'||result.type==='game-over')
+          logPlayerActivity(scheduled.participantId,'point','Completed a zone target');
+      }
       if (result.type === 'point' || result.type === 'game-over') {
         if (result.matchComplete) maybeRecordMatch(true);
         state.markerTracker.reset(); // Every new turn requires a new stable marker lock.
@@ -2088,8 +2108,14 @@ function renderStats(now) {
 function loop(now) {
   if (!state.running) return;
   if (timedMode() && patternActive()) {
+    const beforeRound=state.pattern.snapshot(now);
     const advance=state.pattern.tick(now);
     if (advance.advanced || advance.type === 'game-complete') {
+      if(beforeRound.activeParticipantId)
+        logPlayerActivity(beforeRound.activeParticipantId,
+          advance.type==='game-complete'?'complete':'round',
+          advance.type==='game-complete'?'All rounds finished':'Round '+beforeRound.round+' finished');
+      state.activity.lastZones.clear();
       state.markerTracker.reset();
       setBoardCursor(null);
       renderPattern(now);
@@ -2152,6 +2178,9 @@ function loop(now) {
 
     if (state.gameplay.game.active) {
       const gameEvent = state.gameplay.sample(input);
+      if(ui.greenPlayer.value && ['rep','point','game-over'].includes(gameEvent.type))
+        logPlayerActivity(ui.greenPlayer.value,gameEvent.type==='rep'?'rep':
+          gameEvent.type==='point'?'point':'complete');
       if (gameEvent.type === 'rep' || gameEvent.type === 'point' || gameEvent.type === 'game-over' || gameEvent.type === 'outside-zone') {
         renderGame();
       }
