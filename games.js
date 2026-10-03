@@ -1,5 +1,6 @@
 // Standalone game lobby. The host game page still owns webcam, voice and gameplay.
 import { listParticipants } from './src/participant-store.js';
+import {selectGamePlayer,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
 import { createGamePlatform } from './src/game-platform.js';
 import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
@@ -19,6 +20,8 @@ games.register(randomFollowPatternGame);
 games.register(reactionChallengeGame);
 let roster=[];
 let picks=[];
+let preferredParticipant='';
+try{preferredParticipant=window.localStorage.getItem(LAST_PARTICIPANT_KEY)||'';}catch{}
 
 function playerOption(person) {
   const option=document.createElement('option');
@@ -41,7 +44,8 @@ function renderPlayers() {
     empty.value='';empty.textContent='Choose an enrolled participant…';
     select.append(empty);
     for (const person of roster) select.append(playerOption(person));
-    select.value=roster.some(p=>p.id===picks[i])?picks[i]:'';
+    select.value=selectGamePlayer(roster,picks[i],i===0?preferredParticipant:'');
+    picks[i]=select.value;
     label.append(select);
     ui.players.append(label);
   }

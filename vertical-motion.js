@@ -7,6 +7,7 @@ import { randomFollowPatternGame } from './src/games/random-follow-pattern.js';
 import { reactionChallengeGame } from './src/games/reaction-challenge.js';
 import { resolvePatternPlayers } from './src/games/pattern-setup.js';
 import { consumeLobbyTicket } from './src/game-lobby.js';
+import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
 import { playerPresenceEvidence } from './src/player-presence.js';
@@ -54,6 +55,9 @@ const $ = (s) => document.querySelector(s);
 
 const ui = {
   gameMode: $('#gameMode'),
+  cameraAutostart: $('#cameraAutostart'),
+  cameraPreferenceStatus: $('#cameraPreferenceStatus'),
+  playerHud: $('#gamePlayerHud'),
   multiplayerSettings: $('#multiplayerSettings'),
   patternSetup: $('#patternSetup'),
   playerCount: $('#patternPlayerCount'),
@@ -153,6 +157,9 @@ const ui = {
 };
 
 let extraPlayerIds=[];
+let cameraStoppedThisPage=false;
+let retainedPlayerId='';
+try{retainedPlayerId=window.localStorage.getItem(LAST_PARTICIPANT_KEY)||'';}catch{}
 let extraFieldsSignature='';
 const platform = createGamePlatform();
 platform.register(randomFollowPatternGame);
@@ -298,7 +305,9 @@ function refreshPlayerChoices() {
       option.textContent = p.name || p.nickname || 'Participant';
       select.append(option);
     }
-    if (state.identity.participants.some(p => p.id === chosen)) select.value = chosen;
+    const wanted=color==='green' ? selectGamePlayer(state.identity.participants,chosen,retainedPlayerId) :
+      state.identity.participants.some(p=>p.id===chosen) ? chosen : '';
+    select.value=wanted;
   }
   renderExtraPlayerFields();
 }
@@ -360,6 +369,7 @@ function updatePatternSetup() {
 
 function renderMode() {
   const multi = state.mode !== 'solo';
+  ui.playerHud.hidden=!multi;
   document.body.classList.toggle('multiplayer-mode', multi);
   document.body.classList.toggle('pattern-mode', timedMode());
   document.body.classList.toggle('reaction-mode', state.mode === 'reaction');
@@ -379,15 +389,16 @@ function renderMode() {
 }
 
 function playerScoreCard(color) {
-  return ui.multiplayerStage.querySelector('[data-player-color="' + color + '"]');
+  return ui.playerHud.querySelector('[data-player-color="' + color + '"]');
 }
 
 function renderPattern(now = performance.now()) {
-  if (state.mode !== 'pattern') return;
+  if (!timedMode()) return;
   const match = state.pattern?.snapshot(now);
   const active = Boolean(match?.active);
   const chosenCount = Number(ui.playerCount.value);
   const activePlayer = match?.players[match.activePlayerIndex];
+  ui.playerHud.hidden=false;
   ui.gameMode.disabled = active;
   ui.greenPlayer.disabled = active;
   ui.bluePlayer.disabled = active || chosenCount === 1;
@@ -509,6 +520,7 @@ function renderMultiplayer() {
   if (state.mode !== 'multiplayer') return;
   const match = state.multiplayer.snapshot();
   const active = match.players.find(p => p.color === match.activeColor);
+  ui.playerHud.hidden=false;
   ui.gameMode.disabled = match.active;
   ui.greenPlayer.disabled = match.active;
   ui.bluePlayer.disabled = match.active;
@@ -755,10 +767,12 @@ async function reloadIdentityParticipants() {
   try {
     state.identity.participants = await listParticipants();
     refreshPlayerChoices();
+    if(!state.identity.participants.length){ui.multiplayerSetupStatus.textContent='No enrolled participants on this site in this browser. Open Participants, save a profile and return to Games.';}
   } catch (error) {
     console.error(error);
     state.identity.participants = [];
     refreshPlayerChoices();
+    ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
   }
 }
 
@@ -1768,8 +1782,11 @@ async function startCamera(deviceId = '') {
       height: { ideal: 720 },
       frameRate: { ideal: 60, max: 60 }
     };
-    if (deviceId) video.deviceId = { exact: deviceId };
-    else video.facingMode = { ideal: 'user' };
+    // Empty means the browser-selected default. Never treat the label "Default camera"
+    // or an unrecognized saved value as a hardware deviceId.
+    const available = [...ui.select.options].some(option=>option.value && option.value===deviceId);
+    if(deviceId && available) video.deviceId={exact:deviceId};
+    else video.facingMode={ideal:'user'};
 
     state.stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
     ui.video.srcObject = state.stream;
@@ -1813,6 +1830,9 @@ async function beginGameplay() {
   const goal = pointGoalValue();
   let patternPlayers = null;
   if (timedMode()) {
+    // Enrollment can have changed since this game page opened in a separate tab.
+    // Refresh from the canonical same-origin IndexedDB before validating a match.
+    await reloadIdentityParticipants();
     try {
       patternPlayers = resolvePatternPlayers(state.identity.participants, {
         count:Number(ui.playerCount.value),
@@ -2106,6 +2126,10 @@ ui.resetCalibration.addEventListener('click', () => {
   ui.calibrationStatus.textContent = 'Default calibration restored.';
 });
 ui.greenPlayer.addEventListener('change', () => {
+ if(ui.greenPlayer.value){
+  retainedPlayerId=ui.greenPlayer.value;
+  try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,retainedPlayerId);}catch{}
+ }
   if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
   else if (timedMode()) renderPattern();
 });
@@ -2127,11 +2151,21 @@ ui.clearMatchHistory.addEventListener('click', () => {
     'Browser storage unavailable; could not clear local history.';
   renderMatchHistory();
 });
-ui.start.addEventListener('click', () => startCamera(ui.select.value));
+ui.start.addEventListener('click', () => {
+ cameraStoppedThisPage=false;
+ void startCamera(ui.select.value);
+});
+ui.cameraAutostart.addEventListener('change',()=>{
+  saveCameraPreference(window.localStorage,ui.cameraAutostart.checked);
+  ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
+    'On: auto-start only if the browser already grants camera permission.':
+    'Off: camera starts manually.';
+});
 ui.startRoomAudio.addEventListener('click', startRoomAudio);
 ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
 ui.stop.addEventListener('click', () => {
+  cameraStoppedThisPage=true;
   if (state.gameplay.game.active) endGameplay();
   stopCamera();
 });
@@ -2166,8 +2200,12 @@ window.addEventListener('beforeunload', () => {
 
 restoreCalibration();
 await reloadIdentityParticipants();
+ui.cameraAutostart.checked=loadCameraPreference(window.localStorage);
+ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
+  'Saved preference · checking browser permission…':'Camera starts manually until approved.';
 // Handoff is consumed once and every participant ID is rechecked against live local enrollment.
-// Never auto-start a camera or silently start a game from lobby navigation.
+// Camera autostart requires saved opt-in AND a pre-existing browser permission grant.
+// No timed game ever starts automatically.
 try {
   const requestedMode=new URL(window.location.href).searchParams.get('mode');
   if(['solo','multiplayer'].includes(requestedMode)){
@@ -2183,6 +2221,8 @@ try {
       ui.interval.value=String(setup.intervalSeconds);
       ui.rounds.value=String(setup.rounds);
       ui.greenPlayer.value=setup.players[0].participantId;
+      retainedPlayerId=setup.players[0].participantId;
+      try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,retainedPlayerId);}catch{}
       if(setup.players.length>1)ui.bluePlayer.value=setup.players[1].participantId;
       extraPlayerIds=setup.players.slice(2).map(p=>p.participantId);
       ui.multiplayerSetupStatus.textContent='Lobby setup loaded. Check player assignments and start when ready.';
@@ -2193,6 +2233,13 @@ try {
 } catch {
   ui.multiplayerSetupStatus.textContent='Lobby handoff unavailable; use the game setup controls directly.';
 }
+if(state.identity.participants.length===1 && !ui.greenPlayer.value){
+  ui.greenPlayer.value=state.identity.participants[0].id;
+}
+if(state.identity.participants.length===1 && timedMode() && !extraPlayerIds.length){
+  ui.playerCount.value='1';
+  ui.bluePlayer.value='';
+}
 await loadSavedDialogue();
 updateConversationGroups();
 renderParticipantCards();
@@ -2202,3 +2249,26 @@ renderVoiceHud();
 renderStats(performance.now());
 renderMode();
 drawTrace();
+async function maybeStartApprovedCamera(){
+ if(state.running||!loadCameraPreference(window.localStorage)||cameraStoppedThisPage)return;
+ const permission=await cameraPermissionState(navigator.permissions);
+ if(cameraAutostartEligible({optIn:true,permission,
+  supported:!!navigator.mediaDevices?.getUserMedia,sessionStopped:cameraStoppedThisPage})){
+  ui.cameraPreferenceStatus.textContent='Permission granted · starting camera…';
+  const ok=await startCamera(ui.select.value);
+  if(!ok)ui.cameraPreferenceStatus.textContent='Auto-start failed; use Start camera to retry.';
+ }else{
+  ui.cameraPreferenceStatus.textContent=permission==='denied'?'Camera blocked in browser settings.':
+    permission==='unsupported'?'Browser cannot confirm permission; click Start camera.':
+    'Approve camera through Start camera to enable future auto-start.';
+ }
+}
+void maybeStartApprovedCamera();
+window.addEventListener('pageshow',()=>{
+ if(!state.gameplay.game.active&&!state.multiplayer.snapshot().active&&!patternActive()){
+  void reloadIdentityParticipants().then(()=>renderMode());
+ }
+});
+document.addEventListener('visibilitychange',()=>{
+ if(!document.hidden&&!state.running&&!cameraStoppedThisPage)void maybeStartApprovedCamera();
+});

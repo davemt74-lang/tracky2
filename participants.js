@@ -1,4 +1,5 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
+import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference,cameraAutostartEligible,cameraPermissionState} from './src/camera-preference.js';
 import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
 import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
@@ -68,6 +69,7 @@ const state = {
   gallery: [],
   retakeIndex: null,
   pendingId: null,
+  manuallyStoppedThisPage: false,
   cameraDeviceId: null,
   cameraDevices: [],
   mirrorPreview: true
@@ -523,6 +525,7 @@ async function saveForm() {
 
   state.editingId = record.id;
   document.body.dataset.participantId = record.id;
+  try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,record.id);}catch{}
   window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id } }));
   ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
   ui.formTitle.textContent = record.name;
@@ -576,8 +579,14 @@ async function loadPendingFromUrl() {
 }
 
 ui.newParticipant.addEventListener('click', clearForm);
-ui.startCamera.addEventListener('click', startCamera);
-ui.stopCamera.addEventListener('click', stopCamera);
+ui.startCamera.addEventListener('click',()=>{
+  state.manuallyStoppedThisPage=false;
+  void startCamera();
+});
+ui.stopCamera.addEventListener('click',()=>{
+  state.manuallyStoppedThisPage=true;
+  stopCamera();
+});
 document.getElementById('switchParticipantCamera').addEventListener('click',async()=>{
   const list=state.cameraDevices;
   const current=list.findIndex(device=>device.deviceId===state.cameraDeviceId);
@@ -594,6 +603,11 @@ ui.useLatestPrimary.addEventListener('click', () => {
   updatePhotos();
   setMessage('Latest capture selected as primary photo. Save the profile to keep the change.', 'ok');
 });
+const enrollmentAutostart=document.getElementById('participantCameraAutostart');
+enrollmentAutostart.checked=loadCameraPreference(window.localStorage);
+enrollmentAutostart.addEventListener('change',()=>{
+ saveCameraPreference(window.localStorage,enrollmentAutostart.checked);
+});
 ui.save.addEventListener('click', saveForm);
 ui.reset.addEventListener('click', clearForm);
 ui.delete.addEventListener('click', removeCurrentParticipant);
@@ -603,8 +617,22 @@ clearForm();
 await prunePendingCaptures().catch(() => {});
 await reloadParticipants();
 await loadPendingFromUrl();
-
-
+async function startCameraIfPreviouslyApproved(){
+ if(state.stream || state.manuallyStoppedThisPage || !loadCameraPreference(window.localStorage))return;
+ const permission=await cameraPermissionState(navigator.permissions);
+ if(cameraAutostartEligible({optIn:true,permission,
+   supported:!!navigator.mediaDevices?.getUserMedia,sessionStopped:state.manuallyStoppedThisPage})){
+   if(!state.manuallyStoppedThisPage && !state.stream)await startCamera();
+ }else if(permission==='denied'){
+   setMessage('Camera access is blocked in browser settings. Restore permission and click Start camera.','error');
+ }
+}
+void startCameraIfPreviouslyApproved();
+document.addEventListener('visibilitychange',()=>{
+ if(!document.hidden && !state.stream && !state.manuallyStoppedThisPage){
+   void startCameraIfPreviouslyApproved();
+ }
+});
 window.addEventListener('tracky:participant-voice-updated', async () => {
   await reloadParticipants();
 });
