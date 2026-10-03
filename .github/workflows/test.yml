@@ -126,3 +126,15 @@ jobs:
             --jq '.assets[].name' | grep -Fx 'tracky2-v0.7.2-deploy.zip'
           gh release view v0.7.2 --json assets \
             --jq '.assets[].name' | grep -Fx 'tracky2-v0.7.2-deploy.zip.sha256'
+
+  php-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP foundation syntax and extensions
+        run: |
+          set -euo pipefail
+          php -m | grep -i '^pdo_sqlite$'
+          php -m | grep -i '^sodium$'
+          for file in server/*.php; do php -l "$file"; done
