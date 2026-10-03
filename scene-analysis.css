@@ -1,6 +1,6 @@
 /* Only visible during actual camera/model/first-observation initialization. */
 .scene-analysis-overlay[hidden]{display:none!important}
-.scene-analysis-overlay{position:absolute;z-index:5;pointer-events:none;inset:0;display:flex;align-items:center;
+.scene-analysis-overlay{position:absolute;z-index:11;pointer-events:none;inset:0;display:flex;align-items:center;
  justify-content:center;flex-direction:column;text-align:center;gap:13px;padding:28px;
  background:radial-gradient(ellipse at center,rgba(13,48,51,.86),rgba(1,13,23,.93) 65%);
  backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);color:#dcfffc}
@@ -25,3 +25,27 @@
  .scene-analysis-orbit i{animation:none}
  .scene-analysis-progress>i{transition:none}
 }
+
+/* Actual detector waiting: leave the live camera and four-zone gameboard visible. */
+.scene-analysis-overlay[data-stage="waiting"]{
+ inset:auto auto 16px 50%;transform:translateX(-50%);
+ width:min(370px,calc(100% - 24px));padding:8px 14px;gap:5px;
+ flex-direction:row;flex-wrap:wrap;justify-content:center;
+ border:1px solid rgba(93,239,210,.65);border-radius:12px;
+ background:rgba(2,26,32,.88);box-shadow:0 0 20px rgba(43,230,181,.24);
+ pointer-events:none}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-orbit{width:28px;height:28px}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-orbit i{inset:1px}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-orbit i:nth-child(2){inset:6px}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-orbit i:nth-child(3){inset:10px}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-orbit b{font-size:.6rem}
+.scene-analysis-overlay[data-stage="waiting"] strong{font-size:.66rem;letter-spacing:.09em}
+.scene-analysis-overlay[data-stage="waiting"]>span{font-size:.62rem}
+.scene-analysis-overlay[data-stage="waiting"]>small{display:none}
+.scene-analysis-overlay[data-stage="waiting"] .scene-analysis-progress{width:100%;height:3px}
+
+/* The Participants camera dock must remain visible while waiting for a face. */
+.participants-page .scene-analysis-overlay[data-stage="waiting"]{
+ bottom:132px;left:50%;z-index:12;
+}
+.game-page .scene-analysis-overlay[data-stage="waiting"]{bottom:12px;z-index:12}

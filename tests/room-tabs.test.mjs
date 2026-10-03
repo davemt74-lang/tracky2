@@ -8,7 +8,9 @@ test('single left overlay holds both accessible tabs with original functional di
  assert.match(html,/role="tablist"/);
  const left=html.slice(html.indexOf('id="roomLeftPanel"'),html.indexOf('</aside>',html.indexOf('id="roomLeftPanel"')));
  assert.ok(left.includes('id="roomDialoguePanel"')&&left.includes('id="playerActivityPanel"'));
- assert.ok(code.includes('showRoomTab('));
+ const tabController=fs.readFileSync('room-tabs-controller.js','utf8');
+ assert.ok(tabController.includes("button.addEventListener('click'"));
+ assert.ok(html.includes('src="./room-tabs-controller.js"'));
 });
 test('player timeline logs game action evidence and does not expose provisional track records',()=>{
  assert.ok(code.includes('visibleRoomParticipants(now)'));

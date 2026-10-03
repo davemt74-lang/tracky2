@@ -7,6 +7,7 @@ export function sceneStep(step) {
    camera:{label:'Camera connected · loading tracking models',progress:22,ready:false},
    models:{label:'Models loaded · analyzing room geometry',progress:58,ready:false},
    detecting:{label:'Analyzing scene · stabilizing detections',progress:83,ready:false},
+   waiting:{label:'Camera active · searching for stable person',progress:92,ready:false},
    ready:{label:'Scene analyzed · tracking active',progress:100,ready:true},
    error:{label:'Scene analysis unavailable · check camera and models',progress:null,ready:false}
  };
@@ -36,4 +37,14 @@ export function stablePublicTracks(tracks,now,{minAgeMs=550,minObservations=2,gr
      unique.set(track.participantId,track);
  }
  return Object.freeze([...unique.values()]);
+}
+
+export function sceneAcquisition({completeScans=0,elapsedMs=0,stable=false,modelReady=false}={}){
+ if(!modelReady)return 'camera';
+ // Let the real detector run repeatedly. First-frame success is not a stable identity.
+ if(completeScans<3 || elapsedMs<1250)return 'detecting';
+ if(stable)return 'ready';
+ // Once multiple scans complete, shrink to a nonblocking searching-state animation
+ // so the camera and game remain visible while detection continues.
+ return 'waiting';
 }

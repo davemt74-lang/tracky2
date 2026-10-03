@@ -2,7 +2,7 @@ import { voiceProfileReadiness } from './src/voice-core.js';
 import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference,cameraAutostartEligible,cameraPermissionState} from './src/camera-preference.js';
 import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
 import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
-import {sceneStep} from './src/scene-analysis.js';
+import {sceneStep,sceneAcquisition} from './src/scene-analysis.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
 import {
   deleteParticipant,
@@ -79,6 +79,7 @@ const state = {
   cameraDevices: [],
   mirrorPreview: true,
   completeScans: 0,
+  initStartedAt:0,
   cameraGeneration: 0
 };
 
@@ -345,6 +346,7 @@ async function startCamera() {
 
   stopCamera();
   updateParticipantScene('camera');
+  state.initStartedAt=performance.now();
   const generation=state.cameraGeneration;
 
   try {
@@ -378,6 +380,7 @@ async function startCamera() {
     ui.cameraStatus.textContent = 'Live';
 
     await ensureEngine();
+    if(state.engineReady)updateParticipantScene('models');
     if (state.engineReady && generation===state.cameraGeneration) {
       state.completeScans=0;
       updateParticipantScene('detecting');
@@ -449,9 +452,14 @@ async function scanFace() {
     const faces = await state.engine.detect(ui.video);
     if(!state.scanning || generation!==state.cameraGeneration)return;
     state.completeScans+=1;
-    if(state.completeScans===1)updateParticipantScene('ready');
-    const face = faces.sort((a, b) => b.quality - a.quality)[0] || null;
-    state.currentFace = face;
+    const face = faces.sort((a,b)=>b.quality-a.quality)[0]||null;
+    state.currentFace=face;
+    updateParticipantScene(sceneAcquisition({
+      modelReady:state.engineReady,
+      completeScans:state.completeScans,
+      elapsedMs:performance.now()-state.initStartedAt,
+      stable:Boolean(face?.embedding&&face.quality>=.55)
+    }));
 
     if (!face) {
       ui.reticle.hidden = true;
