@@ -128,10 +128,11 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
+    const observations = tx.objectStore(ROOM_OBSERVATIONS);
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -157,6 +158,13 @@ export async function deleteParticipant(id) {
             : nearbyNames
         });
       }
+    }
+
+    // Room event retention cannot outlive a deleted participant profile.
+    // Remove attributed event rows in the SAME IndexedDB transaction.
+    const roomRows = await requestToPromise(observations.getAll());
+    for (const event of roomRows) {
+      if (event.participantId === id) observations.delete(event.id);
     }
 
     await done;
