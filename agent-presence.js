@@ -1,10 +1,12 @@
 import {normalizeAgentView,orbPresentation} from './src/agent-presentation.js';
-// Pure presentation switch: keeps the existing camera, identity and microphone
-// streams running. The Orb mode hides the video; it never stops camera hardware.
+// Presentation-only: camera, microphone and tracking continue while video is hidden.
 const $=id=>document.getElementById(id);
 const ui={nav:$('agentViewChooser'),camera:$('agentCameraView'),orb:$('agentOrbView'),
  stage:$('agentOrbStage'),orbArt:$('agentVoiceOrb'),caption:$('agentOrbCaption')};
-let mode='camera',speaking=false,agentEnabled=false;
+const requested=new URLSearchParams(window.location.search).get('mode')==='agent';
+const initialView=new URLSearchParams(window.location.search).get('view');
+let mode=normalizeAgentView(initialView),speaking=false,agentEnabled=requested;
+if(requested)document.body.classList.add('agent-mode');
 function render(){
  const state=orbPresentation({view:mode,speaking});
  ui.nav.hidden=!agentEnabled;
@@ -26,8 +28,11 @@ window.addEventListener('tracky:agent-speech-state',event=>{
  render();
 });
 window.addEventListener('tracky:agent-ready',event=>{
- agentEnabled=event.detail?.enabled===true;
+ if(event.detail?.enabled===true)agentEnabled=true;
+ else if(!requested)agentEnabled=false;
  if(!agentEnabled){speaking=false;mode='camera';}
  render();
 });
+// Show the switch (and requested Orb stage) immediately, even while the
+// heavy recognition/transcription engines are initializing or unavailable.
 render();
