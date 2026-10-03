@@ -22,7 +22,8 @@ test('10C real camera measurements produce one dwell and stationary observation,
  assert.equal(events.filter(e=>e.semantic==='area-dwell').length,1);
  assert.equal(events.filter(e=>e.semantic==='stationary-period').length,1);
  assert.equal(events.filter(e=>e.semantic==='area-transition').length,0,'initial appearance is not a transition');
- assert.equal(events.every(e=>!/(sleep|seated|metres|meters travelled)/i.test(e.message)),true);
+ assert.equal(events.every(e=>!/(is sleeping|is seated|fell asleep|metres travelled|meters travelled)/i.test(e.message)),true);
+ assert.ok(events.some(e=>/sleep unknown/.test(e.message)),'uncertainty should be explicit');
  const summary=engine.summary(area,16000)[0];
  assert.equal(summary.areaName,'Desk');
  assert.ok(summary.areaDwellMs>=10000);
