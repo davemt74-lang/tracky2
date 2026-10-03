@@ -95,3 +95,73 @@
  .agent-voice-orb .agent-orb-ring,.agent-voice-orb .agent-orb-core,.agent-orb-aura{animation:none!important}
  .agent-voice-orb[data-speech="speaking"]{filter:drop-shadow(0 0 55px #a8f5ff)}
 }
+
+/* V0.7.3: translucent immersive AGENT glass. All selectors are scoped; game HUDs unaffected. */
+.game-page.agent-mode .room-left-panel,
+.game-page.agent-mode .room-identity-hud {
+ background:rgba(4,19,27,.57);
+ border-color:rgba(107,227,231,.48);
+ -webkit-backdrop-filter:blur(15px) saturate(120%);
+ backdrop-filter:blur(15px) saturate(120%);
+ box-shadow:0 14px 46px rgba(0,0,0,.24);
+}
+.game-page.agent-mode .room-left-tabs {
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ background:rgba(4,28,34,.27);
+}
+.game-page.agent-mode .room-left-tabpanel {background:rgba(2,20,27,.08)}
+.game-page.agent-mode .room-left-tabs button {white-space:nowrap;min-width:0}
+.game-page.agent-mode .room-left-tabs button[hidden] {display:none!important}
+.game-page.agent-mode .room-left-panel .room-event,
+.game-page.agent-mode .room-left-panel .dialogue-turn,
+.game-page.agent-mode .room-left-panel .agent-thread-entry,
+.game-page.agent-mode .room-left-panel .player-activity-item {
+ background:rgba(3,21,28,.46);
+}
+.game-page.agent-mode .room-left-panel .agent-thread-entry.agent {background:rgba(11,62,59,.50)}
+.game-page.agent-mode .room-identity-hud .agent-room-accordion details,
+.game-page.agent-mode .room-identity-hud .room-radar {
+ background:rgba(3,23,31,.36);
+}
+.game-page.agent-mode .room-identity-hud .participant-scan-card {
+ background:linear-gradient(125deg,rgba(3,25,32,.55),rgba(2,13,20,.48));
+}
+.game-page.agent-mode .room-identity-hud .participant-voice-readout span,
+.game-page.agent-mode .room-identity-hud .room-voice-fusion>div {
+ background:rgba(1,14,20,.41);
+}
+.game-page.agent-mode .room-identity-hud .participant-card-actions button,
+.game-page.agent-mode .room-identity-hud .participant-card-actions a {
+ background:rgba(6,41,47,.50);
+}
+.game-page.agent-mode .participant-audio-block {
+ display:grid;gap:4px;padding-top:5px;
+}
+.game-page.agent-mode .participant-audio-title {
+ display:block;margin:0;color:#b3dce1;font-size:.52rem;font-weight:800;letter-spacing:.08em;
+}
+.game-page.agent-mode .participant-audio-meter {
+ width:100%;height:8px;margin-top:0;overflow:hidden;border-radius:99px;
+ border:1px solid rgba(94,229,236,.25);background:rgba(8,43,56,.64);
+}
+.game-page.agent-mode .participant-audio-fill {
+ display:block;height:100%;width:0%;border-radius:99px;
+ background:linear-gradient(90deg,#337e9e,#81d5e8);
+ box-shadow:0 0 10px rgba(68,191,236,.35);
+ transition:width .09s linear;
+}
+.game-page.agent-mode .participant-audio-meter[data-mode="speech"] .participant-audio-fill {
+ background:linear-gradient(90deg,#21bba5,#8fffa2);
+ box-shadow:0 0 12px rgba(64,244,165,.65);
+}
+.game-page.agent-mode .participant-audio-meter[data-mode="off"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="suppressed"] .participant-audio-fill {
+ background:#698087;box-shadow:none;
+}
+.game-page.agent-mode .participant-audio-caption {
+ display:block;color:#b0d8dd;font-size:.50rem;letter-spacing:.045em;
+}
+.game-page.agent-mode .participant-audio-meter[data-mode="speech"] + .participant-audio-caption {color:#9bffca}
+@media(prefers-reduced-motion:reduce){
+ .game-page.agent-mode .participant-audio-fill {transition:none}
+}
