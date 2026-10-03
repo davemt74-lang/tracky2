@@ -935,10 +935,10 @@ function createParticipantCard(track) {
   top.className = 'participant-card-top';
 
   const trackLabel = document.createElement('span');
-  trackLabel.textContent = track.id;
+  trackLabel.textContent = track.visitorLabel || track.id;
 
   const stateLabel = document.createElement('b');
-  stateLabel.textContent = statusLabel(track);
+  stateLabel.textContent = track.visitorLabel?'VISITOR · IDENTITY PENDING':statusLabel(track);
 
   top.append(trackLabel, stateLabel);
 
@@ -962,10 +962,12 @@ function createParticipantCard(track) {
   identity.className = 'participant-card-identity';
 
   const name = document.createElement('strong');
-  name.textContent = track.participantName || 'Unknown participant';
+  name.textContent = track.participantName || track.visitorLabel || 'Unknown participant';
 
   const detail = document.createElement('span');
-  if (track.status === 'matched') {
+  if (track.visitorLabel) {
+    detail.textContent='Stable visitor · checking enrolled profiles';
+  } else if (track.status === 'matched') {
     detail.textContent = Math.round(track.similarity * 100) + '% face match · full-body track active';
   } else if (track.status === 'body-lock') {
     detail.textContent = 'Face not visible · identity held by body track';
@@ -1059,6 +1061,45 @@ function createParticipantCard(track) {
   return card;
 }
 
+function noteVisitorEvent(visitor,kind,detail=''){
+ const event=activityEvent({participantId:visitor.id,name:visitor.label,kind,detail,
+  at:Date.now(),source:'visitor-observation'});
+ if(event){state.activity.events=addActivity(state.activity.events,event);renderPlayerActivity();}
+}
+function reconcileRoomVisitors(now){
+ const changes=reconcileVisitors(state.visitors,state.identity.tracks,now);
+ for(const change of changes){
+  if(change.type==='arrived'){
+   noteVisitorEvent(change.visitor,'arrived','Stable unmatched face and body');
+   pushRoomEvent(change.visitor.label+' observed · identity pending','new',false);
+   continue;
+  }
+  const profile=participantById(change.visitor.participantId);
+  if(!profile)continue;
+  state.activity.events=upgradeVisitorTimeline(state.activity.events,change.visitor.id,profile);
+  logPlayerActivity(profile.id,'matched',change.visitor.label+' matched by enrolled identity',
+   'confirmed-tracking');
+  const changed=[];
+  state.voice.turns=state.voice.turns.map(turn=>{
+   const upgraded=promoteVisitorTurn(turn,change.visitor,profile);
+   if(upgraded!==turn)changed.push(upgraded);
+   return upgraded;
+  });
+  // Previously captured transcript text is unchanged. Only the nearby-person
+  // association upgrades; recorded speaker identity remains unverified.
+  for(const turn of changed){
+   void saveDialogueTurn(turn).catch(error=>console.warn('Visitor transcript promotion failed',error));
+  }
+  renderDialogueTurns();
+ }
+}
+function publicRoomTracks(now=performance.now()){
+ const known=visibleRoomParticipants(now);
+ const visitor=visibleVisitors(state.visitors,state.identity.tracks,now)
+  .map(({visitor,track})=>({...track,visitorLabel:visitor.label,visitorId:visitor.id}));
+ return [...known,...visitor].slice(0,8);
+}
+
 function renderRoomRadar(visibleTracks) {
   ui.roomRadarTracks.replaceChildren();
 
@@ -1073,10 +1114,10 @@ function renderRoomRadar(visibleTracks) {
     const point=cameraFacingPoint({x:track.cx??0.5,y:track.cy??0.5},ui.mirror.checked);
     dot.style.left=(point.x*100)+'%';
     dot.style.top=(point.y*100)+'%';
-    dot.title = (track.participantName || 'Unknown') + ' · ' + track.id;
+    dot.title = (track.participantName || track.visitorLabel || 'Unknown') + ' · '+track.id;
 
     const label = document.createElement('span');
-    label.textContent = (track.participantName || track.id) + (track.conversationGroupId ? ' · ' + track.conversationGroupId : '');
+    label.textContent = (track.participantName || track.visitorLabel || track.id) + (track.conversationGroupId ? ' · ' + track.conversationGroupId : '');
     dot.append(label);
     ui.roomRadarTracks.append(dot);
   }
@@ -1084,7 +1125,7 @@ function renderRoomRadar(visibleTracks) {
 
 function renderParticipantCards() {
   ui.participantCards.replaceChildren();
-  const visible=visibleRoomParticipants().slice(0,8);
+  const visible=publicRoomTracks();
 
   ui.participantHudEmpty.hidden = visible.length > 0;
   renderRoomRadar(visible);
@@ -1811,6 +1852,7 @@ async function scanRoom(now) {
       ...resolved,
       ...nonConflictingCarried
     ]);
+    reconcileRoomVisitors(now);
     updateConversationGroups();
     recordObservedPresence(now);
     acknowledgeRoomTracks(now);
@@ -1818,12 +1860,15 @@ async function scanRoom(now) {
     state.identity.completeScans+=1;
     if(state.running && state.identity.completeScans===1)updateGameScene('ready');
     const identified=visibleRoomParticipants(now).length;
+    const visitorCount=visibleVisitors(state.visitors,state.identity.tracks,now).length;
     const bodyLocked = state.identity.tracks.filter((track) => track.status === 'body-lock').length;
     // Raw detections remain internal until repeated observation and enrolled
     // identity have been established. Exclude single-frame ghosts from normal UI.
     ui.identityStatus.textContent=identified?
-      identified+' enrolled participant'+(identified===1?'':'s')+' tracked':
-      'Analyzing scene · no confirmed participant';
+      identified+' enrolled participant'+(identified===1?'':'s')+' tracked'+
+        (visitorCount?' · '+visitorCount+' visitor'+(visitorCount===1?'':'s'):''):
+      visitorCount?visitorCount+' stable visitor'+(visitorCount===1?'':'s')+' · identity pending':
+      'Analyzing scene · no stable person yet';
     renderParticipantCards();
   } catch (error) {
     console.error(error);
