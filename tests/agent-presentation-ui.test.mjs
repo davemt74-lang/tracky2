@@ -39,9 +39,7 @@ test('clicking third tab opens AGENT without moving conversation or requiring ca
   assert.equal(entries.get('roomAgentTab').hidden,true);
   events['tracky:agent-tab-ready']();
   assert.equal(entries.get('roomAgentTab').hidden,false);
-  assert.equal(entries.get('roomAgentPanel').hidden,false);
-  assert.equal(entries.get('roomDialoguePanel').hidden,true);
-  entries.get('roomDialogueTab').handlers.click();
+  // Opening AGENT settings must not displace the dedicated Conversation tab.
   assert.equal(entries.get('roomDialoguePanel').hidden,false);
   assert.equal(entries.get('roomAgentPanel').hidden,true);
   entries.get('roomAgentTab').handlers.click();

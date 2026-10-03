@@ -30,5 +30,5 @@ for(const [name,button] of [['dialogue',dialogue],['activity',activity],...(agen
 }
 show('dialogue');
 (typeof window!=='undefined'?window:null)?.addEventListener?.('tracky:agent-tab-ready',()=>{
- if(agent){agent.hidden=false;show('agent');}
+ if(agent){agent.hidden=false;show('dialogue');}
 });
