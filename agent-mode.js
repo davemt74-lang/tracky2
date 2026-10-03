@@ -132,11 +132,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],editTransc
   speech.speak(utterance);
  }
  function greet(track,person){
-  if(!person?.id||!track?.participantId)return;
+  if(!person?.id||!track?.participantId||
+    track.participantId!==person.id||
+    person.recognitionEnabled===false||
+    person.agentGreetingEnabled===false)return false;
   const now=Date.now();
-  if(!shouldGreet(person.id,greeted,now))return;
+  if(!shouldGreet(person.id,greeted,now))return false;
   greeted.set(person.id,now);
   say(greetingForParticipant(person));
+  return true;
  }
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
