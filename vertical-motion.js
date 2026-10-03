@@ -1550,7 +1550,8 @@ function onRoomAudioLevel(level) {
   updateParticipantAudioMeters();
   if(state.mode==='agent'&&state.voice.active){
    renderAmbientAudioMeter();
-   const summary=roomAmbientAudit.update(level,Date.now());
+   const summary=roomAmbientAudit.update({...level,
+     suppressed:Boolean(level.suppressed||state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0)},Date.now());
    if(summary)saveRoomAudioSummary(summary);
   }
 }
@@ -1627,6 +1628,12 @@ async function processRoomSegment(segment) {
       : null;
 
     if (!gate.accept) {
+      // Rejected acoustic signals have no verified speaker identity.
+      state.voice.currentSpeakerId=null;
+      state.voice.currentSpeakerName='Unverified acoustic segment';
+      state.voice.currentVoiceConfidence=0;
+      state.voice.currentBodyLock=false;
+      state.voice.currentGroupId=null;
       state.voice.rejectedSegments += 1;
       state.voice.lastDecision = voiceMatch.ambiguous ? 'ambiguous-speaker' : 'noise-rejected';
       if(state.mode==='agent'&&Date.now()-lastRejectedRoomSegmentAt>8000){
