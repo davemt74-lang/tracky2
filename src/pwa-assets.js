@@ -1,11 +1,11 @@
 // Shell is deliberately limited to same-origin static files only; local profile storage
 // and optional CDN recognition/voice models are NEVER pre-cached or intercepted.
-const STATIC_CACHE='tracky2-static-v0.6.4';
+const STATIC_CACHE='tracky2-static-v0.6.5';
 const SHELL=Object.freeze([
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
-  './app.js','./games.js','./participants.js','./participants-sidebar.js','./participant-voice.js',
-  './vertical-motion.js','./diagnostics.js','./pwa.js','./manifest.webmanifest',
+  './app.js','./games.js','./participants.js','./participants-sidebar.js','./participants-stage.js','./participant-voice.js',
+  './vertical-motion.js','./diagnostics.js','./pwa.js','./participants-stage.css','./manifest.webmanifest',
   './assets/tracky-mark.svg','./assets/icon-192.png','./assets/icon-512.png',
   './src/launch-core.js','./src/tracker-core.js','./src/movement-core.js',
   './src/gameplay-core.js','./src/game-platform.js','./src/shared-board.js',

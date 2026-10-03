@@ -28,55 +28,57 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf dist tracky2-v0.6.4-deploy.zip
-          mkdir -p dist/tracky2-v0.6.4/src/games dist/tracky2-v0.6.4/docs dist/tracky2-v0.6.4/assets
-          cp manifest.webmanifest sw.js pwa.js index.html tracker.html launch.js games.html games.js vertical-motion.html participants.html diagnostics.html app.js vertical-motion.js participants.js participants-sidebar.js participant-voice.js diagnostics.js styles.css README.md package.json dist/tracky2-v0.6.4/
-          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.6.4/src/
-          cp src/games/random-follow-pattern.js src/games/pattern-setup.js src/games/reaction-challenge.js dist/tracky2-v0.6.4/src/games/
-          cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md dist/tracky2-v0.6.4/docs/
-          cp assets/tracky-mark.svg assets/icon-192.png assets/icon-512.png dist/tracky2-v0.6.4/assets/
+          rm -rf dist tracky2-v0.6.5-deploy.zip
+          mkdir -p dist/tracky2-v0.6.5/src/games dist/tracky2-v0.6.5/docs dist/tracky2-v0.6.5/assets
+          cp manifest.webmanifest sw.js pwa.js index.html tracker.html launch.js games.html games.js vertical-motion.html participants.html diagnostics.html app.js vertical-motion.js participants.js participants-sidebar.js participants-stage.js participant-voice.js diagnostics.js styles.css participants-stage.css README.md package.json dist/tracky2-v0.6.5/
+          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.6.5/src/
+          cp src/games/random-follow-pattern.js src/games/pattern-setup.js src/games/reaction-challenge.js dist/tracky2-v0.6.5/src/games/
+          cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md dist/tracky2-v0.6.5/docs/
+          cp assets/tracky-mark.svg assets/icon-192.png assets/icon-512.png dist/tracky2-v0.6.5/assets/
           cd dist
-          zip -r ../tracky2-v0.6.4-deploy.zip tracky2-v0.6.4
+          zip -r ../tracky2-v0.6.5-deploy.zip tracky2-v0.6.5
 
       - name: Verify deploy ZIP
         shell: bash
         run: |
           set -euo pipefail
-          unzip -t tracky2-v0.6.4-deploy.zip
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F "tracky2-v0.6.4/src/model-config.js"
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F "tracky2-v0.6.4/src/room-audio-worklet.js"
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/games/random-follow-pattern.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/games/reaction-challenge.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/face-gallery.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/participants-sidebar.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/roster-layout.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/face-preview.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/games.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/src/game-lobby.js'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/docs/GAME-PLATFORM.md'
+          unzip -t tracky2-v0.6.5-deploy.zip
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F "tracky2-v0.6.5/src/model-config.js"
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F "tracky2-v0.6.5/src/room-audio-worklet.js"
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/games/random-follow-pattern.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/games/reaction-challenge.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/face-gallery.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/participants-sidebar.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/participants-stage.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/participants-stage.css'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/roster-layout.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/face-preview.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/games.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/src/game-lobby.js'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/docs/GAME-PLATFORM.md'
           rm -rf dist/package-smoke
           mkdir -p dist/package-smoke
-          unzip -q tracky2-v0.6.4-deploy.zip -d dist/package-smoke
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/game-lobby.js').then(m => { if (!m.validateLobbySelection || !m.roundRosterPreview) process.exit(1); })"
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/tracker.html'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/assets/tracky-mark.svg'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/assets/icon-512.png'
-          unzip -l tracky2-v0.6.4-deploy.zip | grep -F 'tracky2-v0.6.4/sw.js'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/games/reaction-challenge.js').then(m => { if (!m.reactionChallengeGame || m.reactionChallengeGame.id !== 'reaction-challenge') process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.4/src/roster-layout.js').then(m => { if (m.rosterView({wide:false,mobileOpen:true}).state !== 'mobile-open') process.exit(1); })"
-          sha256sum tracky2-v0.6.4-deploy.zip | tee tracky2-v0.6.4-deploy.zip.sha256
+          unzip -q tracky2-v0.6.5-deploy.zip -d dist/package-smoke
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/game-lobby.js').then(m => { if (!m.validateLobbySelection || !m.roundRosterPreview) process.exit(1); })"
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/tracker.html'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/assets/tracky-mark.svg'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/assets/icon-512.png'
+          unzip -l tracky2-v0.6.5-deploy.zip | grep -F 'tracky2-v0.6.5/sw.js'
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/games/reaction-challenge.js').then(m => { if (!m.reactionChallengeGame || m.reactionChallengeGame.id !== 'reaction-challenge') process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.6.5/src/roster-layout.js').then(m => { if (m.rosterView({wide:false,mobileOpen:true}).state !== 'mobile-open') process.exit(1); })"
+          sha256sum tracky2-v0.6.5-deploy.zip | tee tracky2-v0.6.5-deploy.zip.sha256
 
       - name: Upload deploy ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tracky2-v0.6.4-deploy
+          name: tracky2-v0.6.5-deploy
           path: |
-            tracky2-v0.6.4-deploy.zip
-            tracky2-v0.6.4-deploy.zip.sha256
+            tracky2-v0.6.5-deploy.zip
+            tracky2-v0.6.5-deploy.zip.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -89,13 +91,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create v0.6.4 \
-            tracky2-v0.6.4-deploy.zip \
-            tracky2-v0.6.4-deploy.zip.sha256 \
+          gh release create v0.6.5 \
+            tracky2-v0.6.5-deploy.zip \
+            tracky2-v0.6.5-deploy.zip.sha256 \
             --target "$GITHUB_SHA" \
-            --title "Tracky2 v0.6.4 — Direct deployment" \
-            --notes "Direct standalone ZIP with retractable left Participants sidebar, removed status strip, original right gallery and voice controls, splash, PWA and both games."
-          gh release view v0.6.4 --json assets \
-            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.4-deploy.zip'
-          gh release view v0.6.4 --json assets \
-            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.4-deploy.zip.sha256'
+            --title "Tracky2 v0.6.5 — Direct deployment" \
+            --notes "Direct ZIP with full-height live camera, floating glass photo and voice panels, retractable left participants roster, bottom camera actions and preserved local participant enrollment."
+          gh release view v0.6.5 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.5-deploy.zip'
+          gh release view v0.6.5 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.6.5-deploy.zip.sha256'
