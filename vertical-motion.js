@@ -1871,13 +1871,21 @@ function renderVoiceHud() {
   })[listening.state]||'Voice standby';
   renderListeningHealth();
 
+  const transcriptLifecycleLabel={
+    pending:'Transcribing…',partial:'Partial transcript · ephemeral',
+    final:'Transcript final',corrected:'Transcript corrected',
+    cancelled:'Transcript cancelled',unavailable:'Transcript unavailable'
+  }[state.voice.currentTranscriptState];
   ui.transcriptModelState.textContent = !ui.liveTranscription.checked
     ? 'Transcription off'
-    : state.voice.transcriptReady
-      ? 'Local transcription online'
-      : state.voice.transcriptLoading
-        ? 'Loading transcription…'
-        : 'Loads on first accepted turn';
+    : transcriptLifecycleLabel
+      ? transcriptLifecycleLabel+(state.voice.currentTranscriptModelRevision
+        ? ' · '+state.voice.currentTranscriptModelRevision.slice(0,8):'')
+      : state.voice.transcriptReady
+        ? 'Local transcription online'
+        : state.voice.transcriptLoading
+          ? 'Loading transcription…'
+          : 'Loads on first accepted turn';
 }
 
 function renderDialogueTurns() {
@@ -1928,8 +1936,19 @@ function renderDialogueTurns() {
       turn.nearbyParticipantNames?.length?
         'Nearby: '+turn.nearbyParticipantNames.join(', ')+' · speaker not verified':
       'Speaker not matched · no reliable person association yet';
+    const transcriptMeta=document.createElement('small');
+    const transcriptBits=[
+      String(turn.transcriptState||(turn.transcriptEditedAt?'corrected':'final')).toUpperCase(),
+      turn.transcriptSource||'local-whisper'
+    ];
+    if(turn.transcriptModelRevision)transcriptBits.push('rev '+String(turn.transcriptModelRevision).slice(0,8));
+    if(Number.isFinite(turn.transcriptCaptureDurationMs))
+      transcriptBits.push((turn.transcriptCaptureDurationMs/1000).toFixed(1)+'s capture');
+    if(Number.isFinite(turn.transcriptProcessingDurationMs))
+      transcriptBits.push(Math.round(turn.transcriptProcessingDurationMs)+'ms process');
+    transcriptMeta.textContent='Transcript · '+transcriptBits.join(' · ');
 
-    card.append(top, transcript, context);
+    card.append(top, transcript, context,transcriptMeta);
     ui.dialogueTurns.append(card);
   }
 }
