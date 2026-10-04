@@ -3800,19 +3800,31 @@ if(state.mode==='agent'){
   agentRuntime.init();
   agentRuntime.onMeetingChange?.(meetingUI?.activeMeeting()||null);
   const autoGreet=document.getElementById('agentAutoGreet');
+  const proactiveEnabled=document.getElementById('agentProactiveEnabled');
+  const followupsEnabled=document.getElementById('agentFollowupsEnabled');
   const quietHours=document.getElementById('agentQuietHours');
   const quietStart=document.getElementById('agentQuietStart');
   const quietEnd=document.getElementById('agentQuietEnd');
+  const followupDelay=document.getElementById('agentFollowupDelay');
+  const interruptionBudget=document.getElementById('agentInterruptionBudget');
   const refreshCognitivePolicy=()=>{
    cognitiveLoop.setPolicy({...DEFAULT_COGNITIVE_POLICY,
     autoGreet:autoGreet.checked,quietEnabled:quietHours.checked,
     quietStart:quietStart.value,quietEnd:quietEnd.value});
+   proactiveGovernor.setPolicy(normalizeProactivePolicy({...DEFAULT_PROACTIVE_POLICY,
+    enabled:proactiveEnabled.checked,followupsEnabled:followupsEnabled.checked,
+    followupDelayMs:Number(followupDelay.value),
+    maxInterruptionsPerHour:Number(interruptionBudget.value)}));
    renderCognitiveStatus();
   };
-  for(const control of [autoGreet,quietHours,quietStart,quietEnd])
+  for(const control of [autoGreet,proactiveEnabled,followupsEnabled,quietHours,
+   quietStart,quietEnd,followupDelay,interruptionBudget])
    control.addEventListener('change',refreshCognitivePolicy);
-  autoGreet.checked=true;quietHours.checked=false;
+  autoGreet.checked=true;proactiveEnabled.checked=true;followupsEnabled.checked=true;
+  quietHours.checked=false;followupDelay.value='60000';interruptionBudget.value='3';
   refreshCognitivePolicy();
+  proactiveTimer=window.setInterval(tickProactive,1000);
+  tickProactive();
   sceneUI=createRoomSceneUi({
    getTracks:()=>state.running?publicRoomTracks():[],
    mirror:()=>ui.mirror.checked,
