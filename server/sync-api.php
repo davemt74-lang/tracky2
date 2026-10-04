@@ -53,6 +53,7 @@ try{
     if(!is_array($changes)||count($changes)>50)tracky_reply(['error'=>'changes must contain at most 50 records'],422);
     $results=[];$now=(int)floor(microtime(true)*1000);
     foreach($changes as $change){
+        unset($id);
         if(!is_array($change)){ $results[]=['status'=>'rejected','error'=>'Invalid change'];continue; }
         try{
             $id=tracky_sync_id($change['id']??'');
@@ -76,7 +77,7 @@ try{
                     $q->execute([$nextVersion,$clientAt,$now,$now,$actor['id'],$id]);
                 }else{
                     $q=$db->prepare("INSERT INTO participants(id,name,profile_json,profile_ciphertext,consent,version,client_updated_at,server_updated_at,deleted_at,updated_by)
-                      VALUES(?,'Deleted participant','{}',NULL,0,1,?,?,?,?,?)");
+                      VALUES(?,'Deleted participant','{}',NULL,0,1,?,?,?,?)");
                     $clientAt=isset($change['clientUpdatedAt'])&&is_numeric($change['clientUpdatedAt'])?(int)$change['clientUpdatedAt']:$now;
                     $q->execute([$id,$clientAt,$now,$now,$actor['id']]);
                     $nextVersion=1;
