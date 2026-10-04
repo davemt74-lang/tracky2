@@ -407,6 +407,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
  return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
+  getHistory:()=>entries.map(entry=>({...entry})),
   isBusy:()=>Boolean(open||responsePending||speech?.speaking),
   proactiveSpeak(text,{participantId=null,scopeId=null}={}){
    if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
