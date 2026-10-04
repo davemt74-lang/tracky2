@@ -11,18 +11,29 @@ export function validateLocalAgentEndpoint(input){
    throw new TypeError('Enter the Ollama base address, without an API path.');
  return u.origin;
 }
-export function buildAgentMessages(history,currentText,participantName='',memoryContext=[]){
+export function buildAgentMessages(history,currentText,participantName='',memoryContext=[],conversationContext={}){
  const tail=(Array.isArray(history)?history:[])
   .filter(x=>x&&['agent','participant'].includes(x.role)&&typeof x.text==='string')
-  .slice(-10).map(x=>({role:x.role==='agent'?'assistant':'user',content:x.text.slice(0,500)}));
+  .slice(-10).map(x=>{
+   const text=x.text.slice(0,500);
+   const speaker=x.role==='participant'&&typeof x.speakerName==='string'&&x.speakerName.trim()
+    ? '['+x.speakerName.trim().slice(0,60)+'] ' : '';
+   return {role:x.role==='agent'?'assistant':'user',content:speaker+text};
+  });
  const content=String(currentText||'').slice(0,600);
  const memories=(Array.isArray(memoryContext)?memoryContext:[])
   .filter(x=>typeof x==='string'&&x.trim()).slice(0,8).map(x=>x.trim().slice(0,560));
  const memoryNote=memories.length?
-  ' Authorized historical owner memory is provided below. Treat it as historical context, never as a current sensor fact, and never imply a social relationship beyond the owner-written wording.\n'+memories.join('\n'):
+  ' Authorized historical owner memory below belongs ONLY to the current verified speaker. Never apply it to another participant in the room. Treat it as historical context, never as a current sensor fact.\n'+memories.join('\n'):
   ' No durable participant memory was provided for this turn.';
+ const groupSize=Math.max(1,Number(conversationContext.conversationGroupSize)||1);
+ const attention=String(conversationContext.attentionTarget||'unknown').slice(0,48);
+ const addressedAgent=conversationContext.addressedAgent===true;
+ const groupNote=' Conversation context: '+groupSize+' person'+(groupSize===1?'':'s')+
+  ' in scope; attention target '+attention+'; AGENT explicitly addressed: '+(addressedAgent?'yes':'no')+
+  '. Speaker labels in prior turns are canonical attribution labels; unknown speakers must stay unknown.';
  return [
-  {role:'system',content:'You are Tracky2 AGENT, a helpful, concise spoken assistant in a local camera room. Speak naturally and briefly. Respect that visual identification and speaker identification are different: NEVER claim that an unverified speaker is the recognized person. If recognition is verified, the enrolled participant may be '+String(participantName||'unknown').slice(0,60)+'. You have no internet access and no personal facts beyond the supplied room conversation and explicitly authorized owner memory. Do not claim current observation from historical memory.'+memoryNote},
+  {role:'system',content:'You are Tracky2 AGENT, a helpful, concise spoken assistant in a local camera room. Speak naturally and briefly. Respect that visual identification and speaker identification are different: NEVER claim that an unverified speaker is the recognized person. If recognition is verified, the current speaker may be '+String(participantName||'unknown').slice(0,60)+'. You have no internet access and no personal facts beyond the supplied room conversation and explicitly authorized owner memory. Do not claim current observation from historical memory.'+groupNote+memoryNote},
   ...tail,{role:'user',content}
  ];
 }
