@@ -159,7 +159,7 @@ ui.mic.addEventListener('click',async()=>{
 function acceptanceChecks(){
  const checks={};
  for(const input of ui.acceptance?.querySelectorAll('[data-release-check]')||[])
-  checks[input.dataset.releaseCheck]=input.checked===true;
+  if(input.checked===true)checks[input.dataset.releaseCheck]=true;
  return checks;
 }
 function renderAcceptanceStatus(){
