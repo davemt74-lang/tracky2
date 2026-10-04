@@ -53,6 +53,7 @@ import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
+import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from './src/room-ui-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {
@@ -200,6 +201,7 @@ const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
+let roomTimelineFilter='all';
 function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
@@ -318,8 +320,25 @@ function renderRoomObservations(){
  status.textContent=!state.running?'Camera unavailable · observations paused':
   visible.length?visible.length+' stable participant'+(visible.length===1?'':'s')+' visible · '+(state.voice.active?'audio on':'audio off'):
   'No stable participants visible · '+(state.voice.active?'audio on':'audio off');
- for(const e of roomHistory.slice(-65).reverse()){
+ const overview=roomUiOverview({
+  events:projection.events,stableParticipants:visible.length,
+  camera:projection.sensors.camera,microphone:projection.sensors.microphone
+ });
+ const participantsCount=document.getElementById('roomOverviewParticipants');
+ const sensorSummary=document.getElementById('roomOverviewSensors');
+ const evidenceCount=document.getElementById('roomOverviewEvidence');
+ const decisionCount=document.getElementById('roomOverviewDecisions');
+ if(participantsCount)participantsCount.textContent=String(overview.participants);
+ if(sensorSummary)sensorSummary.textContent=overview.camera+' / '+overview.microphone;
+ if(evidenceCount)evidenceCount.textContent=String(overview.evidence);
+ if(decisionCount)decisionCount.textContent=String(overview.decisions);
+ const filtered=roomHistory.slice(-65).reverse().filter(e=>roomEventMatchesFilter(e,roomTimelineFilter));
+ const count=document.getElementById('roomTimelineCount');
+ if(count)count.textContent=filtered.length+' event'+(filtered.length===1?'':'s')+' shown';
+ for(const e of filtered){
   const item=document.createElement('article');item.className='room-observation';
+  item.dataset.category=String(e.category||'');
+  item.dataset.kind=String(e.kind||'observation');
   const time=document.createElement('time');time.dateTime=new Date(e.at).toISOString();
   time.textContent=new Date(e.at).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const heading=document.createElement('strong');heading.textContent=e.message;
@@ -351,6 +370,9 @@ function renderRoomObservations(){
  if(!roomHistory.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
   empty.textContent='Room observations appear as participant and device events occur.';timeline.append(empty);
+ }else if(!filtered.length){
+  const empty=document.createElement('p');empty.className='dialogue-empty';
+  empty.textContent='No ROOM events match this filter.';timeline.append(empty);
  }
 }
 function addRoomObservation(observation){
@@ -2832,6 +2854,14 @@ renderDialogueTurns();
 renderVoiceHud();
 renderStats(performance.now());
 renderMode();
+for(const button of document.querySelectorAll('[data-room-filter]')){
+ button.addEventListener('click',()=>{
+  roomTimelineFilter=normalizeRoomTimelineFilter(button.dataset.roomFilter);
+  for(const candidate of document.querySelectorAll('[data-room-filter]'))
+   candidate.setAttribute('aria-pressed',String(candidate===button));
+  renderRoomObservations();
+ });
+}
 if(state.mode==='agent'){
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
