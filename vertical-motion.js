@@ -59,6 +59,7 @@ import {
 } from './src/runtime-resilience-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
+import {createMeetingUi} from './src/meeting-ui.js';
 import {ConversationListeningController} from './src/conversation-listening-core.js';
 import {
  SpeakerAssociationTracker,resolveSpeakerAssociation,speakerAssociationLabel,
@@ -219,7 +220,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
@@ -1271,6 +1272,7 @@ async function reloadIdentityParticipants() {
     const participantIds=state.identity.participants.map(p=>p.id);
     cognitiveLoop.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
+    meetingUI?.refreshParticipants();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
       : null;
@@ -2270,7 +2272,10 @@ async function processRoomSegment(segment) {
       visibleVisitorIds:visibleConversationVisitorIds,
       groupSize:Math.max(1,conversationTracks.length)
     });
-    turn={...turn,...conversationFields};
+    turn={...turn,...conversationFields,
+      meetingId:segment.meetingId||null,
+      meetingSchemaVersion:segment.meetingId?segment.meetingSchemaVersion||1:null
+    };
     state.voice.currentConversationAttention=turn.attentionTarget;
     state.voice.currentConversationGroupSize=turn.conversationGroupSize;
     state.voice.currentConversationLabel=conversationContextLabel(turn);
@@ -2324,6 +2329,7 @@ async function processRoomSegment(segment) {
     state.voice.turns.push(savedTurn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     void refreshTranscriptSessionSummary();
+    void meetingUI?.refreshTurns();
     state.voice.lastDecision = 'accepted';
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
@@ -2379,7 +2385,8 @@ function roomTrackSnapshot() {
 }
 
 function onRoomAudioSegment(segment) {
-  const queued=listeningController.enqueue(segment,{
+  const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
+  const queued=listeningController.enqueue({...segment,...meetingFields},{
     generation:state.voice.generation,
     roomTracks:roomTrackSnapshot(),
     now:Date.now()
@@ -2508,6 +2515,7 @@ async function clearSavedDialogue() {
     renderTranscriptSearchResults([],'');
     renderDialogueTurns();
     await refreshTranscriptSessionSummary([]);
+    void meetingUI?.refreshTurns();
     agentRuntime?.refreshConversation();
     pushRoomEvent('Saved dialogue history cleared from this device.', 'system');
   } catch (error) {
@@ -2638,6 +2646,7 @@ async function useTrackPhotoAsPrimary(track) {
     });
     await reloadIdentityParticipants();
     renderParticipantCards();
+    void meetingUI?.updateRoster(publicRoomTracks());
   } catch (error) {
     console.error(error);
   }
@@ -3415,6 +3424,7 @@ window.addEventListener('beforeunload', () => {
   if(storageHealthTimer)clearInterval(storageHealthTimer);
   for(const unwatch of permissionWatchers)unwatch();
   taskUI?.destroy();
+  meetingUI?.destroy();
   stopRoomAudio();
   stopCamera();
 });
@@ -3483,16 +3493,24 @@ if(state.mode==='agent'){
   void refreshStorageHealth({announce:false});
   storageHealthTimer=window.setInterval(()=>{void refreshStorageHealth();},60000);
   renderRuntimeHealth(true);
+  meetingUI=createMeetingUi({
+   participants:()=>state.identity.participants,
+   recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options),
+   onChange:()=>agentRuntime?.refreshConversation()
+  });
+  await meetingUI.init().catch(error=>console.warn('Meeting runtime initialization failed:',error));
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
     getDialogueTurns:()=>state.voice.turns,
     getMemories:participantId=>memoryUI?.contextFor(participantId)||[],
+    getMeeting:()=>meetingUI?.activeMeeting()||null,
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
      state.voice.currentTranscriptState='corrected';
      void refreshTranscriptSessionSummary();
      if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
+     void meetingUI?.refreshTurns();
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
