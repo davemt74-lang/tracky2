@@ -12,7 +12,7 @@ try{
  tracky_schema($db);
  check((int)$db->query('SELECT COUNT(*) FROM roles')->fetchColumn()===4,'Four default roles created');
  $owner=(array)$db->query("SELECT permission FROM role_permissions WHERE role='owner'")->fetchAll(PDO::FETCH_COLUMN);
- check(in_array('providers.manage',$owner,true)&&in_array('roles.manage',$owner,true),'Owner gets provider and role admin');
+ check(in_array('providers.manage',$owner,true)&&in_array('roles.manage',$owner,true)&&in_array('sync.manage',$owner,true),'Owner gets provider, role and sync admin');
  $stmt=$db->prepare("INSERT INTO users(username,password_hash,role) VALUES(?,?,'owner')");
  $stmt->execute(['first-owner',password_hash('correct horse battery stable',PASSWORD_DEFAULT)]);
  $id=(int)$db->lastInsertId();
@@ -25,6 +25,10 @@ try{
  check(!str_contains((string)$data,$secret),'Plaintext secret never stored');
  check(count(tracky_provider_status($db))===3,'Three configured provider choices');
  check(count($db->query('SELECT * FROM audit_log')->fetchAll())===1,'Provider updates audited');
+ $encrypted=tracky_encrypt('participant-profile-test');
+ check(!str_contains($encrypted,'participant-profile-test'),'Generic encrypted data is not plaintext');
+ check(tracky_decrypt($encrypted)==='participant-profile-test','Generic encrypted data round-trips');
+ check(tracky_schema_version($db)===TRACKY_SCHEMA_VERSION,'Fresh schema version recorded');
  $failed=false;try{tracky_store_provider($db,$id,'bad-provider','1234567890');}catch(InvalidArgumentException $e){$failed=true;}
  check($failed,'Unknown providers rejected');
  file_put_contents($temp.'/installed.lock','test');
