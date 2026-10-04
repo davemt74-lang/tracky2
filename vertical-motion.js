@@ -1806,8 +1806,13 @@ function renderVoiceHud() {
     ? Math.round(state.voice.currentVoiceConfidence * 100) + '%'
     : '—';
   ui.roomBodyLock.textContent = state.voice.currentSpeakerId
-    ? (state.voice.currentBodyLock ? 'CONFIRMED' : 'NOT VISIBLE')
+    ? (state.voice.currentBodyLock ? 'CONFIRMED' : 'NOT CURRENT')
     : '—';
+  if(ui.roomSpeakerAssociation)
+    ui.roomSpeakerAssociation.textContent=speakerAssociationLabel(state.voice.currentAssociationState);
+  if(ui.roomSpeakerProvenance)
+    ui.roomSpeakerProvenance.textContent=state.voice.currentAssociationProvenance.length
+      ? state.voice.currentAssociationProvenance.join(' · ') : 'speaker-unverified';
   ui.roomDialogueGroup.textContent = state.voice.currentGroupId || '—';
 
   const listening=listeningController.snapshot();
