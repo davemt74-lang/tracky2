@@ -420,3 +420,49 @@
 @media(max-width:380px){
  .game-page.agent-mode .agent-cognitive-hours{grid-template-columns:1fr}
 }
+
+
+/* V0.10F explicit, local task queue. No arbitrary command executor. */
+.game-page.agent-mode .agent-task-settings{
+ margin:10px 0;padding:9px 10px;border:1px solid rgba(123,214,230,.28);
+ border-radius:9px;background:rgba(7,35,48,.46)
+}
+.game-page.agent-mode .agent-task-settings>summary{
+ cursor:pointer;font-weight:800;font-size:.7rem;color:#dcfbff;letter-spacing:.04em
+}
+.game-page.agent-mode .agent-task-settings>small{
+ display:block;margin:7px 0;color:#b7d3da;font-size:.62rem;line-height:1.5
+}
+.game-page.agent-mode .agent-task-form{
+ display:grid;grid-template-columns:1fr;gap:7px;margin:8px 0
+}
+.game-page.agent-mode .agent-task-form label{display:grid;gap:4px;font-size:.63rem;color:#cae7ec}
+.game-page.agent-mode .agent-task-form select,
+.game-page.agent-mode .agent-task-form input{
+ width:100%;min-width:0;padding:7px;border:1px solid #668e98;border-radius:6px;
+ background:#12333f;color:#f0ffff;font-size:.72rem
+}
+.game-page.agent-mode .agent-task-form button,
+.game-page.agent-mode .agent-task-tools button,
+.game-page.agent-mode .agent-task-actions button{
+ padding:6px 9px;border:1px solid #669ca4;border-radius:7px;
+ background:rgba(14,68,80,.76);color:#efffff;font-size:.66rem;cursor:pointer
+}
+.game-page.agent-mode .agent-task-tools{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
+.game-page.agent-mode .agent-task-status{
+ padding:7px 8px;margin:7px 0;border-left:2px solid #75ced8;
+ background:rgba(8,57,67,.34);font-size:.63rem;color:#d9f6fa;line-height:1.45
+}
+.game-page.agent-mode .agent-task-list{display:grid;gap:7px;margin:8px 0}
+.game-page.agent-mode .agent-task-row{
+ display:grid;gap:5px;padding:8px;border:1px solid rgba(108,197,207,.28);
+ border-radius:8px;background:rgba(4,28,39,.55)
+}
+.game-page.agent-mode .agent-task-row>strong{font-size:.69rem;color:#efffff}
+.game-page.agent-mode .agent-task-row>small{font-size:.59rem;color:#a9ced6;line-height:1.4}
+.game-page.agent-mode .agent-task-row>p{margin:0;font-size:.65rem;line-height:1.5;color:#d5efef}
+.game-page.agent-mode .agent-task-row[data-status="succeeded"]{border-color:rgba(108,220,176,.38)}
+.game-page.agent-mode .agent-task-row[data-status="failed"]{border-color:rgba(228,132,132,.4)}
+.game-page.agent-mode .agent-task-error{color:#ffd0d0!important}
+.game-page.agent-mode .agent-task-actions{display:flex;flex-wrap:wrap;gap:6px}
+.game-page.agent-mode .agent-task-empty{font-size:.64rem;color:#aac7cf}
