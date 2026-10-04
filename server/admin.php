@@ -64,7 +64,7 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=$target['username'];
    }elseif($action==='permission'){
     $role=(string)($_POST['role']??'');$perm=(string)($_POST['permission']??'');
-    $allowed=['participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'];
+    $allowed=['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'];
     if(!in_array($role,['viewer','operator','admin'],true)||!in_array($perm,$allowed,true))
       throw new RuntimeException('Invalid permission.');
     if(($_POST['enabled']??'')==='1')
@@ -119,7 +119,7 @@ if(!$user){
  if(tracky_permission($db,$user,'roles.manage')){
   echo '<section><h2>User types & permissions</h2><p>Changes take effect on the next request. The owner role is immutable.</p><table><tr><th>Role</th><th>Permission</th><th>Grant</th></tr>';
   foreach(['admin','operator','viewer'] as $role)
-   foreach(['participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'] as $perm){
+   foreach(['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'] as $perm){
     $q=$db->prepare('SELECT 1 FROM role_permissions WHERE role=? AND permission=?');$q->execute([$role,$perm]);
     $enabled=(bool)$q->fetchColumn();
     echo '<tr><td>'.$role.'</td><td>'.$perm.'</td><td><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="permission"><input type="hidden" name="role" value="'.$role.'"><input type="hidden" name="permission" value="'.$perm.'"><input type="hidden" name="enabled" value="'.($enabled?'0':'1').'"><button>'.($enabled?'Revoke':'Grant').'</button></form></td></tr>';
@@ -135,8 +135,8 @@ if(!$user){
   }
   echo '</section>';
  }
- if(tracky_permission($db,$user,'participants.write'))
-  echo '<section><h2>Participant migration</h2><p>Browser profiles stay local unless you explicitly select them and approve copying them into your server database.</p><button type="button" id="loadLocalParticipants">Review browser profiles</button><div id="migrationArea" role="status"></div></section><script type="module" src="./sync.js"></script>';
- echo '<section><h2>Storage & privacy</h2><p>Back up both the SQLite database and instance secret.key from your configured private directory. Do not move biometric records to this server without participant consent. Scene capture and object actions require separate authorization.</p></section>';
+ if(tracky_permission($db,$user,'sync.manage'))
+  echo '<section><h2>Browser ↔ server participant sync</h2><p>Manual and opt-in only. Review each participant, confirm biometric synchronization consent where required, and resolve conflicts explicitly. Tracky2 does not background-upload conversations, ROOM events, tasks, memories, or scene data.</p><button type="button" id="loadLocalParticipants">Review participant sync</button><div id="migrationArea" role="status"></div></section><script type="module" src="./sync.js"></script>';
+ echo '<section><h2>Storage & privacy</h2><p>Participant profile JSON is encrypted at rest with the same private instance key used for provider credentials. Back up both the SQLite database and secret.key together. Manual CLI backup/verification/recovery is available through <code>php server/backup.php</code>. Do not synchronize biometric records without participant consent.</p></section>';
 }
 echo '</main></html>';

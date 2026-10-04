@@ -1,10 +1,10 @@
-# Tracky2 V0.8.0: self-hosted installation and persistent database
+# Tracky2 self-hosted installation, encrypted participant sync and recovery
 
-Tracky2 V0.8.0 includes the entire v0.7.4 AGENT experience and an optional PHP/SQLite server backend. It works on a self-hosted HTTPS website with PHP 8.1+, PDO SQLite and sodium. No installation API key or external service is needed to create the first user.
+Tracky2 includes an optional PHP/SQLite server backend for the standalone browser application. It works on a self-hosted HTTPS website with PHP 8.1+, PDO SQLite and sodium. No installation API key or external service is needed to create the first user. V0.10.7 adds additive schema migration, encrypted participant profiles, explicit browser/server participant synchronization, optimistic conflict handling and CLI backup/recovery.
 
 ## First-time setup
 
-1. Extract the v0.8.0 deployment ZIP to the site directory and verify the published SHA-256 checksum.
+1. Extract the published deployment ZIP to the site directory and verify its SHA-256 checksum.
 2. Ensure the account can create a private directory **outside** the web-accessible document root. By default the backend uses a private directory three levels above the server directory. Alternatively configure `TRACKY2_DATA_DIR` with an absolute path outside the web root and appropriate filesystem permissions.
 3. Before granting general access to the host, visit `server/install.php` over HTTPS and choose a first-owner username and a password of at least 12 characters. The installer is one-time and records an installed lock; it refuses to overwrite an existing owner.
 4. Sign in at `server/admin.php`. The Games screen also links to Self-hosted Admin. Configure additional users, roles and provider API keys as needed. The installer itself does not require any API key.
@@ -15,11 +15,15 @@ After installation, never remove `installed.lock` to reinstall or reset a passwo
 
 Owner is the only default user allowed to change role permission grants and cannot be disabled through the UI. Owner/admin can create and manage accounts with roles below their own, including disabling users and changing their passwords. Operator can manage permitted participant and scene data; viewer can read limited metadata. The admin permission matrix controls precise grants for participants, scene capture, object review, skill approvals, user administration, and provider settings. APIs require a valid server session, live role permission check, and CSRF on writes; the viewer permission only exposes participant metadata (no stored face or voice samples).
 
-## Participant storage and migration
+## Participant storage and browser/server synchronization
 
-Legacy browser IndexedDB data is not automatically uploaded or deleted. In Admin, **Review browser profiles** lists records only from the current browser. Choose each profile individually and confirm its participant has consented to moving their photos/face/voice profile. Approved selections are copied into private server-side SQLite; local profiles remain until you deliberately delete them. A single server session endpoint at `server/session.php` returns login state, authorized permissions and a same-origin CSRF token for future UI integrations.
+Browser IndexedDB remains authoritative for ordinary standalone use and is never uploaded in the background. In Admin, **Review participant sync** compares only participant profiles from the current browser with the server. Each participant must be enabled separately. Face/voice embeddings or saved photographs require explicit participant consent before browser/server synchronization is enabled.
 
-The existing browser-only camera/participant pages still use their original local data until synchronized deliberately. Real-time bidirectional participant synchronization, complete deletion/retention tools and multi-device reconciliation are follow-up sections; do not assume existing local camera records are automatically mirrored after installation.
+Synchronization is manual and participant-only in V0.10.7. Current conversation transcripts, ROOM events, AGENT memories, tasks, game history and scene data are not uploaded by this sync path. The browser stores only reconciliation metadata: enabled state, last acknowledged server version, local deletion tombstone and consent-confirmation time.
+
+The server stores participant profile JSON encrypted at rest with the private instance `secret.key`. Each record has an optimistic version number and deletion tombstone. If both browser and server changed, Tracky2 does not merge silently: Admin shows a conflict and requires **Keep browser copy** or **Keep server copy**. Even a conflict resolution is tied to the server version the owner reviewed; a newer unseen server change re-opens the conflict.
+
+Offline or failed sync attempts leave browser and server records unchanged except for already-saved local reconciliation metadata. Refreshing the manual sync screen later recomputes the correct action from current browser data, server version and deletion state.
 
 ## LLM and voice providers
 
@@ -29,6 +33,18 @@ Admin can securely save/replace/remove encrypted OpenAI (ChatGPT API), Anthropic
 
 Authorized `server/api.php?resource=scenes|objects|skills` requests store scenes, proposed/approved objects with normalized bounding boxes, and per-object allowlisted skills (`capture_image`, `product_search`, `describe_object`). A proposed object must be approved before any skill can be enabled. These records are data and permissions, not unrestricted commands. The live object-detection model, scene snapshots, governed tool execution, external searches and retention policies need dedicated integration before scene intelligence is usable end-to-end.
 
+## Backup, restore and offline recovery
+
+Use the CLI-only recovery tool from the application directory:
+
+`php server/backup.php create /private/path/tracky2-backup`
+
+`php server/backup.php verify /private/path/tracky2-backup`
+
+`php server/backup.php restore /private/path/tracky2-backup --yes`
+
+A backup contains `tracky.sqlite`, `secret.key`, `installed.lock` and a SHA-256 manifest. Verification runs SQLite integrity checks and confirms the included key can decrypt participant data. Restore requires the explicit `--yes` flag and creates a separate pre-restore recovery point first. Run restore during a maintenance window so no web request is writing the database.
+
 ## Verification and deployment
 
-CI validates PHP syntax/extensions, real first-owner installation and login, the one-time installer lock, SQLite permissions, CSRF handling, provider encryption/recovery, existing JavaScript/PWA tests, and ZIP package integrity. Personal camera, microphone, participant consent and any configured provider calls require device-level acceptance. The deployment archive includes server runtime PHP/JS and documentation, **never** the private database, passwords, provider credentials or encryption key.
+CI validates PHP syntax/extensions, fresh install, legacy-schema upgrade, one-time installer lock, SQLite permissions, CSRF, encrypted participant sync, conflict detection, provider encryption/recovery, backup verify/restore, JavaScript reconciliation tests, PWA tests, and ZIP package integrity. Personal camera, microphone and participant consent still require device-level acceptance. The deployment archive includes recovery tooling and server runtime code, **never** the live private database, passwords, provider credentials or encryption key.

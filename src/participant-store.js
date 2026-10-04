@@ -5,7 +5,7 @@ import {reviseTranscriptRecord} from './transcript-correction.js';
 import {normalizeMemoryRecord} from './agent-memory-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -13,6 +13,7 @@ const ROOM_OBSERVATIONS = 'room-observations';
 const ROOM_SCENE = 'room-scene-map';
 const AGENT_TASKS = 'agent-tasks';
 const AGENT_MEMORIES = 'agent-memories';
+const PARTICIPANT_SYNC = 'participant-sync-state';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -90,6 +91,9 @@ export async function openParticipantDb() {
         memories.createIndex('status','status',{unique:false});
         memories.createIndex('expiresAt','expiresAt',{unique:false});
       }
+      if (!db.objectStoreNames.contains(PARTICIPANT_SYNC)) {
+        db.createObjectStore(PARTICIPANT_SYNC,{keyPath:'participantId'});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -147,15 +151,16 @@ export async function patchParticipant(id, patch) {
   return saveParticipant({ ...current, ...patch, id, createdAt: current.createdAt });
 }
 
-export async function deleteParticipant(id) {
+export async function deleteParticipant(id,{remoteSyncState=null}={}) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
     const observations = tx.objectStore(ROOM_OBSERVATIONS);
     const memories = tx.objectStore(AGENT_MEMORIES);
+    const sync = tx.objectStore(PARTICIPANT_SYNC);
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -193,6 +198,19 @@ export async function deleteParticipant(id) {
     const memoryRows = await requestToPromise(memories.getAll());
     for (const memory of memoryRows) {
       if (memory.participantId === id) memories.delete(memory.id);
+    }
+    const priorSync=await requestToPromise(sync.get(id));
+    if(remoteSyncState&&typeof remoteSyncState==='object'){
+      sync.put({
+        participantId:id,enabled:true,
+        serverVersion:Math.max(0,Number(remoteSyncState.serverVersion)||0),
+        lastSyncedLocalUpdatedAt:null,localDeletedAt:null,
+        consentConfirmedAt:Number(remoteSyncState.consentConfirmedAt)||priorSync?.consentConfirmedAt||null,
+        serverUpdatedAt:Number(remoteSyncState.serverUpdatedAt)||Date.now(),
+        updatedAt:Date.now()
+      });
+    }else if(priorSync?.enabled){
+      sync.put({...priorSync,localDeletedAt:Date.now(),updatedAt:Date.now()});
     }
     await done;
     // Follow participant deletion with local game-history cleanup on the same device.
@@ -472,4 +490,37 @@ export function deleteAgentMemory(id){
 }
 export function clearAgentMemories(){
  return storeAction(AGENT_MEMORIES,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.10H explicit manual participant sync state. This is reconciliation metadata,
+   not a background transport and contains no participant profile/biometric data. */
+export function normalizeParticipantSyncState(input={}){
+ const participantId=String(input.participantId||'').slice(0,96);
+ if(!participantId)throw new Error('participantId required');
+ return {
+  participantId,enabled:input.enabled===true,
+  serverVersion:Math.max(0,Number(input.serverVersion)||0),
+  lastSyncedLocalUpdatedAt:Number.isFinite(input.lastSyncedLocalUpdatedAt)?input.lastSyncedLocalUpdatedAt:null,
+  localDeletedAt:Number.isFinite(input.localDeletedAt)?input.localDeletedAt:null,
+  consentConfirmedAt:Number.isFinite(input.consentConfirmedAt)?input.consentConfirmedAt:null,
+  serverUpdatedAt:Number.isFinite(input.serverUpdatedAt)?input.serverUpdatedAt:null,
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now()
+ };
+}
+export function listParticipantSyncStates(){
+ return storeAction(PARTICIPANT_SYNC,'readonly',store=>requestToPromise(store.getAll()));
+}
+export function getParticipantSyncState(participantId){
+ return storeAction(PARTICIPANT_SYNC,'readonly',store=>requestToPromise(store.get(participantId)));
+}
+export async function saveParticipantSyncState(input){
+ const safe=normalizeParticipantSyncState(input);
+ await storeAction(PARTICIPANT_SYNC,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function deleteParticipantSyncState(participantId){
+ return storeAction(PARTICIPANT_SYNC,'readwrite',async store=>{
+  await requestToPromise(store.delete(participantId));return true;
+ });
 }

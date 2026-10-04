@@ -11,13 +11,23 @@ try {
  if(!isset($read[$resource])||!in_array($method,['GET','POST'],true))tracky_reply(['error'=>'Not found'],404);
  $actor=tracky_require($db,($method==='GET'?$read:$write)[$resource]);
  if($method==='GET') {
+  if($resource==='participants'){
+   $rows=$db->query('SELECT id,name,profile_ciphertext,consent,version,client_updated_at,server_updated_at,updated_at FROM participants WHERE deleted_at IS NULL ORDER BY updated_at DESC')->fetchAll();
+   $canWrite=tracky_permission($db,$actor,'participants.write');
+   foreach($rows as &$row){
+    if($canWrite){
+     $plain=$row['profile_ciphertext']?tracky_decrypt((string)$row['profile_ciphertext']):'{}';
+     $row['profile']=json_decode($plain,true,32,JSON_THROW_ON_ERROR);
+    }
+    unset($row['profile_ciphertext']);
+   }unset($row);
+   tracky_reply(['records'=>$rows]);
+  }
   $query=match($resource){
-   'participants'=>tracky_permission($db,$actor,'participants.write')
-     ?'SELECT id,name,profile_json,consent,updated_at FROM participants ORDER BY updated_at DESC'
-     :'SELECT id,name,consent,updated_at FROM participants ORDER BY updated_at DESC',
    'scenes'=>'SELECT id,title,created_at FROM scenes ORDER BY created_at DESC',
    'objects'=>'SELECT id,scene_id,label,confidence,bbox_json,status FROM scene_objects ORDER BY created_at DESC',
-   'skills'=>'SELECT object_id,skill,enabled FROM object_skills ORDER BY object_id,skill'
+   'skills'=>'SELECT object_id,skill,enabled FROM object_skills ORDER BY object_id,skill',
+   default=>throw new RuntimeException('Unsupported resource.')
   };
   tracky_reply(['records'=>$db->query($query)->fetchAll()]);
  }
@@ -33,7 +43,15 @@ try {
   foreach($biometricFields as $key)if(!empty($profile[$key]))$hasBiometricData=true;
   if(empty($data['consent']) && $hasBiometricData)
       tracky_reply(['error'=>'Explicit participant consent required for biometric records'],422);
-  $db->prepare('INSERT INTO participants(id,name,profile_json,consent,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,profile_json=excluded.profile_json,consent=excluded.consent,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP')->execute([$id,$name,json_encode($profile,JSON_THROW_ON_ERROR),!empty($data['consent'])?1:0,$actor['id']]);
+  $plain=json_encode($profile,JSON_THROW_ON_ERROR);$cipher=tracky_encrypt($plain);
+  $clientAt=isset($data['clientUpdatedAt'])&&is_numeric($data['clientUpdatedAt'])?(int)$data['clientUpdatedAt']:(int)floor(microtime(true)*1000);
+  $serverAt=(int)floor(microtime(true)*1000);
+  $db->prepare("INSERT INTO participants(id,name,profile_json,profile_ciphertext,consent,version,client_updated_at,server_updated_at,deleted_at,updated_by)
+    VALUES(?,?,'{}',?,?,1,?,?,NULL,?)
+    ON CONFLICT(id) DO UPDATE SET name=excluded.name,profile_json='{}',profile_ciphertext=excluded.profile_ciphertext,
+      consent=excluded.consent,version=participants.version+1,client_updated_at=excluded.client_updated_at,
+      server_updated_at=excluded.server_updated_at,deleted_at=NULL,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP")
+    ->execute([$id,$name,$cipher,!empty($data['consent'])?1:0,$clientAt,$serverAt,$actor['id']]);
  }elseif($resource==='scenes'){
   $title=trim((string)($data['title']??'Untitled scene'));
   if(strlen($title)<1||strlen($title)>120)tracky_reply(['error'=>'Invalid scene title'],422);
