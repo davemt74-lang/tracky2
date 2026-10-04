@@ -166,6 +166,7 @@ const runtimeJs = [
   'src/room-ui-core.js',
   'src/runtime-resilience-core.js',
   'src/conversation-listening-core.js',
+  'src/speaker-participant-core.js',
   'src/orb-spatial-core.js',
   'src/agent-shortcuts.js',
   'src/voice-core.js',
