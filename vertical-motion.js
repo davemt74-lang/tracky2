@@ -69,6 +69,9 @@ import {
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
 import {
+ multiConversationTurnFields,conversationContextLabel
+} from './src/multi-conversation-core.js';
+import {
   clearDialogueTurns,
   deleteDialogueTurn,
   listDialogueTurns,
@@ -162,6 +165,8 @@ const ui = {
   roomDialogueGroup: $('#roomDialogueGroup'),
   roomSpeakerAssociation: $('#roomSpeakerAssociation'),
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
+  roomConversationAttention: $('#roomConversationAttention'),
+  roomConversationGroupSize: $('#roomConversationGroupSize'),
   transcriptModelState: $('#transcriptModelState'),
   transcriptSearch: $('#transcriptSearch'),
   transcriptSearchRun: $('#transcriptSearchRun'),
@@ -523,6 +528,9 @@ const state = {
     currentAssociationState: 'unknown-speaker',
     currentAssociationProvenance: [],
     currentAssociationTransition: null,
+    currentConversationAttention: 'unknown',
+    currentConversationGroupSize: 1,
+    currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
     sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'room-' + Date.now().toString(36),
