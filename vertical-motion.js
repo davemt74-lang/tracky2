@@ -1512,6 +1512,9 @@ async function reloadIdentityParticipants() {
     state.identity.participants = await listParticipants();
     const participantIds=state.identity.participants.map(p=>p.id);
     cognitiveLoop.forgetRemovedParticipants(participantIds);
+    for(const pending of proactiveGovernor.pending.slice())
+      if(pending.participantId&&!participantIds.includes(pending.participantId))
+        proactiveGovernor.cancelByParticipant(pending.participantId);
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
     const currentSpeaker=state.voice.currentSpeakerId
@@ -2576,6 +2579,8 @@ async function processRoomSegment(segment) {
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
        'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
       agentRuntime?.onDialogue(savedTurn);
+      proactiveGovernor.noteDialogue(savedTurn,Date.now());
+      renderCognitiveStatus();
     }
 
     renderParticipantCards();
@@ -3665,6 +3670,8 @@ window.addEventListener('beforeunload', () => {
   if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
   if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
   if(storageHealthTimer)clearInterval(storageHealthTimer);
+  if(proactiveTimer)clearInterval(proactiveTimer);
+  proactiveTimer=0;
   for(const unwatch of permissionWatchers)unwatch();
   taskUI?.destroy();
   meetingUI?.destroy();
@@ -3742,7 +3749,7 @@ if(state.mode==='agent'){
   renderRuntimeHealth(true);
   meetingUI=createMeetingUi({
    participants:()=>state.identity.participants,
-   recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options),
+   recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
    onChange:active=>{
     agentRuntime?.onMeetingChange?.(active);
     agentRuntime?.refreshConversation();
@@ -3818,7 +3825,7 @@ if(state.mode==='agent'){
   });
   taskUI=createAgentTaskUi({
    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
-   recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options)
+   recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options)
   });
   void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
   memoryUI=createAgentMemoryUi({
