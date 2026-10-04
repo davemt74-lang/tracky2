@@ -247,6 +247,18 @@
           <article><span>EVIDENCE</span><strong id="roomOverviewEvidence">0</strong><small>effective events</small></article>
           <article><span>DECISIONS</span><strong id="roomOverviewDecisions">0</strong><small>decisions / outcomes</small></article>
         </section>
+        <details class="room-runtime-health" id="roomRuntimeHealth" open>
+          <summary>RUNTIME HEALTH &amp; RECOVERY</summary>
+          <div class="room-runtime-grid">
+            <article><span>CAMERA PERMISSION</span><strong id="roomCameraPermission">Checking…</strong></article>
+            <article><span>MIC PERMISSION</span><strong id="roomMicrophonePermission">Checking…</strong></article>
+            <article><span>STORAGE</span><strong id="roomStorageHealth">Checking…</strong></article>
+            <article><span>RUNTIME BUDGET</span><strong id="roomRuntimeBudget">Collecting…</strong></article>
+            <article><span>CAMERA RECOVERY</span><strong id="roomCameraRecovery">Idle</strong></article>
+            <article><span>MIC RECOVERY</span><strong id="roomMicrophoneRecovery">Idle</strong></article>
+          </div>
+          <small id="roomRuntimeHealthNote">Aggregate health counters only. Automatic retry is bounded and occurs only after an already-granted sensor is interrupted; Tracky2 never re-prompts denied permissions in the background.</small>
+        </details>
         <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
           <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>

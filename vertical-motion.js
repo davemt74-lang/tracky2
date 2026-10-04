@@ -54,6 +54,9 @@ import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
 import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from './src/room-ui-core.js';
+import {
+ RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
+} from './src/runtime-resilience-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {
@@ -202,6 +205,17 @@ const cognitiveLoop=new AgentCognitiveLoop();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
+const runtimeBudget=new RuntimeBudget();
+const cameraRecovery=new RecoveryBudget();
+const microphoneRecovery=new RecoveryBudget();
+let cameraRecoveryTimer=0,microphoneRecoveryTimer=0;
+let cameraRecoveryPending=false,microphoneRecoveryPending=false;
+let roomAudioManuallyStopped=false;
+let storageHealth=storagePressure();
+let storageHealthTimer=0;
+let runtimeHealthLastPaint=0;
+const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
+const permissionWatchers=[];
 function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
@@ -381,10 +395,10 @@ function addRoomObservation(observation){
  if(!accepted.added)return;
  roomHistory=roomLedger.entries();renderRoomObservations();
  considerCognitiveObservation(accepted.event);
- if(saveRoomHistory){
+ if(saveRoomHistory&&storageHealth.optionalPersistence){
   const epoch=roomPrivacyEpoch,event=accepted.event;
   roomWrites=roomWrites.catch(()=>{}).then(()=>
-   epoch===roomPrivacyEpoch?saveRoomObservation(event):undefined
+   epoch===roomPrivacyEpoch&&storageHealth.optionalPersistence?saveRoomObservation(event):undefined
   ).catch(error=>console.warn('Room observation not saved:',error));
  }
  return accepted.event;
@@ -465,6 +479,161 @@ const state = {
     generation: 0
   }
 };
+
+function formatStorageHealth(){
+ if(storageHealth.status==='unknown')return 'Unknown · browser did not expose quota';
+ const percent=Math.round((storageHealth.ratio||0)*100);
+ return storageHealth.status.toUpperCase()+' · '+percent+'% used'+
+  (storageHealth.optionalPersistence?'':' · optional ROOM saves paused');
+}
+function renderRuntimeHealth(force=false){
+ if(state.mode!=='agent')return;
+ const now=performance.now();
+ if(!force&&now-runtimeHealthLastPaint<1000)return;
+ runtimeHealthLastPaint=now;
+ const runtime=runtimeBudget.snapshot();
+ const camera=document.getElementById('roomCameraPermission');
+ const microphone=document.getElementById('roomMicrophonePermission');
+ const storage=document.getElementById('roomStorageHealth');
+ const budget=document.getElementById('roomRuntimeBudget');
+ const cameraRetry=document.getElementById('roomCameraRecovery');
+ const microphoneRetry=document.getElementById('roomMicrophoneRecovery');
+ if(camera)camera.textContent=mediaPermissions.camera;
+ if(microphone)microphone.textContent=mediaPermissions.microphone;
+ if(storage)storage.textContent=formatStorageHealth();
+ if(budget)budget.textContent=runtime.status.toUpperCase()+
+  ' · '+runtime.stalls+' stalls · '+runtime.meanScanMs+'ms scan avg · audio queue '+runtime.audioQueueMax;
+ const cRetry=cameraRecovery.snapshot(),mRetry=microphoneRecovery.snapshot();
+ if(cameraRetry)cameraRetry.textContent=(cameraRecoveryPending?'Pending · ':'Idle · ')+
+  cRetry.attempts+'/'+cRetry.maxAttempts+' attempts in window';
+ if(microphoneRetry)microphoneRetry.textContent=(microphoneRecoveryPending?'Pending · ':'Idle · ')+
+  mRetry.attempts+'/'+mRetry.maxAttempts+' attempts in window';
+}
+async function refreshStorageHealth({announce=true}={}){
+ const prior=storageHealth.status;
+ try{
+  const estimate=await navigator.storage?.estimate?.();
+  storageHealth=storagePressure(estimate||{});
+ }catch{storageHealth=storagePressure();}
+ renderRuntimeHealth(true);
+ if(announce&&state.mode==='agent'&&prior!==storageHealth.status){
+  if(storageHealth.status==='critical')
+   logRoomMessage('system','Browser storage pressure critical · optional ROOM history saves paused','storage-lifecycle');
+  else if(prior==='critical'&&storageHealth.optionalPersistence){
+   logRoomMessage('system','Browser storage pressure recovered · optional ROOM history saves may resume','storage-lifecycle');
+   if(saveRoomHistory)persistCurrentRoomSnapshot();
+  }
+ }
+ return storageHealth;
+}
+function persistCurrentRoomSnapshot(){
+ if(!saveRoomHistory||!storageHealth.optionalPersistence)return false;
+ const epoch=roomPrivacyEpoch,snapshot=roomLedger.entries();
+ for(const event of snapshot){
+  roomWrites=roomWrites.catch(()=>{}).then(()=>
+   epoch===roomPrivacyEpoch&&storageHealth.optionalPersistence?saveRoomObservation(event):undefined
+  ).catch(error=>console.warn('Room observation not saved:',error));
+ }
+ return true;
+}
+function cancelCameraRecovery(){
+ if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
+ cameraRecoveryTimer=0;cameraRecoveryPending=false;renderRuntimeHealth(true);
+}
+function cancelMicrophoneRecovery(){
+ if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
+ microphoneRecoveryTimer=0;microphoneRecoveryPending=false;renderRuntimeHealth(true);
+}
+async function scheduleCameraRecovery(reason='camera-interrupted'){
+ cameraRecoveryPending=true;renderRuntimeHealth(true);
+ if(cameraRecoveryTimer)return;
+ mediaPermissions.camera=await queryMediaPermission(navigator.permissions,'camera');
+ const plan=cameraRecovery.plan({
+  permission:mediaPermissions.camera,visible:!document.hidden,
+  manualStop:cameraStoppedThisPage
+ });
+ if(!plan.allowed){
+  if(plan.reason==='retry-budget-exhausted')
+   logRoomMessage('system','Camera automatic recovery budget exhausted · use Start camera to retry','sensor-recovery');
+  renderRuntimeHealth(true);return;
+ }
+ cameraRecoveryTimer=setTimeout(async()=>{
+  cameraRecoveryTimer=0;
+  mediaPermissions.camera=await queryMediaPermission(navigator.permissions,'camera');
+  if(document.hidden||cameraStoppedThisPage||mediaPermissions.camera!=='granted'){
+   renderRuntimeHealth(true);return;
+  }
+  cameraRecovery.record();
+  const ok=await startCamera(ui.select.value);
+  if(ok){
+   cameraRecoveryPending=false;renderRuntimeHealth(true);
+   setTimeout(()=>{if(state.running)cameraRecovery.reset();renderRuntimeHealth(true);},30000);
+  }else void scheduleCameraRecovery(reason);
+ },plan.delayMs);
+ logRoomMessage('system','Camera interrupted · bounded automatic recovery scheduled','sensor-recovery');
+ renderRuntimeHealth(true);
+}
+async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
+ microphoneRecoveryPending=true;renderRuntimeHealth(true);
+ if(microphoneRecoveryTimer)return;
+ mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
+ const plan=microphoneRecovery.plan({
+  permission:mediaPermissions.microphone,visible:!document.hidden,
+  manualStop:roomAudioManuallyStopped||!state.running
+ });
+ if(!plan.allowed){
+  if(plan.reason==='retry-budget-exhausted')
+   logRoomMessage('system','Microphone automatic recovery budget exhausted · use Enable room audio to retry','sensor-recovery');
+  renderRuntimeHealth(true);return;
+ }
+ microphoneRecoveryTimer=setTimeout(async()=>{
+  microphoneRecoveryTimer=0;
+  mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
+  if(document.hidden||roomAudioManuallyStopped||!state.running||mediaPermissions.microphone!=='granted'){
+   renderRuntimeHealth(true);return;
+  }
+  microphoneRecovery.record();
+  const ok=await startRoomAudio();
+  if(ok){
+   microphoneRecoveryPending=false;renderRuntimeHealth(true);
+   setTimeout(()=>{if(state.voice.active)microphoneRecovery.reset();renderRuntimeHealth(true);},30000);
+  }else void scheduleMicrophoneRecovery(reason);
+ },plan.delayMs);
+ logRoomMessage('system','Microphone interrupted · bounded automatic recovery scheduled','sensor-recovery');
+ renderRuntimeHealth(true);
+}
+async function watchMediaPermission(name){
+ if(!navigator.permissions?.query)return;
+ try{
+  const status=await navigator.permissions.query({name});
+  const update=()=>{
+   const before=mediaPermissions[name];
+   mediaPermissions[name]=permissionState(status.state);
+   renderRuntimeHealth(true);
+   if(before!==mediaPermissions[name]&&state.mode==='agent'){
+    logRoomMessage('system',name+' permission changed to '+mediaPermissions[name],'permission-lifecycle');
+    if(mediaPermissions[name]==='denied'){
+     if(name==='camera'&&state.running){
+      cameraRecoveryPending=true;stopCamera();
+      roomSensorState('camera','degraded','Camera permission revoked · participant absence not inferred');
+     }
+     if(name==='microphone'&&state.voice.active){
+      microphoneRecoveryPending=true;stopRoomAudio();
+      roomSensorState('microphone','degraded','Microphone permission revoked · room silence not inferred');
+     }
+    }
+    if(mediaPermissions[name]==='granted'){
+     if(name==='camera'&&cameraRecoveryPending)void scheduleCameraRecovery('permission-restored');
+     if(name==='microphone'&&microphoneRecoveryPending)void scheduleMicrophoneRecovery('permission-restored');
+    }
+   }
+  };
+  mediaPermissions[name]=permissionState(status.state);
+  status.addEventListener?.('change',update);
+  permissionWatchers.push(()=>status.removeEventListener?.('change',update));
+ }catch{mediaPermissions[name]='unsupported';}
+ renderRuntimeHealth(true);
+}
 
 const LANE_HEIGHT_IN = 5;
 const CURSOR_RADIUS_IN = 0.09;
@@ -1934,6 +2103,8 @@ function onRoomAudioSegment(segment) {
     roomTracks: roomTrackSnapshot()
   });
   if (state.voice.queue.length > 6) state.voice.queue.splice(0, state.voice.queue.length - 6);
+  runtimeBudget.recordAudioQueue(state.voice.queue.length);
+  renderRuntimeHealth();
   void drainRoomAudioQueue();
 }
 
@@ -1965,7 +2136,7 @@ async function clearSavedDialogue() {
 }
 
 async function startRoomAudio() {
-  if (state.voice.active) return;
+  if (state.voice.active) return true;
 
   state.voice.generation += 1;
   try {
@@ -1977,8 +2148,10 @@ async function startRoomAudio() {
       onSegment: async (segment) => onRoomAudioSegment(segment),
       onUnavailable:()=>{
         if(state.voice.audio!==capture||!state.voice.active)return;
+        const recover=!roomAudioManuallyStopped&&state.running;
         stopRoomAudio();
         roomSensorState('microphone','degraded','Microphone interrupted · room silence not inferred');
+        if(recover)void scheduleMicrophoneRecovery();
       }
     });
     state.voice.audio=capture;
@@ -1998,6 +2171,9 @@ async function startRoomAudio() {
     renderDialogueTurns();
     renderVoiceHud();
     void ensureSpeakerEngine();
+    microphoneRecoveryPending=false;
+    renderRuntimeHealth(true);
+    return true;
   } catch (error) {
     console.error(error);
     state.voice.active = false;
@@ -2009,6 +2185,7 @@ async function startRoomAudio() {
       'error'
     );
     renderVoiceHud();
+    return false;
   }
 }
 
@@ -2136,6 +2313,7 @@ async function resolveTrackIdentity(track, excludedParticipantIds = new Set()) {
 
 async function scanRoom(now) {
   if (!state.running || !state.identity.ready || state.identity.busy || ui.video.readyState < 2) return;
+  const scanStarted=performance.now();
   state.identity.busy = true;
   state.identity.lastScanAt = now;
 
@@ -2283,6 +2461,8 @@ async function scanRoom(now) {
     if(state.identity.completeScans===0)updateGameScene('error');
   } finally {
     state.identity.busy = false;
+    runtimeBudget.recordScan(performance.now()-scanStarted);
+    renderRuntimeHealth();
   }
 }
 
@@ -2369,13 +2549,16 @@ async function startCamera(deviceId = '') {
     for(const track of capturedStream.getVideoTracks()){
       track.addEventListener('ended',()=>{
         if(state.stream!==capturedStream||!state.running)return;
+        const recover=!cameraStoppedThisPage;
         stopCamera();
         roomSensorState('camera','degraded','Camera interrupted · participant absence not inferred');
+        if(recover)void scheduleCameraRecovery();
       },{once:true});
     }
     if(state.mode==='agent'){
       roomSensorState('camera','online','Camera online · observations resumed');
       agentRuntime?.setCameraActive(true);
+      roomAudioManuallyStopped=false;
       void startRoomAudio();
     }
     ui.start.disabled = true;
@@ -2388,6 +2571,8 @@ async function startCamera(deviceId = '') {
     if(state.identity.ready)updateGameScene('models');
     else void initRoomIdentity();
     state.raf = requestAnimationFrame(loop);
+    cameraRecoveryPending=false;
+    renderRuntimeHealth(true);
     return true;
   } catch (error) {
     console.error(error);
@@ -2586,6 +2771,8 @@ function renderStats(now) {
 
 function loop(now) {
   if (!state.running) return;
+  runtimeBudget.recordFrame(now,{hidden:document.hidden});
+  renderRuntimeHealth();
   if (timedMode() && patternActive()) {
     const beforeRound=state.pattern.snapshot(now);
     const advance=state.pattern.tick(now);
@@ -2754,6 +2941,7 @@ ui.clearMatchHistory.addEventListener('click', () => {
 });
 ui.start.addEventListener('click', () => {
  cameraStoppedThisPage=false;
+ cameraRecovery.reset();cancelCameraRecovery();
  void startCamera(ui.select.value);
 });
 ui.cameraAutostart.addEventListener('change',()=>{
@@ -2762,11 +2950,19 @@ ui.cameraAutostart.addEventListener('change',()=>{
     'On: auto-start only if the browser already grants camera permission.':
     'Off: camera starts manually.';
 });
-ui.startRoomAudio.addEventListener('click', startRoomAudio);
-ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
+ui.startRoomAudio.addEventListener('click',()=>{
+ roomAudioManuallyStopped=false;
+ microphoneRecovery.reset();cancelMicrophoneRecovery();
+ void startRoomAudio();
+});
+ui.stopRoomAudio.addEventListener('click',()=>{
+ roomAudioManuallyStopped=true;cancelMicrophoneRecovery();stopRoomAudio();
+});
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
 ui.stop.addEventListener('click', () => {
   cameraStoppedThisPage=true;
+  roomAudioManuallyStopped=true;
+  cancelCameraRecovery();cancelMicrophoneRecovery();
   if (state.gameplay.game.active) endGameplay();
   stopCamera();
 });
@@ -2799,6 +2995,10 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
 });
 window.addEventListener('resize', drawTrace);
 window.addEventListener('beforeunload', () => {
+  if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
+  if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
+  if(storageHealthTimer)clearInterval(storageHealthTimer);
+  for(const unwatch of permissionWatchers)unwatch();
   taskUI?.destroy();
   stopRoomAudio();
   stopCamera();
@@ -2863,6 +3063,11 @@ for(const button of document.querySelectorAll('[data-room-filter]')){
  });
 }
 if(state.mode==='agent'){
+  void watchMediaPermission('camera');
+  void watchMediaPermission('microphone');
+  void refreshStorageHealth({announce:false});
+  storageHealthTimer=window.setInterval(()=>{void refreshStorageHealth();},60000);
+  renderRuntimeHealth(true);
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
     getDialogueTurns:()=>state.voice.turns,
@@ -2876,9 +3081,18 @@ if(state.mode==='agent'){
      return revised;
     },
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
-    startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
-    startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
-    stopCamera:()=>{cameraStoppedThisPage=true;stopCamera();},
+    startAudio:async()=>{
+      roomAudioManuallyStopped=false;microphoneRecovery.reset();cancelMicrophoneRecovery();
+      await reloadIdentityParticipants();await startRoomAudio();
+    },
+    startCamera:async()=>{
+      cameraStoppedThisPage=false;cameraRecovery.reset();cancelCameraRecovery();
+      await startCamera(ui.select.value);
+    },
+    stopCamera:()=>{
+      cameraStoppedThisPage=true;roomAudioManuallyStopped=true;
+      cancelCameraRecovery();cancelMicrophoneRecovery();stopCamera();
+    },
     suppressMic:suppressed=>{
       agentSpeechActive=Boolean(suppressed);
       state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
@@ -2956,14 +3170,7 @@ if(state.mode==='agent'){
    roomPrivacyEpoch++;
    saveRoomHistory=roomOptIn.checked;
    try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
-   if(saveRoomHistory){
-    const epoch=roomPrivacyEpoch, snapshot=roomLedger.entries();
-    for(const event of snapshot){
-     roomWrites=roomWrites.catch(()=>{}).then(()=>
-      epoch===roomPrivacyEpoch?saveRoomObservation(event):undefined
-     ).catch(console.warn);
-    }
-   }
+   if(saveRoomHistory)persistCurrentRoomSnapshot();
   });
   roomClear.addEventListener('click',async()=>{
    if(!window.confirm('Clear ROOM observations saved on this device?'))return;
@@ -3004,5 +3211,9 @@ window.addEventListener('pageshow',()=>{
  }
 });
 document.addEventListener('visibilitychange',()=>{
- if(!document.hidden&&!state.running&&!cameraStoppedThisPage)void maybeStartApprovedCamera();
+ if(document.hidden)return;
+ void refreshStorageHealth();
+ if(cameraRecoveryPending)void scheduleCameraRecovery('foreground-resume');
+ if(microphoneRecoveryPending)void scheduleMicrophoneRecovery('foreground-resume');
+ if(!state.running&&!cameraStoppedThisPage&&!cameraRecoveryPending)void maybeStartApprovedCamera();
 });

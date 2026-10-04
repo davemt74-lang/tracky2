@@ -1,18 +1,28 @@
 import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
 import { createControllerStability } from './src/controller-stability.js';
 import { createHardwareDiagnostics } from './src/hardware-diagnostics.js';
+import {
+ RuntimeBudget,queryMediaPermission,storagePressure,releaseAcceptanceSummary
+} from './src/runtime-resilience-core.js';
 
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
  video:$('#testVideo'),canvas:$('#testCanvas'),camera:$('#testCameraStatus'),
  metrics:$('#testMetrics'),mic:$('#testMicrophone'),micStatus:$('#testMicrophoneStatus'),
- export:$('#exportTestReport'),exportStatus:$('#testExportStatus')
+ export:$('#exportTestReport'),exportStatus:$('#testExportStatus'),
+ healthRefresh:$('#refreshReleaseHealth'),permissionStatus:$('#releasePermissionStatus'),
+ storageStatus:$('#releaseStorageStatus'),runtimeStatus:$('#releaseRuntimeStatus'),
+ acceptance:$('#releaseAcceptanceChecks'),acceptanceStatus:$('#releaseAcceptanceStatus'),
+ acceptanceNotes:$('#releaseAcceptanceNotes')
 };
 const context=ui.canvas.getContext('2d',{willReadFrequently:true});
 const metrics=createHardwareDiagnostics();
+const runtimeBudget=new RuntimeBudget();
 const trackers={green:createControllerStability(),blue:createControllerStability()};
 let stream=null,raf=0,lastDisplay=0,cameraOutcome='not-tested',micOutcome={status:'not-tested',peakRms:0};
+let permissionHealth={camera:'unsupported',microphone:'unsupported'};
+let storageHealth=storagePressure();
 function calibration() {
  try {
   const saved=window.localStorage.getItem('tracky2-color-calibration-v1');
@@ -37,7 +47,12 @@ function render() {
  for(const line of rows) {
   const p=document.createElement('p');p.textContent=line;ui.metrics.append(p);
  }
+ const runtime=runtimeBudget.snapshot();
+ if(ui.runtimeStatus)ui.runtimeStatus.textContent='Runtime: '+runtime.status+
+  ' · '+runtime.frames+' active frames · '+runtime.stalls+' stalls · max gap '+
+  runtime.maxFrameGapMs+' ms';
  ui.export.disabled=s.frames===0 && micOutcome.status==='not-tested' && cameraOutcome==='not-tested';
+ renderAcceptanceStatus();
 }
 function stopCamera() {
  cancelAnimationFrame(raf);
@@ -48,6 +63,7 @@ function stopCamera() {
 }
 function tick(now) {
  if(!stream)return;
+ runtimeBudget.recordFrame(now,{hidden:document.hidden});
  if(ui.video.readyState>=2) {
   const vw=ui.video.videoWidth||1280,vh=ui.video.videoHeight||720;
   const h=Math.max(180,Math.round(320/(vw/vh)));
@@ -77,7 +93,7 @@ async function enumerateCameras() {
  } catch {}
 }
 ui.start.addEventListener('click',async()=>{
- stopCamera();metrics.reset();
+ stopCamera();metrics.reset();runtimeBudget.reset();
  trackers.green.reset();trackers.blue.reset();
  cameraOutcome='requested';lastDisplay=0;ui.camera.textContent='Requesting camera access…';
  try {
@@ -93,6 +109,7 @@ ui.start.addEventListener('click',async()=>{
   ui.start.disabled=true;ui.stop.disabled=false;ui.select.disabled=true;
   ui.camera.textContent='Camera live. Move both markers through all four sections.';
   raf=requestAnimationFrame(tick);
+  void refreshReleaseHealth();
  } catch(error) {
   cameraOutcome='failed:'+String(error?.name||'unknown');
   stopCamera();
@@ -136,16 +153,57 @@ ui.mic.addEventListener('click',async()=>{
  } finally {
   source?.disconnect();media?.getTracks().forEach(track=>track.stop());
   if(audio)await audio.close().catch(()=>{});
-  ui.mic.disabled=false;render();
+  ui.mic.disabled=false;render();void refreshReleaseHealth();
  }
 });
+function acceptanceChecks(){
+ const checks={};
+ for(const input of ui.acceptance?.querySelectorAll('[data-release-check]')||[])
+  if(input.checked===true)checks[input.dataset.releaseCheck]=true;
+ return checks;
+}
+function renderAcceptanceStatus(){
+ if(!ui.acceptanceStatus)return;
+ const result=releaseAcceptanceSummary({checks:acceptanceChecks()});
+ ui.acceptanceStatus.textContent=result.status==='device-acceptance-complete'?
+  'Representative-device checklist complete. This report is device evidence, not universal hardware certification.':
+  result.pending.length+' real-device check'+(result.pending.length===1?'':'s')+' still pending.';
+}
+async function refreshReleaseHealth(){
+ permissionHealth={
+  camera:await queryMediaPermission(navigator.permissions,'camera'),
+  microphone:await queryMediaPermission(navigator.permissions,'microphone')
+ };
+ try{storageHealth=storagePressure(await navigator.storage?.estimate?.()||{});}
+ catch{storageHealth=storagePressure();}
+ if(ui.permissionStatus)ui.permissionStatus.textContent='Permissions: camera '+permissionHealth.camera+
+  ' · microphone '+permissionHealth.microphone;
+ if(ui.storageStatus)ui.storageStatus.textContent=storageHealth.status==='unknown'?
+  'Storage: browser quota estimate unavailable':
+  'Storage: '+storageHealth.status+' · '+Math.round((storageHealth.ratio||0)*100)+'% of reported quota used';
+ render();return {permissionHealth,storageHealth};
+}
+ui.healthRefresh?.addEventListener('click',()=>void refreshReleaseHealth());
+ui.acceptance?.addEventListener('change',renderAcceptanceStatus);
+
 ui.export.addEventListener('click',()=>{
+ const acceptance=releaseAcceptanceSummary({checks:acceptanceChecks()});
  const report={
-  product:'Tracky2',version:'0.4.4',measuredAt:new Date().toISOString(),
+  product:'Tracky2',version:'0.10.9',measuredAt:new Date().toISOString(),
   cameraOutcome,camera:metrics.snapshot(),microphone:micOutcome,
   calibration:currentCalibration,
-  manualChecksRequired:['enrolled face recognition','full-body occlusion recovery',
-   'Voice Profile enrollment and speaker attribution','real gameplay turn acceptance']
+  resilience:{
+   permissions:{...permissionHealth},
+   storage:{status:storageHealth.status,ratio:storageHealth.ratio},
+   runtime:runtimeBudget.snapshot(),
+   acceptance,
+   notes:String(ui.acceptanceNotes?.value||'').trim().slice(0,1200)
+  },
+  manualChecksRequired:[
+   'enrolled face recognition','full-body occlusion recovery',
+   'Voice Profile enrollment and speaker attribution','real gameplay turn acceptance',
+   ...acceptance.required
+  ]
  };
  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);
@@ -155,4 +213,4 @@ ui.export.addEventListener('click',()=>{
  ui.exportStatus.textContent='Aggregate hardware report exported locally. Manual checks still required.';
 });
 window.addEventListener('beforeunload',stopCamera);
-render();
+render();renderAcceptanceStatus();void refreshReleaseHealth();
