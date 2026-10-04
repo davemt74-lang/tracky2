@@ -3670,6 +3670,7 @@ if(state.mode==='agent'){
     getDialogueTurns:()=>state.voice.turns,
     getMemories:participantId=>memoryUI?.contextFor(participantId)||[],
     getMeeting:()=>meetingUI?.activeMeeting()||null,
+    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);

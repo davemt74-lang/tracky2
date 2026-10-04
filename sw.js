@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while a match may be active.
-const CACHE='tracky2-static-v0.11.5';
+const CACHE='tracky2-static-v0.11.6';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
@@ -13,7 +13,7 @@ const ASSETS=[
   './src/game-presenter.js','./src/color-controllers.js','./src/multiplayer-match.js',
   './src/controller-stability.js','./src/player-presence.js','./src/match-history.js',
   './src/hardware-diagnostics.js','./src/participant-core.js','./src/face-gallery.js','./src/roster-layout.js','./src/face-preview.js','./src/participant-store.js',
-  './src/identity-engine.js','./src/room-tracking-core.js','./src/scene-analysis.js','./src/player-activity.js','./src/visitor-session.js','./src/room-tabs-state.js','./src/agent-conversation.js','./src/agent-provider.js','./src/agent-presentation.js','./src/conversation-timeline.js','./src/room-event-core.js','./src/room-scene-graph.js','./src/room-scene-ui.js','./src/room-temporal-core.js','./src/room-acoustic-patterns.js','./src/transcript-correction.js','./src/agent-cognitive-core.js','./src/agent-task-core.js','./src/agent-task-ui.js','./src/agent-memory-core.js','./src/agent-memory-ui.js','./src/room-ui-core.js','./src/runtime-resilience-core.js','./src/conversation-listening-core.js','./src/speaker-participant-core.js','./src/transcript-lifecycle-core.js','./src/multi-conversation-core.js','./src/meeting-core.js','./src/meeting-ui.js','./src/environmental-audio-core.js','./src/environmental-audio-engine.js','./src/orb-spatial-core.js','./src/agent-shortcuts.js','./src/participant-audio-meter.js','./src/room-audio-audit.js','./src/voice-core.js',
+  './src/identity-engine.js','./src/room-tracking-core.js','./src/scene-analysis.js','./src/player-activity.js','./src/visitor-session.js','./src/room-tabs-state.js','./src/agent-conversation.js','./src/agent-provider.js','./src/agent-presentation.js','./src/conversation-timeline.js','./src/room-event-core.js','./src/room-scene-graph.js','./src/room-scene-ui.js','./src/room-temporal-core.js','./src/room-acoustic-patterns.js','./src/transcript-correction.js','./src/agent-cognitive-core.js','./src/agent-task-core.js','./src/agent-task-ui.js','./src/agent-memory-core.js','./src/agent-memory-ui.js','./src/room-ui-core.js','./src/runtime-resilience-core.js','./src/conversation-listening-core.js','./src/speaker-participant-core.js','./src/transcript-lifecycle-core.js','./src/multi-conversation-core.js','./src/meeting-core.js','./src/meeting-ui.js','./src/environmental-audio-core.js','./src/environmental-audio-engine.js','./src/spatial-calibration-core.js','./src/orb-spatial-core.js','./src/agent-shortcuts.js','./src/participant-audio-meter.js','./src/room-audio-audit.js','./src/voice-core.js',
   './src/voice-engine.js','./src/room-audio-engine.js','./src/room-audio-worklet.js',
   './src/model-config.js','./src/games/random-follow-pattern.js',
   './src/games/pattern-setup.js','./src/games/reaction-challenge.js','./src/games/agent.js'

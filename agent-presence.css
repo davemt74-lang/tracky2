@@ -711,3 +711,40 @@
  .game-page.agent-mode .meeting-summary{grid-template-columns:1fr}
  .game-page.agent-mode .meeting-status-row{align-items:flex-start;flex-direction:column}
 }
+
+
+/* V0.11G explicit floor-plane calibration. */
+.game-page.agent-mode .room-spatial-calibration{
+ margin:9px 0;padding:9px;border:1px solid rgba(102,205,187,.26);
+ border-radius:9px;background:rgba(4,33,39,.52)
+}
+.game-page.agent-mode .room-spatial-calibration>strong{
+ display:block;font-size:.65rem;letter-spacing:.05em;color:#e6fff8
+}
+.game-page.agent-mode .room-spatial-calibration>small{
+ display:block;margin:6px 0;font-size:.58rem;line-height:1.5;color:#a9cac6
+}
+.game-page.agent-mode .room-spatial-dimensions{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px
+}
+.game-page.agent-mode .room-spatial-dimensions label{display:grid;gap:3px;font-size:.6rem;color:#cce9e3}
+.game-page.agent-mode .room-spatial-dimensions input{
+ width:100%;min-width:0;padding:6px;border:1px solid #5c8f8b;border-radius:6px;
+ background:#11393a;color:#effffb
+}
+.game-page.agent-mode .room-spatial-actions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.game-page.agent-mode .room-spatial-point-summary{
+ font-size:.58rem;line-height:1.45;color:#b9d7d4;overflow-wrap:anywhere
+}
+.game-page.agent-mode .room-calibration-point{
+ position:absolute;width:11px;height:11px;border:2px solid #fff;border-radius:50%;
+ background:#53e6bf;transform:translate(-50%,-50%);
+ box-shadow:0 0 0 3px rgba(83,230,191,.2)
+}
+.game-page.agent-mode .room-calibration-point::after{
+ content:attr(data-corner);position:absolute;left:10px;top:-8px;
+ font-style:normal;font-size:.55rem;color:#fff
+}
+@media(max-width:380px){
+ .game-page.agent-mode .room-spatial-dimensions{grid-template-columns:1fr}
+}

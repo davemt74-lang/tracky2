@@ -431,8 +431,9 @@ export function clearRoomObservations(){
 }
 
 
-// Only owner-entered area rectangles and object labels. Never save people,
-// camera frames, photographs, coordinates from live tracks or audio here.
+// Only owner-entered area rectangles, object labels and optional floor-plane
+// calibration metadata. Never save people, camera frames, photographs,
+// coordinates from live tracks or audio here.
 export async function loadRoomScene(){
  const record=await storeAction(ROOM_SCENE,'readonly',store=>
   requestToPromise(store.get('local-room')));
