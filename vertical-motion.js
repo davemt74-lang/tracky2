@@ -2083,6 +2083,8 @@ function onRoomAudioSegment(segment) {
     roomTracks: roomTrackSnapshot()
   });
   if (state.voice.queue.length > 6) state.voice.queue.splice(0, state.voice.queue.length - 6);
+  runtimeBudget.recordAudioQueue(state.voice.queue.length);
+  renderRuntimeHealth();
   void drainRoomAudioQueue();
 }
 
@@ -2114,7 +2116,7 @@ async function clearSavedDialogue() {
 }
 
 async function startRoomAudio() {
-  if (state.voice.active) return;
+  if (state.voice.active) return true;
 
   state.voice.generation += 1;
   try {
@@ -2126,8 +2128,10 @@ async function startRoomAudio() {
       onSegment: async (segment) => onRoomAudioSegment(segment),
       onUnavailable:()=>{
         if(state.voice.audio!==capture||!state.voice.active)return;
+        const recover=!roomAudioManuallyStopped&&state.running;
         stopRoomAudio();
         roomSensorState('microphone','degraded','Microphone interrupted · room silence not inferred');
+        if(recover)void scheduleMicrophoneRecovery();
       }
     });
     state.voice.audio=capture;
@@ -2147,6 +2151,9 @@ async function startRoomAudio() {
     renderDialogueTurns();
     renderVoiceHud();
     void ensureSpeakerEngine();
+    microphoneRecoveryPending=false;
+    renderRuntimeHealth(true);
+    return true;
   } catch (error) {
     console.error(error);
     state.voice.active = false;
@@ -2158,6 +2165,7 @@ async function startRoomAudio() {
       'error'
     );
     renderVoiceHud();
+    return false;
   }
 }
 
@@ -2285,6 +2293,7 @@ async function resolveTrackIdentity(track, excludedParticipantIds = new Set()) {
 
 async function scanRoom(now) {
   if (!state.running || !state.identity.ready || state.identity.busy || ui.video.readyState < 2) return;
+  const scanStarted=performance.now();
   state.identity.busy = true;
   state.identity.lastScanAt = now;
 
@@ -2432,6 +2441,8 @@ async function scanRoom(now) {
     if(state.identity.completeScans===0)updateGameScene('error');
   } finally {
     state.identity.busy = false;
+    runtimeBudget.recordScan(performance.now()-scanStarted);
+    renderRuntimeHealth();
   }
 }
 
@@ -2518,13 +2529,16 @@ async function startCamera(deviceId = '') {
     for(const track of capturedStream.getVideoTracks()){
       track.addEventListener('ended',()=>{
         if(state.stream!==capturedStream||!state.running)return;
+        const recover=!cameraStoppedThisPage;
         stopCamera();
         roomSensorState('camera','degraded','Camera interrupted · participant absence not inferred');
+        if(recover)void scheduleCameraRecovery();
       },{once:true});
     }
     if(state.mode==='agent'){
       roomSensorState('camera','online','Camera online · observations resumed');
       agentRuntime?.setCameraActive(true);
+      roomAudioManuallyStopped=false;
       void startRoomAudio();
     }
     ui.start.disabled = true;
@@ -2537,6 +2551,8 @@ async function startCamera(deviceId = '') {
     if(state.identity.ready)updateGameScene('models');
     else void initRoomIdentity();
     state.raf = requestAnimationFrame(loop);
+    cameraRecoveryPending=false;
+    renderRuntimeHealth(true);
     return true;
   } catch (error) {
     console.error(error);
@@ -2735,6 +2751,8 @@ function renderStats(now) {
 
 function loop(now) {
   if (!state.running) return;
+  runtimeBudget.recordFrame(now,{hidden:document.hidden});
+  renderRuntimeHealth();
   if (timedMode() && patternActive()) {
     const beforeRound=state.pattern.snapshot(now);
     const advance=state.pattern.tick(now);
@@ -2903,6 +2921,7 @@ ui.clearMatchHistory.addEventListener('click', () => {
 });
 ui.start.addEventListener('click', () => {
  cameraStoppedThisPage=false;
+ cameraRecovery.reset();cancelCameraRecovery();
  void startCamera(ui.select.value);
 });
 ui.cameraAutostart.addEventListener('change',()=>{
@@ -2911,11 +2930,19 @@ ui.cameraAutostart.addEventListener('change',()=>{
     'On: auto-start only if the browser already grants camera permission.':
     'Off: camera starts manually.';
 });
-ui.startRoomAudio.addEventListener('click', startRoomAudio);
-ui.stopRoomAudio.addEventListener('click', stopRoomAudio);
+ui.startRoomAudio.addEventListener('click',()=>{
+ roomAudioManuallyStopped=false;
+ microphoneRecovery.reset();cancelMicrophoneRecovery();
+ void startRoomAudio();
+});
+ui.stopRoomAudio.addEventListener('click',()=>{
+ roomAudioManuallyStopped=true;cancelMicrophoneRecovery();stopRoomAudio();
+});
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
 ui.stop.addEventListener('click', () => {
   cameraStoppedThisPage=true;
+  roomAudioManuallyStopped=true;
+  cancelCameraRecovery();cancelMicrophoneRecovery();
   if (state.gameplay.game.active) endGameplay();
   stopCamera();
 });
