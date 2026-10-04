@@ -2089,31 +2089,36 @@ async function processRoomSegment(segment) {
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     turn.at=Date.now();
-    state.voice.turns.push(turn);
-    if(state.mode==='agent'){
-      logRoomMessage('audio',turn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
-       'room-voice',turn.participantId?{participantId:turn.participantId}:{});
-      agentRuntime?.onDialogue(turn);
-    }
-    if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
-    state.voice.lastDecision = 'accepted';
-
     if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
+    let savedTurn;
     try {
-      const savedTurn = await saveDialogueTurn({
+      savedTurn = await saveDialogueTurn({
         ...turn,
         sessionId: state.voice.sessionId,
         createdAt: new Date().toISOString()
       });
-
-      if (!voiceSegmentIsCurrent(segment)) {
-        outcome='cancelled';
-        await deleteDialogueTurn(savedTurn.id).catch(() => {});
-        return;
-      }
     } catch (error) {
+      outcome='failed';
+      state.voice.lastDecision='dialogue-save-failed';
       console.error('Could not persist dialogue turn', error);
+      pushRoomEvent('Speech turn was not saved; AGENT reply skipped.', 'error');
+      return;
+    }
+
+    if (!voiceSegmentIsCurrent(segment)) {
+      outcome='cancelled';
+      await deleteDialogueTurn(savedTurn.id).catch(() => {});
+      return;
+    }
+
+    state.voice.turns.push(savedTurn);
+    if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
+    state.voice.lastDecision = 'accepted';
+    if(state.mode==='agent'){
+      logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
+       'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
+      agentRuntime?.onDialogue(savedTurn);
     }
 
     renderParticipantCards();
