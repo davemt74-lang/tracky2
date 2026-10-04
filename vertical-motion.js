@@ -1959,8 +1959,16 @@ function renderDialogueTurns() {
     if(Number.isFinite(turn.transcriptProcessingDurationMs))
       transcriptBits.push(Math.round(turn.transcriptProcessingDurationMs)+'ms process');
     transcriptMeta.textContent='Transcript · '+transcriptBits.join(' · ');
+    const conversationMeta=document.createElement('small');
+    const addressed=turn.addressedParticipantId?participantById(turn.addressedParticipantId):null;
+    const conversationBits=[conversationContextLabel(turn),
+      String(turn.conversationGroupSize||1)+' person'+((turn.conversationGroupSize||1)===1?'':'s')];
+    if(turn.addressedAgent)conversationBits.push('AGENT addressed');
+    if(addressed)conversationBits.push('addressed '+(addressed.nickname||addressed.name||'participant'));
+    if(turn.overlapState&&turn.overlapState!=='not-observed')conversationBits.push(turn.overlapState);
+    conversationMeta.textContent='Conversation · '+conversationBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta);
     ui.dialogueTurns.append(card);
   }
 }
