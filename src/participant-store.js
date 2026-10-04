@@ -580,7 +580,14 @@ export function pruneMeetings(maxRows=MAX_PERSISTED_MEETINGS){
 }
 export async function saveMeeting(input){
  const record=normalizeMeetingRecord(input);
- await storeAction(MEETINGS,'readwrite',store=>requestToPromise(store.put(record)));
+ await storeAction(MEETINGS,'readwrite',async store=>{
+  if(record.status==='active'){
+   const rows=await requestToPromise(store.getAll());
+   const other=rows.find(row=>row.status==='active'&&row.id!==record.id);
+   if(other)throw new Error('Another meeting is already active in this browser profile.');
+  }
+  await requestToPromise(store.put(record));
+ });
  await pruneMeetings().catch(()=>{});
  return record;
 }
