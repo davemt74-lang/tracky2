@@ -13,7 +13,7 @@ export const DIARIZATION_MIN_WINDOW_MS=1000;
 
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const bounded=(value,min,max,fallback)=>finite(value)?Math.max(min,Math.min(max,value)):fallback;
-const cloneEmbedding=value=>Array.from(value||[],entry=>Number(entry)||0);
+const copyEmbedding=value=>Array.from(value||[],entry=>Number(entry)||0);
 const round=value=>Math.round(Number(value)||0);
 
 function selectedIndexes(count,max){
@@ -60,7 +60,7 @@ export function createDiarizationWindows(samples,{
 }
 
 function updateCentroid(centroid,embedding,count){
- if(!centroid?.length)return cloneEmbedding(embedding);
+ if(!centroid?.length)return copyEmbedding(embedding);
  const size=Math.min(centroid.length,embedding.length);
  const next=new Array(size);
  const n=Math.max(1,Number(count)||1);
@@ -104,7 +104,7 @@ export class SpeakerDiarizationSession{
    overlapThreshold:this.overlapThreshold,overlapMargin:this.overlapMargin
   });
   copy.clusters=this.clusters.map(cluster=>({
-   id:cluster.id,centroid:cloneEmbedding(cluster.centroid),
+   id:cluster.id,centroid:copyEmbedding(cluster.centroid),
    count:cluster.count,lastWindowId:cluster.lastWindowId||null
   }));
   copy.nextCluster=this.nextCluster;copy.windowCount=this.windowCount;
@@ -114,7 +114,7 @@ export class SpeakerDiarizationSession{
   if(!(other instanceof SpeakerDiarizationSession))
    throw new TypeError('Diarization session commit requires a compatible session.');
   this.clusters=other.clusters.map(cluster=>({
-   id:cluster.id,centroid:cloneEmbedding(cluster.centroid),
+   id:cluster.id,centroid:copyEmbedding(cluster.centroid),
    count:cluster.count,lastWindowId:cluster.lastWindowId||null
   }));
   this.nextCluster=other.nextCluster;this.windowCount=other.windowCount;
@@ -130,7 +130,7 @@ export class SpeakerDiarizationSession{
  }
  assign({embedding,windowId=null,startOffsetMs=0,endOffsetMs=0,quality=1}={}){
   this.windowCount++;
-  const vector=cloneEmbedding(embedding);
+  const vector=copyEmbedding(embedding);
   const q=clamp(Number(quality||0));
   if(!vector.length||q<.35){
    return assignment({windowId,startOffsetMs,endOffsetMs,state:'unknown',
