@@ -45,8 +45,9 @@ test('XXX hides both panels and ZZZ remains independent, ignoring interrupted sh
  assert.equal(nextTripleShortcut(state,'z',800).trigger,null);
  assert.equal(nextTripleShortcut({key:'x',count:2,lastAt:100},'z',150).trigger,null);
 });
-test('four AGENT tabs cycle correctly',()=>{
- assert.equal(nextAgentTab('agent','ArrowRight'),'room');
+test('five AGENT tabs cycle correctly',()=>{
+ assert.equal(nextAgentTab('agent','ArrowRight'),'meeting');
+ assert.equal(nextAgentTab('meeting','ArrowRight'),'room');
  assert.equal(nextAgentTab('room','ArrowRight'),'dialogue');
  assert.equal(nextAgentTab('dialogue','End'),'room');
 });
