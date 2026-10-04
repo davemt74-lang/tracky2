@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           unzip -t tracky2-v0.10.4-deploy.zip
           unzip -l tracky2-v0.10.4-deploy.zip | grep -F 'tracky2-v0.10.4/src/agent-cognitive-core.js'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.4/src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
+          node --input-type=module -e "import('./src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
           unzip -l tracky2-v0.10.4-deploy.zip | grep -F 'tracky2-v0.10.4/src/room-acoustic-patterns.js'
           unzip -l tracky2-v0.10.4-deploy.zip | grep -F 'tracky2-v0.10.4/src/transcript-correction.js'
           unzip -l tracky2-v0.10.4-deploy.zip | grep -F 'tracky2-v0.10.4/src/room-temporal-core.js'
@@ -88,6 +88,7 @@ jobs:
           rm -rf dist/package-smoke
           mkdir -p dist/package-smoke
           unzip -q tracky2-v0.10.4-deploy.zip -d dist/package-smoke
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.4/src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.4/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.4/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.4/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
