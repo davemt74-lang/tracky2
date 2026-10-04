@@ -117,14 +117,20 @@ function tracky_ensure_column(PDO $db,string $table,string $column,string $defin
     $db->exec('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition);
 }
 function tracky_migrate_participant_profiles(PDO $db): void {
-    if(!is_file(TRACKY_DATA.'/installed.lock')||!is_file(TRACKY_DATA.'/secret.key'))return;
+    if(!is_file(TRACKY_DATA.'/installed.lock'))return; // fresh installer has no live rows yet
     $rows=$db->query("SELECT id,profile_json FROM participants WHERE profile_ciphertext IS NULL AND profile_json<>'{}'")->fetchAll();
     if(!$rows)return;
+    if(!is_file(TRACKY_DATA.'/secret.key'))
+        throw new RuntimeException('Encryption key missing; participant profile migration stopped.');
     $u=$db->prepare("UPDATE participants SET profile_ciphertext=?,profile_json='{}' WHERE id=?");
-    foreach($rows as $row){
-        json_decode((string)$row['profile_json'],true,32,JSON_THROW_ON_ERROR);
-        $u->execute([tracky_encrypt((string)$row['profile_json']),(string)$row['id']]);
-    }
+    $db->beginTransaction();
+    try{
+        foreach($rows as $row){
+            json_decode((string)$row['profile_json'],true,32,JSON_THROW_ON_ERROR);
+            $u->execute([tracky_encrypt((string)$row['profile_json']),(string)$row['id']]);
+        }
+        $db->commit();
+    }catch(Throwable $e){$db->rollBack();throw $e;}
 }
 
 function tracky_schema(PDO $db): void {
