@@ -7,5 +7,8 @@ export const TRANSCRIPTION_MODEL_ID = 'Xenova/whisper-tiny.en';
 // Commit that introduced the Transformers.js v3 quantized ONNX assets.
 export const TRANSCRIPTION_MODEL_REVISION = '5ba193d';
 
+export const ENVIRONMENT_AUDIO_MODEL_ID = 'Xenova/ast-finetuned-audioset-10-10-0.4593';
+export const ENVIRONMENT_AUDIO_MODEL_REVISION = 'c38c0051164d7433ccb1341e5c60d38f30608ac9';
+
 export const HUMAN_ESM_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.esm.js';
 export const HUMAN_MODEL_BASE = 'https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/models/';
