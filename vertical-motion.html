@@ -168,6 +168,19 @@
         <label class="agent-check"><input type="checkbox" id="agentDistanceAudio" checked> Adjust reply volume for apparent participant proximity</label>
         <label>Follow participant <select id="agentFollowParticipant"><option value="">Auto · main visible participant</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
+        <details class="agent-cognitive-settings" id="agentCognitiveSettings">
+          <summary>Agent engagement · local cognitive rules</summary>
+          <label class="agent-check"><input type="checkbox" id="agentAutoGreet" checked>
+            Greet enrolled participants when verified in camera view</label>
+          <label class="agent-check"><input type="checkbox" id="agentQuietHours">
+            Enable quiet hours for automatic greetings</label>
+          <div class="agent-cognitive-hours">
+            <label>Quiet from<input type="time" id="agentQuietStart" value="22:00"></label>
+            <label>Quiet until<input type="time" id="agentQuietEnd" value="07:00"></label>
+          </div>
+          <small>Session-only engagement settings. Participant cards have individual greeting opt-outs. The agent does not perform unapproved skills or interrupt active voice capture to greet.</small>
+          <div id="agentCognitiveStatus" role="status" class="agent-cognitive-status">No engagement decisions yet.</div>
+        </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>

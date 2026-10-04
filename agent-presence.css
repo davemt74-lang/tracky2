@@ -395,3 +395,28 @@
 .game-page.agent-mode .agent-transcript-edited{font-size:.61rem;color:#c3dcd9}
 .game-page.agent-mode .room-acoustic-consent{display:flex;align-items:center;
  gap:8px;font-size:.7rem;line-height:1.5;color:#e5fff4}
+
+
+/* V0.10E governed, session-local engagement controls. */
+.game-page.agent-mode .agent-cognitive-settings{
+ margin:10px 0;padding:9px 10px;border:1px solid rgba(111,224,208,.3);
+ border-radius:9px;background:rgba(5,35,42,.48)
+}
+.game-page.agent-mode .agent-cognitive-settings>summary{
+ cursor:pointer;font-size:.7rem;font-weight:800;color:#d7fff3;letter-spacing:.04em
+}
+.game-page.agent-mode .agent-cognitive-hours{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0
+}
+.game-page.agent-mode .agent-cognitive-hours label{display:grid;gap:4px;font-size:.62rem;color:#c4e6e1}
+.game-page.agent-mode .agent-cognitive-hours input{
+ width:100%;min-width:0;padding:6px;border-radius:6px;border:1px solid #678f92;
+ background:#12343c;color:#f1fffb
+}
+.game-page.agent-mode .agent-cognitive-status{
+ margin-top:8px;padding:7px 8px;border-left:2px solid #75d8be;
+ background:rgba(11,66,63,.35);font-size:.63rem;line-height:1.45;color:#dffcf5
+}
+@media(max-width:380px){
+ .game-page.agent-mode .agent-cognitive-hours{grid-template-columns:1fr}
+}
