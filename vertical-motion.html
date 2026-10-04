@@ -239,8 +239,14 @@
       </section>
       <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
         <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
-        <div id="roomCurrentState" class="room-current-state" role="status">Waiting for room observations</div>
-        <div id="roomSensorStates" class="room-sensor-states" aria-live="polite">Sensor history: unavailable</div>
+        <div id="roomCurrentState" class="room-current-state" aria-live="off">Waiting for room observations</div>
+        <div id="roomSensorStates" class="room-sensor-states" aria-live="off">Sensor history: unavailable</div>
+        <section class="room-ui-overview" id="roomUiOverview" aria-label="ROOM overview">
+          <article><span>VISIBLE</span><strong id="roomOverviewParticipants">0</strong><small>stable participants</small></article>
+          <article><span>SENSORS</span><strong id="roomOverviewSensors">—</strong><small>camera / microphone</small></article>
+          <article><span>EVIDENCE</span><strong id="roomOverviewEvidence">0</strong><small>effective events</small></article>
+          <article><span>DECISIONS</span><strong id="roomOverviewDecisions">0</strong><small>decisions / outcomes</small></article>
+        </section>
         <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
           <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
@@ -296,7 +302,18 @@
           <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
           <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
         </section>
-        <div id="roomObservationsTimeline" class="room-observations-timeline" aria-live="off"></div>
+        <div class="room-timeline-toolbar">
+          <div class="room-timeline-filters" role="group" aria-label="Filter ROOM evidence">
+            <button type="button" data-room-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-room-filter="presence" aria-pressed="false">Presence</button>
+            <button type="button" data-room-filter="audio" aria-pressed="false">Audio</button>
+            <button type="button" data-room-filter="decision" aria-pressed="false">Decisions</button>
+            <button type="button" data-room-filter="activity" aria-pressed="false">Activity</button>
+            <button type="button" data-room-filter="system" aria-pressed="false">System</button>
+          </div>
+          <small id="roomTimelineCount" aria-live="polite">0 events shown</small>
+        </div>
+        <div id="roomObservationsTimeline" class="room-observations-timeline" aria-live="off" aria-label="ROOM evidence timeline"></div>
         <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations"> Save observation history on this device</label>
         <button type="button" id="roomClearObservations">Clear room observations</button>
         <small class="room-privacy-notice">Room observations use existing camera/mic permissions. This view does not diagnose health, infer sleep from stillness or automatically capture screenshots.</small>
