@@ -12,13 +12,14 @@ import {
 import {meetingAgentReplyPolicy} from './src/meeting-core.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,getScene=()=>null,editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
   thread:$('agentConversationThread'),speaker:$('agentSpeakingIndicator'),
   voice:$('agentVoiceSelect'),speak:$('agentSpeakEnabled'),save:$('agentSaveHistory'),
   follow:$('agentFollowParticipant'),distanceAudio:$('agentDistanceAudio'),
+  spatialStatus:$('agentSpatialStatus'),
   useModel:$('agentUseModel'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
   modelStatus:$('agentModelStatus'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
@@ -267,9 +268,16 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(!video?.videoWidth||!video?.videoHeight)return;
   const playfield=$('playfield');
   const width=playfield.clientWidth,height=playfield.clientHeight;
+  const calibration=getScene()?.calibration||null;
   const target=orbSpatialTarget(tracks,{videoWidth:video.videoWidth,videoHeight:video.videoHeight,
-   displayWidth:width,displayHeight:height,mirror},ui.follow?.value||lastSpeakerId);
+   displayWidth:width,displayHeight:height,mirror},ui.follow?.value||lastSpeakerId,calibration);
   if(target)lastProximityVolume=target.volume;
+  if(ui.spatialStatus){
+   ui.spatialStatus.textContent=target?.distanceMode==='calibrated-floor'
+    ? 'Owner-calibrated floor plane · ~'+target.distanceM.toFixed(2)+'m from listener · '+
+      target.direction+' '+Math.abs(target.bearingDeg).toFixed(0)+'° · approximate planar projection.'
+    : 'Camera-relative apparent proximity. Add an explicit floor calibration + listener anchor in ROOM for approximate planar distance.';
+  }
   window.dispatchEvent(new CustomEvent('tracky:agent-room-tracks',{detail:{target}}));
   refreshFollowOptions(tracks);
   ui.scene.textContent=tracks.length?tracks.length+' stable person'+(tracks.length===1?'':'s')+' in view':'Searching for participants';
