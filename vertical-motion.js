@@ -1249,14 +1249,19 @@ async function reloadIdentityParticipants() {
     const participantIds=state.identity.participants.map(p=>p.id);
     cognitiveLoop.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
-    if(state.voice.currentSpeakerId&&!participantIds.includes(state.voice.currentSpeakerId)){
+    const currentSpeaker=state.voice.currentSpeakerId
+      ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
+      : null;
+    if(state.voice.currentSpeakerId&&(!currentSpeaker||currentSpeaker.voiceRecognitionEnabled===false)){
       state.voice.currentSpeakerId=null;
       state.voice.currentSpeakerName=null;
       state.voice.currentVoiceConfidence=0;
       state.voice.currentBodyLock=false;
       state.voice.currentGroupId=null;
       state.voice.currentAssociationState='unknown-speaker';
-      state.voice.currentAssociationProvenance=['participant-record-unavailable'];
+      state.voice.currentAssociationProvenance=[
+       currentSpeaker?'voice-recognition-disabled':'participant-record-unavailable'
+      ];
       state.voice.currentAssociationTransition=null;
       speakerAssociationTracker.reset();
       renderVoiceHud();
