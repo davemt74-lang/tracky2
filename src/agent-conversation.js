@@ -8,7 +8,7 @@ export function greetingForParticipant(person){
  return name?`Welcome back, ${name}. It's good to see you. How can I help you today?`:
   'Welcome. How can I help you today?';
 }
-export function localAgentReply(transcript,{name='',previousTopics=[]}={}){
+export function localAgentReply(transcript,{name='',previousTopics=[],memories=[]}={}){
  const text=String(transcript||'').trim();
  if(!text)return '';
  const greeting=safeName(name);
@@ -20,6 +20,14 @@ export function localAgentReply(transcript,{name='',previousTopics=[]}={}){
    return topic.length?
      'Our recent conversation mentioned: '+topic.join('; ')+'. What should we continue?':
      'I do not have an earlier conversation in this room session to summarize.';
+ }
+ if(/\b(what do you remember|remember about me|my preferences|what do you know about me)\b/i.test(text)){
+   const approved=memories.filter(v=>typeof v==='string'&&v.trim()).slice(0,4);
+   if(!greeting)return 'I cannot use participant memory until the speaker is verified.';
+   return approved.length?
+    'The owner-approved historical memory I have is: '+approved.map(v=>v.replace(/^Historical owner memory \[[^\]]+\]:\s*/,'')).join('; ')+
+      '. I treat that as historical context, not a current observation.':
+    'I do not have active owner-approved durable memory for this participant.';
  }
  if(/\b(who (am i|is here)|recognize me|my name)\b/i.test(text))
    return greeting?'Your enrolled profile is '+greeting+'. Speaker identity still needs a verified voice match.':
