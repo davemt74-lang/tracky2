@@ -326,6 +326,9 @@ if (!/VOICE_MODEL_REVISION\s*=\s*['"][0-9a-f]{40}['"]/.test(modelConfig)) {
 if (!/TRANSCRIPTION_MODEL_REVISION\s*=\s*['"][0-9a-f]{7,40}['"]/.test(modelConfig)) {
   fail('Transcription model must be pinned to a commit revision');
 }
+if (!/ENVIRONMENT_AUDIO_MODEL_REVISION\s*=\s*['"][0-9a-f]{40}['"]/.test(modelConfig)) {
+  fail('Environmental audio model must be pinned to a full commit revision');
+}
 if (/REVISION\s*=\s*['"](?:main|master)['"]/.test(modelConfig)) {
   fail('Model revision may not use a moving main/master ref');
 }
@@ -334,7 +337,7 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.11\.4-deploy\.zip/.test(workflow)) {
+if (!/tracky2-v0\.11\.5-deploy\.zip/.test(workflow)) {
   fail('CI must build Tracky2 V0.11.5 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
