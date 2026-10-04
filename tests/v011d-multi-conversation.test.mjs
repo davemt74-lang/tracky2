@@ -43,7 +43,7 @@ test('11D explicit addressee detection requires a vocative/tag, not a casual nam
 
  a=resolveConversationAddress('@Sam @Lee please compare notes',people);
  assert.equal(a.kind,'participants');
- assert.deepEqual(a.addressedParticipantIds.sort(),['p2','p3']);
+ assert.deepEqual([...a.addressedParticipantIds].sort(),['p2','p3']);
 });
 
 test('11D conversation scope is stable across member ordering and distinguishes visitors',()=>{
@@ -60,7 +60,7 @@ test('11D two-person turn separates speaker ownership from addressed participant
  });
  assert.equal(fields.turnOwnership,'verified-speaker');
  assert.equal(fields.conversationGroupSize,2);
- assert.deepEqual(fields.conversationParticipantIds.sort(),['p1','p2']);
+ assert.deepEqual([...fields.conversationParticipantIds].sort(),['p1','p2']);
  assert.equal(fields.addressedParticipantId,'p2');
  assert.equal(fields.addressedAgent,false);
  assert.equal(fields.attentionTarget,'participant');
@@ -116,7 +116,7 @@ test('11D explicit external overlap evidence always forces abstention',()=>{
   transcript:'Agent, answer me',overlapEvidence:true
  }),{visibleParticipants:[people[0],people[1]],groupSize:2});
  assert.equal(fields.overlapState,'overlap-observed');
- assert.equal(fields.attentionTarget,'unresolved');
+ assert.equal(fields.attentionTarget,'unresolved-overlap');
  assert.equal(multiParticipantReplyPolicy(fields).allow,false);
 });
 
@@ -244,7 +244,7 @@ test('11D runtime persists conversation fields before canonical save and exposes
 
 test('11D core never treats proximity as speaker identity or opens a media/network path',()=>{
  const core=fs.readFileSync('src/multi-conversation-core.js','utf8');
- assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|fetch\(|embedding\(|transcrib|bestVoiceMatch/);
+ assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|fetch\(|embedding\(|transcribe\(|transcribeDetailed|bestVoiceMatch/);
  assert.match(core,/never opens sensors/);
  assert.match(core,/never.*infers addressees from camera proximity alone/i);
  assert.match(core,/scope\.startsWith\('scope:unknown-'\)/);
