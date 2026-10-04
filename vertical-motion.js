@@ -2257,8 +2257,18 @@ function renderDialogueTurns() {
     if(addressed)conversationBits.push('addressed '+(addressed.nickname||addressed.name||'participant'));
     if(turn.overlapState&&turn.overlapState!=='not-observed')conversationBits.push(turn.overlapState);
     conversationMeta.textContent='Conversation · '+conversationBits.join(' · ');
+    const fusionMeta=document.createElement('small');
+    const fusionBits=[
+      turn.multimodalState||'not-recorded',
+      Number.isFinite(turn.multimodalConfidence)
+        ? Math.round(turn.multimodalConfidence*100)+'% '+(turn.multimodalConfidenceBand||'')
+        : '',
+      ...(turn.multimodalConflicts||[]).map(value=>'conflict:'+value),
+      ...(turn.multimodalAbstentionReason?['abstain:'+turn.multimodalAbstentionReason]:[])
+    ].filter(Boolean);
+    fusionMeta.textContent='Fusion · '+fusionBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta,conversationMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta);
     ui.dialogueTurns.append(card);
   }
 }
