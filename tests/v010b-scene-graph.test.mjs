@@ -73,7 +73,8 @@ test('10B is integrated into existing IndexedDB, ROOM timeline and release witho
  const ui=fs.readFileSync('src/room-scene-ui.js','utf8');
  const controller=fs.readFileSync('vertical-motion.js','utf8');
  const markup=fs.readFileSync('vertical-motion.html','utf8');
- assert.match(store,/const DB_VERSION = 4/);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]);
+ assert.ok(dbVersion>=4,'scene graph requires IndexedDB schema v4 or later');
  assert.match(store,/db\.createObjectStore\(ROOM_SCENE,\{keyPath:'id'\}\)/);
  assert.match(store,/normalizeRoomScene\(scene\)/);
  assert.match(ui,/await loadRoomScene\(\)/);

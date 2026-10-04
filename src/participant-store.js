@@ -4,16 +4,18 @@ import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 import {reviseTranscriptRecord} from './transcript-correction.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
 const ROOM_OBSERVATIONS = 'room-observations';
 const ROOM_SCENE = 'room-scene-map';
+const AGENT_TASKS = 'agent-tasks';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
+export const MAX_PERSISTED_AGENT_TASKS = 200;
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -73,6 +75,11 @@ export async function openParticipantDb() {
       }
       if (!db.objectStoreNames.contains(ROOM_SCENE)) {
         db.createObjectStore(ROOM_SCENE,{keyPath:'id'});
+      }
+      if (!db.objectStoreNames.contains(AGENT_TASKS)) {
+        const tasks=db.createObjectStore(AGENT_TASKS,{keyPath:'id'});
+        tasks.createIndex('status','status',{unique:false});
+        tasks.createIndex('runAt','runAt',{unique:false});
       }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
@@ -364,4 +371,51 @@ export async function saveRoomScene(scene){
 }
 export function clearRoomScene(){
  return storeAction(ROOM_SCENE,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.10F task metadata only: no raw media, arbitrary commands, credentials or model prompts. */
+export function listAgentTasks(){
+ return storeAction(AGENT_TASKS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(-MAX_PERSISTED_AGENT_TASKS);
+ });
+}
+export async function saveAgentTask(record){
+ if(!record||!record.id||!['describe_object','capture_image','product_search'].includes(record.skillId))
+  throw new Error('Invalid agent task');
+ const statuses=['pending-confirmation','scheduled','running','succeeded','failed','cancelled'];
+ const safe={
+  schema:record.schema===1?1:null,id:String(record.id).slice(0,96),
+  skillId:record.skillId,targetId:String(record.targetId||'').slice(0,96),
+  idempotencyKey:String(record.idempotencyKey||'').slice(0,180),
+  status:statuses.includes(record.status)?record.status:'failed',
+  runAt:Number.isFinite(record.runAt)?record.runAt:Date.now(),
+  createdAt:Number.isFinite(record.createdAt)?record.createdAt:Date.now(),
+  updatedAt:Number.isFinite(record.updatedAt)?record.updatedAt:Date.now(),
+  confirmedAt:Number.isFinite(record.confirmedAt)?record.confirmedAt:null,
+  startedAt:Number.isFinite(record.startedAt)?record.startedAt:null,
+  completedAt:Number.isFinite(record.completedAt)?record.completedAt:null,
+  attempts:Math.max(0,Math.min(5,Number(record.attempts)||0)),
+  maxAttempts:Math.max(1,Math.min(5,Number(record.maxAttempts)||2)),
+  resultText:String(record.resultText||'').slice(0,500),
+  errorText:String(record.errorText||'').slice(0,240),
+  relatedEventId:String(record.relatedEventId||'').slice(0,96)||null
+ };
+ return storeAction(AGENT_TASKS,'readwrite',async store=>{
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const item of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_TASKS))) store.delete(item.id);
+  return safe;
+ });
+}
+export function deleteAgentTask(id){
+ return storeAction(AGENT_TASKS,'readwrite',async store=>{
+  await requestToPromise(store.delete(id));return true;
+ });
+}
+export function clearAgentTasks(){
+ return storeAction(AGENT_TASKS,'readwrite',store=>requestToPromise(store.clear()));
 }

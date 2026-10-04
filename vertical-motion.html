@@ -181,6 +181,23 @@
           <small>Session-only engagement settings. Participant cards have individual greeting opt-outs. The agent does not perform unapproved skills or interrupt active voice capture to greet.</small>
           <div id="agentCognitiveStatus" role="status" class="agent-cognitive-status">No engagement decisions yet.</div>
         </details>
+        <details class="agent-task-settings" id="agentTaskSettings">
+          <summary>Tasks &amp; approved skills</summary>
+          <small>Tasks are local metadata. Every executable task requires owner confirmation. Scheduled tasks run only while this AGENT page is open.</small>
+          <form id="agentTaskForm" class="agent-task-form">
+            <label>Skill<select id="agentTaskSkill"></select></label>
+            <label>Target object<select id="agentTaskTarget"><option value="">Choose owner-defined object</option></select></label>
+            <label>Run at (optional)<input type="datetime-local" id="agentTaskRunAt"></label>
+            <button type="submit">Create task</button>
+          </form>
+          <div class="agent-task-tools">
+            <button type="button" id="agentTaskRefreshObjects">Refresh objects</button>
+            <button type="button" id="agentTaskClearDone">Clear completed/cancelled</button>
+          </div>
+          <div id="agentTaskStatus" class="agent-task-status" role="status">No local tasks loaded yet.</div>
+          <div id="agentTaskList" class="agent-task-list" aria-live="polite"></div>
+          <small>Available now: read-only description of owner-defined scene objects. Image capture and product search stay registered but unavailable until separate approved executors exist.</small>
+        </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
