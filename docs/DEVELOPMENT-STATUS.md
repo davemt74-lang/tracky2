@@ -1,33 +1,17 @@
 # Tracky2 — Standalone development checkpoint
 
-**Resume rule:** read `docs/V010-MASTER-PLAN.md`, then inspect GitHub `main`, open PRs, current branch and CI. GitHub is authoritative. No VP3 Cloud or HomeServer integration.
+**Resume rule:** read `docs/V011-MASTER-PLAN.md`, then inspect GitHub `main`, open PRs, current branch and CI. GitHub is authoritative. Tracky2 V0.11 remains standalone: no VP3 Cloud or HomeServer integration.
 
 ## Completed and verified
-- **Phase 0** — PR #32, merged `b706945c09c1b30798857b05cd46f5545e9d6db9`.
-- **10A** — PR #33. Canonical ROOM ledger. V0.10.0. **10/10**.
-- **10B** — PR #34. Owner-defined camera-relative scene graph. V0.10.1. **10/10**.
-- **10C** — PR #35. Conservative movement/temporal awareness. V0.10.2. **10/10**.
-- **10D** — PR #36. Consented acoustic metadata/canonical transcript corrections. V0.10.3. **10/10**.
-- **10E** — PR #37. Governed cognitive greeting/abstention loop. V0.10.4. **10/10**.
-- **10F** — PR #38. Allowlisted local tasks with explicit confirmation/cancel/retry/idempotency. V0.10.5. **10/10**.
-- **10G** — PR #39. Controlled owner-authored participant/session memory. V0.10.6. **10/10**.
-- **10H** — PR #40, merged `fae75d5df87eeca6b41c2432abf5943dde1b030d`. Encrypted standalone participant sync/recovery. V0.10.7 SHA-256 `f82746eb9fbe019fae5b6b54fabf30fd6fff1203817f5471248d220a57adab21`. **10/10**.
-- **10I** — PR #41, merged `836e69118603cbbfd30cac5f6270ad5524babfb8`. Coherent responsive AGENT/ROOM UI. V0.10.8 SHA-256 `0201dc26c0202cb156ae307a636001f057befb1b9b79f3f122a9593867c3c6e5`. **10/10**.
+- **V0.10A–10I** — completed/merged with their published releases and delivery gates.
+- **10J** — PR [#42](https://github.com/davemt74-lang/tracky2/pull/42), merged `f86ac3ebff7d52d8e96037b3b9f8b97f2028b5cb`. Final V0.10 resilience/release hardening. Required and post-merge Node/PHP jobs passed. V0.10.9 deploy SHA-256 `c5c7e1f803f5b2a80ea248fbf5df9dc917178b1e06845f3e460add2850b31087`. Software delivery gate **10/10**; representative physical-device acceptance remains separate.
 
-Automated gates are not physical device certification. Camera-relative geometry is not calibrated physical location; shared microphone input is not live per-person source separation; acoustic patterns do not identify sound sources or diagnose health.
-
-## Active section: 10J — resilience and final V0.10 release hardening
-- **Branch:** `feat/v010j-resilience-release`, based on verified 10I main.
-- **Audit baseline:** **7.8/10** before work.
-- **Runtime budgets:** aggregate foreground frame-gap/stall counters, room-scan latency, and maximum audio queue depth. Hidden-tab suspension is excluded.
-- **Sensor recovery:** camera/microphone recovery uses separate 3-attempt / 2-minute budgets. Automatic retry requires already-granted permission, visible page and no manual stop; permission is rechecked before access.
-- **Permission lifecycle:** camera/microphone permission changes are surfaced in ROOM. Denied/prompt state is never background-reprompted.
-- **Storage pressure:** healthy <75%, warning 75–<90%, critical >=90% of browser-reported quota. Critical pressure pauses optional ROOM-history writes only; live operation and existing data remain intact.
-- **Diagnostics:** V0.10 representative-device report now includes aggregate runtime, permission/storage state and explicit camera/mic outage, permission, foreground, >=20-minute session, restart and storage-pressure checks.
-- **Physical boundary:** `docs/V010-RELEASE-ACCEPTANCE.md` and `docs/hardware-acceptance.md` distinguish software-green delivery from representative-device evidence and universal certification.
-- **Tests:** deterministic recovery/storage/runtime/permission/acceptance fixtures plus integration assertions that canonical capture/persistence pipelines remain in use.
-- **Release target:** V0.10.9.
-- **Gate remaining:** PR Node/PHP checks → fix demonstrated failures → merge → post-merge checks → direct V0.10.9 ZIP + SHA-256. Only then score software delivery **10/10**. Physical-device acceptance remains separately recorded per tested hardware.
+## Active program: V0.11 — Standalone Interactive Agent Intelligence
+- **Master plan:** `docs/V011-MASTER-PLAN.md`.
+- **Independence rule:** standalone browser/PWA + optional self-hosted PHP/SQLite only. Do not add VP3 Cloud, HomeServer, cross-project sync or remote-agent dependencies.
+- **Section order:** 11A listening/conversation → 11B speaker/participant tracking → 11C transcription → 11D multi-participant conversation → 11E video meetings → 11F environmental/media audio → 11G spatial interaction → 11H proactive agent → 11I recall/search → 11J release hardening.
+- **11A audited baseline:** **7.4/10**. Keep the existing `RoomAudioCapture` microphone, VoiceIdentityEngine, LocalTranscriptionEngine and canonical IndexedDB dialogue pipeline. Missing layer is an explicit listening/turn state machine with segment IDs, age/deadline, deterministic backpressure, cancellation, reply policy and explainable listening health.
+- **11A privacy boundary:** no second live microphone, no speaker identity from body proximity, no duplicate transcript store, no weakened TTS feedback suppression. Full simultaneous barge-in/source separation is not claimed in 11A.
 
 ## Exact next action
-Open the 10J PR, repair only demonstrated failures, merge after both required checks pass, verify V0.10.9 release assets/checksum, then close the standalone V0.10 software build.
+Merge the V0.11 planning/audit PR after green CI. Then create `feat/v011a-conversation-listening-v2` from current main and implement the pure listening state/queue contract first, followed by integration into the existing room-audio pipeline, deterministic tests, V0.11.0 packaging, PR/merge and release verification.
