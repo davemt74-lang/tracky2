@@ -41,7 +41,7 @@ export function normalizedTaskRecord(input={},now=Date.now()){
  const runAt=finite(input.runAt)?Math.max(0,input.runAt):now;
  const id=short(input.id,96)||taskId();
  const key=short(input.idempotencyKey,180)||
-  [skill.id,targetId,String(Math.floor(runAt/1000))].join(':');
+  [skill.id,targetId,String(Math.floor(runAt/60000))].join(':');
  return Object.freeze({
   schema:AGENT_TASK_SCHEMA,id,skillId:skill.id,targetId,
   idempotencyKey:key,status:'pending-confirmation',
