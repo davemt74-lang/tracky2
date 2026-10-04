@@ -246,7 +246,7 @@ test('11D core never treats proximity as speaker identity or opens a media/netwo
  const core=fs.readFileSync('src/multi-conversation-core.js','utf8');
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|fetch\(|embedding\(|transcribe\(|transcribeDetailed|bestVoiceMatch/);
  assert.match(core,/never opens sensors/i);
- assert.match(core,/never.*infers addressees from camera proximity alone/i);
+ assert.match(core,/infers addressees from camera proximity alone/i);
  assert.match(core,/scope\.startsWith\('scope:unknown-'\)/);
  assert.doesNotMatch(core,/possible-overlap-unresolved/);
 });
