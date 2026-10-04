@@ -191,6 +191,7 @@
 .agent-chat-unverified{font-size:.56rem;color:#c0d4df}
 .agent-chat-verified{font-size:.56rem;color:#b9e8d3}
 .agent-transcript-provenance{display:block;margin-top:3px;font-size:.53rem;color:#8eb4bd}
+.agent-conversation-provenance{display:block;margin-top:2px;font-size:.53rem;color:#a6c9cf}
 .room-current-state{padding:12px;border:1px solid #75d9d94a;border-radius:10px;
  background:rgba(10,57,62,.38);font-size:.74rem;line-height:1.5;margin:9px 0}
 .room-observations-timeline{display:grid;gap:7px;padding:4px 0 12px}
