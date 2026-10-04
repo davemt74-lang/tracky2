@@ -135,8 +135,8 @@ test('11H existing greeting can share interruption budget even when proactive fo
  const gate=g.interruptionGate({...ctx(),participantId:'p1',participant:null,respectEnabled:false});
  assert.equal(gate.allow,true);
  g.recordExternalInterruption({participantId:'p1',type:'greeting',at:70000});
- const blocked=g.interruptionGate({...ctx({now:200000}),participantId:'p1',
-  participant:null,respectEnabled:false});
+ const blocked=g.interruptionGate({...ctx({now:200000,visibleParticipantIds:['p2']}),
+  participantId:'p2',participant:null,respectEnabled:false});
  assert.equal(blocked.allow,false);
  assert.equal(blocked.reason,'hourly interruption budget exhausted');
 });
