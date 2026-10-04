@@ -75,15 +75,20 @@ export function multiConversationTurnFields(turn={},{
  const address=resolveConversationAddress(turn.transcript,groupParticipants);
  const association=String(turn.associationState||'unknown-speaker');
  const overlapState=turn.overlapEvidence===true?'overlap-observed':'not-observed';
- const turnOwnership=speakerParticipantId&&turn.attribution!=='unknown'
-  ? 'verified-speaker'
-  : association==='ambiguous-voice'
-    ? 'ambiguous-speaker'
-    : 'unverified-speaker';
+ const diarizationSpeakerCount=Math.max(0,Number(turn.diarizationSpeakerCount)||0);
+ const sequentialMultiSpeaker=diarizationSpeakerCount>1;
+ const turnOwnership=overlapState==='overlap-observed'||sequentialMultiSpeaker
+  ? 'multi-speaker-unresolved'
+  : speakerParticipantId&&turn.attribution!=='unknown'
+    ? 'verified-speaker'
+    : association==='ambiguous-voice'
+      ? 'ambiguous-speaker'
+      : 'unverified-speaker';
  const unresolvedGroupSpeaker=turnOwnership==='ambiguous-speaker'&&conversationGroupSize>1;
 
  let attentionTarget='unknown';
  if(overlapState==='overlap-observed')attentionTarget='unresolved-overlap';
+ else if(sequentialMultiSpeaker)attentionTarget='unresolved-speaker-change';
  else if(unresolvedGroupSpeaker)attentionTarget='unresolved-speaker';
  else if(address.addressedAgent&&address.addressedParticipantIds.length)attentionTarget='agent-and-participants';
  else if(address.addressedAgent)attentionTarget='agent';
@@ -106,13 +111,16 @@ export function multiConversationTurnFields(turn={},{
   addressedParticipantId:address.addressedParticipantId,
   addressedParticipantIds:address.addressedParticipantIds,
   attentionTarget,
-  overlapState
+  overlapState,
+  diarizationSpeakerCount
  });
 }
 
 export function multiParticipantReplyPolicy(context={}){
  if(context.overlapState==='overlap-observed')
   return Object.freeze({allow:false,reason:'abstain: overlap evidence leaves turn ownership unresolved'});
+ if(Number(context.diarizationSpeakerCount||0)>1)
+  return Object.freeze({allow:false,reason:'abstain: multiple speakers in one captured turn'});
  if(context.turnOwnership==='ambiguous-speaker'&&Number(context.conversationGroupSize||1)>1)
   return Object.freeze({allow:false,reason:'abstain: ambiguous speaker in multi-party conversation'});
  if(context.addressedAgent)
@@ -182,6 +190,7 @@ export function agentHistoryForScope(entries=[],turn={}){
 
 export function conversationContextLabel(context={}){
  if(context.overlapState==='overlap-observed')return 'OVERLAP EVIDENCE · TURN UNRESOLVED';
+ if(Number(context.diarizationSpeakerCount||0)>1)return 'MULTI-SPEAKER TURN · ATTRIBUTION UNRESOLVED';
  if(context.turnOwnership==='ambiguous-speaker'&&Number(context.conversationGroupSize||1)>1)
   return 'AMBIGUOUS SPEAKER · GROUP';
  if(context.addressedAgent&&context.addressedParticipantIds?.length)return 'AGENT + PARTICIPANT ADDRESSED';
