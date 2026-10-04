@@ -48,13 +48,16 @@ function item(input){
  });
 }
 
-function currentSession(sessionId,currentSessionId){
- return Boolean(currentSessionId&&sessionId&&String(sessionId)===String(currentSessionId));
+function currentSession(sessionId,currentSessionId,currentSessionIds=[]){
+ if(!sessionId)return false;
+ const value=String(sessionId);
+ if(currentSessionId&&value===String(currentSessionId))return true;
+ return (Array.isArray(currentSessionIds)?currentSessionIds:[]).some(id=>id&&value===String(id));
 }
 
 export function buildRecallProjection({
  dialogueTurns=[],agentHistory=[],roomEvents=[],meetings=[],tasks=[],memories=[],
- participants=[],currentSessionId=null,currentSessionStartedAt=0,now=Date.now()
+ participants=[],currentSessionId=null,currentSessionIds=[],currentSessionStartedAt=0,now=Date.now()
 }={}){
  const people=new Map((participants||[]).filter(Boolean).map(person=>[person.id,person]));
  const dialogue=(Array.isArray(dialogueTurns)?dialogueTurns:[]).filter(turn=>turn?.id);
@@ -81,7 +84,7 @@ export function buildRecallProjection({
    subtype:'dialogue-turn',at:createdAt,
    title:pid?(person?.nickname||person?.name||turn.participantName||'Participant'):'Unknown speaker',
    text,participantId:pid,participantIds:pid?[pid]:[],
-   temporal:currentSession(turn.sessionId,currentSessionId)?'current-session':'historical',
+   temporal:currentSession(turn.sessionId,currentSessionId,currentSessionIds)?'current-session':'historical',
    provenance,
    references:[
     ...(turn.meetingId?[ref('meeting',turn.meetingId)]:[]),
@@ -115,7 +118,7 @@ export function buildRecallProjection({
    title:'ROOM · '+String(event.category||'event').toUpperCase(),
    text:event.message,participantId:event.participantId||null,
    participantIds:event.participantId?[event.participantId]:[],
-   temporal:currentSession(event.sessionId,currentSessionId)?'current-session':'historical',
+   temporal:currentSession(event.sessionId,currentSessionId,currentSessionIds)?'current-session':'historical',
    provenance:[
     'canonical-room-event',String(event.source||'local'),
     ...(event.correctedBy?['owner-corrected']:[])
