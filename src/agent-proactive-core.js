@@ -128,10 +128,12 @@ export class ProactiveAgentGovernor{
  setPolicy(policy){
   this.policy=normalizeProactivePolicy(policy);
   if(!this.policy.enabled)this.pending=[];
-  else if(!this.policy.followupsEnabled)
-   this.pending=this.pending.filter(item=>item.type!=='conversation-followup');
-  else if(!this.policy.statusNoticesEnabled)
-   this.pending=this.pending.filter(item=>item.type==='conversation-followup');
+  else{
+   if(!this.policy.followupsEnabled)
+    this.pending=this.pending.filter(item=>item.type!=='conversation-followup');
+   if(!this.policy.statusNoticesEnabled)
+    this.pending=this.pending.filter(item=>item.type==='conversation-followup');
+  }
   return this.policy;
  }
  offer(opportunity){
