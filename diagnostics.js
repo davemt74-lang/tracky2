@@ -189,7 +189,7 @@ ui.acceptance?.addEventListener('change',renderAcceptanceStatus);
 ui.export.addEventListener('click',()=>{
  const acceptance=releaseAcceptanceSummary({checks:acceptanceChecks()});
  const report={
-  product:'Tracky2',version:'0.10.9',measuredAt:new Date().toISOString(),
+  product:'Tracky2',version:'0.11.0',measuredAt:new Date().toISOString(),
   cameraOutcome,camera:metrics.snapshot(),microphone:micOutcome,
   calibration:currentCalibration,
   resilience:{
