@@ -166,7 +166,7 @@ test('12A participant deletion scrubs unverified multimodal context references',
  const block=store.slice(start,end);
  assert.match(block,/multimodalContextParticipantIds/);
  assert.match(block,/multimodalEvidence/);
- assert.match(block,/evidence\.participantId !== id/);
+ assert.match(block,/evidence\?\.participantId !== id/);
 });
 
 test('12A conversation projection exposes fusion state/provenance without changing transcript authority',()=>{
