@@ -1950,16 +1950,22 @@ function voiceSegmentIsCurrent(segment) {
 }
 
 async function processRoomSegment(segment) {
-  if (!voiceSegmentIsCurrent(segment)) return;
+  let outcome='completed';
+  if (!voiceSegmentIsCurrent(segment)) {
+    listeningController.complete(segment,'cancelled');
+    renderListeningHealth();
+    return;
+  }
   state.voice.processing = true;
   renderVoiceHud();
 
   try {
     const speakerReady = await ensureSpeakerEngine();
-    if (!speakerReady || !voiceSegmentIsCurrent(segment)) return;
+    if (!speakerReady){outcome='failed';return;}
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const embedding = await state.voice.engine.embedding(segment.samples);
-    if (!voiceSegmentIsCurrent(segment)) return;
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const voiceMatch = bestVoiceMatch(embedding, state.identity.participants);
     const participant = voiceMatch.matched ? voiceMatch.participant : null;
@@ -2038,7 +2044,7 @@ async function processRoomSegment(segment) {
       const transcriptReady = await ensureTranscriptionEngine();
       if (transcriptReady && voiceSegmentIsCurrent(segment)) {
         transcript = await state.voice.transcriber.transcribe(segment.samples);
-        if (!voiceSegmentIsCurrent(segment)) return;
+        if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
       }
     }
 
@@ -2085,7 +2091,7 @@ async function processRoomSegment(segment) {
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     state.voice.lastDecision = 'accepted';
 
-    if (!voiceSegmentIsCurrent(segment)) return;
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     try {
       const savedTurn = await saveDialogueTurn({
@@ -2095,6 +2101,7 @@ async function processRoomSegment(segment) {
       });
 
       if (!voiceSegmentIsCurrent(segment)) {
+        outcome='cancelled';
         await deleteDialogueTurn(savedTurn.id).catch(() => {});
         return;
       }
@@ -2106,20 +2113,28 @@ async function processRoomSegment(segment) {
     renderDialogueTurns();
     renderVoiceHud();
   } catch (error) {
+    outcome='failed';
     console.error(error);
     pushRoomEvent('Speech turn could not be analyzed.', 'error');
   } finally {
     state.voice.processing = false;
+    listeningController.complete(segment,outcome,Date.now());
     renderVoiceHud();
+    renderListeningHealth();
   }
 }
 
 async function drainRoomAudioQueue() {
-  if (state.voice.processing) return;
-  const next = state.voice.queue.shift();
-  if (!next) return;
+  if (state.voice.processing||listeningController.snapshot().processingSegmentId) return;
+  const nextResult=listeningController.beginNext(Date.now());
+  reportListeningDrops(nextResult.dropped);
+  const next=nextResult.segment;
+  runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
+  if (!next){renderListeningHealth();return;}
+  state.voice.processing=true;
+  renderVoiceHud();
   await processRoomSegment(next);
-  if (state.voice.queue.length) void drainRoomAudioQueue();
+  if (listeningController.snapshot().queueDepth) void drainRoomAudioQueue();
 }
 
 function roomTrackSnapshot() {
@@ -2138,14 +2153,15 @@ function roomTrackSnapshot() {
 }
 
 function onRoomAudioSegment(segment) {
-  state.voice.queue.push({
-    ...segment,
-    generation: state.voice.generation,
-    roomTracks: roomTrackSnapshot()
+  const queued=listeningController.enqueue(segment,{
+    generation:state.voice.generation,
+    roomTracks:roomTrackSnapshot(),
+    now:Date.now()
   });
-  if (state.voice.queue.length > 6) state.voice.queue.splice(0, state.voice.queue.length - 6);
-  runtimeBudget.recordAudioQueue(state.voice.queue.length);
-  renderRuntimeHealth();
+  reportListeningDrops(queued.dropped);
+  runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
+  renderRuntimeHealth();renderListeningHealth();
+  if(!queued.accepted)return;
   void drainRoomAudioQueue();
 }
 
@@ -2164,7 +2180,7 @@ async function clearSavedDialogue() {
 
   try {
     state.voice.generation += 1;
-    state.voice.queue = [];
+    listeningController.invalidateGeneration(state.voice.generation,'dialogue-cleared');
     await clearDialogueTurns();
     state.voice.turns = [];
     renderDialogueTurns();
