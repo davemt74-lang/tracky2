@@ -2109,14 +2109,58 @@ async function processRoomSegment(segment) {
       return;
     }
 
-    let transcript = '';
-    if (ui.liveTranscription.checked) {
-      const transcriptReady = await ensureTranscriptionEngine();
-      if (transcriptReady && voiceSegmentIsCurrent(segment)) {
-        transcript = await state.voice.transcriber.transcribe(segment.samples);
-        if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+    let transcript='';
+    let transcriptRecord=null;
+    if(ui.liveTranscription.checked){
+      transcriptLifecycle.begin({
+        segmentId:segment.segmentId,generation:segment.generation,
+        sessionId:state.voice.sessionId,source:'local-whisper',
+        captureDurationMs:segment.captureDurationMs,at:Date.now()
+      });
+      state.voice.currentTranscriptState='pending';
+      state.voice.currentTranscriptSegmentId=segment.segmentId;
+      state.voice.currentTranscriptModelRevision=null;
+      renderVoiceHud();
+
+      const transcriptReady=await ensureTranscriptionEngine();
+      if(!voiceSegmentIsCurrent(segment)){
+        transcriptLifecycle.cancel(segment.segmentId,'segment-invalidated',Date.now());
+        state.voice.currentTranscriptState='cancelled';
+        outcome='cancelled';return;
       }
+      if(transcriptReady){
+        const detail=await state.voice.transcriber.transcribeDetailed(segment.samples);
+        if(!voiceSegmentIsCurrent(segment)){
+          transcriptLifecycle.cancel(segment.segmentId,'stale-transcription-result',Date.now());
+          state.voice.currentTranscriptState='cancelled';
+          outcome='cancelled';return;
+        }
+        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+          text:detail.text,confidence:detail.confidence,language:detail.language,
+          source:detail.source,modelId:detail.modelId,modelRevision:detail.modelRevision,
+          processingDurationMs:detail.processingDurationMs,at:detail.completedAt
+        });
+        transcript=transcriptRecord?.text||'';
+        state.voice.currentTranscriptState=transcriptRecord?.state||'unavailable';
+        state.voice.currentTranscriptModelRevision=transcriptRecord?.modelRevision||null;
+      }else{
+        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+          text:'',source:'local-whisper',at:Date.now()
+        });
+        state.voice.currentTranscriptState='unavailable';
+      }
+      renderVoiceHud();
+    }else{
+      transcriptRecord={
+        state:'unavailable',source:'disabled',segmentId:segment.segmentId,
+        sessionId:state.voice.sessionId,captureDurationMs:segment.captureDurationMs,
+        completedAt:Date.now()
+      };
+      state.voice.currentTranscriptState='unavailable';
+      state.voice.currentTranscriptSegmentId=segment.segmentId;
+      state.voice.currentTranscriptModelRevision=null;
     }
+    const transcriptFields=canonicalTranscriptFields(transcriptRecord);
 
     const associationTransition=speakerAssociationTracker.preview(association,Date.now());
     state.voice.currentAssociationTransition=associationTransition?.type||null;
@@ -2136,7 +2180,8 @@ async function processRoomSegment(segment) {
       }
     }
     const associationFields=speakerAssociationTurnFields(association);
-    let turn = createSpeakerTurn({
+    let turn = {
+     ...createSpeakerTurn({
       participantId: association.participantId,
       participantName: participant?.name || null,
       trackId: association.trackId,
@@ -2158,7 +2203,9 @@ async function processRoomSegment(segment) {
        type:associationTransition.type,fromState:associationTransition.fromState,
        toState:associationTransition.toState,at:associationTransition.at
       }:null
-    });
+     }),
+     ...transcriptFields
+    };
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
@@ -2218,6 +2265,7 @@ async function processRoomSegment(segment) {
     console.error(error);
     pushRoomEvent('Speech turn could not be analyzed.', 'error');
   } finally {
+    transcriptLifecycle.forget(segment?.segmentId);
     state.voice.processing = false;
     listeningController.complete(segment,outcome,Date.now());
     renderVoiceHud();
