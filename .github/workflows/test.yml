@@ -46,6 +46,9 @@ jobs:
         run: |
           set -euo pipefail
           unzip -t tracky2-v0.10.9-deploy.zip
+          unzip -l tracky2-v0.10.9-deploy.zip | grep -F 'tracky2-v0.10.9/src/runtime-resilience-core.js'
+          unzip -l tracky2-v0.10.9-deploy.zip | grep -F 'tracky2-v0.10.9/docs/V010-RELEASE-ACCEPTANCE.md'
+          node --input-type=module -e "import('./src/runtime-resilience-core.js').then(m=>{if(!m.RuntimeBudget||!m.RecoveryBudget||!m.storagePressure||!m.releaseAcceptanceSummary)process.exit(1)})"
           unzip -l tracky2-v0.10.9-deploy.zip | grep -F 'tracky2-v0.10.9/src/room-ui-core.js'
           node --input-type=module -e "import('./src/room-ui-core.js').then(m=>{if(!m.roomUiOverview||!m.roomEventMatchesFilter)process.exit(1)})"
           unzip -l tracky2-v0.10.9-deploy.zip | grep -F 'tracky2-v0.10.9/src/server-sync-core.js'
@@ -100,6 +103,7 @@ jobs:
           rm -rf dist/package-smoke
           mkdir -p dist/package-smoke
           unzip -q tracky2-v0.10.9-deploy.zip -d dist/package-smoke
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.9/src/runtime-resilience-core.js').then(m=>{if(!m.RuntimeBudget||!m.RecoveryBudget||!m.storagePressure)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.9/src/room-ui-core.js').then(m=>{if(!m.roomUiOverview||!m.roomEventMatchesFilter)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.9/src/server-sync-core.js').then(m=>{if(!m.planParticipantSync||!m.changeForServer)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.10.9/src/agent-memory-core.js').then(m=>{if(!m.AgentMemoryLedger||!m.sessionContextReferences)process.exit(1)})"
@@ -169,8 +173,8 @@ jobs:
             tracky2-v0.10.9-deploy.zip \
             tracky2-v0.10.9-deploy.zip.sha256 \
             --target "$GITHUB_SHA" \
-            --title "Tracky2 v0.10.9 — Coherent responsive AGENT and ROOM interface" \
-            --notes "V0.10 Section 10I: coherent responsive AGENT/ROOM interface polish using the existing canonical ROOM ledger: compact live overview, keyboard-native evidence filters, clearer decision/audio/presence emphasis, reduced screen-reader churn for continuously updating state, preserved mobile slide-out rails and privacy/diagnostic disclaimers. No new sensor, ledger or external integration."
+            --title "Tracky2 v0.10.9 — Standalone V0.10 resilience and release hardening" \
+            --notes "V0.10 Section 10J: final standalone resilience/release hardening with aggregate runtime stall/scan/audio-backlog budgets, granted-only bounded camera/microphone recovery, permission lifecycle monitoring, foreground-safe retry, browser storage-pressure protection for optional ROOM history, expanded representative-device diagnostics, and explicit software-vs-physical acceptance limits. Automatic recovery is capped at three attempts per two-minute sensor window and never background-reprompts denied permissions. No Cloud/HomeServer integration or universal hardware certification is claimed."
           gh release view v0.10.9 --json assets \
             --jq '.assets[].name' | grep -Fx 'tracky2-v0.10.9-deploy.zip'
           gh release view v0.10.9 --json assets \
