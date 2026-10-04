@@ -579,3 +579,33 @@
 @media(max-width:340px){
  .game-page.agent-mode .room-ui-overview{grid-template-columns:1fr}
 }
+
+
+/* V0.10J aggregate runtime/recovery health. */
+.game-page.agent-mode .room-runtime-health{
+ margin:9px 0 11px;padding:8px 9px;border:1px solid rgba(109,210,196,.28);
+ border-radius:9px;background:rgba(4,32,39,.5)
+}
+.game-page.agent-mode .room-runtime-health>summary{
+ cursor:pointer;font-size:.65rem;font-weight:800;letter-spacing:.05em;color:#ddfff5
+}
+.game-page.agent-mode .room-runtime-grid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0
+}
+.game-page.agent-mode .room-runtime-grid article{
+ min-width:0;padding:7px;border:1px solid rgba(111,191,185,.22);
+ border-radius:8px;background:rgba(7,43,49,.52)
+}
+.game-page.agent-mode .room-runtime-grid span{
+ display:block;margin-bottom:3px;font-size:.52rem;font-weight:800;
+ letter-spacing:.07em;color:#9cc8c4
+}
+.game-page.agent-mode .room-runtime-grid strong{
+ display:block;font-size:.64rem;line-height:1.4;color:#effffb;overflow-wrap:anywhere
+}
+.game-page.agent-mode .room-runtime-health>small{
+ display:block;font-size:.57rem;line-height:1.5;color:#a9c9c6
+}
+@media(max-width:390px){
+ .game-page.agent-mode .room-runtime-grid{grid-template-columns:1fr}
+}
