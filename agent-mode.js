@@ -5,7 +5,7 @@ import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,getDialogueTurns=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
@@ -158,6 +158,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],editTransc
   lastTurnAt=now;responsePending=true;
   try{
    const known=participants().find(x=>x.id===turn.participantId);
+   const verifiedMemoryScope=Boolean(known&&turn.participantId&&turn.attribution!=='unknown');
+   const memoryContext=verifiedMemoryScope?getMemories(turn.participantId):[];
    if(ui.useModel.checked){
     let endpoint;
     try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
@@ -169,7 +171,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],editTransc
      try{
       const reply=await queryLocalOllama({
        endpoint,model:ui.modelName.value.trim(),
-       messages:buildAgentMessages(prior,turn.transcript,known?.name||''),
+       messages:buildAgentMessages(prior,turn.transcript,verifiedMemoryScope?(known?.name||''):'',memoryContext),
        signal:modelController.signal
       });
       if(!open){say(reply);ui.modelStatus.textContent='Local model connected · text-only';}
@@ -180,7 +182,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],editTransc
     }
    }
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
-   const reply=localAgentReply(turn.transcript,{name:known?.name||'',previousTopics:recent});
+   const reply=localAgentReply(turn.transcript,{name:verifiedMemoryScope?(known?.name||''):'',previousTopics:recent,memories:memoryContext});
    if(reply&&!open)say(reply);
   }finally{responsePending=false;}
  }
