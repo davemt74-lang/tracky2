@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+const TRACKY_SCHEMA_VERSION=2;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -23,6 +24,7 @@ function tracky_db(): PDO {
         PDO::ATTR_TIMEOUT => 5
     ]);
     $db->exec('PRAGMA foreign_keys=ON');
+    tracky_schema($db);
     return $db;
 }
 function tracky_session(): void {
@@ -69,6 +71,62 @@ function tracky_check_csrf(): void {
         http_response_code(403); throw new RuntimeException('Invalid CSRF token.');
     }
 }
+function tracky_secret_key(): string {
+    if(!extension_loaded('sodium')) throw new RuntimeException('PHP sodium extension required for encrypted data.');
+    tracky_safe_data_dir();
+    $path=TRACKY_DATA.'/secret.key';
+    if(!is_file($path)){
+        if(is_file(TRACKY_DATA.'/installed.lock'))
+            throw new RuntimeException('Encryption key missing. Restore the original instance key from backup.');
+        if(!is_dir(TRACKY_DATA)) throw new RuntimeException('Install Tracky2 first.');
+        $f=@fopen($path,'x');
+        if($f){
+            try{
+                chmod($path,0600);
+                if(fwrite($f,random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES))!==SODIUM_CRYPTO_SECRETBOX_KEYBYTES)
+                    throw new RuntimeException('Cannot write encryption key.');
+                fflush($f);
+            }finally{fclose($f);}
+        }
+    }
+    $key=@file_get_contents($path);
+    if(!is_string($key)||strlen($key)!==SODIUM_CRYPTO_SECRETBOX_KEYBYTES)
+        throw new RuntimeException('Encryption key unavailable.');
+    return $key;
+}
+function tracky_encrypt(string $plain): string {
+    $nonce=random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+    return base64_encode($nonce.sodium_crypto_secretbox($plain,$nonce,tracky_secret_key()));
+}
+function tracky_decrypt(string $cipher): string {
+    $data=base64_decode($cipher,true);
+    if($data===false||strlen($data)<=SODIUM_CRYPTO_SECRETBOX_NONCEBYTES)
+        throw new RuntimeException('Encrypted record is corrupt.');
+    $nonce=substr($data,0,SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+    $plain=sodium_crypto_secretbox_open(substr($data,SODIUM_CRYPTO_SECRETBOX_NONCEBYTES),$nonce,tracky_secret_key());
+    if($plain===false)throw new RuntimeException('Unable to decrypt record.');
+    return $plain;
+}
+function tracky_table_columns(PDO $db,string $table): array {
+    if(!preg_match('/^[a-z_]+$/D',$table))throw new InvalidArgumentException('Invalid table name.');
+    return array_map(static fn($r)=>(string)$r['name'],$db->query('PRAGMA table_info('.$table.')')->fetchAll());
+}
+function tracky_ensure_column(PDO $db,string $table,string $column,string $definition): void {
+    if(in_array($column,tracky_table_columns($db,$table),true))return;
+    if(!preg_match('/^[a-z_]+$/D',$column))throw new InvalidArgumentException('Invalid column name.');
+    $db->exec('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition);
+}
+function tracky_migrate_participant_profiles(PDO $db): void {
+    if(!is_file(TRACKY_DATA.'/installed.lock')||!is_file(TRACKY_DATA.'/secret.key'))return;
+    $rows=$db->query("SELECT id,profile_json FROM participants WHERE profile_ciphertext IS NULL AND profile_json<>'{}'")->fetchAll();
+    if(!$rows)return;
+    $u=$db->prepare("UPDATE participants SET profile_ciphertext=?,profile_json='{}' WHERE id=?");
+    foreach($rows as $row){
+        json_decode((string)$row['profile_json'],true,32,JSON_THROW_ON_ERROR);
+        $u->execute([tracky_encrypt((string)$row['profile_json']),(string)$row['id']]);
+    }
+}
+
 function tracky_schema(PDO $db): void {
     $db->exec(<<<'SQL'
 CREATE TABLE IF NOT EXISTS users(
@@ -80,9 +138,14 @@ CREATE TABLE IF NOT EXISTS roles(name TEXT PRIMARY KEY, description TEXT NOT NUL
 CREATE TABLE IF NOT EXISTS role_permissions(role TEXT NOT NULL REFERENCES roles(name),
  permission TEXT NOT NULL, PRIMARY KEY(role,permission));
 CREATE TABLE IF NOT EXISTS participants(
- id TEXT PRIMARY KEY, name TEXT NOT NULL, profile_json TEXT NOT NULL,
- consent INTEGER NOT NULL DEFAULT 0, updated_by INTEGER REFERENCES users(id),
- updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+ id TEXT PRIMARY KEY, name TEXT NOT NULL, profile_json TEXT NOT NULL DEFAULT '{}',
+ profile_ciphertext TEXT, consent INTEGER NOT NULL DEFAULT 0,
+ version INTEGER NOT NULL DEFAULT 1, client_updated_at INTEGER,
+ server_updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER,
+ updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS schema_meta(
+ key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS scenes(
  id TEXT PRIMARY KEY, title TEXT NOT NULL, snapshot_path TEXT,
@@ -107,9 +170,19 @@ CREATE TABLE IF NOT EXISTS audit_log(
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 SQL);
+    tracky_ensure_column($db,'participants','profile_ciphertext','TEXT');
+    tracky_ensure_column($db,'participants','version','INTEGER NOT NULL DEFAULT 1');
+    tracky_ensure_column($db,'participants','client_updated_at','INTEGER');
+    tracky_ensure_column($db,'participants','server_updated_at','INTEGER NOT NULL DEFAULT 0');
+    tracky_ensure_column($db,'participants','deleted_at','INTEGER');
+    $now=(int)floor(microtime(true)*1000);
+    $q=$db->prepare('UPDATE participants SET server_updated_at=? WHERE server_updated_at=0');$q->execute([$now]);
+    tracky_migrate_participant_profiles($db);
+    $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
+    $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
-      'admin'=>['users.manage','participants.read','participants.write','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
+      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
       'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review'],
       'viewer'=>['participants.read','scene.read']
     ];
