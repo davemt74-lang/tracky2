@@ -39,6 +39,7 @@ const requiredFiles = [
   'agent-mode.css',
   'agent-presence.css',
   'README.md',
+  'docs/V010-RELEASE-ACCEPTANCE.md',
   'package.json',
   'src/tracker-core.js',
   'src/movement-core.js',
