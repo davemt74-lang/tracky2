@@ -68,7 +68,7 @@ export function multiConversationTurnFields(turn={},{
   turn.visitorId||null
  ]);
  const inferredSize=Math.max(1,participantIds.length+visitorIds.length);
- const conversationGroupSize=Math.max(1,Number(groupSize)||inferredSize);
+ const conversationGroupSize=Math.max(1,inferredSize,Number(groupSize)||0);
  const groupParticipants=visiblePeople.filter(person=>participantIds.includes(person.id));
  const address=resolveConversationAddress(turn.transcript,groupParticipants);
  const association=String(turn.associationState||'unknown-speaker');
