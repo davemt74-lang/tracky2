@@ -1,6 +1,7 @@
-// V0.10B: owner-defined CAMERA-RELATIVE scene; never a calibrated floor plan.
-// No images, biometrics, participants or sensor frames are stored in scene records.
-export const ROOM_SCENE_SCHEMA=1;
+// Owner-defined scene metadata. V0.11G optionally adds an explicit floor-plane
+// calibration; no images, biometrics, participants or sensor frames are stored.
+import {normalizeFloorCalibration,calibratedTrackPosition} from './spatial-calibration-core.js';
+export const ROOM_SCENE_SCHEMA=2;
 export const MAX_ROOM_AREAS=16;
 export const MAX_ROOM_OBJECTS=32;
 export const AREA_KINDS=Object.freeze(['zone','entrance','desk','seat','other']);
@@ -18,7 +19,8 @@ export function normalizeAreaRect(input){
  return Object.freeze({x:clamp(x),y:clamp(y),width:clamp(width),height:clamp(height)});
 }
 export function emptyRoomScene(){
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze([]),objects:Object.freeze([])});
+ return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze([]),
+  objects:Object.freeze([]),calibration:null});
 }
 export function normalizeRoomScene(input={}){
  const areas=[],objects=[],ids=new Set(),objectIds=new Set();
@@ -37,7 +39,9 @@ export function normalizeRoomScene(input={}){
   objects.push(Object.freeze({id:objectId,name,kind:OBJECT_KINDS.includes(row.kind)?row.kind:'other',
    areaId:ids.has(row.areaId)?row.areaId:null,provenance:'owner-defined'}));
  }
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze(areas),objects:Object.freeze(objects)});
+ const calibration=normalizeFloorCalibration(input.calibration);
+ return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze(areas),
+  objects:Object.freeze(objects),calibration});
 }
 export function upsertRoomArea(scene,input){
  const base=normalizeRoomScene(scene);
@@ -92,9 +96,21 @@ export function mirroredAreaRect(area,mirrored=false){
  const rect=normalizeAreaRect(area?.rect);if(!rect)return null;
  return mirrored?{...rect,x:clamp(1-rect.x-rect.width)}:rect;
 }
+export function setRoomCalibration(scene,input){
+ const base=normalizeRoomScene(scene),calibration=normalizeFloorCalibration(input);
+ if(!calibration)throw Error('Enter four valid floor points and room dimensions between 0.5m and 50m.');
+ return normalizeRoomScene({...base,calibration});
+}
+export function clearRoomCalibration(scene){
+ const base=normalizeRoomScene(scene);
+ return normalizeRoomScene({...base,calibration:null});
+}
 export function roomSceneGraph(scene,publicTracks=[]){
  const base=normalizeRoomScene(scene);
  return Object.freeze({scene:base,links:(Array.isArray(publicTracks)?publicTracks:[]).slice(0,8)
-  .map(t=>Object.freeze({trackId:String(t.id||''),identity:t.participantId?'enrolled-verified':'unverified',
-   association:sceneTrackAssociation(base,t)}))});
+  .map(t=>Object.freeze({
+   trackId:String(t.id||''),identity:t.participantId?'enrolled-verified':'unverified',
+   association:sceneTrackAssociation(base,t),
+   spatial:calibratedTrackPosition(base.calibration,t)
+  }))});
 }
