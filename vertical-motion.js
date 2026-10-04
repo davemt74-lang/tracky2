@@ -1585,6 +1585,7 @@ async function reloadIdentityParticipants() {
       speakerAssociationTracker.reset();
       multimodalFusionTracker.reset();
       diarizationSession.reset();
+      continuousSpeakerFusionTracker.reset();
       renderVoiceHud();
     }
     refreshPlayerChoices();
@@ -1611,12 +1612,17 @@ async function reloadIdentityParticipants() {
     state.voice.currentDiarizationSpeakerCount=0;
     state.voice.currentDiarizationOverlap=false;
     state.voice.currentDiarizationReason=null;
+    state.voice.currentContinuousFusionState='unresolved';
+    state.voice.currentContinuousFusionParticipantIds=[];
+    state.voice.currentContinuousFusionConflicts=[];
+    state.voice.currentContinuousFusionUnresolvedWindows=0;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     speakerAssociationTracker.reset();
     multimodalFusionTracker.reset();
     diarizationSession.reset();
+    continuousSpeakerFusionTracker.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
   }
@@ -3105,6 +3111,7 @@ async function startRoomAudio() {
     speakerAssociationTracker.reset();
     multimodalFusionTracker.reset();
     diarizationSession.reset();
+    continuousSpeakerFusionTracker.reset();
     transcriptLifecycle.clear();
     state.voice.currentTranscriptState='idle';
     state.voice.currentTranscriptSegmentId=null;
@@ -3195,12 +3202,17 @@ function stopRoomAudio() {
   state.voice.currentDiarizationSpeakerCount=0;
   state.voice.currentDiarizationOverlap=false;
   state.voice.currentDiarizationReason=null;
+  state.voice.currentContinuousFusionState='unresolved';
+  state.voice.currentContinuousFusionParticipantIds=[];
+  state.voice.currentContinuousFusionConflicts=[];
+  state.voice.currentContinuousFusionUnresolvedWindows=0;
   state.voice.currentConversationAttention='unknown';
   state.voice.currentConversationGroupSize=1;
   state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
   speakerAssociationTracker.reset();
   multimodalFusionTracker.reset();
   diarizationSession.reset();
+  continuousSpeakerFusionTracker.reset();
   transcriptLifecycle.clear();
   state.voice.currentTranscriptState='idle';
   state.voice.currentTranscriptSegmentId=null;
