@@ -147,7 +147,11 @@ export class ProactiveAgentGovernor{
   const allowed=new Set(validIds.map(String));
   const before=this.pending.length;
   this.pending=this.pending.filter(item=>!item.participantId||allowed.has(String(item.participantId)));
+  this.interruptions=this.interruptions.filter(item=>
+   !item.participantId||allowed.has(String(item.participantId)));
   for(const id of this.participantLast.keys())if(!allowed.has(String(id)))this.participantLast.delete(id);
+  if(this.lastDecision?.participantId&&!allowed.has(String(this.lastDecision.participantId)))
+   this.lastDecision=null;
   return before-this.pending.length;
  }
  noteDialogue(turn,now=Date.now()){
