@@ -82,16 +82,24 @@ export function resolveSpeakerAssociation({voiceMatch={},roomTracks=[]}={}){
   });
  }
 
- if(voiceMatch.ambiguous){
-  return Object.freeze({...base,state:'ambiguous-voice',
-   provenance:Object.freeze(['voice-profile-ambiguous'])});
- }
-
  // A shared microphone gives no direction. Nearby context is shown only when
  // exactly one current public person/visitor exists, and it never becomes speaker ID.
  const current=tracks.filter(currentTrack);
- if(current.length===1){
-  const only=current[0];
+ const sole=current.length===1?current[0]:null;
+
+ if(voiceMatch.ambiguous){
+  const extra=sole?.participantId
+   ? {nearbyParticipantId:sole.participantId,nearbyParticipantName:sole.participantName||null}
+   : sole?.visitorId
+     ? {nearbyVisitorId:sole.visitorId,nearbyVisitorLabel:sole.visitorLabel||null}
+     : {};
+  return Object.freeze({...base,...extra,state:'ambiguous-voice',
+   provenance:Object.freeze(['voice-profile-ambiguous',
+    ...(sole?['single-visible-person-context-unverified']:[])])});
+ }
+
+ if(sole){
+  const only=sole;
   if(only.participantId){
    return Object.freeze({...base,state:'unknown-nearby-participant',
     nearbyParticipantId:only.participantId,
