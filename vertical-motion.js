@@ -2291,8 +2291,17 @@ function renderDialogueTurns() {
       ...(turn.multimodalAbstentionReason?['abstain:'+turn.multimodalAbstentionReason]:[])
     ].filter(Boolean);
     fusionMeta.textContent='Fusion · '+fusionBits.join(' · ');
+    const diarizationMeta=document.createElement('small');
+    const diarizationBits=[
+      turn.diarizationState||'not-recorded',
+      (turn.diarizationSpeakerCount||0)+' speaker cluster'+
+       ((turn.diarizationSpeakerCount||0)===1?'':'s'),
+      turn.diarizationOverlapObserved?'overlap unresolved':'',
+      turn.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
+    ].filter(Boolean);
+    diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta);
     ui.dialogueTurns.append(card);
   }
 }
