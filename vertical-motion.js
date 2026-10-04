@@ -2269,6 +2269,7 @@ async function processRoomSegment(segment) {
 
     state.voice.turns.push(savedTurn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
+    void refreshTranscriptSessionSummary();
     state.voice.lastDecision = 'accepted';
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
@@ -2336,10 +2337,102 @@ function onRoomAudioSegment(segment) {
   void drainRoomAudioQueue();
 }
 
+function transcriptParticipantName(turn){
+ const person=turn?.participantId?participantById(turn.participantId):null;
+ return turn?.participantId?(person?.nickname||person?.name||turn.participantName||'Participant'):'Unknown speaker';
+}
+
+function renderTranscriptSearchResults(matches=[],query=''){
+ if(!ui.transcriptSearchResults)return;
+ ui.transcriptSearchResults.replaceChildren();
+ if(!query){
+  ui.transcriptSearchResults.hidden=true;return;
+ }
+ ui.transcriptSearchResults.hidden=false;
+ if(!matches.length){
+  const empty=document.createElement('p');
+  empty.className='dialogue-empty';empty.textContent='No canonical transcripts match “'+query+'”.';
+  ui.transcriptSearchResults.append(empty);return;
+ }
+ for(const turn of matches){
+  const row=document.createElement('article');row.className='transcript-search-result';
+  const name=document.createElement('strong');name.textContent=transcriptParticipantName(turn);
+  const text=document.createElement('p');text.textContent=turn.transcript;
+  const meta=document.createElement('small');
+  const at=Date.parse(turn.createdAt||'')||Number(turn.at||0);
+  meta.textContent=(Number.isFinite(at)&&at>0?new Date(at).toLocaleString():'Unknown time')+
+   ' · '+String(turn.transcriptState||(turn.transcriptEditedAt?'corrected':'final')).toUpperCase()+
+   ' · '+String(turn.sessionId||'room-session');
+  row.append(name,text,meta);ui.transcriptSearchResults.append(row);
+ }
+}
+
+async function runTranscriptSearch(){
+ const query=String(ui.transcriptSearch?.value||'').trim();
+ if(!query){renderTranscriptSearchResults([],'');return;}
+ try{
+  const rows=await listDialogueTurns();
+  const matches=searchTranscriptTurns(rows,query,{limit:30});
+  renderTranscriptSearchResults(matches,query);
+  if(ui.transcriptSessionSummary)
+   ui.transcriptSessionSummary.textContent=matches.length+' result'+(matches.length===1?'':'s')+
+    ' · canonical local transcript search';
+ }catch(error){
+  console.error('Transcript search failed',error);
+  if(ui.transcriptSessionSummary)ui.transcriptSessionSummary.textContent='Transcript search unavailable.';
+ }
+}
+
+async function refreshTranscriptSessionSummary(rows=null){
+ if(!ui.transcriptSessionSummary)return;
+ try{
+  const all=rows||await listDialogueTurns();
+  const summaries=transcriptSessionSummaries(all);
+  const current=summaries.find(item=>item.sessionId===state.voice.sessionId);
+  const total=all.filter(turn=>String(turn.transcript||'').trim()).length;
+  ui.transcriptSessionSummary.textContent=current
+   ? 'Current session · '+current.transcriptCount+' transcript'+(current.transcriptCount===1?'':'s')+
+     (current.correctedCount?' · '+current.correctedCount+' corrected':'')+
+     ' · '+total+' searchable on device'
+   : total+' searchable transcript'+(total===1?'':'s')+' on this device · current session empty';
+ }catch(error){
+  console.error('Transcript session summary failed',error);
+  ui.transcriptSessionSummary.textContent='Transcript session summary unavailable.';
+ }
+}
+
+function downloadTranscriptJson(payload,scope){
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);
+ const link=document.createElement('a');
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+ link.href=url;link.download='tracky2-transcripts-'+scope+'-'+stamp+'.json';
+ link.hidden=true;document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+
+async function exportCanonicalTranscripts(all=false){
+ try{
+  const rows=await listDialogueTurns();
+  const payload=transcriptExport(rows,state.identity.participants,{
+   sessionId:all?null:state.voice.sessionId,includeUnknown:true
+  });
+  downloadTranscriptJson(payload,all?'all':'session');
+  if(ui.transcriptSessionSummary)
+   ui.transcriptSessionSummary.textContent='Exported '+payload.turnCount+
+    ' canonical transcript'+(payload.turnCount===1?'':'s')+
+    ' · text/provenance only · no audio, photos or biometrics';
+ }catch(error){
+  console.error('Transcript export failed',error);
+  if(ui.transcriptSessionSummary)ui.transcriptSessionSummary.textContent='Transcript export unavailable.';
+ }
+}
+
 async function loadSavedDialogue() {
   try {
     const rows = await listDialogueTurns();
     state.voice.turns = rows.slice(-50);
+    await refreshTranscriptSessionSummary(rows);
   } catch (error) {
     console.error('Could not load saved dialogue', error);
   }
@@ -2354,7 +2447,13 @@ async function clearSavedDialogue() {
     listeningController.invalidateGeneration(state.voice.generation,'dialogue-cleared');
     await clearDialogueTurns();
     state.voice.turns = [];
+    transcriptLifecycle.clear();
+    state.voice.currentTranscriptState='idle';
+    state.voice.currentTranscriptSegmentId=null;
+    state.voice.currentTranscriptModelRevision=null;
+    renderTranscriptSearchResults([],'');
     renderDialogueTurns();
+    await refreshTranscriptSessionSummary([]);
     agentRuntime?.refreshConversation();
     pushRoomEvent('Saved dialogue history cleared from this device.', 'system');
   } catch (error) {
