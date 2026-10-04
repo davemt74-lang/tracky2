@@ -2400,17 +2400,39 @@ async function diarizeRoomSegment(segment,wholeEmbedding=null) {
   const windows=createDiarizationWindows(segment.samples,{
     sampleRate:segment.sampleRate||16000,segmentId:segment.segmentId
   });
-  if(!windows.length)
-    return finalizeDiarization([],{segmentId:segment.segmentId,reason:'segment-too-short'});
+  const emptyContinuous=()=>summarizeContinuousFusion([]);
+  if(!windows.length){
+    const diarization=finalizeDiarization([],{
+      segmentId:segment.segmentId,reason:'segment-too-short'
+    });
+    return Object.freeze({...diarization,continuousFusion:emptyContinuous()});
+  }
+
   const working=diarizationSession.fork();
+  const fusionWorking=continuousSpeakerFusionTracker.fork();
   const assignments=[];
+  const continuousResults=[];
+  const activeParticipantIds=state.identity.participants.map(person=>person.id);
+  const revokedParticipantIds=state.identity.participants
+    .filter(person=>person.voiceRecognitionEnabled===false)
+    .map(person=>person.id);
+  fusionWorking.reconcile(activeParticipantIds);
   const signalQuality=Math.max(0,Math.min(1,
     (Number(segment.avgDb||-100)-Number(segment.noiseFloorDb||-100))/24));
+
+  const cancelledResult=reason=>{
+    const diarization=finalizeDiarization(assignments,{
+      segmentId:segment.segmentId,cancelled:true,reason
+    });
+    return Object.freeze({
+      ...diarization,
+      continuousFusion:summarizeContinuousFusion(continuousResults)
+    });
+  };
+
   for(let index=0;index<windows.length;index++){
-    if(!voiceSegmentIsCurrent(segment))
-      return finalizeDiarization(assignments,{
-        segmentId:segment.segmentId,cancelled:true,reason:'segment-invalidated'
-      });
+    if(!voiceSegmentIsCurrent(segment))return cancelledResult('segment-invalidated');
+
     const window=windows[index];
     let windowEmbedding=null;
     try{
@@ -2420,19 +2442,59 @@ async function diarizeRoomSegment(segment,wholeEmbedding=null) {
     }catch(error){
       console.warn('Diarization window embedding unavailable.',error);
     }
-    if(!voiceSegmentIsCurrent(segment))
-      return finalizeDiarization(assignments,{
-        segmentId:segment.segmentId,cancelled:true,reason:'segment-invalidated'
-      });
-    assignments.push(working.assign({
+    if(!voiceSegmentIsCurrent(segment))return cancelledResult('segment-invalidated');
+
+    const assignment=working.assign({
       embedding:windowEmbedding||[],windowId:window.id,
       startOffsetMs:window.startOffsetMs,endOffsetMs:window.endOffsetMs,
       quality:windowEmbedding?signalQuality:0
-    }));
+    });
+    assignments.push(assignment);
+
+    if(assignment.state==='speaker'&&assignment.speakerClusterId&&windowEmbedding){
+      const visual=visualSnapshotForWindow(segment.roomTrackHistory||[],{
+        segmentStartedAt:segment.startedAt,
+        startOffsetMs:window.startOffsetMs,endOffsetMs:window.endOffsetMs
+      });
+      const referenceAt=Number(segment.startedAt||0)+
+        (Number(window.startOffsetMs||0)+Number(window.endOffsetMs||0))/2;
+      const windowVoiceMatch=bestVoiceMatch(windowEmbedding,state.identity.participants);
+      const evidence=deriveMultimodalEvidence({
+        voiceMatch:windowVoiceMatch,
+        roomTracks:visual.tracks,
+        conversationParticipantIds:visual.currentParticipantIds,
+        referenceAt,revokedParticipantIds,spatialCalibrated:false
+      });
+      const windowFusion=fuseMultimodalIdentity({evidence,referenceAt});
+      continuousResults.push(fusionWorking.observe({
+        clusterId:assignment.speakerClusterId,fusion:windowFusion,at:referenceAt,
+        windowId:window.id,startOffsetMs:window.startOffsetMs,endOffsetMs:window.endOffsetMs,
+        activeParticipantIds,
+        currentVisualParticipantIds:visual.currentParticipantIds,
+        occludedParticipantIds:visual.occludedParticipantIds
+      }));
+    }else{
+      continuousResults.push(Object.freeze({
+        clusterId:assignment.speakerClusterId||null,windowId:window.id,
+        participantId:null,state:assignment.state,confidence:assignment.confidence,
+        at:Number(segment.startedAt||0)+
+          (Number(window.startOffsetMs||0)+Number(window.endOffsetMs||0))/2,
+        startOffsetMs:window.startOffsetMs,endOffsetMs:window.endOffsetMs,
+        trackId:null,provenance:Object.freeze(['diarization:'+assignment.state]),
+        conflicts:Object.freeze(assignment.state==='overlap-unresolved'
+          ?['diarization-overlap-unresolved']:[]),
+        reason:assignment.reason||null
+      }));
+    }
   }
-  const result=finalizeDiarization(assignments,{segmentId:segment.segmentId});
-  if(voiceSegmentIsCurrent(segment))diarizationSession.commitFrom(working);
-  return result;
+
+  const diarization=finalizeDiarization(assignments,{segmentId:segment.segmentId});
+  const continuousFusion=summarizeContinuousFusion(continuousResults);
+  if(voiceSegmentIsCurrent(segment)){
+    diarizationSession.commitFrom(working);
+    continuousSpeakerFusionTracker.commitFrom(fusionWorking);
+  }
+  return Object.freeze({...diarization,continuousFusion});
 }
 
 async function processRoomSegment(segment) {
