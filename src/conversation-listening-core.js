@@ -76,7 +76,7 @@ export class ConversationListeningController{
   this.generation=0;this.active=false;this.vad=false;this.suppressed=false;
   this.agentSpeaking=false;this.recovering=false;this.processing=null;this.queue=[];
   this.lastReason='standby';this.lastTransitionAt=0;
-  this.stats={enqueued:0,completed:0,droppedStale:0,droppedOverflow:0,
+  this.stats={enqueued:0,completed:0,failed:0,droppedStale:0,droppedOverflow:0,
    droppedGeneration:0,cancelled:0};
  }
  transition(reason,now=Date.now()){this.lastReason=String(reason||'');this.lastTransitionAt=now;}
@@ -146,6 +146,7 @@ export class ConversationListeningController{
  complete(segment,outcome='completed',now=Date.now()){
   if(this.processing?.segmentId===segment?.segmentId)this.processing=null;
   if(outcome==='completed')this.stats.completed++;
+  else if(outcome==='failed')this.stats.failed++;
   else if(outcome==='cancelled')this.stats.cancelled++;
   this.transition('segment-'+outcome,now);
  }
@@ -156,8 +157,8 @@ export class ConversationListeningController{
   this.transition(reason,now);return cancelled;
  }
  snapshot(){
-  const state=!this.active?'offline':
-   this.recovering?'recovering':
+  const state=this.recovering?'recovering':
+   !this.active?'offline':
    this.agentSpeaking?'agent-speaking':
    this.suppressed?'suppressed':
    this.vad?'speech':
