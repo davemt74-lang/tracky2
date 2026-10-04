@@ -96,7 +96,9 @@ test('10J optional ROOM persistence pauses at critical storage without deleting 
  assert.match(code,/optional ROOM history saves paused/);
  assert.match(code,/prior==='critical'&&storageHealth\.optionalPersistence/);
  assert.match(code,/persistCurrentRoomSnapshot\(\)/);
- assert.doesNotMatch(code,/storageHealth\.status==='critical'.*clearRoomObservations\(/s);
+ const pressureBlock=code.slice(code.indexOf('async function refreshStorageHealth'),
+  code.indexOf('function persistCurrentRoomSnapshot'));
+ assert.doesNotMatch(pressureBlock,/clearRoomObservations\(/);
 });
 
 test('10J runtime lifecycle cleans timers/watchers and resumes pending recovery only on foreground',()=>{
