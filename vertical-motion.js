@@ -2229,7 +2229,11 @@ async function processRoomSegment(segment) {
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     turn.at=Date.now();
-    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+    if (!voiceSegmentIsCurrent(segment)){
+      transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
+      state.voice.currentTranscriptState='cancelled';
+      outcome='cancelled';return;
+    }
 
     let savedTurn;
     try {
@@ -2239,6 +2243,8 @@ async function processRoomSegment(segment) {
         createdAt: new Date().toISOString()
       });
     } catch (error) {
+      transcriptLifecycle.cancel(segment.segmentId,'dialogue-save-failed',Date.now());
+      state.voice.currentTranscriptState='cancelled';
       outcome='failed';
       state.voice.lastDecision='dialogue-save-failed';
       console.error('Could not persist dialogue turn', error);
@@ -2247,6 +2253,8 @@ async function processRoomSegment(segment) {
     }
 
     if (!voiceSegmentIsCurrent(segment)) {
+      transcriptLifecycle.cancel(segment.segmentId,'post-persistence-stale',Date.now());
+      state.voice.currentTranscriptState='cancelled';
       outcome='cancelled';
       await deleteDialogueTurn(savedTurn.id).catch(() => {});
       return;
@@ -2487,6 +2495,10 @@ async function startRoomAudio() {
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
     speakerAssociationTracker.reset();
+    transcriptLifecycle.clear();
+    state.voice.currentTranscriptState='idle';
+    state.voice.currentTranscriptSegmentId=null;
+    state.voice.currentTranscriptModelRevision=null;
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['speaker-unverified'];
     state.voice.currentAssociationTransition=null;
@@ -2549,6 +2561,10 @@ function stopRoomAudio() {
   state.voice.currentAssociationProvenance=['speaker-unverified'];
   state.voice.currentAssociationTransition=null;
   speakerAssociationTracker.reset();
+  transcriptLifecycle.clear();
+  state.voice.currentTranscriptState='idle';
+  state.voice.currentTranscriptSegmentId=null;
+  state.voice.currentTranscriptModelRevision=null;
   state.voice.captureMode = 'offline';
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
@@ -3300,6 +3316,12 @@ ui.stopRoomAudio.addEventListener('click',()=>{
  roomAudioManuallyStopped=true;cancelMicrophoneRecovery();stopRoomAudio();
 });
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
+ui.transcriptSearchRun?.addEventListener('click',()=>{void runTranscriptSearch();});
+ui.transcriptSearch?.addEventListener('keydown',event=>{
+ if(event.key==='Enter'){event.preventDefault();void runTranscriptSearch();}
+});
+ui.transcriptExportSession?.addEventListener('click',()=>{void exportCanonicalTranscripts(false);});
+ui.transcriptExportAll?.addEventListener('click',()=>{void exportCanonicalTranscripts(true);});
 ui.stop.addEventListener('click', () => {
   cameraStoppedThisPage=true;
   roomAudioManuallyStopped=true;
@@ -3416,6 +3438,9 @@ if(state.mode==='agent'){
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
+     state.voice.currentTranscriptState='corrected';
+     void refreshTranscriptSessionSummary();
+     if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
