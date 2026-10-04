@@ -2,7 +2,7 @@ import {clamp} from './participant-core.js';
 
 export const SPEAKER_ASSOCIATION_STATES=Object.freeze([
  'verified-voice+face-body','verified-voice+body','verified-voice-only',
- 'ambiguous-voice','unknown-nearby-participant','unknown-nearby-visitor','unknown-speaker'
+ 'verified-voice-visual-conflict','ambiguous-voice','unknown-nearby-participant','unknown-nearby-visitor','unknown-speaker'
 ]);
 
 function currentTrack(track){
@@ -28,6 +28,7 @@ export function speakerAssociationLabel(state){
   'verified-voice+face-body':'VOICE + FACE/BODY',
   'verified-voice+body':'VOICE + BODY',
   'verified-voice-only':'VOICE ONLY',
+  'verified-voice-visual-conflict':'VOICE VERIFIED · VISUAL CONFLICT',
   'ambiguous-voice':'AMBIGUOUS VOICE',
   'unknown-nearby-participant':'UNKNOWN · PERSON NEARBY',
   'unknown-nearby-visitor':'UNKNOWN · VISITOR NEARBY',
@@ -70,6 +71,13 @@ export function resolveSpeakerAssociation({voiceMatch={},roomTracks=[]}={}){
    provenance.push('visual-memory-not-current');
   }
   if(liveMatches.length>1)provenance.push('visual-duplicate-not-used');
+
+  const conflictingParticipants=tracks.filter(item=>
+   currentTrack(item)&&item.participantId&&item.participantId!==participant.id);
+  if(!track&&conflictingParticipants.length){
+   state='verified-voice-visual-conflict';
+   provenance.push('current-visual-identity-conflicts-with-voice');
+  }
 
   return Object.freeze({...base,
    participantId:participant.id,participantName:participant.name||null,
