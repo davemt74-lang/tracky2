@@ -39,7 +39,8 @@ export function segmentValidity(segment,{generation,now=Date.now(),phase='queue'
 }
 
 export function explicitStopIntent(text){
- return /\b(?:stop talking|be quiet|silence|stop speaking|quiet now)\b/i.test(String(text||'').trim());
+ const value=String(text||'').trim();
+ return /^(?:please\s+)?(?:stop talking|be quiet|stop speaking|quiet(?:\s+now)?|silence)(?:\s+please)?[.!?]*$/i.test(value);
 }
 
 export function replyEligibility({
@@ -92,15 +93,21 @@ export class ConversationListeningController{
   this.stats.cancelled+=this.queue.length;
   this.processing=null;this.queue=[];this.transition(reason,now);
  }
- setVad(value,now=Date.now()){this.vad=Boolean(value);this.transition(this.vad?'speech-detected':'speech-ended',now);}
+ setVad(value,now=Date.now()){
+  const next=Boolean(value);if(next===this.vad)return false;
+  this.vad=next;this.transition(this.vad?'speech-detected':'speech-ended',now);return true;
+ }
  setSuppressed(value,reason='capture-suppressed',now=Date.now()){
-  this.suppressed=Boolean(value);this.transition(this.suppressed?reason:'suppression-released',now);
+  const next=Boolean(value);if(next===this.suppressed)return false;
+  this.suppressed=next;this.transition(this.suppressed?reason:'suppression-released',now);return true;
  }
  setAgentSpeaking(value,now=Date.now()){
-  this.agentSpeaking=Boolean(value);this.transition(this.agentSpeaking?'agent-speaking':'agent-speech-ended',now);
+  const next=Boolean(value);if(next===this.agentSpeaking)return false;
+  this.agentSpeaking=next;this.transition(this.agentSpeaking?'agent-speaking':'agent-speech-ended',now);return true;
  }
  setRecovering(value,reason='sensor-recovery',now=Date.now()){
-  this.recovering=Boolean(value);this.transition(this.recovering?reason:'recovery-ended',now);
+  const next=Boolean(value);if(next===this.recovering)return false;
+  this.recovering=next;this.transition(this.recovering?reason:'recovery-ended',now);return true;
  }
  prune(now=Date.now()){
   const kept=[],dropped=[];
