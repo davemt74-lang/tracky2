@@ -96,6 +96,8 @@ const requiredFiles = [
   'src/multi-conversation-core.js',
   'src/meeting-core.js',
   'src/meeting-ui.js',
+  'src/environmental-audio-core.js',
+  'src/environmental-audio-engine.js',
   'src/orb-spatial-core.js',
   'src/agent-shortcuts.js',
   'src/participant-audio-meter.js',
@@ -172,6 +174,11 @@ const runtimeJs = [
   'src/conversation-listening-core.js',
   'src/speaker-participant-core.js',
   'src/transcript-lifecycle-core.js',
+  'src/multi-conversation-core.js',
+  'src/meeting-core.js',
+  'src/meeting-ui.js',
+  'src/environmental-audio-core.js',
+  'src/environmental-audio-engine.js',
   'src/orb-spatial-core.js',
   'src/agent-shortcuts.js',
   'src/voice-core.js',
@@ -206,8 +213,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.11.4') {
-  fail('package.json version must be 0.11.4');
+if (packageJson.version !== '0.11.5') {
+  fail('package.json version must be 0.11.5');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -319,6 +326,9 @@ if (!/VOICE_MODEL_REVISION\s*=\s*['"][0-9a-f]{40}['"]/.test(modelConfig)) {
 if (!/TRANSCRIPTION_MODEL_REVISION\s*=\s*['"][0-9a-f]{7,40}['"]/.test(modelConfig)) {
   fail('Transcription model must be pinned to a commit revision');
 }
+if (!/ENVIRONMENT_AUDIO_MODEL_REVISION\s*=\s*['"][0-9a-f]{40}['"]/.test(modelConfig)) {
+  fail('Environmental audio model must be pinned to a full commit revision');
+}
 if (/REVISION\s*=\s*['"](?:main|master)['"]/.test(modelConfig)) {
   fail('Model revision may not use a moving main/master ref');
 }
@@ -327,8 +337,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.11\.4-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.11.4 deploy ZIP');
+if (!/tracky2-v0\.11\.5-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.11.5 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);

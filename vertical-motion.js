@@ -12,6 +12,11 @@ import {createAgentRoom} from './agent-mode.js';
 import {roomMeterState} from './src/participant-audio-meter.js';
 import {RoomAmbientAudit,roomAudioAuditMessage} from './src/room-audio-audit.js';
 import {describeAcousticPattern} from './src/room-acoustic-patterns.js';
+import {
+ EnvironmentalAudioQueue,EnvironmentalClassificationTracker,
+ normalizeEnvironmentalPredictions,environmentalClassificationMessage
+} from './src/environmental-audio-core.js';
+import {LocalEnvironmentalAudioClassifier} from './src/environmental-audio-engine.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
 import {selectGamePlayer,cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference,LAST_PARTICIPANT_KEY} from './src/camera-preference.js';
@@ -283,6 +288,12 @@ function roomSensorState(sensor,status,message){
   {kind:'observation',semantic:'sensor-state',sensor,status});
 }
 const roomAmbientAudit=new RoomAmbientAudit();
+const environmentalAudioQueue=new EnvironmentalAudioQueue();
+const environmentalAudioTracker=new EnvironmentalClassificationTracker();
+let environmentalAudioClassifier=null;
+let environmentalAudioState='off',environmentalAudioLast=null;
+let environmentalAudioDecision='Disabled by owner';
+let environmentalAudioLastErrorAt=-Infinity;
 let analyzeAmbientPatterns=false;
 let lastRoomAudioPaint=-Infinity,lastRejectedRoomSegmentAt=-Infinity;
 function renderAmbientAudioMeter(force=false){
@@ -334,6 +345,149 @@ function reportListeningDrops(dropped=[]){
  logRoomMessage('audio','Listening backlog discarded '+dropped.length+
   ' segment'+(dropped.length===1?'':'s')+' · '+reasons,
   'conversation-listening',{semantic:'listening-backpressure'});
+}
+function renderEnvironmentalAudio(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomEnvironmentalAudioStatus');
+ const result=document.getElementById('roomEnvironmentalAudioResult');
+ const snapshot=environmentalAudioQueue.snapshot();
+ if(status){
+  const stateLabel=environmentalAudioState==='off'?'OFF':
+   environmentalAudioState==='loading'?'LOADING MODEL':
+   environmentalAudioState==='ready'?'READY':
+   environmentalAudioState==='error'?'UNAVAILABLE':'STANDBY';
+  status.textContent=stateLabel+' · '+environmentalAudioDecision+
+   (snapshot.enabled?' · queue '+snapshot.queueDepth+(snapshot.processing?' + processing':''):'');
+ }
+ if(result){
+  result.textContent=environmentalAudioLast
+   ? environmentalClassificationMessage(environmentalAudioLast)
+   : 'No approved environmental classification this session.';
+ }
+}
+async function ensureEnvironmentalAudioClassifier(){
+ if(environmentalAudioClassifier?.ready){
+  environmentalAudioState='ready';environmentalAudioDecision='Local classifier ready';
+  renderEnvironmentalAudio();return true;
+ }
+ if(!environmentalAudioClassifier)environmentalAudioClassifier=new LocalEnvironmentalAudioClassifier();
+ environmentalAudioState='loading';
+ environmentalAudioDecision='Downloading / initializing pinned local model; no room audio is uploaded';
+ renderEnvironmentalAudio();
+ try{
+  await environmentalAudioClassifier.init();
+  if(!environmentalAudioQueue.snapshot().enabled)return false;
+  environmentalAudioState='ready';
+  environmentalAudioDecision='Local classifier ready';
+  renderEnvironmentalAudio();return true;
+ }catch(error){
+  environmentalAudioState='error';
+  environmentalAudioDecision='Classifier unavailable';
+  renderEnvironmentalAudio();
+  const now=Date.now();
+  if(state.mode==='agent'&&now-environmentalAudioLastErrorAt>15000){
+   environmentalAudioLastErrorAt=now;
+   logRoomMessage('system','Environmental audio classifier unavailable · conversation audio continues normally',
+    'environment-audio',{semantic:'environmental-classifier-unavailable'});
+  }
+  console.warn('Environmental audio classifier unavailable',error);
+  return false;
+ }
+}
+function reportEnvironmentalDrops(dropped=[]){
+ if(!dropped.length||state.mode!=='agent')return;
+ environmentalAudioDecision='Discarded '+dropped.length+' stale/overflow classification window'+
+  (dropped.length===1?'':'s');
+ renderEnvironmentalAudio();
+}
+async function processEnvironmentalAudioWork(work){
+ let outcome='classified';
+ if(!environmentalAudioQueue.current(work,Date.now())){
+  environmentalAudioQueue.complete(work,'cancelled');renderEnvironmentalAudio();return;
+ }
+ try{
+  const ready=await ensureEnvironmentalAudioClassifier();
+  if(!ready||!environmentalAudioQueue.current(work,Date.now())){
+   outcome='cancelled';return;
+  }
+  const detail=await environmentalAudioClassifier.classify(work.samples,{topK:8});
+  if(!environmentalAudioQueue.current(work,Date.now())){
+   outcome='cancelled';return;
+  }
+  const normalized=normalizeEnvironmentalPredictions(detail.predictions,{
+   modelId:detail.modelId,modelRevision:detail.modelRevision,
+   at:work.queuedAt,durationMs:work.durationMs
+  });
+  if(!normalized.accepted){
+   environmentalAudioDecision=normalized.reason==='speech-or-sensitive-filtered'
+    ?'Speech / sensitive model label filtered'
+    : normalized.reason.replaceAll('-',' ');
+   renderEnvironmentalAudio();return;
+  }
+  const classification=normalized.classification;
+  environmentalAudioLast=classification;
+  environmentalAudioDecision='Approved category classified locally';
+  const emission=environmentalAudioTracker.observe(classification,Date.now());
+  renderEnvironmentalAudio();
+  if(emission.emit&&state.mode==='agent'){
+   logRoomMessage('audio',environmentalClassificationMessage(classification),
+    'local-audioset-c38c005',{
+     at:classification.at,semantic:'environmental-audio-classification',
+     confidence:classification.confidence,
+     dedupeKey:'environment:'+classification.category+':'+classification.modelLabel,
+     evidence:{durationMs:classification.durationMs}
+    });
+  }
+ }catch(error){
+  outcome='error';
+  environmentalAudioState='error';
+  environmentalAudioDecision='Classification failed; conversation audio unaffected';
+  renderEnvironmentalAudio();
+  const now=Date.now();
+  if(state.mode==='agent'&&now-environmentalAudioLastErrorAt>15000){
+   environmentalAudioLastErrorAt=now;
+   logRoomMessage('system','Environmental audio classification failed · no source label recorded',
+    'environment-audio',{semantic:'environmental-classifier-error'});
+  }
+  console.warn('Environmental audio classification failed',error);
+ }finally{
+  environmentalAudioQueue.complete(work,outcome);
+  void drainEnvironmentalAudioQueue();
+ }
+}
+function drainEnvironmentalAudioQueue(){
+ const snapshot=environmentalAudioQueue.snapshot();
+ if(!snapshot.enabled||snapshot.processing)return;
+ const next=environmentalAudioQueue.beginNext(Date.now());
+ reportEnvironmentalDrops(next.dropped);
+ if(!next.work){renderEnvironmentalAudio();return;}
+ void processEnvironmentalAudioWork(next.work);
+}
+function queueEnvironmentalAudio(segment){
+ if(environmentalAudioState!=='ready'||document.hidden)return false;
+ const queued=environmentalAudioQueue.enqueue(segment,Date.now());
+ reportEnvironmentalDrops(queued.dropped);
+ renderEnvironmentalAudio();
+ if(queued.accepted)drainEnvironmentalAudioQueue();
+ return queued.accepted;
+}
+function setEnvironmentalAudioEnabled(enabled){
+ if(enabled){
+  environmentalAudioQueue.enable(Date.now());
+  environmentalAudioTracker.reset();
+  environmentalAudioLast=null;
+  environmentalAudioState='loading';
+  environmentalAudioDecision='Owner enabled session-only classification';
+  renderEnvironmentalAudio();
+  void ensureEnvironmentalAudioClassifier();
+ }else{
+  environmentalAudioQueue.disable();
+  environmentalAudioTracker.reset();
+  environmentalAudioLast=null;
+  environmentalAudioState='off';
+  environmentalAudioDecision='Disabled by owner';
+  renderEnvironmentalAudio();
+ }
 }
 function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
@@ -2388,6 +2542,7 @@ function roomTrackSnapshot() {
 }
 
 function onRoomAudioSegment(segment) {
+  queueEnvironmentalAudio(segment);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
   const queued=listeningController.enqueue({...segment,...meetingFields},{
     generation:state.voice.generation,
@@ -3422,6 +3577,7 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
 });
 window.addEventListener('resize', drawTrace);
 window.addEventListener('beforeunload', () => {
+  environmentalAudioQueue.disable();
   if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
   if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
   if(storageHealthTimer)clearInterval(storageHealthTimer);
@@ -3603,6 +3759,23 @@ if(state.mode==='agent'){
     if(analyzeAmbientPatterns)logRoomMessage('system',
      'Owner enabled local room energy-pattern notes · no sound identification','audio-consent');
     else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
+   });
+  }
+  const environmentalAudioToggle=document.getElementById('roomClassifyEnvironmentalAudio');
+  if(environmentalAudioToggle){
+   environmentalAudioToggle.checked=false;
+   renderEnvironmentalAudio();
+   environmentalAudioToggle.addEventListener('change',()=>{
+    setEnvironmentalAudioEnabled(environmentalAudioToggle.checked);
+    if(environmentalAudioToggle.checked){
+     logRoomMessage('system',
+      'Owner enabled session-only local environmental audio classification · raw audio is not saved or uploaded',
+      'audio-consent',{semantic:'environmental-audio-consent'});
+    }else{
+     logRoomMessage('system',
+      'Owner disabled environmental audio classification',
+      'audio-consent',{semantic:'environmental-audio-consent'});
+    }
    });
   }
   const roomOptIn=document.getElementById('roomSaveObservations');

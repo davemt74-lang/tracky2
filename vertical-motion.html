@@ -404,7 +404,14 @@
           <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns">
             Analyze shared audio energy patterns locally (this session only)
           </label>
-          <small>Optional measurements describe sustained level or intermittent peaks, not music, TV, coughing, voices or any identifiable sound source. No raw recordings are saved.</small>
+          <small>Optional energy/VAD measurements describe sustained level or intermittent peaks only: they are not music, TV, coughing, voices or any identifiable sound source. The model-based environmental classifier below is a separate, explicitly enabled capability.</small>
+          <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio">
+            Classify environmental audio locally with the optional AudioSet model (this session only)
+          </label>
+          <div class="room-environment-audio-status" id="roomEnvironmentalAudioStatus" role="status">Environmental classification off</div>
+          <div class="room-environment-audio-result" id="roomEnvironmentalAudioResult">No environmental classification this session.</div>
+          <small>Disabled by default. When enabled, Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech/health-related labels are filtered; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
+          <small>Exact song, movie or TV-title identification is not performed by this classifier and requires a separately approved media-identification provider.</small>
           <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
           <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
         </section>
