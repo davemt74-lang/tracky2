@@ -2394,7 +2394,7 @@ async function diarizeRoomSegment(segment,wholeEmbedding=null) {
     return finalizeDiarization([],{segmentId:segment.segmentId,reason:'segment-too-short'});
   const working=diarizationSession.fork();
   const assignments=[];
-  const signalQuality=Math.max(.4,Math.min(1,
+  const signalQuality=Math.max(0,Math.min(1,
     (Number(segment.avgDb||-100)-Number(segment.noiseFloorDb||-100))/24));
   for(let index=0;index<windows.length;index++){
     if(!voiceSegmentIsCurrent(segment))
