@@ -213,7 +213,18 @@ export function createSpeakerTurn(input = {}) {
     nearbyParticipantIds: Array.from(input.nearbyParticipantIds || []),
     nearbyParticipantNames: Array.from(input.nearbyParticipantNames || []),
     transcript: String(input.transcript || '').trim(),
-    attribution: input.attribution || 'unknown'
+    attribution: input.attribution || 'unknown',
+    associationState: input.associationState || (input.participantId
+      ? (input.attribution==='voice+body'?'verified-voice+body':'verified-voice-only')
+      : 'unknown-speaker'),
+    associationConfidence: clamp(Number(input.associationConfidence || 0)),
+    associationProvenance: Array.from(input.associationProvenance || []).map(value=>String(value).slice(0,64)),
+    bodyConfirmed: Boolean(input.bodyConfirmed),
+    faceConfirmed: Boolean(input.faceConfirmed),
+    visualStatus: input.visualStatus || null,
+    visualIdentitySource: input.visualIdentitySource || null,
+    visualSimilarity: clamp(Number(input.visualSimilarity || 0)),
+    associationTransition: input.associationTransition || null
   };
 }
 

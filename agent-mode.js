@@ -4,6 +4,7 @@ import {orbSpatialTarget} from './src/orb-spatial-core.js';
 import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './src/agent-provider.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 import {replyEligibility} from './src/conversation-listening-core.js';
+import {speakerAssociationLabel} from './src/speaker-participant-core.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
 export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
@@ -78,9 +79,13 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     });
     controls.append(edit);bubble.append(controls);
    }
-   if(entry.role==='participant'&&!entry.verified){
-    const note=document.createElement('small');note.className='agent-chat-unverified';
-    note.textContent='Speaker unverified';bubble.append(note);
+   if(entry.role==='participant'){
+    const note=document.createElement('small');
+    note.className=entry.verified?'agent-chat-verified':'agent-chat-unverified';
+    note.textContent=entry.verified
+      ? 'Speaker link · '+speakerAssociationLabel(entry.associationState)
+      : 'Speaker unverified · '+speakerAssociationLabel(entry.associationState);
+    bubble.append(note);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

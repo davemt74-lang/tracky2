@@ -189,6 +189,7 @@
 .agent-chat-meta time{flex:none;opacity:.85}
 .agent-chat-bubble p{margin:6px 0 0;color:#f1ffff;font-size:.76rem;line-height:1.48}
 .agent-chat-unverified{font-size:.56rem;color:#c0d4df}
+.agent-chat-verified{font-size:.56rem;color:#b9e8d3}
 .room-current-state{padding:12px;border:1px solid #75d9d94a;border-radius:10px;
  background:rgba(10,57,62,.38);font-size:.74rem;line-height:1.5;margin:9px 0}
 .room-observations-timeline{display:grid;gap:7px;padding:4px 0 12px}

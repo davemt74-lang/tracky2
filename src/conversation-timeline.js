@@ -11,7 +11,11 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    name:verified?(person?.nickname||person?.name||t.participantName||'Participant'):'Unknown speaker',
    photo:verified?(person?.primaryPhoto||null):null,
    verified,source:'transcript',edited:Boolean(t.transcriptEditedAt),
-   participantId:t.participantId||null};
+   participantId:t.participantId||null,
+   associationState:String(t.associationState||(
+    verified?(t.attribution==='voice+body'?'verified-voice+body':'verified-voice-only'):'unknown-speaker')),
+   associationProvenance:Array.isArray(t.associationProvenance)?t.associationProvenance.slice(0,8):[],
+   associationTransition:t.associationTransition||null};
  });
  // Remove historical duplicated participant entries in AGENT localStorage.
  // Canonical IndexedDB transcript changes/deletion must never resurrect stale copies.
