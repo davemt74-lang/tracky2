@@ -54,6 +54,7 @@ import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
+import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -192,7 +193,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null,taskUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
@@ -1007,6 +1008,7 @@ async function reloadIdentityParticipants() {
   try {
     state.identity.participants = await listParticipants();
     cognitiveLoop.forgetRemovedParticipants(state.identity.participants.map(p=>p.id));
+    memoryUI?.refreshParticipants();
     refreshPlayerChoices();
     if(!state.identity.participants.length){ui.multiplayerSetupStatus.textContent='No enrolled participants on this site in this browser. Open Participants, save a profile and return to Games.';}
   } catch (error) {
@@ -2834,6 +2836,7 @@ if(state.mode==='agent'){
   agentRuntime=createAgentRoom({
     participants:()=>state.identity.participants,
     getDialogueTurns:()=>state.voice.turns,
+    getMemories:participantId=>memoryUI?.contextFor(participantId)||[],
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
@@ -2881,6 +2884,16 @@ if(state.mode==='agent'){
    recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options)
   });
   void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
+  memoryUI=createAgentMemoryUi({
+   participants:()=>state.identity.participants,
+   getDialogueTurns:()=>state.voice.turns,
+   getRoomEvents:()=>roomLedger.entries(),
+   onAudit:(message,memory)=>logRoomMessage('system',message,'owner-memory',{
+    kind:'decision',semantic:'owner-memory-change',participantId:memory?.participantId||null
+   }),
+   onChanged:()=>agentRuntime?.refreshConversation()
+  });
+  void memoryUI.init().catch(error=>console.warn('Memory runtime initialization failed:',error));
   void sceneUI.init().then(ok=>{
    if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();}
   }).catch(error=>console.warn('Scene initialization failed:',error));
