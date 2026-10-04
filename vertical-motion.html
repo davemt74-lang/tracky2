@@ -179,7 +179,8 @@
         <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
         <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
-        <label class="agent-check"><input type="checkbox" id="agentDistanceAudio" checked> Adjust reply volume for apparent participant proximity</label>
+        <label class="agent-check"><input type="checkbox" id="agentDistanceAudio" checked> Adjust reply volume for participant distance</label>
+        <small id="agentSpatialStatus">Camera-relative apparent proximity. Add an explicit floor calibration + listener anchor in ROOM for approximate planar distance.</small>
         <label>Follow participant <select id="agentFollowParticipant"><option value="">Auto · main visible participant</option></select></label>
         <label class="agent-check"><input type="checkbox" id="agentSaveHistory"> Save conversation history on this device</label>
         <details class="agent-cognitive-settings" id="agentCognitiveSettings">
