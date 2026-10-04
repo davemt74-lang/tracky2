@@ -103,7 +103,8 @@ test('10F restore converts interrupted running state back to scheduled and drops
 
 test('10F persistence is bounded local metadata and IndexedDB migration is additive',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
- assert.match(store,/const DB_VERSION = 5/);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]);
+ assert.ok(dbVersion>=5,'agent tasks require IndexedDB schema v5 or later');
  assert.match(store,/const AGENT_TASKS = 'agent-tasks'/);
  assert.match(store,/createObjectStore\(AGENT_TASKS,\{keyPath:'id'\}\)/);
  assert.match(store,/MAX_PERSISTED_AGENT_TASKS = 200/);

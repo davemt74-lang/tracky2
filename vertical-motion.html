@@ -198,6 +198,31 @@
           <div id="agentTaskList" class="agent-task-list" aria-live="polite"></div>
           <small>Available now: read-only description of owner-defined scene objects. Image capture and product search stay registered but unavailable until separate approved executors exist.</small>
         </details>
+        <details class="agent-memory-settings" id="agentMemorySettings">
+          <summary>Memory &amp; participant context</summary>
+          <small>Saved memory is owner-authored historical context only. Current conversation and ROOM context stay in their canonical stores and are shown separately below.</small>
+          <form id="agentMemoryForm" class="agent-memory-form">
+            <label>Scope<select id="agentMemoryParticipant"><option value="">Room / general context</option></select></label>
+            <label>Memory type<select id="agentMemoryType"></select></label>
+            <label class="agent-memory-wide">Memory<textarea id="agentMemoryText" required maxlength="500" rows="3" placeholder="Example: Prefers brief morning greetings"></textarea></label>
+            <label>Expires<select id="agentMemoryExpiry">
+              <option value="0">Never</option><option value="1">1 day</option>
+              <option value="7">7 days</option><option value="30">30 days</option>
+              <option value="90">90 days</option>
+            </select></label>
+            <label class="agent-check"><input type="checkbox" id="agentMemoryPersist"> Save this memory on this device</label>
+            <button type="submit">Add owner memory</button>
+          </form>
+          <div class="agent-memory-tools">
+            <label class="agent-check"><input type="checkbox" id="agentMemoryShowRevoked"> Show revoked memories</label>
+            <button type="button" id="agentMemoryRefreshContext">Refresh current-session context</button>
+          </div>
+          <div id="agentMemoryStatus" class="agent-memory-status" role="status">No memory changes yet.</div>
+          <div id="agentMemoryList" class="agent-memory-list" aria-live="polite"></div>
+          <div class="agent-session-context-head"><strong>Current-session canonical context</strong><small>Not copied into durable memory automatically</small></div>
+          <div id="agentSessionContext" class="agent-session-context" aria-live="off"></div>
+          <small>Relationship notes are owner statements, never inferred social relationships. Revoked or expired memories are never supplied to AGENT.</small>
+        </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>

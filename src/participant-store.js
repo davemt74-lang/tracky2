@@ -2,20 +2,23 @@ import { participantRecord, cryptoRandomId } from './participant-core.js';
 import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 import {reviseTranscriptRecord} from './transcript-correction.js';
+import {normalizeMemoryRecord} from './agent-memory-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
 const ROOM_OBSERVATIONS = 'room-observations';
 const ROOM_SCENE = 'room-scene-map';
 const AGENT_TASKS = 'agent-tasks';
+const AGENT_MEMORIES = 'agent-memories';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
 export const MAX_PERSISTED_AGENT_TASKS = 200;
+export const MAX_PERSISTED_AGENT_MEMORIES = 200;
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -81,6 +84,12 @@ export async function openParticipantDb() {
         tasks.createIndex('status','status',{unique:false});
         tasks.createIndex('runAt','runAt',{unique:false});
       }
+      if (!db.objectStoreNames.contains(AGENT_MEMORIES)) {
+        const memories=db.createObjectStore(AGENT_MEMORIES,{keyPath:'id'});
+        memories.createIndex('participantId','participantId',{unique:false});
+        memories.createIndex('status','status',{unique:false});
+        memories.createIndex('expiresAt','expiresAt',{unique:false});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -141,11 +150,12 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
     const observations = tx.objectStore(ROOM_OBSERVATIONS);
+    const memories = tx.objectStore(AGENT_MEMORIES);
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -177,6 +187,12 @@ export async function deleteParticipant(id) {
     const roomRows = await requestToPromise(observations.getAll());
     for (const event of roomRows) {
       if (event.participantId === id) observations.delete(event.id);
+    }
+
+    // Explicit participant memories have the same local deletion boundary.
+    const memoryRows = await requestToPromise(memories.getAll());
+    for (const memory of memoryRows) {
+      if (memory.participantId === id) memories.delete(memory.id);
     }
     await done;
     // Follow participant deletion with local game-history cleanup on the same device.
@@ -418,4 +434,42 @@ export function deleteAgentTask(id){
 }
 export function clearAgentTasks(){
  return storeAction(AGENT_TASKS,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.10G durable memory is owner-authored only. Canonical transcripts and ROOM
+   events stay in their existing stores and are referenced at retrieval time. */
+export function listAgentMemories(){
+ return storeAction(AGENT_MEMORIES,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(-MAX_PERSISTED_AGENT_MEMORIES);
+ });
+}
+export async function saveAgentMemory(input){
+ const memory=normalizeMemoryRecord({...input,persistent:true});
+ if(memory.authority!=='owner'||memory.provenance!=='owner-authored')
+  throw new Error('Only owner-authored memory can be persisted.');
+ const safe={
+  schema:1,id:memory.id,type:memory.type,participantId:memory.participantId,
+  text:memory.text,authority:'owner',provenance:'owner-authored',
+  createdAt:memory.createdAt,updatedAt:memory.updatedAt,expiresAt:memory.expiresAt,
+  status:memory.status,revokedAt:memory.revokedAt,revokeReason:memory.revokeReason,
+  revisions:memory.revisions.map(r=>({text:r.text,at:r.at})),persistent:true
+ };
+ return storeAction(AGENT_MEMORIES,'readwrite',async store=>{
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const item of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_MEMORIES))) store.delete(item.id);
+  return safe;
+ });
+}
+export function deleteAgentMemory(id){
+ return storeAction(AGENT_MEMORIES,'readwrite',async store=>{
+  await requestToPromise(store.delete(id));return true;
+ });
+}
+export function clearAgentMemories(){
+ return storeAction(AGENT_MEMORIES,'readwrite',store=>requestToPromise(store.clear()));
 }
