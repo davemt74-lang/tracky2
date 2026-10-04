@@ -398,6 +398,18 @@
 .game-page.agent-mode .agent-transcript-edited{font-size:.61rem;color:#c3dcd9}
 .game-page.agent-mode .room-acoustic-consent{display:flex;align-items:center;
  gap:8px;font-size:.7rem;line-height:1.5;color:#e5fff4}
+.game-page.agent-mode .room-environment-consent{display:flex;align-items:flex-start;
+ gap:8px;font-size:.7rem;line-height:1.5;color:#e5fff4;padding-top:4px;
+ border-top:1px solid rgba(111,207,202,.18)}
+.game-page.agent-mode .room-environment-audio-status{
+ padding:7px 8px;border-left:2px solid #6fd0c0;background:rgba(8,55,58,.35);
+ font-size:.64rem;line-height:1.45;color:#dffbf5
+}
+.game-page.agent-mode .room-environment-audio-result{
+ padding:8px;border:1px solid rgba(106,210,205,.22);border-radius:8px;
+ background:rgba(4,29,37,.5);font-size:.65rem;line-height:1.5;color:#bddbd9;
+ overflow-wrap:anywhere
+}
 
 
 /* V0.10E governed, session-local engagement controls. */
