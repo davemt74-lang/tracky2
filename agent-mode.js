@@ -5,6 +5,10 @@ import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 import {replyEligibility} from './src/conversation-listening-core.js';
 import {speakerAssociationLabel} from './src/speaker-participant-core.js';
+import {
+ multiParticipantReplyPolicy,groupConversationContext,agentHistoryForScope,
+ conversationContextLabel
+} from './src/multi-conversation-core.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
 export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
@@ -93,14 +97,17 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     if(Number.isFinite(entry.transcriptProcessingDurationMs))
       bits.push(Math.round(entry.transcriptProcessingDurationMs)+'ms');
     transcriptMeta.textContent='Transcript · '+bits.join(' · ');
-    bubble.append(note,transcriptMeta);
+    const conversationMeta=document.createElement('small');
+    conversationMeta.className='agent-conversation-provenance';
+    conversationMeta.textContent='Conversation · '+conversationContextLabel(entry);
+    bubble.append(note,transcriptMeta,conversationMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }
   ui.thread.scrollTop=ui.thread.scrollHeight;
  }
- function append(role,text,participantId=null){
-  entries=appendAgentHistory(entries,{role,text,participantId,at:Date.now()});
+ function append(role,text,participantId=null,scopeId=null){
+  entries=appendAgentHistory(entries,{role,text,participantId,scopeId,at:Date.now()});
   if(ui.save.checked)saveAgentHistory(localStorage,entries,true);
   showThread();
  }
@@ -122,9 +129,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(speech?.speaking)speech.cancel();
   notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
  }
- function say(text){
+ function say(text,participantId=null,scopeId=null){
   if(!text)return;
-  append('agent',text);
+  append('agent',text,participantId,scopeId);
   if(!ui.speak.checked||!speech||typeof SpeechSynthesisUtterance==='undefined')return;
   stopSpeech();suppressMic(true);
   ui.speaker.textContent='Agent speaking';
@@ -154,17 +161,16 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const now=Date.now();
   if(!shouldGreet(person.id,greeted,now))return false;
   greeted.set(person.id,now);
-  say(greetingForParticipant(person));
+  say(greetingForParticipant(person),person.id,'scope:p:'+person.id);
   return true;
  }
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
-  // The canonical IndexedDB dialogue turn is the ONLY participant transcript.
-  // Avoid duplicate localStorage copies that survive transcript deletion/correction.
+  // Canonical participant context is scoped to the current conversation membership.
+  // AGENT history is separately scoped; no participant transcript is duplicated there.
   const prior=[
-   ...getDialogueTurns().filter(t=>t.id!==turn.id&&String(t.transcript||'').trim())
-    .map(t=>({role:'participant',text:t.transcript,at:Date.parse(t.createdAt||'')||t.at||0})),
-   ...entries.filter(e=>e.role==='agent')
+   ...groupConversationContext(turn,getDialogueTurns(),participants()),
+   ...agentHistoryForScope(entries,turn)
   ].sort((a,b)=>a.at-b.at).slice(-12);
   lastSpeakerId=turn.participantId||null;
   showThread();
@@ -181,11 +187,23 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    ui.modelStatus.textContent='Agent speech/reply cancelled by verified stop request.';
    return;
   }
+  const groupPolicy=multiParticipantReplyPolicy(turn);
+  if(!groupPolicy.allow){
+   if(responsePending){
+    responseGeneration+=1;
+    responsePending=false;
+    modelController?.abort();
+    ui.modelStatus.textContent='Pending AGENT reply cancelled · attention moved to room conversation.';
+   }else{
+    ui.modelStatus.textContent=groupPolicy.reason;
+   }
+   return;
+  }
   if(policy.action==='replace-pending-reply'){
    responseGeneration+=1;
    responsePending=false;
    modelController?.abort();
-   ui.modelStatus.textContent='Newer turn replaced the pending reply.';
+   ui.modelStatus.textContent='Newer eligible turn replaced the pending reply.';
   }
   if(!policy.allow)return;
   lastTurnAt=now;responsePending=true;
@@ -206,12 +224,14 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      try{
       const reply=await queryLocalOllama({
        endpoint,model:ui.modelName.value.trim(),
-       messages:buildAgentMessages(prior,turn.transcript,verifiedMemoryScope?(known?.name||''):'',memoryContext),
+       messages:buildAgentMessages(prior,turn.transcript,
+        verifiedMemoryScope?(known?.name||''):'',memoryContext,turn),
        signal:controller.signal
       });
       if(responseToken!==responseGeneration||open)return;
       if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
-      say(reply);ui.modelStatus.textContent='Local model connected · text-only';
+      say(reply,turn.participantId||null,turn.conversationScopeId||null);
+      ui.modelStatus.textContent='Local model connected · scoped conversation';
       return;
      }catch(error){
       if(responseToken!==responseGeneration)return;
@@ -226,7 +246,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
    const reply=localAgentReply(turn.transcript,{name:verifiedMemoryScope?(known?.name||''):'',previousTopics:recent,memories:memoryContext});
-   if(reply)say(reply);
+   if(reply)say(reply,turn.participantId||null,turn.conversationScopeId||null);
   }finally{
    if(responseToken===responseGeneration)responsePending=false;
   }

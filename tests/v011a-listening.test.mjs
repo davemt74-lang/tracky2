@@ -137,7 +137,7 @@ test('11A AGENT reply policy cancels superseded local-model work without clobber
  const agent=fs.readFileSync('agent-mode.js','utf8');
  assert.match(agent,/replyEligibility\(\{/);
  assert.match(agent,/policy\.action==='replace-pending-reply'/);
- assert.match(agent,/Newer turn replaced the pending reply\./);
+ assert.match(agent,/Newer eligible turn replaced the pending reply\./);
  assert.match(agent,/const controller=new AbortController\(\)/);
  assert.match(agent,/if\(modelController===controller\)modelController=null/);
  assert.match(agent,/if\(responseToken===responseGeneration\)responsePending=false/);

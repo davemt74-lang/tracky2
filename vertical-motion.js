@@ -69,6 +69,9 @@ import {
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
 import {
+ multiConversationTurnFields,conversationContextLabel
+} from './src/multi-conversation-core.js';
+import {
   clearDialogueTurns,
   deleteDialogueTurn,
   listDialogueTurns,
@@ -162,6 +165,8 @@ const ui = {
   roomDialogueGroup: $('#roomDialogueGroup'),
   roomSpeakerAssociation: $('#roomSpeakerAssociation'),
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
+  roomConversationAttention: $('#roomConversationAttention'),
+  roomConversationGroupSize: $('#roomConversationGroupSize'),
   transcriptModelState: $('#transcriptModelState'),
   transcriptSearch: $('#transcriptSearch'),
   transcriptSearchRun: $('#transcriptSearchRun'),
@@ -523,6 +528,9 @@ const state = {
     currentAssociationState: 'unknown-speaker',
     currentAssociationProvenance: [],
     currentAssociationTransition: null,
+    currentConversationAttention: 'unknown',
+    currentConversationGroupSize: 1,
+    currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
     sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'room-' + Date.now().toString(36),
@@ -1277,6 +1285,9 @@ async function reloadIdentityParticipants() {
        currentSpeaker?'voice-recognition-disabled':'participant-record-unavailable'
       ];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentConversationAttention='unknown';
+      state.voice.currentConversationGroupSize=1;
+      state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
       speakerAssociationTracker.reset();
       renderVoiceHud();
     }
@@ -1293,6 +1304,9 @@ async function reloadIdentityParticipants() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['participant-store-unavailable'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentConversationAttention='unknown';
+    state.voice.currentConversationGroupSize=1;
+    state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     speakerAssociationTracker.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
@@ -1856,6 +1870,10 @@ function renderVoiceHud() {
   if(ui.roomSpeakerProvenance)
     ui.roomSpeakerProvenance.textContent=state.voice.currentAssociationProvenance.length
       ? state.voice.currentAssociationProvenance.join(' · ') : 'speaker-unverified';
+  if(ui.roomConversationAttention)
+    ui.roomConversationAttention.textContent=state.voice.currentConversationLabel||'UNKNOWN';
+  if(ui.roomConversationGroupSize)
+    ui.roomConversationGroupSize.textContent=String(state.voice.currentConversationGroupSize||1);
   ui.roomDialogueGroup.textContent = state.voice.currentGroupId || '—';
 
   const listening=listeningController.snapshot();
@@ -1947,8 +1965,16 @@ function renderDialogueTurns() {
     if(Number.isFinite(turn.transcriptProcessingDurationMs))
       transcriptBits.push(Math.round(turn.transcriptProcessingDurationMs)+'ms process');
     transcriptMeta.textContent='Transcript · '+transcriptBits.join(' · ');
+    const conversationMeta=document.createElement('small');
+    const addressed=turn.addressedParticipantId?participantById(turn.addressedParticipantId):null;
+    const conversationBits=[conversationContextLabel(turn),
+      String(turn.conversationGroupSize||1)+' person'+((turn.conversationGroupSize||1)===1?'':'s')];
+    if(turn.addressedAgent)conversationBits.push('AGENT addressed');
+    if(addressed)conversationBits.push('addressed '+(addressed.nickname||addressed.name||'participant'));
+    if(turn.overlapState&&turn.overlapState!=='not-observed')conversationBits.push(turn.overlapState);
+    conversationMeta.textContent='Conversation · '+conversationBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta);
     ui.dialogueTurns.append(card);
   }
 }
@@ -2092,6 +2118,9 @@ async function processRoomSegment(segment) {
         .map(candidate => candidate.participantId)
         .filter(Boolean);
     }
+    const currentRoomTracks=roomTracks.filter(candidate=>
+      candidate?.id&&!['occluded','reacquiring'].includes(candidate.status));
+    const conversationTracks=group?.tracks?.length?group.tracks:currentRoomTracks;
 
     state.voice.currentSpeakerId = association.participantId;
     state.voice.currentSpeakerName = participant?.name
@@ -2115,6 +2144,9 @@ async function processRoomSegment(segment) {
       state.voice.currentAssociationState='unknown-speaker';
       state.voice.currentAssociationProvenance=['signal-rejected'];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentConversationAttention='unknown';
+      state.voice.currentConversationGroupSize=1;
+      state.voice.currentConversationLabel='TURN REJECTED';
       state.voice.rejectedSegments += 1;
       state.voice.lastDecision = voiceMatch.ambiguous ? 'ambiguous-speaker' : 'noise-rejected';
       if(state.mode==='agent'&&Date.now()-lastRejectedRoomSegmentAt>8000){
@@ -2228,6 +2260,20 @@ async function processRoomSegment(segment) {
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
+    const visibleConversationParticipants=conversationTracks
+      .map(candidate=>candidate.participantId?participantById(candidate.participantId):null)
+      .filter(Boolean);
+    const visibleConversationVisitorIds=conversationTracks
+      .map(candidate=>candidate.visitorId||null).filter(Boolean);
+    const conversationFields=multiConversationTurnFields(turn,{
+      visibleParticipants:visibleConversationParticipants,
+      visibleVisitorIds:visibleConversationVisitorIds,
+      groupSize:Math.max(1,conversationTracks.length)
+    });
+    turn={...turn,...conversationFields};
+    state.voice.currentConversationAttention=turn.attentionTarget;
+    state.voice.currentConversationGroupSize=turn.conversationGroupSize;
+    state.voice.currentConversationLabel=conversationContextLabel(turn);
     turn.at=Date.now();
     if (!voiceSegmentIsCurrent(segment)){
       transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
@@ -2502,6 +2548,9 @@ async function startRoomAudio() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['speaker-unverified'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentConversationAttention='unknown';
+    state.voice.currentConversationGroupSize=1;
+    state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     listeningController.start(state.voice.generation,Date.now());
     const initiallySuppressed=Boolean(state.voice.ttsPending>0||agentSpeechActive);
     listeningController.setAgentSpeaking(Boolean(agentSpeechActive));
@@ -2560,6 +2609,9 @@ function stopRoomAudio() {
   state.voice.currentAssociationState='unknown-speaker';
   state.voice.currentAssociationProvenance=['speaker-unverified'];
   state.voice.currentAssociationTransition=null;
+  state.voice.currentConversationAttention='unknown';
+  state.voice.currentConversationGroupSize=1;
+  state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
   speakerAssociationTracker.reset();
   transcriptLifecycle.clear();
   state.voice.currentTranscriptState='idle';

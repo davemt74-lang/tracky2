@@ -22,7 +22,18 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    transcriptModelRevision:t.transcriptModelRevision||null,
    transcriptConfidence:Number.isFinite(t.transcriptConfidence)?t.transcriptConfidence:null,
    transcriptCaptureDurationMs:Number.isFinite(t.transcriptCaptureDurationMs)?t.transcriptCaptureDurationMs:null,
-   transcriptProcessingDurationMs:Number.isFinite(t.transcriptProcessingDurationMs)?t.transcriptProcessingDurationMs:null};
+   transcriptProcessingDurationMs:Number.isFinite(t.transcriptProcessingDurationMs)?t.transcriptProcessingDurationMs:null,
+   conversationGroupSize:Math.max(1,Number(t.conversationGroupSize)||1),
+   conversationParticipantIds:Array.isArray(t.conversationParticipantIds)?t.conversationParticipantIds.slice(0,12):[],
+   conversationVisitorIds:Array.isArray(t.conversationVisitorIds)?t.conversationVisitorIds.slice(0,12):[],
+   conversationScopeId:t.conversationScopeId||null,
+   addressKind:t.addressKind||'unspecified',
+   addressedAgent:t.addressedAgent===true,
+   addressedParticipantId:t.addressedParticipantId||null,
+   addressedParticipantIds:Array.isArray(t.addressedParticipantIds)?t.addressedParticipantIds.slice(0,12):[],
+   attentionTarget:t.attentionTarget||'unknown',
+   overlapState:t.overlapState||'not-observed',
+   turnOwnership:t.turnOwnership|| (verified?'verified-speaker':'unverified-speaker')};
  });
  // Remove historical duplicated participant entries in AGENT localStorage.
  // Canonical IndexedDB transcript changes/deletion must never resurrect stale copies.
