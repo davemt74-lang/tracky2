@@ -3,9 +3,10 @@ import { browserMatchStorage, deleteParticipantMatchHistory } from './match-hist
 import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 import {reviseTranscriptRecord} from './transcript-correction.js';
 import {normalizeMemoryRecord} from './agent-memory-core.js';
+import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -14,12 +15,14 @@ const ROOM_SCENE = 'room-scene-map';
 const AGENT_TASKS = 'agent-tasks';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
+const MEETINGS = 'meetings';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
 export const MAX_PERSISTED_AGENT_TASKS = 200;
 export const MAX_PERSISTED_AGENT_MEMORIES = 200;
+export const MAX_PERSISTED_MEETINGS = 120;
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -94,6 +97,11 @@ export async function openParticipantDb() {
       if (!db.objectStoreNames.contains(PARTICIPANT_SYNC)) {
         db.createObjectStore(PARTICIPANT_SYNC,{keyPath:'participantId'});
       }
+      if (!db.objectStoreNames.contains(MEETINGS)) {
+        const meetings=db.createObjectStore(MEETINGS,{keyPath:'id'});
+        meetings.createIndex('status','status',{unique:false});
+        meetings.createIndex('startedAt','startedAt',{unique:false});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -154,13 +162,14 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id,{remoteSyncState=null}={}) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
     const observations = tx.objectStore(ROOM_OBSERVATIONS);
     const memories = tx.objectStore(AGENT_MEMORIES);
     const sync = tx.objectStore(PARTICIPANT_SYNC);
+    const meetings = tx.objectStore(MEETINGS);
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -174,16 +183,27 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
 
       const nearbyIds = Array.from(row.nearbyParticipantIds || []);
       const nearbyNames = Array.from(row.nearbyParticipantNames || []);
+      const conversationIds=Array.from(row.conversationParticipantIds||[]);
+      const addressedIds=Array.from(row.addressedParticipantIds||[]);
       const hasNearbyReference = nearbyIds.includes(id);
       const hasNameReference = participant?.name && nearbyNames.includes(participant.name);
+      const hasConversationReference=conversationIds.includes(id);
+      const hasAddressReference=addressedIds.includes(id)||row.addressedParticipantId===id;
 
-      if (hasNearbyReference || hasNameReference) {
+      if (hasNearbyReference || hasNameReference || hasConversationReference || hasAddressReference) {
+        const nextAddressed=addressedIds.filter(participantId=>participantId!==id);
         dialogue.put({
           ...row,
           nearbyParticipantIds: nearbyIds.filter((participantId) => participantId !== id),
           nearbyParticipantNames: participant?.name
             ? nearbyNames.filter((name) => name !== participant.name)
-            : nearbyNames
+            : nearbyNames,
+          conversationParticipantIds:conversationIds.filter(participantId=>participantId!==id),
+          conversationScopeId:null,
+          addressedParticipantId:row.addressedParticipantId===id?null:row.addressedParticipantId||null,
+          addressedParticipantIds:nextAddressed,
+          addressKind:row.addressedParticipantId===id||addressedIds.includes(id)
+            ? (row.addressedAgent?'agent':'unspecified'):(row.addressKind||'unspecified')
         });
       }
     }
@@ -199,6 +219,15 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     for (const memory of memoryRows) {
       if (memory.participantId === id) memories.delete(memory.id);
     }
+
+    // Meeting metadata references participant IDs only; scrub them without deleting
+    // the whole meeting or copying/deleting unrelated canonical transcript content.
+    const meetingRows=await requestToPromise(meetings.getAll());
+    for(const meeting of meetingRows){
+      const scrubbed=scrubMeetingParticipant(normalizeMeetingRecord(meeting),id,Date.now());
+      if(JSON.stringify(scrubbed)!==JSON.stringify(meeting))meetings.put(scrubbed);
+    }
+
     const priorSync=await requestToPromise(sync.get(id));
     if(remoteSyncState&&typeof remoteSyncState==='object'){
       sync.put({
@@ -533,5 +562,44 @@ export async function saveParticipantSyncState(input){
 export function deleteParticipantSyncState(participantId){
  return storeAction(PARTICIPANT_SYNC,'readwrite',async store=>{
   await requestToPromise(store.delete(participantId));return true;
+ });
+}
+
+
+/* V0.11E meeting metadata only. Canonical transcript text remains in DIALOGUE. */
+export function pruneMeetings(maxRows=MAX_PERSISTED_MEETINGS){
+ return storeAction(MEETINGS,'readwrite',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  if(rows.length<=maxRows)return 0;
+  const ended=rows.filter(row=>row.status==='ended')
+   .sort((a,b)=>Number(a.startedAt||0)-Number(b.startedAt||0));
+  const remove=ended.slice(0,Math.max(0,rows.length-maxRows));
+  for(const row of remove)store.delete(row.id);
+  return remove.length;
+ });
+}
+export async function saveMeeting(input){
+ const record=normalizeMeetingRecord(input);
+ await storeAction(MEETINGS,'readwrite',store=>requestToPromise(store.put(record)));
+ await pruneMeetings().catch(()=>{});
+ return record;
+}
+export function getMeeting(id){
+ return storeAction(MEETINGS,'readonly',store=>requestToPromise(store.get(id)));
+}
+export function listMeetings(){
+ return storeAction(MEETINGS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.map(normalizeMeetingRecord)
+   .sort((a,b)=>Number(b.startedAt||0)-Number(a.startedAt||0));
+ });
+}
+export async function getActiveMeeting(){
+ const rows=await listMeetings();
+ return rows.find(row=>row.status==='active')||null;
+}
+export function deleteMeeting(id){
+ return storeAction(MEETINGS,'readwrite',async store=>{
+  await requestToPromise(store.delete(id));return true;
  });
 }
