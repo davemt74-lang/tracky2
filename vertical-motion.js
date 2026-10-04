@@ -53,6 +53,7 @@ import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
+import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -191,7 +192,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
@@ -2870,11 +2871,17 @@ if(state.mode==='agent'){
    onChange:message=>{
     roomTemporal.sceneChanged();
     renderRoomTemporalSummary();
+    taskUI?.refresh();
     logRoomMessage('activity',message,'owner-scene',{semantic:'owner-map-edit'});
    }
   });
+  taskUI=createAgentTaskUi({
+   getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+   recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options)
+  });
+  void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
   void sceneUI.init().then(ok=>{
-   if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();}
+   if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();}
   }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
