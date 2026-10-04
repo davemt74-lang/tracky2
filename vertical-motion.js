@@ -2050,6 +2050,9 @@ async function processRoomSegment(segment) {
       state.voice.currentVoiceConfidence=0;
       state.voice.currentBodyLock=false;
       state.voice.currentGroupId=null;
+      state.voice.currentAssociationState='unknown-speaker';
+      state.voice.currentAssociationProvenance=['signal-rejected'];
+      state.voice.currentAssociationTransition=null;
       state.voice.rejectedSegments += 1;
       state.voice.lastDecision = voiceMatch.ambiguous ? 'ambiguous-speaker' : 'noise-rejected';
       if(state.mode==='agent'&&Date.now()-lastRejectedRoomSegmentAt>8000){
@@ -2072,25 +2075,31 @@ async function processRoomSegment(segment) {
       }
     }
 
-    // Gate and transcription have completed: only NOW may a matched participant
-    // receive their own brief post-verified audio meter display.
-    if(participant&&track&&voiceSegmentIsCurrent(segment)){
+    const associationTransition=speakerAssociationTracker.observe(association,Date.now());
+    state.voice.currentAssociationTransition=associationTransition?.type||null;
+
+    // Gate and transcription have completed: only NOW may a verified voice match
+    // with CURRENT visual evidence animate a participant-specific meter.
+    if(participant&&track&&association.bodyConfirmed&&voiceSegmentIsCurrent(segment)){
       const liveTrack=state.identity.tracks.find(candidate=>
         candidate.id===track.id&&candidate.participantId===participant.id);
       if(liveTrack){
-        liveTrack.voiceMatchConfidence=voiceMatch.similarity;
+        liveTrack.voiceMatchConfidence=association.voiceConfidence;
         liveTrack.lastVoiceAt=performance.now();
         liveTrack.voiceLevelDb=segment.avgDb;
         liveTrack.verifiedVoiceSegment=true;
+        liveTrack.lastSpeakerAssociationState=association.state;
+        liveTrack.lastSpeakerAssociationAt=performance.now();
       }
     }
+    const associationFields=speakerAssociationTurnFields(association);
     let turn = createSpeakerTurn({
-      participantId: participant?.id || null,
+      participantId: association.participantId,
       participantName: participant?.name || null,
-      trackId: track?.id || null,
+      trackId: association.trackId,
       groupId: group ? (group.tracks.length > 1 ? group.id : 'SOLO') : null,
       confidence: gate.confidence,
-      voiceConfidence: voiceMatch.similarity,
+      voiceConfidence: association.voiceConfidence,
       signalConfidence: gate.confidence,
       startedAt: segment.startedAt,
       endedAt: segment.endedAt,
@@ -2100,7 +2109,12 @@ async function processRoomSegment(segment) {
       nearbyParticipantIds:nearestEnrolled?[nearestEnrolled.id]:nearbyIds,
       nearbyParticipantNames:nearestEnrolled?[nearestEnrolled.name]:nearbyNames,
       transcript,
-      attribution: participant ? (bodyConfirmed ? 'voice+body' : 'voice-only') : 'unknown'
+      attribution: association.attribution,
+      ...associationFields,
+      associationTransition:associationTransition?{
+       type:associationTransition.type,fromState:associationTransition.fromState,
+       toState:associationTransition.toState,at:associationTransition.at
+      }:null
     });
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
