@@ -68,6 +68,22 @@ test('12B low-quality windows and cluster-capacity pressure stay unknown',()=>{
  assert.equal(session.snapshot().clusterCount,2);
 });
 
+
+test('12B forked segment work commits atomically and cancelled work cannot poison session clusters',()=>{
+ const session=new SpeakerDiarizationSession();
+ session.assign({embedding:[1,0],windowId:'seed'});
+ const before=session.snapshot();
+ const working=session.fork();
+ working.assign({embedding:[0,1],windowId:'cancelled-window'});
+ assert.equal(working.snapshot().clusterCount,2);
+ assert.equal(session.snapshot().clusterCount,before.clusterCount);
+ const committed=session.fork();
+ committed.assign({embedding:[.99,.01],windowId:'valid-window'});
+ session.commitFrom(committed);
+ assert.equal(session.snapshot().clusterCount,1);
+ assert.equal(session.snapshot().windowCount,before.windowCount+1);
+});
+
 test('12B cancellation cannot yield a speaker-attributable turn',()=>{
  const result=finalizeDiarization([],{segmentId:'s',cancelled:true,reason:'generation-invalidated'});
  assert.equal(result.state,'cancelled');
