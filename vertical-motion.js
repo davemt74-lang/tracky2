@@ -2324,8 +2324,22 @@ function renderDialogueTurns() {
       turn.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
     ].filter(Boolean);
     diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
+    const continuousMeta=document.createElement('small');
+    const continuousBits=[
+      turn.continuousFusionState||'not-recorded',
+      (turn.continuousFusionParticipantIds||[]).length
+       ?(turn.continuousFusionParticipantIds||[]).length+' participant link'+
+        ((turn.continuousFusionParticipantIds||[]).length===1?'':'s')
+       :'no participant link',
+      turn.continuousFusionUnresolvedWindows
+       ?turn.continuousFusionUnresolvedWindows+' unresolved window'+
+        (turn.continuousFusionUnresolvedWindows===1?'':'s'):'',
+      ...(turn.continuousFusionConflicts||[]).map(value=>'conflict:'+value)
+    ].filter(Boolean);
+    continuousMeta.textContent='Continuous fusion · '+continuousBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta,
+      fusionMeta,diarizationMeta,continuousMeta);
     ui.dialogueTurns.append(card);
   }
 }
