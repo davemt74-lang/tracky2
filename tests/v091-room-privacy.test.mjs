@@ -5,10 +5,11 @@ import fs from 'node:fs';
 test('participant deletion atomically removes directly attributed ROOM records',()=>{
  const code=fs.readFileSync('src/participant-store.js','utf8');
  const del=code.slice(code.indexOf('export async function deleteParticipant('),code.indexOf('export async function prunePendingCaptures('));
- assert.match(del,/db.transaction\(\[PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC\], 'readwrite'\)/);
+ assert.match(del,/db.transaction\(\[PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS\], 'readwrite'\)/);
  assert.match(del,/observations = tx.objectStore\(ROOM_OBSERVATIONS\)/);
  assert.match(del,/event.participantId === id\) observations.delete\(event.id\)/);
  assert.match(del,/memory.participantId === id\) memories.delete\(memory.id\)/);
+ assert.match(del,/scrubMeetingParticipant\(normalizeMeetingRecord\(meeting\),id,Date\.now\(\)\)/);
  assert.ok(del.indexOf('observations.delete(')<del.indexOf('await done'));
 });
 test('recognized names are not duplicated in non-attributed room event logs',()=>{
