@@ -132,7 +132,7 @@ export class SpeakerDiarizationSession{
   this.windowCount++;
   const vector=cloneEmbedding(embedding);
   const q=clamp(Number(quality||0));
-  if(!vector.length||q<.4){
+  if(!vector.length||q<.35){
    return assignment({windowId,startOffsetMs,endOffsetMs,state:'unknown',
     confidence:q,reason:vector.length?'low-quality-window':'missing-embedding'});
   }
