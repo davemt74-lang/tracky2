@@ -200,15 +200,20 @@ export function meetingSummary(meeting,turns=[],participants=[]){
 }
 
 export function meetingAgentReplyPolicy(meeting,turn={}){
- if(!meeting||meeting.status!=='active')
-  return Object.freeze({allow:true,reason:'no-active-meeting'});
- if(meeting.agentPolicy==='listen-only')
-  return Object.freeze({allow:false,reason:'meeting listen-only'});
- if(meeting.agentPolicy==='when-addressed')
-  return turn.addressedAgent===true
-   ? Object.freeze({allow:true,reason:'meeting AGENT explicitly addressed'})
-   : Object.freeze({allow:false,reason:'meeting requires explicit AGENT address'});
- return Object.freeze({allow:false,reason:'meeting policy unavailable'});
+ if(meeting?.status==='active'){
+  if(turn.meetingId!==meeting.id)
+   return Object.freeze({allow:false,reason:'turn predates or is outside active meeting'});
+  if(meeting.agentPolicy==='listen-only')
+   return Object.freeze({allow:false,reason:'meeting listen-only'});
+  if(meeting.agentPolicy==='when-addressed')
+   return turn.addressedAgent===true
+    ? Object.freeze({allow:true,reason:'meeting AGENT explicitly addressed'})
+    : Object.freeze({allow:false,reason:'meeting requires explicit AGENT address'});
+  return Object.freeze({allow:false,reason:'meeting policy unavailable'});
+ }
+ if(turn.meetingId)
+  return Object.freeze({allow:false,reason:'meeting no longer active; late reply suppressed'});
+ return Object.freeze({allow:true,reason:'no-active-meeting'});
 }
 
 export function scrubMeetingParticipant(meeting,participantId,at=Date.now()){
