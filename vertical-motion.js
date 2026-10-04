@@ -252,6 +252,7 @@ function renderCognitiveStatus(){
 }
 function considerCognitiveObservation(event){
  if(state.mode!=='agent'||event.semantic!=='participant-observed')return;
+ if(meetingUI?.activeMeeting()?.status==='active')return;
  const person=event.participantId?participantById(event.participantId):null;
  const track=event.participantId?publicRoomTracks().find(x=>
    x.participantId===event.participantId&&['matched','body-lock'].includes(x.status)):null;
@@ -840,7 +841,9 @@ function updatePatternSetup() {
 
 function renderMode(){
   const agent=state.mode==='agent';
+  const meetingEntry=agent&&ui.gameMode.value==='meeting';
   document.body.classList.toggle('agent-mode',agent);
+  document.body.classList.toggle('meeting-mode',meetingEntry);
   if(agent){
     ui.video.hidden=false;
     ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
@@ -3289,8 +3292,8 @@ function loop(now) {
 }
 
 ui.gameMode.addEventListener('change', () => {
-  if(ui.gameMode.value==='agent'){
-    window.location.assign('./vertical-motion.html?mode=agent');return;
+  if(['agent','meeting'].includes(ui.gameMode.value)){
+    window.location.assign('./vertical-motion.html?mode='+encodeURIComponent(ui.gameMode.value));return;
   }
   if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
   state.mode = ['solo','multiplayer','pattern','reaction'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
@@ -3439,7 +3442,11 @@ ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
 // No timed game ever starts automatically.
 try {
   const requestedMode=new URL(window.location.href).searchParams.get('mode');
-  if(['solo','multiplayer','agent'].includes(requestedMode)){
+  if(requestedMode==='meeting'){
+    // Dedicated meeting entry point, but reuse the exact AGENT/camera/audio runtime.
+    state.mode='agent';
+    ui.gameMode.value='meeting';
+  }else if(['solo','multiplayer','agent'].includes(requestedMode)){
     state.mode=requestedMode;
     ui.gameMode.value=requestedMode;
   } else {
@@ -3496,7 +3503,10 @@ if(state.mode==='agent'){
   meetingUI=createMeetingUi({
    participants:()=>state.identity.participants,
    recordEvent:(category,message,source,options)=>logRoomMessage(category,message,source,options),
-   onChange:()=>agentRuntime?.refreshConversation()
+   onChange:active=>{
+    agentRuntime?.onMeetingChange?.(active);
+    agentRuntime?.refreshConversation();
+   }
   });
   await meetingUI.init().catch(error=>console.warn('Meeting runtime initialization failed:',error));
   agentRuntime=createAgentRoom({
@@ -3540,6 +3550,7 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  agentRuntime.onMeetingChange?.(meetingUI?.activeMeeting()||null);
   const autoGreet=document.getElementById('agentAutoGreet');
   const quietHours=document.getElementById('agentQuietHours');
   const quietStart=document.getElementById('agentQuietStart');
