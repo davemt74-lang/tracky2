@@ -3071,9 +3071,18 @@ if(state.mode==='agent'){
      return revised;
     },
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
-    startAudio:async()=>{await reloadIdentityParticipants();await startRoomAudio();},
-    startCamera:async()=>{cameraStoppedThisPage=false;await startCamera(ui.select.value);},
-    stopCamera:()=>{cameraStoppedThisPage=true;stopCamera();},
+    startAudio:async()=>{
+      roomAudioManuallyStopped=false;microphoneRecovery.reset();cancelMicrophoneRecovery();
+      await reloadIdentityParticipants();await startRoomAudio();
+    },
+    startCamera:async()=>{
+      cameraStoppedThisPage=false;cameraRecovery.reset();cancelCameraRecovery();
+      await startCamera(ui.select.value);
+    },
+    stopCamera:()=>{
+      cameraStoppedThisPage=true;roomAudioManuallyStopped=true;
+      cancelCameraRecovery();cancelMicrophoneRecovery();stopCamera();
+    },
     suppressMic:suppressed=>{
       agentSpeechActive=Boolean(suppressed);
       state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
