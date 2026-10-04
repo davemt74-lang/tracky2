@@ -113,7 +113,7 @@ test('11A integration preserves one live room microphone and routes all segments
  const core=fs.readFileSync('src/conversation-listening-core.js','utf8');
  const count=(runtime.match(/new RoomAudioCapture\(/g)||[]).length;
  assert.equal(count,1,'main room runtime must own exactly one RoomAudioCapture');
- assert.match(runtime,/listeningController\.enqueue\(segment/);
+ assert.match(runtime,/listeningController\.enqueue\(\{\.\.\.segment(?:,\.\.\.meetingFields)?\}/);
  assert.match(runtime,/listeningController\.beginNext\(Date\.now\(\)\)/);
  assert.match(runtime,/listeningController\.canContinue\(segment,Date\.now\(\)\)/);
  assert.doesNotMatch(runtime,/state\.voice\.queue/);
