@@ -1864,6 +1864,10 @@ function renderVoiceHud() {
   if(ui.roomSpeakerProvenance)
     ui.roomSpeakerProvenance.textContent=state.voice.currentAssociationProvenance.length
       ? state.voice.currentAssociationProvenance.join(' · ') : 'speaker-unverified';
+  if(ui.roomConversationAttention)
+    ui.roomConversationAttention.textContent=state.voice.currentConversationLabel||'UNKNOWN';
+  if(ui.roomConversationGroupSize)
+    ui.roomConversationGroupSize.textContent=String(state.voice.currentConversationGroupSize||1);
   ui.roomDialogueGroup.textContent = state.voice.currentGroupId || '—';
 
   const listening=listeningController.snapshot();
@@ -2126,6 +2130,9 @@ async function processRoomSegment(segment) {
       state.voice.currentAssociationState='unknown-speaker';
       state.voice.currentAssociationProvenance=['signal-rejected'];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentConversationAttention='unknown';
+      state.voice.currentConversationGroupSize=1;
+      state.voice.currentConversationLabel='TURN REJECTED';
       state.voice.rejectedSegments += 1;
       state.voice.lastDecision = voiceMatch.ambiguous ? 'ambiguous-speaker' : 'noise-rejected';
       if(state.mode==='agent'&&Date.now()-lastRejectedRoomSegmentAt>8000){
@@ -2527,6 +2534,9 @@ async function startRoomAudio() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['speaker-unverified'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentConversationAttention='unknown';
+    state.voice.currentConversationGroupSize=1;
+    state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     listeningController.start(state.voice.generation,Date.now());
     const initiallySuppressed=Boolean(state.voice.ttsPending>0||agentSpeechActive);
     listeningController.setAgentSpeaking(Boolean(agentSpeechActive));
@@ -2585,6 +2595,9 @@ function stopRoomAudio() {
   state.voice.currentAssociationState='unknown-speaker';
   state.voice.currentAssociationProvenance=['speaker-unverified'];
   state.voice.currentAssociationTransition=null;
+  state.voice.currentConversationAttention='unknown';
+  state.voice.currentConversationGroupSize=1;
+  state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
   speakerAssociationTracker.reset();
   transcriptLifecycle.clear();
   state.voice.currentTranscriptState='idle';
