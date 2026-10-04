@@ -72,7 +72,8 @@ export class RuntimeBudget{
   this.audioQueueMax=0;
  }
  recordFrame(now,{hidden=false}={}){
-  if(hidden||!Number.isFinite(now)||now<0)return false;
+  if(!Number.isFinite(now)||now<0)return false;
+  if(hidden){this.lastFrame=null;return false;}
   if(this.lastFrame!==null&&now<=this.lastFrame)return false;
   if(this.firstFrame===null)this.firstFrame=now;
   if(this.lastFrame!==null){
@@ -89,7 +90,7 @@ export class RuntimeBudget{
   const value=Math.max(0,Math.floor(Number(depth)||0));this.audioQueueMax=Math.max(this.audioQueueMax,value);return value;
  }
  snapshot(){
-  const durationMs=this.firstFrame===null||this.lastFrame===null?0:Math.max(0,this.lastFrame-this.firstFrame);
+  const durationMs=Math.max(0,this.frameGapTotal);
   const meanFrameGap=this.frames>1?this.frameGapTotal/(this.frames-1):0;
   const meanScanMs=this.scans?this.scanTotal/this.scans:0;
   const stallRatio=this.frames>1?this.stalls/(this.frames-1):0;
