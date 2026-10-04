@@ -122,7 +122,8 @@ test('10J diagnostics export is aggregate-only and requires explicit representat
   'foreground-resume','long-session','restart-integrity','storage-pressure'])
   assert.match(html,new RegExp('data-release-check="'+key+'"'));
  assert.match(html,/at least 20 minutes/i);
- assert.match(js,/version:'0\.10\.9'/);
+ const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+ assert.ok(js.includes("version:'"+pkg.version+"'"),'diagnostics report version must match package');
  assert.match(js,/runtime:runtimeBudget\.snapshot\(\)/);
  assert.match(js,/releaseAcceptanceSummary/);
  assert.doesNotMatch(js,/imageData:|rawAudio:|transcript:|faceEmbedding:|voiceEmbedding:/);
