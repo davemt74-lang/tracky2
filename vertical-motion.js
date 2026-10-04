@@ -1246,13 +1246,35 @@ async function enumerateCameras() {
 async function reloadIdentityParticipants() {
   try {
     state.identity.participants = await listParticipants();
-    cognitiveLoop.forgetRemovedParticipants(state.identity.participants.map(p=>p.id));
+    const participantIds=state.identity.participants.map(p=>p.id);
+    cognitiveLoop.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
+    if(state.voice.currentSpeakerId&&!participantIds.includes(state.voice.currentSpeakerId)){
+      state.voice.currentSpeakerId=null;
+      state.voice.currentSpeakerName=null;
+      state.voice.currentVoiceConfidence=0;
+      state.voice.currentBodyLock=false;
+      state.voice.currentGroupId=null;
+      state.voice.currentAssociationState='unknown-speaker';
+      state.voice.currentAssociationProvenance=['participant-record-unavailable'];
+      state.voice.currentAssociationTransition=null;
+      speakerAssociationTracker.reset();
+      renderVoiceHud();
+    }
     refreshPlayerChoices();
     if(!state.identity.participants.length){ui.multiplayerSetupStatus.textContent='No enrolled participants on this site in this browser. Open Participants, save a profile and return to Games.';}
   } catch (error) {
     console.error(error);
     state.identity.participants = [];
+    state.voice.currentSpeakerId=null;
+    state.voice.currentSpeakerName=null;
+    state.voice.currentVoiceConfidence=0;
+    state.voice.currentBodyLock=false;
+    state.voice.currentGroupId=null;
+    state.voice.currentAssociationState='unknown-speaker';
+    state.voice.currentAssociationProvenance=['participant-store-unavailable'];
+    state.voice.currentAssociationTransition=null;
+    speakerAssociationTracker.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
   }
@@ -1484,6 +1506,8 @@ function createParticipantCard(track) {
       ? (recentlySpoke ? 'VERIFIED SEGMENT' : !state.voice.active?'OFF':
         voiceReadiness.ready?'AWAIT VOICE MATCH':'PROFILE REQUIRED')
       : (recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET')],
+    ['SPEAKER LINK', recentlySpoke&&track.lastSpeakerAssociationState
+      ? speakerAssociationLabel(track.lastSpeakerAssociationState) : '—'],
     ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
     ['GROUP', track.conversationGroupId || '—']
   ];
@@ -2075,7 +2099,7 @@ async function processRoomSegment(segment) {
       }
     }
 
-    const associationTransition=speakerAssociationTracker.observe(association,Date.now());
+    const associationTransition=speakerAssociationTracker.preview(association,Date.now());
     state.voice.currentAssociationTransition=associationTransition?.type||null;
 
     // Gate and transcription have completed: only NOW may a verified voice match
@@ -2141,6 +2165,21 @@ async function processRoomSegment(segment) {
       outcome='cancelled';
       await deleteDialogueTurn(savedTurn.id).catch(() => {});
       return;
+    }
+
+    speakerAssociationTracker.commit(association);
+    if(state.mode==='agent'&&associationTransition){
+      if(associationTransition.type==='speaker-handoff'&&savedTurn.participantId){
+        logRoomMessage('audio','Verified speaker handoff · current voice profile: '+
+          (savedTurn.participantName||'enrolled participant'),'speaker-association',
+          {participantId:savedTurn.participantId,semantic:'speaker-handoff'});
+      }else if(associationTransition.type==='speaker-became-unverified'){
+        logRoomMessage('audio','Speaker association became unverified · prior identity not carried forward',
+          'speaker-association',{semantic:'speaker-unverified'});
+      }else if(associationTransition.type==='speaker-verified'&&savedTurn.participantId){
+        logRoomMessage('audio','Speaker verified by voice profile','speaker-association',
+          {participantId:savedTurn.participantId,semantic:'speaker-verified'});
+      }
     }
 
     state.voice.turns.push(savedTurn);
