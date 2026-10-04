@@ -1569,6 +1569,8 @@ async function reloadIdentityParticipants() {
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
       speakerAssociationTracker.reset();
+      multimodalFusionTracker.reset();
+      diarizationSession.reset();
       renderVoiceHud();
     }
     refreshPlayerChoices();
@@ -1599,6 +1601,8 @@ async function reloadIdentityParticipants() {
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     speakerAssociationTracker.reset();
+    multimodalFusionTracker.reset();
+    diarizationSession.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
   }
@@ -2538,6 +2542,10 @@ async function processRoomSegment(segment) {
       state.voice.currentFusionConflicts=[];
       state.voice.currentFusionAbstentionReason='signal-rejected';
       state.voice.currentFusionTransition=null;
+      state.voice.currentDiarizationState='unknown';
+      state.voice.currentDiarizationSpeakerCount=0;
+      state.voice.currentDiarizationOverlap=false;
+      state.voice.currentDiarizationReason='signal-rejected';
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='TURN REJECTED';
@@ -2976,6 +2984,10 @@ async function startRoomAudio() {
     state.voice.currentFusionConflicts=[];
     state.voice.currentFusionAbstentionReason='no-identity-authority';
     state.voice.currentFusionTransition=null;
+    state.voice.currentDiarizationState='unknown';
+    state.voice.currentDiarizationSpeakerCount=0;
+    state.voice.currentDiarizationOverlap=false;
+    state.voice.currentDiarizationReason=null;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
