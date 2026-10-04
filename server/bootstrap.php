@@ -24,7 +24,7 @@ function tracky_db(): PDO {
         PDO::ATTR_TIMEOUT => 5
     ]);
     $db->exec('PRAGMA foreign_keys=ON');
-    tracky_schema($db);
+    if(tracky_schema_version($db)<TRACKY_SCHEMA_VERSION) tracky_schema($db);
     return $db;
 }
 function tracky_session(): void {
@@ -70,6 +70,14 @@ function tracky_check_csrf(): void {
     if (!is_string($given) || !hash_equals(tracky_csrf(),$given)) {
         http_response_code(403); throw new RuntimeException('Invalid CSRF token.');
     }
+}
+function tracky_schema_version(PDO $db): int {
+    $exists=$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_meta'")->fetchColumn();
+    if(!$exists)return 0;
+    $s=$db->prepare('SELECT value FROM schema_meta WHERE key=?');
+    $s->execute(['schema_version']);
+    $value=$s->fetchColumn();
+    return $value===false?0:max(0,(int)$value);
 }
 function tracky_secret_key(): string {
     if(!extension_loaded('sodium')) throw new RuntimeException('PHP sodium extension required for encrypted data.');
