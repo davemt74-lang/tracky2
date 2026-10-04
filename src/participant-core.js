@@ -225,6 +225,7 @@ export function participantRecord(input = {}) {
       })) : [],
     recognitionEnabled: input.recognitionEnabled !== false,
     agentGreetingEnabled: input.agentGreetingEnabled !== false,
+    agentProactiveEnabled: input.agentProactiveEnabled !== false,
     voiceEmbeddings: Array.isArray(input.voiceEmbeddings) ? input.voiceEmbeddings.map((v) => Array.from(v)) : [],
     voiceRecognitionEnabled: input.voiceRecognitionEnabled !== false,
     voiceProfileSamples: Array.isArray(input.voiceProfileSamples) ? input.voiceProfileSamples : [],
