@@ -66,7 +66,7 @@ export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROA
 export function followupOpportunity(turn,now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
  if(!turn?.id||!turn.participantId||turn.attribution==='unknown')return null;
  const p=normalizeProactivePolicy(policy);
- if(!p.followupsEnabled)return null;
+ if(!p.enabled||!p.followupsEnabled)return null;
  const sourceAt=finite(turn.at)?turn.at:(Date.parse(turn.createdAt||'')||now);
  return proactiveOpportunity({
   type:'conversation-followup',
@@ -84,7 +84,7 @@ export function followupOpportunity(turn,now=Date.now(),policy=DEFAULT_PROACTIVE
 export function statusOpportunity(event,now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
  if(!event?.semantic)return null;
  const p=normalizeProactivePolicy(policy);
- if(!p.statusNoticesEnabled)return null;
+ if(!p.enabled||!p.statusNoticesEnabled)return null;
  if(event.semantic==='agent-task-outcome'){
   if(String(event.message||'').toLowerCase().includes('retry scheduled'))return null;
   return proactiveOpportunity({
@@ -125,7 +125,15 @@ export class ProactiveAgentGovernor{
   this.lastInterruptionAt=null;
   this.lastDecision=null;
  }
- setPolicy(policy){this.policy=normalizeProactivePolicy(policy);return this.policy;}
+ setPolicy(policy){
+  this.policy=normalizeProactivePolicy(policy);
+  if(!this.policy.enabled)this.pending=[];
+  else if(!this.policy.followupsEnabled)
+   this.pending=this.pending.filter(item=>item.type!=='conversation-followup');
+  else if(!this.policy.statusNoticesEnabled)
+   this.pending=this.pending.filter(item=>item.type==='conversation-followup');
+  return this.policy;
+ }
  offer(opportunity){
   if(!opportunity)return Object.freeze({accepted:false,reason:'missing-opportunity',opportunity:null});
   const i=this.pending.findIndex(item=>item.dedupeKey===opportunity.dedupeKey);
