@@ -79,6 +79,10 @@ import {
  multimodalFusionTurnFields
 } from './src/multimodal-identity-core.js';
 import {
+ SpeakerDiarizationSession,createDiarizationWindows,diarizationTurnFields,
+ finalizeDiarization
+} from './src/speaker-diarization-core.js';
+import {
  TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
@@ -242,6 +246,7 @@ const proactiveGovernor=new ProactiveAgentGovernor();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
 const multimodalFusionTracker=new MultimodalFusionTracker();
+const diarizationSession=new SpeakerDiarizationSession();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
 const roomSessionId='room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -783,6 +788,10 @@ const state = {
     currentFusionConflicts: [],
     currentFusionAbstentionReason: 'no-identity-authority',
     currentFusionTransition: null,
+    currentDiarizationState: 'unknown',
+    currentDiarizationSpeakerCount: 0,
+    currentDiarizationOverlap: false,
+    currentDiarizationReason: null,
     currentConversationAttention: 'unknown',
     currentConversationGroupSize: 1,
     currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
@@ -1552,10 +1561,16 @@ async function reloadIdentityParticipants() {
       state.voice.currentFusionConflicts=[];
       state.voice.currentFusionAbstentionReason='signal-rejected';
       state.voice.currentFusionTransition=null;
+      state.voice.currentDiarizationState='unknown';
+      state.voice.currentDiarizationSpeakerCount=0;
+      state.voice.currentDiarizationOverlap=false;
+      state.voice.currentDiarizationReason='signal-rejected';
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
       speakerAssociationTracker.reset();
+      multimodalFusionTracker.reset();
+      diarizationSession.reset();
       renderVoiceHud();
     }
     refreshPlayerChoices();
@@ -1578,10 +1593,16 @@ async function reloadIdentityParticipants() {
     state.voice.currentFusionConflicts=[];
     state.voice.currentFusionAbstentionReason='no-identity-authority';
     state.voice.currentFusionTransition=null;
+    state.voice.currentDiarizationState='unknown';
+    state.voice.currentDiarizationSpeakerCount=0;
+    state.voice.currentDiarizationOverlap=false;
+    state.voice.currentDiarizationReason=null;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     speakerAssociationTracker.reset();
+    multimodalFusionTracker.reset();
+    diarizationSession.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
   }
@@ -2151,7 +2172,10 @@ function renderVoiceHud() {
     ui.roomSpeakerProvenance.textContent=[
       ...state.voice.currentAssociationProvenance,
       ...state.voice.currentFusionProvenance.map(value=>'fusion:'+value),
-      ...fusionBits
+      ...fusionBits,
+      'diarization:'+state.voice.currentDiarizationState+
+       (state.voice.currentDiarizationSpeakerCount
+        ?'('+state.voice.currentDiarizationSpeakerCount+')':'')
     ].slice(0,12).join(' · ')||'speaker-unverified';
   }
   if(ui.roomConversationAttention)
@@ -2267,8 +2291,17 @@ function renderDialogueTurns() {
       ...(turn.multimodalAbstentionReason?['abstain:'+turn.multimodalAbstentionReason]:[])
     ].filter(Boolean);
     fusionMeta.textContent='Fusion · '+fusionBits.join(' · ');
+    const diarizationMeta=document.createElement('small');
+    const diarizationBits=[
+      turn.diarizationState||'not-recorded',
+      (turn.diarizationSpeakerCount||0)+' speaker cluster'+
+       ((turn.diarizationSpeakerCount||0)===1?'':'s'),
+      turn.diarizationOverlapObserved?'overlap unresolved':'',
+      turn.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
+    ].filter(Boolean);
+    diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
 
-    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta);
+    card.append(top, transcript, context,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta);
     ui.dialogueTurns.append(card);
   }
 }
@@ -2353,6 +2386,45 @@ function voiceSegmentIsCurrent(segment) {
    listeningController.canContinue(segment,Date.now()).valid);
 }
 
+async function diarizeRoomSegment(segment,wholeEmbedding=null) {
+  const windows=createDiarizationWindows(segment.samples,{
+    sampleRate:segment.sampleRate||16000,segmentId:segment.segmentId
+  });
+  if(!windows.length)
+    return finalizeDiarization([],{segmentId:segment.segmentId,reason:'segment-too-short'});
+  const working=diarizationSession.fork();
+  const assignments=[];
+  const signalQuality=Math.max(0,Math.min(1,
+    (Number(segment.avgDb||-100)-Number(segment.noiseFloorDb||-100))/24));
+  for(let index=0;index<windows.length;index++){
+    if(!voiceSegmentIsCurrent(segment))
+      return finalizeDiarization(assignments,{
+        segmentId:segment.segmentId,cancelled:true,reason:'segment-invalidated'
+      });
+    const window=windows[index];
+    let windowEmbedding=null;
+    try{
+      windowEmbedding=windows.length===1&&wholeEmbedding
+        ? wholeEmbedding
+        : await state.voice.engine.embedding(window.samples);
+    }catch(error){
+      console.warn('Diarization window embedding unavailable.',error);
+    }
+    if(!voiceSegmentIsCurrent(segment))
+      return finalizeDiarization(assignments,{
+        segmentId:segment.segmentId,cancelled:true,reason:'segment-invalidated'
+      });
+    assignments.push(working.assign({
+      embedding:windowEmbedding||[],windowId:window.id,
+      startOffsetMs:window.startOffsetMs,endOffsetMs:window.endOffsetMs,
+      quality:windowEmbedding?signalQuality:0
+    }));
+  }
+  const result=finalizeDiarization(assignments,{segmentId:segment.segmentId});
+  if(voiceSegmentIsCurrent(segment))diarizationSession.commitFrom(working);
+  return result;
+}
+
 async function processRoomSegment(segment) {
   let outcome='completed';
   if (!voiceSegmentIsCurrent(segment)) {
@@ -2371,7 +2443,18 @@ async function processRoomSegment(segment) {
     const embedding = await state.voice.engine.embedding(segment.samples);
     if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
-    const voiceMatch = bestVoiceMatch(embedding, state.identity.participants);
+    const rawVoiceMatch = bestVoiceMatch(embedding, state.identity.participants);
+    const diarization=await diarizeRoomSegment(segment,embedding);
+    if(diarization.state==='cancelled'){outcome='cancelled';return;}
+    const diarizationUnsafe=!diarization.safeWholeTurnAttribution;
+    const voiceMatch=diarizationUnsafe?{
+      matched:false,participant:null,
+      similarity:rawVoiceMatch.similarity,
+      secondSimilarity:rawVoiceMatch.secondSimilarity,
+      margin:rawVoiceMatch.margin,
+      ambiguous:diarization.overlapObserved||diarization.speakerCount>1,
+      diarizationSuppressed:true
+    }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
     const association=resolveSpeakerAssociation({voiceMatch,roomTracks});
     const participant=association.participantId
@@ -2392,7 +2475,7 @@ async function processRoomSegment(segment) {
     const gate = transcriptSignalGate({
       levelDb: segment.avgDb,
       noiseFloorDb: segment.noiseFloorDb,
-      voiceConfidence: association.participantId?association.voiceConfidence:0,
+      voiceConfidence: rawVoiceMatch.similarity,
       bodyConfirmed:association.bodyConfirmed,
       vadConfirmed: true
     });
@@ -2443,6 +2526,10 @@ async function processRoomSegment(segment) {
     state.voice.currentFusionProvenance=Array.from(fusion.provenance);
     state.voice.currentFusionConflicts=Array.from(fusion.conflicts);
     state.voice.currentFusionAbstentionReason=fusion.abstentionReason;
+    state.voice.currentDiarizationState=diarization.state;
+    state.voice.currentDiarizationSpeakerCount=diarization.speakerCount;
+    state.voice.currentDiarizationOverlap=diarization.overlapObserved;
+    state.voice.currentDiarizationReason=diarization.reason;
     state.voice.currentGroupId = group
       ? (group.tracks.length > 1 ? group.id : 'SOLO')
       : null;
@@ -2464,6 +2551,10 @@ async function processRoomSegment(segment) {
       state.voice.currentFusionConflicts=[];
       state.voice.currentFusionAbstentionReason='signal-rejected';
       state.voice.currentFusionTransition=null;
+      state.voice.currentDiarizationState='unknown';
+      state.voice.currentDiarizationSpeakerCount=0;
+      state.voice.currentDiarizationOverlap=false;
+      state.voice.currentDiarizationReason='signal-rejected';
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='TURN REJECTED';
@@ -2554,6 +2645,7 @@ async function processRoomSegment(segment) {
     }
     const associationFields=speakerAssociationTurnFields(association);
     const fusionFields=multimodalFusionTurnFields(fusion);
+    const diarizationFields=diarizationTurnFields(diarization);
     let turn = {
      ...createSpeakerTurn({
       participantId: association.participantId,
@@ -2579,6 +2671,11 @@ async function processRoomSegment(segment) {
       }:null
      }),
      ...fusionFields,
+     ...diarizationFields,
+     overlapEvidence:diarization.overlapObserved,
+     diarizationAttributionSuppressed:diarizationUnsafe,
+     diarizationAttributionReason:diarizationUnsafe
+      ?'diarization-suppressed-whole-turn-attribution':null,
      multimodalTransition:fusionTransition?{
       type:fusionTransition.type,fromState:fusionTransition.fromState,
       toState:fusionTransition.toState,at:fusionTransition.at
@@ -2881,6 +2978,7 @@ async function startRoomAudio() {
     state.voice.active = true;
     speakerAssociationTracker.reset();
     multimodalFusionTracker.reset();
+    diarizationSession.reset();
     transcriptLifecycle.clear();
     state.voice.currentTranscriptState='idle';
     state.voice.currentTranscriptSegmentId=null;
@@ -2895,6 +2993,10 @@ async function startRoomAudio() {
     state.voice.currentFusionConflicts=[];
     state.voice.currentFusionAbstentionReason='no-identity-authority';
     state.voice.currentFusionTransition=null;
+    state.voice.currentDiarizationState='unknown';
+    state.voice.currentDiarizationSpeakerCount=0;
+    state.voice.currentDiarizationOverlap=false;
+    state.voice.currentDiarizationReason=null;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -2963,11 +3065,16 @@ function stopRoomAudio() {
   state.voice.currentFusionConflicts=[];
   state.voice.currentFusionAbstentionReason='no-identity-authority';
   state.voice.currentFusionTransition=null;
+  state.voice.currentDiarizationState='unknown';
+  state.voice.currentDiarizationSpeakerCount=0;
+  state.voice.currentDiarizationOverlap=false;
+  state.voice.currentDiarizationReason=null;
   state.voice.currentConversationAttention='unknown';
   state.voice.currentConversationGroupSize=1;
   state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
   speakerAssociationTracker.reset();
   multimodalFusionTracker.reset();
+  diarizationSession.reset();
   transcriptLifecycle.clear();
   state.voice.currentTranscriptState='idle';
   state.voice.currentTranscriptSegmentId=null;
