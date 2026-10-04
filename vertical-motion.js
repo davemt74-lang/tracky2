@@ -573,7 +573,9 @@ function cancelCameraRecovery(){
 }
 function cancelMicrophoneRecovery(){
  if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
- microphoneRecoveryTimer=0;microphoneRecoveryPending=false;renderRuntimeHealth(true);
+ microphoneRecoveryTimer=0;microphoneRecoveryPending=false;
+ listeningController.setRecovering(false,'microphone-recovery-cancelled');
+ renderRuntimeHealth(true);renderListeningHealth();
 }
 async function scheduleCameraRecovery(reason='camera-interrupted'){
  cameraRecoveryPending=true;renderRuntimeHealth(true);
@@ -605,7 +607,9 @@ async function scheduleCameraRecovery(reason='camera-interrupted'){
  renderRuntimeHealth(true);
 }
 async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
- microphoneRecoveryPending=true;renderRuntimeHealth(true);
+ microphoneRecoveryPending=true;
+ listeningController.setRecovering(true,reason);
+ renderRuntimeHealth(true);renderListeningHealth();
  if(microphoneRecoveryTimer)return;
  mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
  const plan=microphoneRecovery.plan({
@@ -613,15 +617,19 @@ async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
   manualStop:roomAudioManuallyStopped||!state.running
  });
  if(!plan.allowed){
+  listeningController.setRecovering(false,plan.reason);
   if(plan.reason==='retry-budget-exhausted')
    logRoomMessage('system','Microphone automatic recovery budget exhausted · use Enable room audio to retry','sensor-recovery');
-  renderRuntimeHealth(true);return;
+  renderRuntimeHealth(true);renderListeningHealth();return;
  }
  microphoneRecoveryTimer=setTimeout(async()=>{
   microphoneRecoveryTimer=0;
   mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
   if(document.hidden||roomAudioManuallyStopped||!state.running||mediaPermissions.microphone!=='granted'){
-   renderRuntimeHealth(true);return;
+   listeningController.setRecovering(false,
+    document.hidden?'page-hidden':roomAudioManuallyStopped?'manual-stop':
+     !state.running?'camera-offline':'permission-'+mediaPermissions.microphone);
+   renderRuntimeHealth(true);renderListeningHealth();return;
   }
   microphoneRecovery.record();
   const ok=await startRoomAudio();
@@ -2216,6 +2224,11 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    listeningController.start(state.voice.generation,Date.now());
+    const initiallySuppressed=Boolean(state.voice.ttsPending>0||agentSpeechActive);
+    listeningController.setAgentSpeaking(Boolean(agentSpeechActive));
+    listeningController.setSuppressed(initiallySuppressed,
+      agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
     roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
     updateParticipantAudioMeters(true);
@@ -2234,6 +2247,7 @@ async function startRoomAudio() {
   } catch (error) {
     console.error(error);
     state.voice.active = false;
+    listeningController.stop(state.voice.generation,'audio-start-failed');
     roomSensorState('microphone','degraded','Room microphone start failed');
     pushRoomEvent(
       window.isSecureContext
@@ -2252,6 +2266,7 @@ function stopRoomAudio() {
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
   state.voice.generation += 1;
+  listeningController.stop(state.voice.generation,'audio-stopped');
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
@@ -2265,7 +2280,6 @@ function stopRoomAudio() {
   state.voice.currentBodyLock = false;
   state.voice.currentGroupId = null;
   state.voice.captureMode = 'offline';
-  state.voice.queue = [];
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
   }
