@@ -2100,6 +2100,9 @@ async function processRoomSegment(segment) {
         .map(candidate => candidate.participantId)
         .filter(Boolean);
     }
+    const currentRoomTracks=roomTracks.filter(candidate=>
+      candidate?.id&&!['occluded','reacquiring'].includes(candidate.status));
+    const conversationTracks=group?.tracks?.length?group.tracks:currentRoomTracks;
 
     state.voice.currentSpeakerId = association.participantId;
     state.voice.currentSpeakerName = participant?.name
@@ -2236,6 +2239,20 @@ async function processRoomSegment(segment) {
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
+    const visibleConversationParticipants=conversationTracks
+      .map(candidate=>candidate.participantId?participantById(candidate.participantId):null)
+      .filter(Boolean);
+    const visibleConversationVisitorIds=conversationTracks
+      .map(candidate=>candidate.visitorId||null).filter(Boolean);
+    const conversationFields=multiConversationTurnFields(turn,{
+      visibleParticipants:visibleConversationParticipants,
+      visibleVisitorIds:visibleConversationVisitorIds,
+      groupSize:Math.max(1,conversationTracks.length)
+    });
+    turn={...turn,...conversationFields};
+    state.voice.currentConversationAttention=turn.attentionTarget;
+    state.voice.currentConversationGroupSize=turn.conversationGroupSize;
+    state.voice.currentConversationLabel=conversationContextLabel(turn);
     turn.at=Date.now();
     if (!voiceSegmentIsCurrent(segment)){
       transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
