@@ -1575,6 +1575,10 @@ async function reloadIdentityParticipants() {
       state.voice.currentDiarizationSpeakerCount=0;
       state.voice.currentDiarizationOverlap=false;
       state.voice.currentDiarizationReason='signal-rejected';
+      state.voice.currentContinuousFusionState='unresolved';
+      state.voice.currentContinuousFusionParticipantIds=[];
+      state.voice.currentContinuousFusionConflicts=[];
+      state.voice.currentContinuousFusionUnresolvedWindows=0;
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -2185,8 +2189,12 @@ function renderVoiceHud() {
       ...fusionBits,
       'diarization:'+state.voice.currentDiarizationState+
        (state.voice.currentDiarizationSpeakerCount
-        ?'('+state.voice.currentDiarizationSpeakerCount+')':'')
-    ].slice(0,12).join(' · ')||'speaker-unverified';
+        ?'('+state.voice.currentDiarizationSpeakerCount+')':''),
+      'continuous:'+state.voice.currentContinuousFusionState+
+       (state.voice.currentContinuousFusionParticipantIds.length
+        ?'('+state.voice.currentContinuousFusionParticipantIds.length+' linked)':''),
+      ...state.voice.currentContinuousFusionConflicts.map(value=>'continuous-conflict:'+value)
+    ].slice(0,14).join(' · ')||'speaker-unverified';
   }
   if(ui.roomConversationAttention)
     ui.roomConversationAttention.textContent=state.voice.currentConversationLabel||'UNKNOWN';
@@ -2518,14 +2526,25 @@ async function processRoomSegment(segment) {
     const rawVoiceMatch = bestVoiceMatch(embedding, state.identity.participants);
     const diarization=await diarizeRoomSegment(segment,embedding);
     if(diarization.state==='cancelled'){outcome='cancelled';return;}
-    const diarizationUnsafe=!diarization.safeWholeTurnAttribution;
+    const continuousFusion=diarization.continuousFusion||summarizeContinuousFusion([]);
+    const continuousParticipantIds=Array.from(continuousFusion.participantIds||[]);
+    const rawParticipantId=rawVoiceMatch.participant?.id||null;
+    const continuousDisagreement=Boolean(
+      rawParticipantId&&continuousParticipantIds.length===1&&
+      continuousParticipantIds[0]!==rawParticipantId
+    );
+    const continuousConflict=Boolean(
+      continuousDisagreement||(continuousFusion.conflicts||[]).length
+    );
+    const diarizationUnsafe=!diarization.safeWholeTurnAttribution||continuousConflict;
     const voiceMatch=diarizationUnsafe?{
       matched:false,participant:null,
       similarity:rawVoiceMatch.similarity,
       secondSimilarity:rawVoiceMatch.secondSimilarity,
       margin:rawVoiceMatch.margin,
-      ambiguous:diarization.overlapObserved||diarization.speakerCount>1,
-      diarizationSuppressed:true
+      ambiguous:diarization.overlapObserved||diarization.speakerCount>1||continuousConflict,
+      diarizationSuppressed:true,
+      continuousFusionSuppressed:continuousConflict
     }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
     const association=resolveSpeakerAssociation({voiceMatch,roomTracks});
@@ -2602,6 +2621,14 @@ async function processRoomSegment(segment) {
     state.voice.currentDiarizationSpeakerCount=diarization.speakerCount;
     state.voice.currentDiarizationOverlap=diarization.overlapObserved;
     state.voice.currentDiarizationReason=diarization.reason;
+    state.voice.currentContinuousFusionState=continuousFusion.state;
+    state.voice.currentContinuousFusionParticipantIds=continuousParticipantIds;
+    state.voice.currentContinuousFusionConflicts=[
+      ...Array.from(continuousFusion.conflicts||[]),
+      ...(continuousDisagreement?['whole-segment-voice-cluster-disagreement']:[])
+    ];
+    state.voice.currentContinuousFusionUnresolvedWindows=
+      Number(continuousFusion.unresolvedWindows||0);
     state.voice.currentGroupId = group
       ? (group.tracks.length > 1 ? group.id : 'SOLO')
       : null;
@@ -2718,6 +2745,7 @@ async function processRoomSegment(segment) {
     const associationFields=speakerAssociationTurnFields(association);
     const fusionFields=multimodalFusionTurnFields(fusion);
     const diarizationFields=diarizationTurnFields(diarization);
+    const continuousFields=continuousFusionTurnFields(continuousFusion);
     let turn = {
      ...createSpeakerTurn({
       participantId: association.participantId,
@@ -2744,10 +2772,13 @@ async function processRoomSegment(segment) {
      }),
      ...fusionFields,
      ...diarizationFields,
+     ...continuousFields,
      overlapEvidence:diarization.overlapObserved,
      diarizationAttributionSuppressed:diarizationUnsafe,
      diarizationAttributionReason:diarizationUnsafe
-      ?'diarization-suppressed-whole-turn-attribution':null,
+      ?(continuousConflict
+        ?'continuous-fusion-conflict-suppressed-whole-turn-attribution'
+        :'diarization-suppressed-whole-turn-attribution'):null,
      multimodalTransition:fusionTransition?{
       type:fusionTransition.type,fromState:fusionTransition.fromState,
       toState:fusionTransition.toState,at:fusionTransition.at
