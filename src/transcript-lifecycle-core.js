@@ -53,13 +53,17 @@ export class TranscriptLifecycleController{
   return Object.freeze({...next,ephemeral:true});
  }
  finalize(segmentId,{
-  text,at=Date.now(),confidence=null,language=null,processingDurationMs=null
+  text,at=Date.now(),confidence=null,language=null,processingDurationMs=null,
+  source=null,modelId=null,modelRevision=null
  }={}){
   const current=this.records.get(segmentId);
   if(!current||current.state==='cancelled')return null;
   const finalText=cleanText(text);
   const next={...current,state:finalText?'final':'unavailable',text:finalText,
    partialText:'',updatedAt:at,completedAt:at,
+   source:String(source||current.source||'local-whisper').slice(0,64),
+   modelId:String(modelId||current.modelId||'').slice(0,160)||null,
+   modelRevision:String(modelRevision||current.modelRevision||'').slice(0,80)||null,
    confidence:cleanConfidence(confidence),
    language:String(language||current.language||'').slice(0,24)||null,
    processingDurationMs:finite(processingDurationMs)?
