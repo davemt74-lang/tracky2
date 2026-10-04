@@ -307,6 +307,13 @@
             <i id="roomAmbientAudioFill"></i>
           </div>
           <div id="roomAmbientAudioStatus" class="room-ambient-audio-status" role="status">Room mic offline · no ambient audio captured</div>
+          <div class="room-listening-health" id="roomListeningHealth" aria-label="Conversation listening engine health">
+            <article><span>LISTENING STATE</span><strong id="roomListeningState">Offline</strong></article>
+            <article><span>QUEUE</span><strong id="roomListeningQueue">0 pending</strong></article>
+            <article><span>DROPS</span><strong id="roomListeningDrops">0</strong></article>
+            <article><span>LAST TRANSITION</span><strong id="roomListeningReason">Standby</strong></article>
+          </div>
+          <small>Listening segments are memory-only PCM work items with bounded age/depth. Stale or superseded work is discarded before it can become a transcript or AGENT reply.</small>
           <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns">
             Analyze shared audio energy patterns locally (this session only)
           </label>

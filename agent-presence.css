@@ -609,3 +609,23 @@
 @media(max-width:390px){
  .game-page.agent-mode .room-runtime-grid{grid-template-columns:1fr}
 }
+
+
+/* V0.11A listening lifecycle/backpressure health. */
+.game-page.agent-mode .room-listening-health{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0
+}
+.game-page.agent-mode .room-listening-health article{
+ min-width:0;padding:7px;border:1px solid rgba(100,195,191,.22);
+ border-radius:8px;background:rgba(4,31,39,.52)
+}
+.game-page.agent-mode .room-listening-health span{
+ display:block;margin-bottom:3px;font-size:.51rem;font-weight:800;
+ letter-spacing:.07em;color:#9cc6c6
+}
+.game-page.agent-mode .room-listening-health strong{
+ display:block;font-size:.63rem;line-height:1.4;color:#effffd;overflow-wrap:anywhere
+}
+@media(max-width:380px){
+ .game-page.agent-mode .room-listening-health{grid-template-columns:1fr}
+}

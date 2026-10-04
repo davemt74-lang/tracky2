@@ -59,6 +59,7 @@ import {
 } from './src/runtime-resilience-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
+import {ConversationListeningController} from './src/conversation-listening-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -202,6 +203,7 @@ const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
+const listeningController=new ConversationListeningController();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
@@ -278,6 +280,35 @@ function renderAmbientAudioMeter(force=false){
   (state.voice.vad?'Room acoustic activity (speaker not yet attributed)':'Ambient room level')+
   ' · '+(Number.isFinite(db)?db.toFixed(1):'—')+' dB · floor '+
   (Number.isFinite(state.voice.noiseFloorDb)?state.voice.noiseFloorDb.toFixed(1):'—')+' dB';
+}
+let lastListeningDropEventAt=-Infinity;
+function listeningLabel(value){
+ return String(value||'standby').replaceAll('-',' ').replace(/\b\w/g,m=>m.toUpperCase());
+}
+function renderListeningHealth(force=false){
+ if(state.mode!=='agent')return;
+ const snapshot=listeningController.snapshot();
+ const stateEl=document.getElementById('roomListeningState');
+ const queueEl=document.getElementById('roomListeningQueue');
+ const dropsEl=document.getElementById('roomListeningDrops');
+ const reasonEl=document.getElementById('roomListeningReason');
+ if(stateEl)stateEl.textContent=listeningLabel(snapshot.state);
+ if(queueEl)queueEl.textContent=snapshot.queueDepth+' pending'+
+  (snapshot.processingSegmentId?' · 1 processing':'');
+ if(dropsEl)dropsEl.textContent=String(snapshot.droppedTotal);
+ if(reasonEl)reasonEl.textContent=listeningLabel(snapshot.lastReason);
+ if(force)renderRuntimeHealth(true);
+}
+function reportListeningDrops(dropped=[]){
+ if(!dropped.length)return;
+ renderListeningHealth();
+ const now=Date.now();
+ if(state.mode!=='agent'||now-lastListeningDropEventAt<2500)return;
+ lastListeningDropEventAt=now;
+ const reasons=[...new Set(dropped.map(item=>item.reason))].join(', ');
+ logRoomMessage('audio','Listening backlog discarded '+dropped.length+
+  ' segment'+(dropped.length===1?'':'s')+' · '+reasons,
+  'conversation-listening',{semantic:'listening-backpressure'});
 }
 function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
@@ -471,7 +502,6 @@ const state = {
     sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'room-' + Date.now().toString(36),
-    queue: [],
     lastDecision: 'standby',
     rejectedSegments: 0,
     ttsPending: 0,
@@ -542,7 +572,9 @@ function cancelCameraRecovery(){
 }
 function cancelMicrophoneRecovery(){
  if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
- microphoneRecoveryTimer=0;microphoneRecoveryPending=false;renderRuntimeHealth(true);
+ microphoneRecoveryTimer=0;microphoneRecoveryPending=false;
+ listeningController.setRecovering(false,'microphone-recovery-cancelled');
+ renderRuntimeHealth(true);renderListeningHealth();
 }
 async function scheduleCameraRecovery(reason='camera-interrupted'){
  cameraRecoveryPending=true;renderRuntimeHealth(true);
@@ -574,7 +606,9 @@ async function scheduleCameraRecovery(reason='camera-interrupted'){
  renderRuntimeHealth(true);
 }
 async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
- microphoneRecoveryPending=true;renderRuntimeHealth(true);
+ microphoneRecoveryPending=true;
+ listeningController.setRecovering(true,reason);
+ renderRuntimeHealth(true);renderListeningHealth();
  if(microphoneRecoveryTimer)return;
  mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
  const plan=microphoneRecovery.plan({
@@ -582,15 +616,19 @@ async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
   manualStop:roomAudioManuallyStopped||!state.running
  });
  if(!plan.allowed){
+  listeningController.setRecovering(false,plan.reason);
   if(plan.reason==='retry-budget-exhausted')
    logRoomMessage('system','Microphone automatic recovery budget exhausted · use Enable room audio to retry','sensor-recovery');
-  renderRuntimeHealth(true);return;
+  renderRuntimeHealth(true);renderListeningHealth();return;
  }
  microphoneRecoveryTimer=setTimeout(async()=>{
   microphoneRecoveryTimer=0;
   mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
   if(document.hidden||roomAudioManuallyStopped||!state.running||mediaPermissions.microphone!=='granted'){
-   renderRuntimeHealth(true);return;
+   listeningController.setRecovering(false,
+    document.hidden?'page-hidden':roomAudioManuallyStopped?'manual-stop':
+     !state.running?'camera-offline':'permission-'+mediaPermissions.microphone);
+   renderRuntimeHealth(true);renderListeningHealth();return;
   }
   microphoneRecovery.record();
   const ok=await startRoomAudio();
@@ -1664,6 +1702,8 @@ function speakAcknowledgement(message) {
 
   state.voice.ttsPending += 1;
   state.voice.audio?.setSuppressed(true);
+  listeningController.setSuppressed(true,'acknowledgement-tts');
+  renderListeningHealth();
 
   const utterance = new SpeechSynthesisUtterance(message);
   utterance.rate = 1.02;
@@ -1681,7 +1721,11 @@ function speakAcknowledgement(message) {
 
     setTimeout(() => {
       if (state.voice.ttsPending === 0) {
-        state.voice.audio?.setSuppressed(false);
+        const suppressed=Boolean(agentSpeechActive);
+        state.voice.audio?.setSuppressed(suppressed);
+        listeningController.setSuppressed(suppressed,
+          suppressed?'agent-tts':'acknowledgement-ended');
+        renderListeningHealth();
       }
     }, 350);
   };
@@ -1756,17 +1800,18 @@ function renderVoiceHud() {
     : '—';
   ui.roomDialogueGroup.textContent = state.voice.currentGroupId || '—';
 
-  ui.voiceStatus.textContent = !state.voice.active
-    ? 'Voice standby'
-    : state.voice.processing
-      ? 'Analyzing speaker…'
-      : state.voice.vad
-        ? 'Speech detected'
-        : state.voice.lastDecision === 'ambiguous-speaker'
-          ? 'Speaker ambiguous'
-          : state.voice.lastDecision === 'noise-rejected'
-            ? 'Background rejected'
-            : 'Room audio live';
+  const listening=listeningController.snapshot();
+  ui.voiceStatus.textContent = ({
+    offline:'Voice standby',
+    recovering:'Recovering microphone…',
+    'agent-speaking':'Agent speaking · room input suppressed',
+    suppressed:'Room input suppressed',
+    speech:'Speech detected',
+    processing:'Analyzing speaker…',
+    queued:'Speech queued',
+    listening:'Room audio live'
+  })[listening.state]||'Voice standby';
+  renderListeningHealth();
 
   ui.transcriptModelState.textContent = !ui.liveTranscription.checked
     ? 'Transcription off'
@@ -1884,6 +1929,11 @@ function onRoomAudioLevel(level) {
   state.voice.noiseFloorDb = level.noiseFloorDb;
   state.voice.vad = level.speaking;
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
+  listeningController.setVad(Boolean(level.speaking));
+  const captureSuppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
+   agentSpeechActive||state.voice.ttsPending>0);
+  listeningController.setSuppressed(captureSuppressed,
+   captureSuppressed?(agentSpeechActive?'agent-tts':'capture-suppressed'):'capture-active');
   renderVoiceHud();
   updateParticipantAudioMeters();
   if(state.mode==='agent'&&state.voice.active){
@@ -1902,23 +1952,27 @@ function onRoomAudioLevel(level) {
 }
 
 function voiceSegmentIsCurrent(segment) {
-  return Boolean(
-    state.voice.active &&
-    segment?.generation === state.voice.generation
-  );
+  return Boolean(state.voice.active&&
+   listeningController.canContinue(segment,Date.now()).valid);
 }
 
 async function processRoomSegment(segment) {
-  if (!voiceSegmentIsCurrent(segment)) return;
+  let outcome='completed';
+  if (!voiceSegmentIsCurrent(segment)) {
+    listeningController.complete(segment,'cancelled');
+    renderListeningHealth();
+    return;
+  }
   state.voice.processing = true;
   renderVoiceHud();
 
   try {
     const speakerReady = await ensureSpeakerEngine();
-    if (!speakerReady || !voiceSegmentIsCurrent(segment)) return;
+    if (!speakerReady){outcome='failed';return;}
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const embedding = await state.voice.engine.embedding(segment.samples);
-    if (!voiceSegmentIsCurrent(segment)) return;
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const voiceMatch = bestVoiceMatch(embedding, state.identity.participants);
     const participant = voiceMatch.matched ? voiceMatch.participant : null;
@@ -1997,7 +2051,7 @@ async function processRoomSegment(segment) {
       const transcriptReady = await ensureTranscriptionEngine();
       if (transcriptReady && voiceSegmentIsCurrent(segment)) {
         transcript = await state.voice.transcriber.transcribe(segment.samples);
-        if (!voiceSegmentIsCurrent(segment)) return;
+        if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
       }
     }
 
@@ -2035,50 +2089,62 @@ async function processRoomSegment(segment) {
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     turn.at=Date.now();
-    state.voice.turns.push(turn);
-    if(state.mode==='agent'){
-      logRoomMessage('audio',turn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
-       'room-voice',turn.participantId?{participantId:turn.participantId}:{});
-      agentRuntime?.onDialogue(turn);
-    }
-    if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
-    state.voice.lastDecision = 'accepted';
+    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
-    if (!voiceSegmentIsCurrent(segment)) return;
-
+    let savedTurn;
     try {
-      const savedTurn = await saveDialogueTurn({
+      savedTurn = await saveDialogueTurn({
         ...turn,
         sessionId: state.voice.sessionId,
         createdAt: new Date().toISOString()
       });
-
-      if (!voiceSegmentIsCurrent(segment)) {
-        await deleteDialogueTurn(savedTurn.id).catch(() => {});
-        return;
-      }
     } catch (error) {
+      outcome='failed';
+      state.voice.lastDecision='dialogue-save-failed';
       console.error('Could not persist dialogue turn', error);
+      pushRoomEvent('Speech turn was not saved; AGENT reply skipped.', 'error');
+      return;
+    }
+
+    if (!voiceSegmentIsCurrent(segment)) {
+      outcome='cancelled';
+      await deleteDialogueTurn(savedTurn.id).catch(() => {});
+      return;
+    }
+
+    state.voice.turns.push(savedTurn);
+    if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
+    state.voice.lastDecision = 'accepted';
+    if(state.mode==='agent'){
+      logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
+       'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
+      agentRuntime?.onDialogue(savedTurn);
     }
 
     renderParticipantCards();
     renderDialogueTurns();
     renderVoiceHud();
   } catch (error) {
+    outcome='failed';
     console.error(error);
     pushRoomEvent('Speech turn could not be analyzed.', 'error');
   } finally {
     state.voice.processing = false;
+    listeningController.complete(segment,outcome,Date.now());
     renderVoiceHud();
+    renderListeningHealth();
   }
 }
 
 async function drainRoomAudioQueue() {
-  if (state.voice.processing) return;
-  const next = state.voice.queue.shift();
-  if (!next) return;
+  if (state.voice.processing||listeningController.snapshot().processingSegmentId) return;
+  const nextResult=listeningController.beginNext(Date.now());
+  reportListeningDrops(nextResult.dropped);
+  const next=nextResult.segment;
+  runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
+  if (!next){renderListeningHealth();return;}
   await processRoomSegment(next);
-  if (state.voice.queue.length) void drainRoomAudioQueue();
+  if (listeningController.snapshot().queueDepth) void drainRoomAudioQueue();
 }
 
 function roomTrackSnapshot() {
@@ -2097,14 +2163,15 @@ function roomTrackSnapshot() {
 }
 
 function onRoomAudioSegment(segment) {
-  state.voice.queue.push({
-    ...segment,
-    generation: state.voice.generation,
-    roomTracks: roomTrackSnapshot()
+  const queued=listeningController.enqueue(segment,{
+    generation:state.voice.generation,
+    roomTracks:roomTrackSnapshot(),
+    now:Date.now()
   });
-  if (state.voice.queue.length > 6) state.voice.queue.splice(0, state.voice.queue.length - 6);
-  runtimeBudget.recordAudioQueue(state.voice.queue.length);
-  renderRuntimeHealth();
+  reportListeningDrops(queued.dropped);
+  runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
+  renderRuntimeHealth();renderListeningHealth();
+  if(!queued.accepted)return;
   void drainRoomAudioQueue();
 }
 
@@ -2123,7 +2190,7 @@ async function clearSavedDialogue() {
 
   try {
     state.voice.generation += 1;
-    state.voice.queue = [];
+    listeningController.invalidateGeneration(state.voice.generation,'dialogue-cleared');
     await clearDialogueTurns();
     state.voice.turns = [];
     renderDialogueTurns();
@@ -2159,6 +2226,11 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    listeningController.start(state.voice.generation,Date.now());
+    const initiallySuppressed=Boolean(state.voice.ttsPending>0||agentSpeechActive);
+    listeningController.setAgentSpeaking(Boolean(agentSpeechActive));
+    listeningController.setSuppressed(initiallySuppressed,
+      agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
     roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
     updateParticipantAudioMeters(true);
@@ -2177,6 +2249,7 @@ async function startRoomAudio() {
   } catch (error) {
     console.error(error);
     state.voice.active = false;
+    listeningController.stop(state.voice.generation,'audio-start-failed');
     roomSensorState('microphone','degraded','Room microphone start failed');
     pushRoomEvent(
       window.isSecureContext
@@ -2195,6 +2268,7 @@ function stopRoomAudio() {
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
   state.voice.generation += 1;
+  listeningController.stop(state.voice.generation,'audio-stopped');
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
@@ -2208,7 +2282,6 @@ function stopRoomAudio() {
   state.voice.currentBodyLock = false;
   state.voice.currentGroupId = null;
   state.voice.captureMode = 'offline';
-  state.voice.queue = [];
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
   }
@@ -3095,7 +3168,12 @@ if(state.mode==='agent'){
     },
     suppressMic:suppressed=>{
       agentSpeechActive=Boolean(suppressed);
-      state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
+      const captureSuppressed=Boolean(agentSpeechActive||state.voice.ttsPending>0);
+      state.voice.audio?.setSuppressed(captureSuppressed);
+      listeningController.setAgentSpeaking(agentSpeechActive);
+      listeningController.setSuppressed(captureSuppressed,
+       agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
+      renderListeningHealth();
     }
   });
   agentRuntime.init();
