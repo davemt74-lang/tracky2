@@ -101,15 +101,29 @@ export class LocalTranscriptionEngine {
     return this.loading;
   }
 
-  async transcribe(samples) {
+  async transcribeDetailed(samples) {
     if (!this.ready) await this.init();
+    const startedAt=Date.now();
     const result = await this.transcriber(samples, {
       chunk_length_s: 20,
       stride_length_s: 2,
       return_timestamps: false
     });
+    const completedAt=Date.now();
+    return Object.freeze({
+      text:String(result?.text || '').trim(),
+      confidence:null,
+      language:null,
+      source:'local-whisper',
+      modelId:TRANSCRIPTION_MODEL_ID,
+      modelRevision:TRANSCRIPTION_MODEL_REVISION,
+      startedAt,completedAt,
+      processingDurationMs:Math.max(0,completedAt-startedAt)
+    });
+  }
 
-    return String(result?.text || '').trim();
+  async transcribe(samples) {
+    return (await this.transcribeDetailed(samples)).text;
   }
 }
 
