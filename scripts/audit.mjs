@@ -180,6 +180,7 @@ const runtimeJs = [
   'src/meeting-ui.js',
   'src/environmental-audio-core.js',
   'src/environmental-audio-engine.js',
+  'src/spatial-calibration-core.js',
   'src/orb-spatial-core.js',
   'src/agent-shortcuts.js',
   'src/voice-core.js',
