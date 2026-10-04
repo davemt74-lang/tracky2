@@ -2447,6 +2447,13 @@ async function processRoomSegment(segment) {
       state.voice.currentAssociationState='unknown-speaker';
       state.voice.currentAssociationProvenance=['signal-rejected'];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentFusionState='unknown-speaker';
+      state.voice.currentFusionDecision='abstain';
+      state.voice.currentFusionConfidence=0;
+      state.voice.currentFusionProvenance=['signal-rejected'];
+      state.voice.currentFusionConflicts=[];
+      state.voice.currentFusionAbstentionReason='signal-rejected';
+      state.voice.currentFusionTransition=null;
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='TURN REJECTED';
@@ -2871,6 +2878,13 @@ async function startRoomAudio() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['speaker-unverified'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentFusionState='unknown-speaker';
+    state.voice.currentFusionDecision='abstain';
+    state.voice.currentFusionConfidence=0;
+    state.voice.currentFusionProvenance=['speaker-unverified'];
+    state.voice.currentFusionConflicts=[];
+    state.voice.currentFusionAbstentionReason='no-identity-authority';
+    state.voice.currentFusionTransition=null;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
