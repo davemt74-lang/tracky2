@@ -280,7 +280,8 @@ function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
  const cognitive=cognitiveLoop.snapshot(),proactive=proactiveGovernor.snapshot();
- const last=proactive.lastDecision||cognitive.lastDecision;
+ const last=(proactive.pending||proactive.lastDecision?.opportunityId)
+  ? proactive.lastDecision : cognitive.lastDecision;
  label.textContent=last?
   last.reason+' · '+proactive.pending+' proactive pending · '+
    proactive.interruptionsThisHour+'/'+proactive.maxInterruptionsPerHour+' interruptions this hour':
@@ -1512,9 +1513,7 @@ async function reloadIdentityParticipants() {
     state.identity.participants = await listParticipants();
     const participantIds=state.identity.participants.map(p=>p.id);
     cognitiveLoop.forgetRemovedParticipants(participantIds);
-    for(const pending of proactiveGovernor.pending.slice())
-      if(pending.participantId&&!participantIds.includes(pending.participantId))
-        proactiveGovernor.cancelByParticipant(pending.participantId);
+    proactiveGovernor.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
     const currentSpeaker=state.voice.currentSpeakerId
