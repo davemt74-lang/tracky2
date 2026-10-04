@@ -2542,6 +2542,7 @@ function roomTrackSnapshot() {
 }
 
 function onRoomAudioSegment(segment) {
+  queueEnvironmentalAudio(segment);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
   const queued=listeningController.enqueue({...segment,...meetingFields},{
     generation:state.voice.generation,
@@ -3576,6 +3577,7 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
 });
 window.addEventListener('resize', drawTrace);
 window.addEventListener('beforeunload', () => {
+  environmentalAudioQueue.disable();
   if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
   if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
   if(storageHealthTimer)clearInterval(storageHealthTimer);
@@ -3757,6 +3759,23 @@ if(state.mode==='agent'){
     if(analyzeAmbientPatterns)logRoomMessage('system',
      'Owner enabled local room energy-pattern notes · no sound identification','audio-consent');
     else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
+   });
+  }
+  const environmentalAudioToggle=document.getElementById('roomClassifyEnvironmentalAudio');
+  if(environmentalAudioToggle){
+   environmentalAudioToggle.checked=false;
+   renderEnvironmentalAudio();
+   environmentalAudioToggle.addEventListener('change',()=>{
+    setEnvironmentalAudioEnabled(environmentalAudioToggle.checked);
+    if(environmentalAudioToggle.checked){
+     logRoomMessage('system',
+      'Owner enabled session-only local environmental audio classification · raw audio is not saved or uploaded',
+      'audio-consent',{semantic:'environmental-audio-consent'});
+    }else{
+     logRoomMessage('system',
+      'Owner disabled environmental audio classification',
+      'audio-consent',{semantic:'environmental-audio-consent'});
+    }
    });
   }
   const roomOptIn=document.getElementById('roomSaveObservations');
