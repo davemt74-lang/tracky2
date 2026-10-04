@@ -132,10 +132,9 @@ export function speakerAssociationTurnFields(association){
 export class SpeakerAssociationTracker{
  constructor(){this.last=null;}
  reset(){this.last=null;}
- observe(association,at=Date.now()){
+ preview(association,at=Date.now()){
   if(!association)return null;
   const previous=this.last;
-  this.last=association;
   if(!previous)return Object.freeze({
    changed:true,type:association.participantId?'speaker-verified':'speaker-unverified',
    fromState:null,toState:association.state,at
@@ -151,6 +150,12 @@ export class SpeakerAssociationTracker{
   else if(previous.state!==association.state)type='evidence-transition';
   if(!type)return null;
   return Object.freeze({changed:true,type,fromState:previous.state,toState:association.state,at});
+ }
+ commit(association){this.last=association||null;return this.last;}
+ observe(association,at=Date.now()){
+  const transition=this.preview(association,at);
+  this.commit(association);
+  return transition;
  }
  snapshot(){return this.last;}
 }
