@@ -2143,8 +2143,6 @@ async function drainRoomAudioQueue() {
   const next=nextResult.segment;
   runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
   if (!next){renderListeningHealth();return;}
-  state.voice.processing=true;
-  renderVoiceHud();
   await processRoomSegment(next);
   if (listeningController.snapshot().queueDepth) void drainRoomAudioQueue();
 }
