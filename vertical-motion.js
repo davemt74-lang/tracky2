@@ -61,6 +61,10 @@ import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {ConversationListeningController} from './src/conversation-listening-core.js';
 import {
+ SpeakerAssociationTracker,resolveSpeakerAssociation,speakerAssociationLabel,
+ speakerAssociationTurnFields
+} from './src/speaker-participant-core.js';
+import {
   clearDialogueTurns,
   deleteDialogueTurn,
   listDialogueTurns,
@@ -152,6 +156,8 @@ const ui = {
   roomVoiceConfidence: $('#roomVoiceConfidence'),
   roomBodyLock: $('#roomBodyLock'),
   roomDialogueGroup: $('#roomDialogueGroup'),
+  roomSpeakerAssociation: $('#roomSpeakerAssociation'),
+  roomSpeakerProvenance: $('#roomSpeakerProvenance'),
   transcriptModelState: $('#transcriptModelState'),
   roomEvents: $('#roomEvents'),
   dialogueTurns: $('#dialogueTurns'),
@@ -204,6 +210,7 @@ const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
 const listeningController=new ConversationListeningController();
+const speakerAssociationTracker=new SpeakerAssociationTracker();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
@@ -499,6 +506,9 @@ const state = {
     currentVoiceConfidence: 0,
     currentBodyLock: false,
     currentGroupId: null,
+    currentAssociationState: 'unknown-speaker',
+    currentAssociationProvenance: [],
+    currentAssociationTransition: null,
     sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'room-' + Date.now().toString(36),
