@@ -42,6 +42,7 @@ const requiredFiles = [
   'docs/V010-RELEASE-ACCEPTANCE.md',
   'docs/V011-MASTER-PLAN.md',
   'docs/V011-RELEASE-ACCEPTANCE.md',
+  'docs/V012-MASTER-PLAN.md',
   'package.json',
   'src/tracker-core.js',
   'src/movement-core.js',
@@ -95,7 +96,7 @@ const requiredFiles = [
   'src/room-ui-core.js',
   'src/runtime-resilience-core.js',
   'src/v011-release-core.js',
-  'src/v011-release-core.js',
+  'src/multimodal-identity-core.js',
   'src/conversation-listening-core.js',
   'src/speaker-participant-core.js',
   'src/transcript-lifecycle-core.js',
@@ -181,6 +182,7 @@ const runtimeJs = [
   'src/server-sync-core.js',
   'src/room-ui-core.js',
   'src/runtime-resilience-core.js',
+  'src/multimodal-identity-core.js',
   'src/conversation-listening-core.js',
   'src/speaker-participant-core.js',
   'src/transcript-lifecycle-core.js',
@@ -224,8 +226,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.11.9') {
-  fail('package.json version must be 0.11.9');
+if (packageJson.version !== '0.12.0') {
+  fail('package.json version must be 0.12.0');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -348,8 +350,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.11\.9-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.11.9 deploy ZIP');
+if (!/tracky2-v0\.12\.0-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.12.0 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);

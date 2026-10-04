@@ -102,7 +102,18 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     const conversationMeta=document.createElement('small');
     conversationMeta.className='agent-conversation-provenance';
     conversationMeta.textContent='Conversation · '+conversationContextLabel(entry);
-    bubble.append(note,transcriptMeta,conversationMeta);
+    const fusionMeta=document.createElement('small');
+    fusionMeta.className='agent-conversation-provenance';
+    const fusionBits=[
+     entry.multimodalState||'not-recorded',
+     Number.isFinite(entry.multimodalConfidence)
+      ? Math.round(entry.multimodalConfidence*100)+'% '+(entry.multimodalConfidenceBand||'')
+      : '',
+     ...(entry.multimodalConflicts||[]).map(value=>'conflict:'+value),
+     ...(entry.multimodalAbstentionReason?['abstain:'+entry.multimodalAbstentionReason]:[])
+    ].filter(Boolean);
+    fusionMeta.textContent='Fusion · '+fusionBits.join(' · ');
+    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

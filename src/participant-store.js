@@ -185,12 +185,17 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
       const nearbyNames = Array.from(row.nearbyParticipantNames || []);
       const conversationIds=Array.from(row.conversationParticipantIds||[]);
       const addressedIds=Array.from(row.addressedParticipantIds||[]);
+      const multimodalContextParticipantIds=Array.from(row.multimodalContextParticipantIds||[]);
+      const multimodalEvidence=Array.isArray(row.multimodalEvidence)?row.multimodalEvidence:[];
       const hasNearbyReference = nearbyIds.includes(id);
       const hasNameReference = participant?.name && nearbyNames.includes(participant.name);
       const hasConversationReference=conversationIds.includes(id);
       const hasAddressReference=addressedIds.includes(id)||row.addressedParticipantId===id;
+      const hasMultimodalReference=multimodalContextParticipantIds.includes(id)||
+        multimodalEvidence.some(evidence=>evidence?.participantId===id);
 
-      if (hasNearbyReference || hasNameReference || hasConversationReference || hasAddressReference) {
+      if (hasNearbyReference || hasNameReference || hasConversationReference ||
+          hasAddressReference || hasMultimodalReference) {
         const nextAddressed=addressedIds.filter(participantId=>participantId!==id);
         dialogue.put({
           ...row,
@@ -203,7 +208,10 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
           addressedParticipantId:row.addressedParticipantId===id?null:row.addressedParticipantId||null,
           addressedParticipantIds:nextAddressed,
           addressKind:row.addressedParticipantId===id||addressedIds.includes(id)
-            ? (row.addressedAgent?'agent':'unspecified'):(row.addressKind||'unspecified')
+            ? (row.addressedAgent?'agent':'unspecified'):(row.addressKind||'unspecified'),
+          multimodalContextParticipantIds:multimodalContextParticipantIds
+            .filter(participantId=>participantId!==id),
+          multimodalEvidence:multimodalEvidence.filter(evidence=>evidence?.participantId !== id)
         });
       }
     }

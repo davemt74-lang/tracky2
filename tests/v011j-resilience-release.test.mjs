@@ -61,18 +61,17 @@ test('11J release regression inventory keeps all V0.11 section tests present',()
   assert.ok(fs.existsSync('tests/v011'+suffix+'.test.mjs'),'missing V0.11'+suffix+' regression');
 });
 
-test('11J package, PWA, audit and physical-evidence boundary are wired for V0.11.9',()=>{
+test('11J package, PWA, audit and physical-evidence boundary remain wired after later releases',()=>{
  const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
  const audit=fs.readFileSync('scripts/audit.mjs','utf8');
  const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
  const docs=fs.readFileSync('docs/V011-RELEASE-ACCEPTANCE.md','utf8');
  const sw=fs.readFileSync('sw.js','utf8');
- assert.equal(pkg.version,'0.11.9');
  assert.match(pkg.scripts.test,/v011-release-core\.js/);
- assert.match(audit,/0\.11\.9/);
- assert.match(workflow,/tracky2-v0\.11\.9-deploy\.zip/);
+ assert.match(audit,new RegExp(pkg.version.replaceAll('.','\\.')));
+ assert.match(workflow,new RegExp('tracky2-v'+pkg.version.replaceAll('.','\\.')+'-deploy\\.zip'));
  assert.match(workflow,/V011-RELEASE-ACCEPTANCE\.md/);
- assert.match(sw,/tracky2-static-v0\.11\.9/);
+ assert.match(sw,new RegExp('tracky2-static-v'+pkg.version.replaceAll('.','\\.')));
  assert.match(docs,/physical device evidence/i);
  assert.match(docs,/not hardware certification/i);
 });

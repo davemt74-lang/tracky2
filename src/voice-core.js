@@ -224,7 +224,19 @@ export function createSpeakerTurn(input = {}) {
     visualStatus: input.visualStatus || null,
     visualIdentitySource: input.visualIdentitySource || null,
     visualSimilarity: clamp(Number(input.visualSimilarity || 0)),
-    associationTransition: input.associationTransition || null
+    associationTransition: input.associationTransition || null,
+    multimodalFusionVersion:Number(input.multimodalFusionVersion)||null,
+    multimodalState:input.multimodalState||null,
+    multimodalDecision:input.multimodalDecision||null,
+    multimodalConfidence:clamp(Number(input.multimodalConfidence||0)),
+    multimodalConfidenceBand:input.multimodalConfidenceBand||null,
+    multimodalAuthority:input.multimodalAuthority||null,
+    multimodalAbstentionReason:input.multimodalAbstentionReason||null,
+    multimodalConflicts:Array.from(input.multimodalConflicts||[]).map(value=>String(value).slice(0,64)).slice(0,8),
+    multimodalProvenance:Array.from(input.multimodalProvenance||[]).map(value=>String(value).slice(0,96)).slice(0,16),
+    multimodalContextParticipantIds:Array.from(input.multimodalContextParticipantIds||[]).map(value=>String(value).slice(0,96)).slice(0,12),
+    multimodalEvidence:Array.from(input.multimodalEvidence||[]).slice(0,16).map(row=>({...row})),
+    multimodalTransition:input.multimodalTransition||null
   };
 }
 
