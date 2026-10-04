@@ -272,6 +272,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const target=orbSpatialTarget(tracks,{videoWidth:video.videoWidth,videoHeight:video.videoHeight,
    displayWidth:width,displayHeight:height,mirror},ui.follow?.value||lastSpeakerId,calibration);
   if(target)lastProximityVolume=target.volume;
+  else lastProximityVolume=.85;
   if(ui.spatialStatus){
    ui.spatialStatus.textContent=target?.distanceMode==='calibrated-floor'
     ? 'Owner-calibrated floor plane · ~'+target.distanceM.toFixed(2)+'m from listener · '+
@@ -414,7 +415,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     : 'Meeting boundary changed · stale meeting replies cancelled';
   },
   setCameraActive(active){
-  if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';
+  if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';lastProximityVolume=.85;
+   if(ui.spatialStatus)ui.spatialStatus.textContent='Camera offline · spatial distance unavailable.';
    window.dispatchEvent(new CustomEvent('tracky:agent-room-tracks',{detail:{target:null}}));}
   ui.camStart.disabled=active;ui.camStop.disabled=!active;
   ui.camStatus.textContent=active?'Camera live':'Camera offline · start when ready';
