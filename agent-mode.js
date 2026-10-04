@@ -9,9 +9,10 @@ import {
  multiParticipantReplyPolicy,groupConversationContext,agentHistoryForScope,
  conversationContextLabel
 } from './src/multi-conversation-core.js';
+import {meetingAgentReplyPolicy} from './src/meeting-core.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
@@ -185,6 +186,14 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    modelController?.abort();
    stopSpeech();
    ui.modelStatus.textContent='Agent speech/reply cancelled by verified stop request.';
+   return;
+  }
+  const meetingPolicy=meetingAgentReplyPolicy(getMeeting(),turn);
+  if(!meetingPolicy.allow){
+   if(responsePending){
+    responseGeneration+=1;responsePending=false;modelController?.abort();
+   }
+   ui.modelStatus.textContent=meetingPolicy.reason;
    return;
   }
   const groupPolicy=multiParticipantReplyPolicy(turn);
