@@ -82,6 +82,9 @@ test('10J main AGENT reuses canonical captures and has bounded granted-only reco
  assert.match(code,/queryMediaPermission\(navigator\.permissions,'microphone'\)/);
  assert.match(code,/mediaPermissions\.camera!=='granted'/);
  assert.match(code,/mediaPermissions\.microphone!=='granted'/);
+ assert.match(code,/mediaPermissions\[name\]==='denied'/);
+ assert.match(code,/Camera permission revoked · participant absence not inferred/);
+ assert.match(code,/Microphone permission revoked · room silence not inferred/);
  assert.match(code,/track\.addEventListener\('ended'/);
  assert.match(code,/scheduleCameraRecovery\(\)/);
  assert.match(code,/scheduleMicrophoneRecovery\(\)/);
