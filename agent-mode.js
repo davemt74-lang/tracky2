@@ -162,10 +162,17 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   });
   if(policy.action==='cancel-agent-speech'){
    responseGeneration+=1;
+   responsePending=false;
    modelController?.abort();
    stopSpeech();
    ui.modelStatus.textContent='Agent speech/reply cancelled by verified stop request.';
    return;
+  }
+  if(policy.action==='replace-pending-reply'){
+   responseGeneration+=1;
+   responsePending=false;
+   modelController?.abort();
+   ui.modelStatus.textContent='Newer turn replaced the pending reply.';
   }
   if(!policy.allow)return;
   lastTurnAt=now;responsePending=true;
@@ -179,14 +186,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
     catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
     if(endpoint){
-     modelController=new AbortController();
-     const timeout=setTimeout(()=>modelController.abort(),16000);
+     const controller=new AbortController();
+     modelController=controller;
+     const timeout=setTimeout(()=>controller.abort(),16000);
      ui.modelStatus.textContent='Local model thinking…';
      try{
       const reply=await queryLocalOllama({
        endpoint,model:ui.modelName.value.trim(),
        messages:buildAgentMessages(prior,turn.transcript,verifiedMemoryScope?(known?.name||''):'',memoryContext),
-       signal:modelController.signal
+       signal:controller.signal
       });
       if(responseToken!==responseGeneration||open)return;
       if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
@@ -195,7 +203,10 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      }catch(error){
       if(responseToken!==responseGeneration)return;
       ui.modelStatus.textContent='Local model unavailable: '+error.message+' · using basic reply';
-     }finally{clearTimeout(timeout);modelController=null;}
+     }finally{
+      clearTimeout(timeout);
+      if(modelController===controller)modelController=null;
+     }
     }
    }
    if(responseToken!==responseGeneration||open)return;
@@ -203,7 +214,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
    const reply=localAgentReply(turn.transcript,{name:verifiedMemoryScope?(known?.name||''):'',previousTopics:recent,memories:memoryContext});
    if(reply)say(reply);
-  }finally{responsePending=false;}
+  }finally{
+   if(responseToken===responseGeneration)responsePending=false;
+  }
  }
  function renderBoxes(tracks,video,mirror){
   if(!video?.videoWidth||!video?.videoHeight)return;
@@ -254,6 +267,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(!person)return;
   open=true;
   responseGeneration+=1;
+  responsePending=false;
   modelController?.abort();
   stopSpeech();
   await stopAudio();
@@ -345,5 +359,5 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  },setAudioActive(active){
   ui.resume.hidden=active;
   if(!open)ui.speaker.textContent=active?'Agent listening':'Microphone unavailable · enable audio';
- },destroy(){responseGeneration+=1;modelController?.abort();stopSpeech();window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:false}}));}};
+ },destroy(){responseGeneration+=1;responsePending=false;modelController?.abort();stopSpeech();window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:false}}));}};
 }
