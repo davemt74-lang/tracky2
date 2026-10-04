@@ -2,7 +2,7 @@ import {projectRoomState} from './room-event-core.js';
 import {normalizeMemoryRecord,memoryExpired} from './agent-memory-core.js';
 
 export const RECALL_SOURCE_TYPES=Object.freeze([
- 'conversation','room','meeting','task','memory'
+ 'conversation','room','meeting','decision','task','memory'
 ]);
 export const MAX_RECALL_RESULTS=100;
 
@@ -13,7 +13,11 @@ const atOf=value=>{
  if(finite(value))return value;
  const parsed=Date.parse(String(value||''));return Number.isFinite(parsed)?parsed:0;
 };
-const sourceAllowed=(source,filter)=>!filter||filter==='all'||source===filter;
+const sourceAllowed=(row,filter)=>{
+ if(!filter||filter==='all')return true;
+ if(filter==='decision')return row.decisionLike===true||row.subtype==='decision';
+ return row.sourceType===filter;
+};
 const participantAllowed=(item,participantId)=>{
  if(!participantId)return true;
  if(item.participantId===participantId)return true;
@@ -39,7 +43,8 @@ function item(input){
   temporal:input.temporal==='current-session'?'current-session':'historical',
   provenance:(input.provenance||[]).map(v=>short(v,96)).filter(Boolean),
   references:input.references||[],
-  status:short(input.status,64)||null
+  status:short(input.status,64)||null,
+  decisionLike:input.decisionLike===true
  });
 }
 
@@ -48,12 +53,13 @@ function currentSession(sessionId,currentSessionId){
 }
 
 export function buildRecallProjection({
- dialogueTurns=[],roomEvents=[],meetings=[],tasks=[],memories=[],
- participants=[],currentSessionId=null,now=Date.now()
+ dialogueTurns=[],agentHistory=[],roomEvents=[],meetings=[],tasks=[],memories=[],
+ participants=[],currentSessionId=null,currentSessionStartedAt=0,now=Date.now()
 }={}){
  const people=new Map((participants||[]).filter(Boolean).map(person=>[person.id,person]));
  const dialogue=(Array.isArray(dialogueTurns)?dialogueTurns:[]).filter(turn=>turn?.id);
- const dialogueIds=new Set(dialogue.map(turn=>String(turn.id)));
+ const dialogueById=new Map(dialogue.map(turn=>[String(turn.id),turn]));
+ const dialogueIds=new Set(dialogueById.keys());
  const roomProjection=projectRoomState(Array.isArray(roomEvents)?roomEvents:[]);
  const effectiveRoom=roomProjection.events||[];
  const roomIds=new Set(effectiveRoom.map(event=>String(event.id)));
@@ -81,7 +87,23 @@ export function buildRecallProjection({
     ...(turn.meetingId?[ref('meeting',turn.meetingId)]:[]),
     ...(turn.sessionId?[ref('session',turn.sessionId)]:[])
    ],
-   status:turn.transcriptState||turn.transcriptEditedAt?'corrected':'final'
+   status:transcriptState
+  }));
+ }
+
+ for(const history of Array.isArray(agentHistory)?agentHistory:[]){
+  if(!history?.id||!['agent','system'].includes(history.role)||!clean(history.text))continue;
+  const at=Number(history.at)||0;
+  rows.push(item({
+   id:'conversation-history:'+history.id,sourceType:'conversation',sourceId:history.id,
+   subtype:history.role==='agent'?'agent-reply':'system-message',at,
+   title:history.role==='agent'?'AGENT reply':'System message',text:history.text,
+   participantId:history.participantId||null,
+   participantIds:history.participantId?[history.participantId]:[],
+   temporal:currentSessionStartedAt&&at>=currentSessionStartedAt?'current-session':'historical',
+   provenance:['agent-history',history.role==='agent'?'agent-generated-reply':'system-message'],
+   references:history.scopeId?[ref('conversation-scope',history.scopeId)]:[],
+   status:'available'
   }));
  }
 
@@ -100,7 +122,8 @@ export function buildRecallProjection({
    ],
    references:event.relatedEventId?[ref('room-event',event.relatedEventId,
     roomIds.has(String(event.relatedEventId))?'available':'stale')]:[],
-   status:event.correctedBy?'corrected':event.kind||'observation'
+   status:event.correctedBy?'corrected':event.kind||'observation',
+   decisionLike:event.category==='decision'||['decision','action','outcome'].includes(event.kind)
   }));
  }
 
@@ -129,16 +152,21 @@ export function buildRecallProjection({
   for(const decision of raw.decisions||[]){
    if(!decision?.id)continue;
    const sourceId=decision.sourceTurnId||null;
-   const state=sourceId&&dialogueIds.has(String(sourceId))?'available':'stale';
+   const sourceTurn=sourceId?dialogueById.get(String(sourceId)):null;
+   const state=sourceTurn?'available':'stale';
+   const sourceText=sourceTurn?clean(sourceTurn.transcript):'';
    rows.push(item({
     id:'meeting:'+raw.id+':decision:'+decision.id,sourceType:'meeting',sourceId:raw.id,
     subtype:'decision',at:Number(decision.at)||start,
     title:(raw.title||'Meeting')+' · Decision',
-    text:decision.note||'Owner marked a canonical meeting turn as a decision',
+    text:[decision.note||'Owner marked a canonical meeting turn as a decision',
+     sourceText?('Current source turn: '+sourceText):''].filter(Boolean).join(' · '),
     participantIds:roster,temporal:raw.status==='active'?'current-session':'historical',
-    provenance:['meeting-metadata','owner-marked-canonical-turn'],
+    provenance:['meeting-metadata','owner-marked-canonical-turn',
+     ...(sourceTurn?.transcriptState==='corrected'||sourceTurn?.transcriptEditedAt?['source-turn-corrected']:[])],
     references:sourceId?[ref('dialogue-turn',sourceId,state)]:[],
-    status:state==='stale'?'source-unavailable':'decision'
+    status:state==='stale'?'source-unavailable':'decision',
+    decisionLike:true
    }));
   }
   for(const action of raw.actionItems||[]){
@@ -219,7 +247,7 @@ export function searchRecall(rows=[],query='',options={}){
  const includeHistorical=options.includeHistorical!==false;
  const matched=[];
  for(const row of Array.isArray(rows)?rows:[]){
-  if(!sourceAllowed(row.sourceType,source)||!participantAllowed(row,participantId))continue;
+  if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))continue;
   if(row.temporal==='current-session'&&!includeCurrent)continue;
   if(row.temporal!=='current-session'&&!includeHistorical)continue;
   const hay=searchable(row);
