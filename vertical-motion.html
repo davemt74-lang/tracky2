@@ -359,6 +359,23 @@
             <div id="roomAreaPreviewLayers" class="room-scene-layers" aria-hidden="true"></div>
           </div>
           <div id="roomAreaOccupants" class="room-scene-occupants" aria-label="Current camera-relative participant area associations">No stable participant associations yet.</div>
+          <section class="room-spatial-calibration" aria-label="Optional floor-plane calibration">
+            <strong>OPTIONAL FLOOR-PLANE CALIBRATION</strong>
+            <small>For approximate same-floor coordinates only. Enter measured room width/depth, then capture four visible floor points in this order: near-left, near-right, far-right, far-left. This does not create a 3-D room model.</small>
+            <div class="room-spatial-dimensions">
+              <label>Room width (m)<input id="roomCalibrationWidthM" type="number" min=".5" max="50" step=".01" placeholder="4.20"></label>
+              <label>Room depth (m)<input id="roomCalibrationDepthM" type="number" min=".5" max="50" step=".01" placeholder="5.80"></label>
+              <label>Listener X (m, optional)<input id="roomCalibrationListenerX" type="number" min="0" max="50" step=".01" placeholder="2.10"></label>
+              <label>Listener depth (m, optional)<input id="roomCalibrationListenerDepth" type="number" min="0" max="50" step=".01" placeholder=".30"></label>
+            </div>
+            <div class="room-spatial-actions">
+              <button type="button" id="roomCalibrationCapture">Capture floor corners</button>
+              <button type="button" id="roomCalibrationSave">Save calibration</button>
+              <button type="button" id="roomCalibrationClear">Clear calibration</button>
+            </div>
+            <div id="roomCalibrationPointSummary" class="room-spatial-point-summary">No floor corners captured.</div>
+            <small id="roomCalibrationStatus" role="status">Uncalibrated · positions remain camera-relative.</small>
+          </section>
           <form id="roomAreaForm" class="room-scene-form">
             <input type="hidden" id="roomAreaId">
             <label>Area name<input id="roomAreaName" required maxlength="64" placeholder="Desk / Entry / Couch"></label>
