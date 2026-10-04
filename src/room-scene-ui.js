@@ -1,5 +1,7 @@
 import {emptyRoomScene,normalizeRoomScene,upsertRoomArea,removeRoomArea,
- upsertRoomObject,removeRoomObject,mirroredAreaRect,roomSceneGraph} from './room-scene-graph.js';
+ upsertRoomObject,removeRoomObject,mirroredAreaRect,roomSceneGraph,
+ setRoomCalibration,clearRoomCalibration} from './room-scene-graph.js';
+import {FLOOR_POINT_KEYS,listenerRelation} from './spatial-calibration-core.js';
 import {loadRoomScene,saveRoomScene,clearRoomScene} from './participant-store.js';
 
 // UI adapter only: reuses the existing stable public camera tracks and local DB.
@@ -13,13 +15,48 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
   h:$('roomAreaH'),cancel:$('roomCancelAreaEdit'),areas:$('roomAreaList'),
   objectForm:$('roomObjectForm'),objectName:$('roomObjectName'),objectKind:$('roomObjectKind'),
   objectArea:$('roomObjectArea'),objects:$('roomObjectList'),clear:$('roomClearScene'),
-  status:$('roomSceneMessage')
+  status:$('roomSceneMessage'),
+  calWidth:$('roomCalibrationWidthM'),calDepth:$('roomCalibrationDepthM'),
+  calListenerX:$('roomCalibrationListenerX'),calListenerDepth:$('roomCalibrationListenerDepth'),
+  calCapture:$('roomCalibrationCapture'),calSave:$('roomCalibrationSave'),
+  calClear:$('roomCalibrationClear'),calSummary:$('roomCalibrationPointSummary'),
+  calStatus:$('roomCalibrationStatus')
  };
  let scene=emptyRoomScene(),ready=false,writeQueue=Promise.resolve(),epoch=0,drag=null;
+ let calibrationDraft=[],capturingCalibration=false;
  const inform=message=>{if(els.status)els.status.textContent=message;};
  const asNumber=input=>Number(input.value);
  function resetAreaForm(){els.areaForm.reset();els.areaId.value='';
   els.x.value='.15';els.y.value='.20';els.w.value='.35';els.h.value='.50';}
+ function storedCalibrationPoints(){
+  return scene.calibration?FLOOR_POINT_KEYS.map(key=>scene.calibration.points[key]):[];
+ }
+ function calibrationPoints(){
+  return calibrationDraft.length===4?calibrationDraft:storedCalibrationPoints();
+ }
+ function renderCalibration(){
+  const calibration=scene.calibration;
+  if(calibration&&!capturingCalibration){
+   els.calWidth.value=String(calibration.widthM);
+   els.calDepth.value=String(calibration.depthM);
+   els.calListenerX.value=calibration.listener?String(calibration.listener.xM):'';
+   els.calListenerDepth.value=calibration.listener?String(calibration.listener.depthM):'';
+  }
+  const points=calibrationPoints();
+  els.calSummary.textContent=points.length===4
+   ? FLOOR_POINT_KEYS.map((key,index)=>key.replace(/[A-Z]/g,m=>' '+m.toLowerCase())+
+      ' '+points[index].x.toFixed(3)+','+points[index].y.toFixed(3)).join(' · ')
+   : capturingCalibration
+     ? 'Captured '+calibrationDraft.length+'/4 · next: '+
+       FLOOR_POINT_KEYS[calibrationDraft.length].replace(/[A-Z]/g,m=>' '+m.toLowerCase())
+     : 'No floor corners captured.';
+  els.calCapture.textContent=capturingCalibration?'Cancel corner capture':'Capture floor corners';
+  els.calStatus.textContent=calibration
+   ? 'Calibrated floor plane · '+calibration.widthM.toFixed(2)+'m × '+
+     calibration.depthM.toFixed(2)+'m · approximate planar projection'+
+     (calibration.listener?' · listener anchor set':' · no listener anchor')
+   : 'Uncalibrated · positions remain camera-relative.';
+ }
  function areaOptions(){
   const previous=els.objectArea.value;
   els.objectArea.replaceChildren(new Option('Unassigned',''));
@@ -76,14 +113,30 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
     const identity=track.participantId?
       (track.participantName||'Enrolled participant'):'Unverified visitor';
     const zone=graph.scene.areas.find(item=>item.id===a.areaId);
-    const position=zone?zone.name+' (camera-relative)':
+    let position=zone?zone.name+' (camera-relative)':
       a.status==='ambiguous'?'overlapping areas · ambiguous':
       a.status==='uncertain-footpoint'?'position uncertain':
       a.status==='unavailable'?'tracking unavailable':'unmapped';
+    if(entry.spatial?.status==='calibrated-floor'){
+     position+=' · approx floor '+entry.spatial.xM.toFixed(2)+'m across / '+
+       entry.spatial.depthM.toFixed(2)+'m deep';
+     const relation=listenerRelation(graph.scene.calibration,entry.spatial);
+     if(relation)position+=' · ~'+relation.distanceM.toFixed(2)+'m from listener · '+
+       relation.direction+' '+Math.abs(relation.bearingDeg).toFixed(0)+'°';
+    }
     return identity+' · '+position;
    }).join(' | ')||'No stable participant associations yet.';
    if(els.occupants.textContent!==summary)els.occupants.textContent=summary;
   }
+  const visibleCalibrationPoints=capturingCalibration?calibrationDraft:storedCalibrationPoints();
+  visibleCalibrationPoints.forEach((point,index)=>{
+   const marker=document.createElement('i');marker.className='room-calibration-point';
+   marker.dataset.corner=String(index+1);
+   marker.style.left=((mirror()?1-point.x:point.x)*100)+'%';
+   marker.style.top=(point.y*100)+'%';
+   marker.title=(FLOOR_POINT_KEYS[index]||'floor point')+' · owner calibration point';
+   els.layers.append(marker);
+  });
   for(const area of graph.scene.areas){
    const rect=mirroredAreaRect(area,mirror());
    const block=document.createElement('div');block.className='room-scene-area';
@@ -102,9 +155,12 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    marker.style.left=(Math.max(0,Math.min(1,mirror()?1-x:x))*100)+'%';
    marker.style.top=(Math.max(0,Math.min(1,y))*100)+'%';
    const area=scene.areas.find(a=>a.id===association.areaId);
+   const spatial=graph.links.find(item=>item.trackId===String(track.id||''))?.spatial;
    marker.title=(track.participantId?(track.participantName||'Enrolled participant'):
     'Unverified visitor')+' · '+(area?area.name:association.status==='ambiguous'?
-     'Overlapping areas — location ambiguous':'Area unverified');
+     'Overlapping areas — location ambiguous':'Area unverified')+
+     (spatial?.status==='calibrated-floor'
+      ? ' · approx '+spatial.xM.toFixed(2)+'m across / '+spatial.depthM.toFixed(2)+'m deep':'');
    els.layers.append(marker);
   }
  }
@@ -137,8 +193,10 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
  }
  async function init(){
   if(!els.editor)return false;
-  try{scene=await loadRoomScene();ready=true;renderItems();renderTracks();
-   inform('Local camera-relative map ready. Draw a rectangle or edit the fields.');
+  try{scene=await loadRoomScene();ready=true;renderItems();renderCalibration();renderTracks();
+   inform(scene.calibration
+    ? 'Local camera map + owner floor-plane calibration ready.'
+    : 'Local camera-relative map ready. Draw a rectangle or edit the fields.');
   }catch(error){inform('Room map storage unavailable: '+error.message);return false;}
   els.areaForm.addEventListener('submit',event=>{
    event.preventDefault();if(!ready)return;
@@ -152,6 +210,43 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    }catch(error){inform(error.message);}
   });
   els.cancel.addEventListener('click',resetAreaForm);
+  els.calCapture.addEventListener('click',()=>{
+   if(!ready)return;
+   capturingCalibration=!capturingCalibration;
+   calibrationDraft=[];
+   drag=null;els.preview.querySelector('.room-scene-draft')?.remove();
+   renderCalibration();renderTracks();
+   inform(capturingCalibration
+    ? 'Click floor corners in order: near-left, near-right, far-right, far-left.'
+    : 'Floor-corner capture cancelled.');
+  });
+  els.calSave.addEventListener('click',()=>{
+   if(!ready)return;
+   try{
+    const points=calibrationPoints();
+    if(points.length!==4)throw Error('Capture four floor corners before saving calibration.');
+    const listenerX=els.calListenerX.value.trim(),listenerDepth=els.calListenerDepth.value.trim();
+    if(Boolean(listenerX)!==Boolean(listenerDepth))
+      throw Error('Enter both listener coordinates or leave both blank.');
+    const pointMap=Object.fromEntries(FLOOR_POINT_KEYS.map((key,index)=>[key,points[index]]));
+    const next=setRoomCalibration(scene,{
+     mode:'floor-plane',widthM:Number(els.calWidth.value),depthM:Number(els.calDepth.value),
+     points:pointMap,
+     listener:listenerX?{xM:Number(listenerX),depthM:Number(listenerDepth)}:null,
+     updatedAt:Date.now()
+    });
+    calibrationDraft=[];capturingCalibration=false;
+    persist(next,'Saved owner-defined floor-plane calibration');
+    renderCalibration();
+   }catch(error){els.calStatus.textContent=error.message;}
+  });
+  els.calClear.addEventListener('click',()=>{
+   if(!ready||!scene.calibration)return;
+   if(!window.confirm('Clear the floor-plane calibration? Camera-relative areas and objects remain.'))return;
+   calibrationDraft=[];capturingCalibration=false;
+   persist(clearRoomCalibration(scene),'Cleared owner-defined floor-plane calibration');
+   renderCalibration();
+  });
   els.objectForm.addEventListener('submit',event=>{
    event.preventDefault();if(!ready)return;
    try{
@@ -168,12 +263,25 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    inform('Clearing local room map…');
    try{
     await writeQueue.catch(()=>{});await clearRoomScene();
-    scene=emptyRoomScene();ready=true;renderItems();renderTracks();
-    inform('Owner-defined room map cleared');onChange('Cleared owner-defined room map');
+    scene=emptyRoomScene();calibrationDraft=[];capturingCalibration=false;
+    ready=true;renderItems();renderCalibration();renderTracks();
+    inform('Owner-defined room map and floor calibration cleared');
+    onChange('Cleared owner-defined room map and floor calibration');
    }catch(error){ready=true;inform('Clear failed: '+error.message);}
   });
   els.preview.addEventListener('pointerdown',event=>{
    if(event.button!==0||!ready)return;event.preventDefault();
+   if(capturingCalibration){
+    const visible=pointerPoint(event);
+    const raw={x:mirror()?1-visible.x:visible.x,y:visible.y};
+    calibrationDraft.push({x:Math.round(raw.x*1000)/1000,y:Math.round(raw.y*1000)/1000});
+    if(calibrationDraft.length>=4)capturingCalibration=false;
+    renderCalibration();renderTracks();
+    inform(capturingCalibration
+     ? 'Captured '+calibrationDraft.length+'/4 floor corners.'
+     : 'Four floor corners captured. Enter dimensions and choose Save calibration.');
+    return;
+   }
    drag=pointerPoint(event);els.preview.setPointerCapture?.(event.pointerId);
    drawDraft(drag);
   });
@@ -198,5 +306,6 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
   });
   return true;
  }
- return {init,renderTracks,getScene:()=>scene};
+ return {init,renderTracks,getScene:()=>scene,
+  spatialForTrack:track=>roomSceneGraph(scene,[track]).links[0]?.spatial||null};
 }
