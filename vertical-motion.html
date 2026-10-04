@@ -116,6 +116,7 @@
         <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Conversation</button>
         <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
         <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1" hidden>AGENT</button>
+        <button type="button" id="roomMeetingTab" role="tab" aria-controls="roomMeetingPanel" aria-selected="false" tabindex="-1" hidden>Meeting</button>
         <button type="button" id="roomTab" role="tab" aria-controls="roomObservationsPanel" aria-selected="false" tabindex="-1" hidden>ROOM</button>
       </div>
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
@@ -249,6 +250,79 @@
       </div>
 
         <p class="agent-tab-note">Conversation and transcript history remain in the Conversation tab. Voice, model and history controls are configured here.</p>
+      </section>
+      <section id="roomMeetingPanel" class="room-left-tabpanel meeting-panel" role="tabpanel" aria-labelledby="roomMeetingTab" hidden>
+        <div class="agent-tab-heading"><strong>MEETING</strong><span>Standalone session · canonical transcript references</span></div>
+        <div class="meeting-status-row">
+          <strong id="meetingStatus">No active meeting</strong>
+          <span id="meetingElapsed">—</span>
+        </div>
+        <form id="meetingStartForm" class="meeting-form">
+          <label>Meeting title<input id="meetingTitle" maxlength="120" required placeholder="Team check-in"></label>
+          <label>AGENT participation<select id="meetingStartPolicy">
+            <option value="listen-only">Listen only</option>
+            <option value="when-addressed">Reply only when explicitly addressed</option>
+          </select></label>
+          <button type="submit" id="meetingStart">Start meeting</button>
+        </form>
+        <div class="meeting-live-controls">
+          <label>Active AGENT policy<select id="meetingAgentPolicy" disabled>
+            <option value="listen-only">Listen only</option>
+            <option value="when-addressed">Reply only when explicitly addressed</option>
+          </select></label>
+          <button type="button" id="meetingEnd" hidden>End meeting</button>
+          <button type="button" id="meetingRefresh">Refresh meeting data</button>
+        </div>
+        <small class="meeting-privacy-note">Meetings reuse the existing camera, RoomAudioCapture, speaker association and canonical transcript store. Meeting metadata never copies raw audio, video, face/voice embeddings or transcript text.</small>
+
+        <div id="meetingSummary" class="meeting-summary" aria-label="Meeting summary"></div>
+        <section class="meeting-section">
+          <strong>ROSTER</strong>
+          <div id="meetingRoster" class="meeting-roster" aria-live="polite">No active or selected meeting.</div>
+          <small>Only verified participant IDs are retained in the saved roster. Unverified people are counted, not assigned a durable visitor identity.</small>
+        </section>
+
+        <section class="meeting-section">
+          <strong>CANONICAL MEETING TURNS</strong>
+          <div id="meetingTurns" class="meeting-turns" aria-live="off">Canonical meeting transcripts appear here as accepted turns are saved.</div>
+        </section>
+
+        <section class="meeting-section">
+          <strong>OWNER NOTES</strong>
+          <form id="meetingNoteForm" class="meeting-form" hidden>
+            <label>Note<textarea id="meetingNote" rows="2" maxlength="800" required placeholder="Owner-authored meeting note"></textarea></label>
+            <button type="submit">Add note</button>
+          </form>
+          <div id="meetingNotes" class="meeting-meta-list">No owner notes.</div>
+        </section>
+
+        <section class="meeting-section">
+          <strong>DECISIONS</strong>
+          <form id="meetingDecisionForm" class="meeting-form" hidden>
+            <label>Canonical source turn<select id="meetingDecisionTurn"><option value="">Choose canonical meeting turn</option></select></label>
+            <label>Decision note (optional)<input id="meetingDecisionNote" maxlength="500" placeholder="Owner wording; transcript is not copied"></label>
+            <button type="submit">Mark decision</button>
+          </form>
+          <div id="meetingDecisions" class="meeting-meta-list">No decisions marked.</div>
+        </section>
+
+        <section class="meeting-section">
+          <strong>ACTION ITEMS</strong>
+          <form id="meetingActionForm" class="meeting-form" hidden>
+            <label>Action item<input id="meetingActionText" maxlength="800" required placeholder="Owner-authored action item"></label>
+            <label>Source turn (optional)<select id="meetingActionTurn"><option value="">No source turn</option></select></label>
+            <label>Assignee (optional)<select id="meetingActionAssignee"><option value="">Unassigned</option></select></label>
+            <button type="submit">Add action item</button>
+          </form>
+          <div id="meetingActions" class="meeting-meta-list">No action items.</div>
+        </section>
+
+        <section class="meeting-section">
+          <strong>MEETING HISTORY</strong>
+          <div id="meetingHistory" class="meeting-history">No saved meetings yet.</div>
+        </section>
+        <div id="meetingMessage" class="meeting-message" role="status">Meeting runtime ready.</div>
+        <small>Post-meeting summary is deterministic metadata derived from the meeting record plus canonical dialogue turns. It does not invent decisions or action items.</small>
       </section>
       <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
         <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
