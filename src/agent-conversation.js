@@ -41,11 +41,18 @@ export function localAgentReply(transcript,{name='',previousTopics=[],memories=[
 export function appendAgentHistory(items,entry,max=MAX_AGENT_HISTORY){
  if(!Array.isArray(items)||!entry||!['agent','participant','system'].includes(entry.role)||!String(entry.text||'').trim())return Array.isArray(items)?items.slice():[];
  return [...items,{role:entry.role,text:String(entry.text).slice(0,500),at:Number.isFinite(entry.at)?entry.at:Date.now(),
-  participantId:entry.participantId||null}].slice(-max);
+  participantId:entry.participantId||null,
+  scopeId:typeof entry.scopeId==='string'?entry.scopeId.slice(0,240):null}].slice(-max);
 }
 export function loadAgentHistory(storage){
- try{const v=JSON.parse(storage?.getItem(AGENT_HISTORY_KEY)||'[]');
-  return Array.isArray(v)?v.filter(e=>e&&['agent','participant','system'].includes(e.role)&&typeof e.text==='string').slice(-MAX_AGENT_HISTORY):[];
+ try{
+  const v=JSON.parse(storage?.getItem(AGENT_HISTORY_KEY)||'[]');
+  return Array.isArray(v)?v
+   .filter(e=>e&&['agent','participant','system'].includes(e.role)&&typeof e.text==='string')
+   .slice(-MAX_AGENT_HISTORY)
+   .map(e=>({role:e.role,text:String(e.text).slice(0,500),
+    at:Number.isFinite(e.at)?e.at:0,participantId:e.participantId||null,
+    scopeId:typeof e.scopeId==='string'?e.scopeId.slice(0,240):null})):[];
  }catch{return [];}
 }
 export function saveAgentHistory(storage,items,enabled){
