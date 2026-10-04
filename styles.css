@@ -766,3 +766,10 @@ body:not(.pattern-mode) .pattern-round-timer{display:none}
 @media(prefers-reduced-motion:reduce){
   .participants-page .participants-layout,.participants-page .participants-roster{transition:none}
 }
+
+.diag-acceptance{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid rgba(120,150,170,.35);border-radius:10px}
+.diag-acceptance legend{padding:0 6px;font-weight:700}
+.diag-acceptance label{display:flex;gap:8px;align-items:flex-start;line-height:1.45}
+.diag-acceptance input{margin-top:.2em}
+.diag-notes{display:grid;gap:6px;margin-top:10px}
+.diag-notes textarea{width:100%;min-height:90px;resize:vertical}
