@@ -8,9 +8,13 @@ const meeting=document.getElementById('roomMeetingTab');
 const room=document.getElementById('roomTab');
 const panes={dialogue:document.getElementById('roomDialoguePanel'),
  activity:document.getElementById('playerActivityPanel'),agent:document.getElementById('roomAgentPanel'),meeting:document.getElementById('roomMeetingPanel'),room:document.getElementById('roomObservationsPanel')};
-// The tab must not depend on camera/model initialization to become visible.
-const requestedAgent=typeof window!=='undefined' &&
- new URLSearchParams(window.location?.search||'').get('mode')==='agent';
+// Tabs must not depend on camera/model initialization to become visible.
+const params=typeof window!=='undefined'
+ ? new URLSearchParams(window.location?.search||'') : new URLSearchParams();
+const requestedMode=params.get('mode');
+const requestedAgent=requestedMode==='agent'||requestedMode==='meeting';
+const requestedMeeting=requestedMode==='meeting'||params.get('tab')==='meeting';
+const initialTab=requestedMeeting?'meeting':'dialogue';
 if(agent&&requestedAgent){
  agent.hidden=false;if(meeting)meeting.hidden=false;if(room)room.hidden=false;
  const controls=document.getElementById('agentLeftControls');
@@ -38,7 +42,7 @@ for(const [name,button] of [['dialogue',dialogue],['activity',activity],...(agen
   event.preventDefault();show(event.key,true);
  });
 }
-show('dialogue');
+show(initialTab);
 (typeof window!=='undefined'?window:null)?.addEventListener?.('tracky:agent-tab-ready',()=>{
- if(agent){agent.hidden=false;if(meeting)meeting.hidden=false;if(room)room.hidden=false;show('dialogue');}
+ if(agent){agent.hidden=false;if(meeting)meeting.hidden=false;if(room)room.hidden=false;show(initialTab);}
 });
