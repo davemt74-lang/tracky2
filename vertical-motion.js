@@ -2775,6 +2775,7 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
 });
 window.addEventListener('resize', drawTrace);
 window.addEventListener('beforeunload', () => {
+  taskUI?.destroy();
   stopRoomAudio();
   stopCamera();
 });
