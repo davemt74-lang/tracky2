@@ -252,6 +252,36 @@
           <div id="agentSessionContext" class="agent-session-context" aria-live="off"></div>
           <small>Relationship notes are owner statements, never inferred social relationships. Revoked or expired memories are never supplied to AGENT.</small>
         </details>
+        <details class="agent-recall-settings" id="agentRecallSettings">
+          <summary>Recall, search &amp; provenance</summary>
+          <small>Searches current canonical/local records without creating a second persistent index. Corrections, retractions, revocations and deletions are reflected on the next search or refresh.</small>
+          <form id="agentRecallForm" class="agent-recall-form">
+            <label class="agent-recall-query">Search<input id="agentRecallQuery" type="search" maxlength="180" placeholder="Search conversations, ROOM, meetings, tasks or memory"></label>
+            <label>Source<select id="agentRecallSource">
+              <option value="all">All sources</option>
+              <option value="conversation">Conversation</option>
+              <option value="room">ROOM</option>
+              <option value="meeting">Meetings</option>
+              <option value="decision">Decisions</option>
+              <option value="task">Tasks</option>
+              <option value="memory">Owner memory</option>
+            </select></label>
+            <label>Participant<select id="agentRecallParticipant"><option value="">All participants</option></select></label>
+            <label>Time<select id="agentRecallTemporal">
+              <option value="all">Current + historical</option>
+              <option value="current-session">Current session</option>
+              <option value="historical">Historical only</option>
+            </select></label>
+            <button type="submit">Search recall</button>
+          </form>
+          <div class="agent-recall-tools">
+            <button type="button" id="agentRecallRecent">Show recent</button>
+            <button type="button" id="agentRecallRefresh">Refresh canonical sources</button>
+          </div>
+          <div id="agentRecallStatus" class="agent-recall-status" role="status">Recall is ready. No persistent search index is created.</div>
+          <div id="agentRecallResults" class="agent-recall-results" aria-live="polite"></div>
+          <small>“Why this result” shows source, temporal scope, provenance and reference availability. Stale references are reported, never silently reconstructed.</small>
+        </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>

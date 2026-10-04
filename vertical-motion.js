@@ -67,6 +67,7 @@ import {
 } from './src/runtime-resilience-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
+import {createSessionRecallUi} from './src/session-recall-ui.js';
 import {createMeetingUi} from './src/meeting-ui.js';
 import {ConversationListeningController} from './src/conversation-listening-core.js';
 import {
@@ -228,7 +229,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
@@ -237,7 +238,8 @@ const proactiveGovernor=new ProactiveAgentGovernor();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
-const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+const roomSessionStartedAt=Date.now();
+const roomSessionId='room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
 const runtimeBudget=new RuntimeBudget();
@@ -1516,6 +1518,7 @@ async function reloadIdentityParticipants() {
     proactiveGovernor.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
+    recallUI?.refreshParticipants();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
       : null;
@@ -3849,6 +3852,15 @@ if(state.mode==='agent'){
    onChanged:()=>agentRuntime?.refreshConversation()
   });
   void memoryUI.init().catch(error=>console.warn('Memory runtime initialization failed:',error));
+  recallUI=createSessionRecallUi({
+   participants:()=>state.identity.participants,
+   getCurrentRoomEvents:()=>roomLedger.entries(),
+   getSessionMemories:()=>memoryUI?.getMemories?.()||[],
+   getAgentHistory:()=>agentRuntime?.getHistory?.()||[],
+   currentSessionIds:()=>[state.voice.sessionId,roomSessionId],
+   currentSessionStartedAt:()=>roomSessionStartedAt
+  });
+  void recallUI.init().catch(error=>console.warn('Recall runtime initialization failed:',error));
   void sceneUI.init().then(ok=>{
    if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();}
   }).catch(error=>console.warn('Scene initialization failed:',error));

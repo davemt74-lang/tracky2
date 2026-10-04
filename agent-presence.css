@@ -748,3 +748,61 @@
 @media(max-width:380px){
  .game-page.agent-mode .room-spatial-dimensions{grid-template-columns:1fr}
 }
+
+
+/* V0.11I live canonical recall/search. */
+.game-page.agent-mode .agent-recall-settings{
+ margin:10px 0;padding:9px 10px;border:1px solid rgba(126,199,216,.28);
+ border-radius:9px;background:rgba(5,30,43,.5)
+}
+.game-page.agent-mode .agent-recall-settings>summary{
+ cursor:pointer;font-weight:800;font-size:.7rem;color:#e7fbff;letter-spacing:.04em
+}
+.game-page.agent-mode .agent-recall-settings>small{
+ display:block;margin:7px 0;color:#b5ced5;font-size:.61rem;line-height:1.5
+}
+.game-page.agent-mode .agent-recall-form{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0
+}
+.game-page.agent-mode .agent-recall-form label{display:grid;gap:4px;font-size:.62rem;color:#cbe5eb}
+.game-page.agent-mode .agent-recall-form .agent-recall-query{grid-column:1/-1}
+.game-page.agent-mode .agent-recall-form input,
+.game-page.agent-mode .agent-recall-form select{
+ width:100%;min-width:0;padding:7px;border:1px solid #668a98;border-radius:6px;
+ background:#102f3d;color:#f2fdff;font-size:.7rem
+}
+.game-page.agent-mode .agent-recall-form button,
+.game-page.agent-mode .agent-recall-tools button{
+ padding:6px 9px;border:1px solid #668fa0;border-radius:7px;
+ background:rgba(18,61,78,.8);color:#f1fbff;font-size:.65rem;cursor:pointer
+}
+.game-page.agent-mode .agent-recall-tools{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
+.game-page.agent-mode .agent-recall-status{
+ padding:7px 8px;border-left:2px solid #80c8dd;background:rgba(13,56,73,.35);
+ color:#d9f6ff;font-size:.62rem;line-height:1.45
+}
+.game-page.agent-mode .agent-recall-results{display:grid;gap:7px;margin:8px 0}
+.game-page.agent-mode .agent-recall-result{
+ display:grid;gap:5px;padding:8px;border:1px solid rgba(107,176,196,.24);
+ border-radius:8px;background:rgba(3,26,38,.56)
+}
+.game-page.agent-mode .agent-recall-result-head{
+ display:flex;gap:7px;justify-content:space-between;align-items:flex-start
+}
+.game-page.agent-mode .agent-recall-result-head strong{font-size:.68rem;color:#f2fdff}
+.game-page.agent-mode .agent-recall-result-head span{
+ font-size:.55rem;color:#9fc8d3;text-align:right;overflow-wrap:anywhere
+}
+.game-page.agent-mode .agent-recall-result>p{margin:0;font-size:.64rem;line-height:1.48;color:#d2e9ef}
+.game-page.agent-mode .agent-recall-result>small{font-size:.56rem;line-height:1.4;color:#9fbfc8}
+.game-page.agent-mode .agent-recall-why summary{cursor:pointer;font-size:.59rem;color:#cce8ef}
+.game-page.agent-mode .agent-recall-why p,
+.game-page.agent-mode .agent-recall-why li{font-size:.56rem;line-height:1.45;color:#a9c8d0}
+.game-page.agent-mode .agent-recall-why ul{margin:5px 0 0;padding-left:18px}
+.game-page.agent-mode .agent-recall-empty{font-size:.62rem;color:#aac7cf}
+@media(max-width:420px){
+ .game-page.agent-mode .agent-recall-form{grid-template-columns:1fr}
+ .game-page.agent-mode .agent-recall-form .agent-recall-query{grid-column:auto}
+ .game-page.agent-mode .agent-recall-result-head{display:grid}
+ .game-page.agent-mode .agent-recall-result-head span{text-align:left}
+}
