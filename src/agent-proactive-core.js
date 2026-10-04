@@ -86,6 +86,7 @@ export function statusOpportunity(event,now=Date.now(),policy=DEFAULT_PROACTIVE_
  const p=normalizeProactivePolicy(policy);
  if(!p.statusNoticesEnabled)return null;
  if(event.semantic==='agent-task-outcome'){
+  if(String(event.message||'').toLowerCase().includes('retry scheduled'))return null;
   return proactiveOpportunity({
    type:'task-status',
    sourceAt:finite(event.at)?event.at:now,
@@ -140,6 +141,13 @@ export class ProactiveAgentGovernor{
   const before=this.pending.length;
   this.pending=this.pending.filter(item=>item.participantId!==participantId);
   this.participantLast.delete(participantId);
+  return before-this.pending.length;
+ }
+ forgetRemovedParticipants(validIds=[]){
+  const allowed=new Set(validIds.map(String));
+  const before=this.pending.length;
+  this.pending=this.pending.filter(item=>!item.participantId||allowed.has(String(item.participantId)));
+  for(const id of this.participantLast.keys())if(!allowed.has(String(id)))this.participantLast.delete(id);
   return before-this.pending.length;
  }
  noteDialogue(turn,now=Date.now()){
