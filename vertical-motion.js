@@ -502,7 +502,6 @@ const state = {
     sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : 'room-' + Date.now().toString(36),
-    queue: [],
     lastDecision: 'standby',
     rejectedSegments: 0,
     ttsPending: 0,
@@ -3166,7 +3165,12 @@ if(state.mode==='agent'){
     },
     suppressMic:suppressed=>{
       agentSpeechActive=Boolean(suppressed);
-      state.voice.audio?.setSuppressed(Boolean(suppressed)||state.voice.ttsPending>0);
+      const captureSuppressed=Boolean(agentSpeechActive||state.voice.ttsPending>0);
+      state.voice.audio?.setSuppressed(captureSuppressed);
+      listeningController.setAgentSpeaking(agentSpeechActive);
+      listeningController.setSuppressed(captureSuppressed,
+       agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
+      renderListeningHealth();
     }
   });
   agentRuntime.init();
