@@ -114,7 +114,9 @@ test('10G persistence is additive v6 owner-only memory metadata and participant 
   store.indexOf('export async function prunePendingCaptures('));
  assert.match(del,/AGENT_MEMORIES/);
  assert.match(del,/memory.participantId === id\) memories.delete\(memory.id\)/);
- const save=store.slice(store.indexOf('export async function saveAgentMemory'));
+ const saveStart=store.indexOf('export async function saveAgentMemory');
+ const syncStart=store.indexOf('/* V0.10H explicit manual participant sync state.',saveStart);
+ const save=store.slice(saveStart,syncStart>saveStart?syncStart:undefined);
  assert.doesNotMatch(save,/transcript|rawAudio|embedding|primaryPhoto|ciphertext/);
 });
 

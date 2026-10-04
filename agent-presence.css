@@ -632,3 +632,70 @@
 @media(max-width:380px){
  .game-page.agent-mode .room-listening-health{grid-template-columns:1fr}
 }
+
+
+/* V0.11E standalone meeting session layer. */
+.game-page.agent-mode .meeting-panel{padding-bottom:18px}
+.game-page.agent-mode .meeting-status-row{
+ display:flex;justify-content:space-between;gap:8px;align-items:center;
+ margin:8px 0;padding:8px;border:1px solid rgba(103,205,193,.28);
+ border-radius:9px;background:rgba(5,36,43,.55)
+}
+.game-page.agent-mode .meeting-status-row strong{font-size:.67rem;color:#effffb}
+.game-page.agent-mode .meeting-status-row span{font-size:.61rem;color:#a9ceca}
+.game-page.agent-mode .meeting-form{
+ display:grid;gap:7px;margin:8px 0;padding:8px;border:1px solid rgba(99,181,182,.22);
+ border-radius:9px;background:rgba(5,31,38,.48)
+}
+.game-page.agent-mode .meeting-form label,.game-page.agent-mode .meeting-live-controls label{
+ display:grid;gap:4px;font-size:.61rem;color:#c9e5e2
+}
+.game-page.agent-mode .meeting-form input,.game-page.agent-mode .meeting-form textarea,
+.game-page.agent-mode .meeting-form select,.game-page.agent-mode .meeting-live-controls select{
+ width:100%;min-width:0;padding:7px;border:1px solid #5d8a88;border-radius:6px;
+ background:#123739;color:#f3fffc;font-size:.68rem
+}
+.game-page.agent-mode .meeting-form textarea{resize:vertical}
+.game-page.agent-mode .meeting-form button,.game-page.agent-mode .meeting-live-controls button,
+.game-page.agent-mode .meeting-meta-row button,.game-page.agent-mode .meeting-history-row button{
+ padding:6px 8px;border:1px solid #609a90;border-radius:7px;
+ background:rgba(15,72,67,.78);color:#f1fffb;font-size:.62rem;cursor:pointer
+}
+.game-page.agent-mode .meeting-live-controls{display:grid;gap:7px;margin:8px 0}
+.game-page.agent-mode .meeting-privacy-note{
+ display:block;margin:8px 0;font-size:.57rem;line-height:1.5;color:#a9c9c6
+}
+.game-page.agent-mode .meeting-summary{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:9px 0
+}
+.game-page.agent-mode .meeting-summary article{
+ display:grid;gap:3px;padding:7px;border:1px solid rgba(100,190,183,.22);
+ border-radius:8px;background:rgba(5,34,40,.5);min-width:0
+}
+.game-page.agent-mode .meeting-summary span{font-size:.5rem;font-weight:800;letter-spacing:.06em;color:#98c1bd}
+.game-page.agent-mode .meeting-summary strong{font-size:.63rem;line-height:1.4;color:#edfffa;overflow-wrap:anywhere}
+.game-page.agent-mode .meeting-section{
+ margin:10px 0;padding:8px;border-top:1px solid rgba(112,194,188,.2)
+}
+.game-page.agent-mode .meeting-section>strong{font-size:.62rem;letter-spacing:.06em;color:#dcfff5}
+.game-page.agent-mode .meeting-roster,.game-page.agent-mode .meeting-turns,
+.game-page.agent-mode .meeting-meta-list,.game-page.agent-mode .meeting-history{
+ display:grid;gap:6px;margin:7px 0;font-size:.61rem;color:#bfdad7
+}
+.game-page.agent-mode .meeting-roster span,.game-page.agent-mode .meeting-turn,
+.game-page.agent-mode .meeting-meta-row,.game-page.agent-mode .meeting-history-row{
+ display:grid;gap:4px;padding:7px;border:1px solid rgba(106,184,181,.2);
+ border-radius:7px;background:rgba(4,28,35,.5)
+}
+.game-page.agent-mode .meeting-turn p,.game-page.agent-mode .meeting-meta-row p{margin:0;line-height:1.45}
+.game-page.agent-mode .meeting-turn small,.game-page.agent-mode .meeting-meta-row small,
+.game-page.agent-mode .meeting-history-row small{font-size:.54rem;line-height:1.4;color:#9dbfbd}
+.game-page.agent-mode .meeting-history-row[data-selected="true"]{border-color:rgba(138,226,206,.68)}
+.game-page.agent-mode .meeting-message{
+ margin:8px 0;padding:7px;border-left:2px solid #79d9bc;
+ background:rgba(10,61,55,.32);font-size:.6rem;color:#daf8ef
+}
+@media(max-width:390px){
+ .game-page.agent-mode .meeting-summary{grid-template-columns:1fr}
+ .game-page.agent-mode .meeting-status-row{align-items:flex-start;flex-direction:column}
+}

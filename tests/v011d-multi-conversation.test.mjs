@@ -233,7 +233,7 @@ test('11D runtime persists conversation fields before canonical save and exposes
  const fields=runtime.indexOf('const conversationFields=multiConversationTurnFields(turn');
  const save=runtime.indexOf('savedTurn = await saveDialogueTurn',fields);
  assert.ok(fields>0&&save>fields);
- assert.match(runtime,/turn=\{\.\.\.turn,\.\.\.conversationFields\}/);
+ assert.match(runtime,/turn=\{\.\.\.turn,\.\.\.conversationFields,/);
  assert.match(runtime,/currentConversationAttention=turn\.attentionTarget/);
  assert.match(runtime,/currentConversationGroupSize=turn\.conversationGroupSize/);
  assert.match(runtime,/conversationContextLabel\(turn\)/);
