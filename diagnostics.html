@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body><main class="shell diag-shell">
-  <header class="diag-heading"><div><small>V0.4 HARDWARE ACCEPTANCE</small><h1>Camera &amp; microphone self-test</h1>
+  <header class="diag-heading"><div><small>V0.10 RELEASE ACCEPTANCE</small><h1>Camera, microphone &amp; resilience self-test</h1>
     <p>No video or audio is recorded. Exported reports contain aggregate measurements only.</p></div>
     <a class="button-link" href="./vertical-motion.html">← Vertical Motion</a></header>
   <section class="panel"><h2>1. Camera and both colored markers</h2>
@@ -30,8 +30,29 @@
       <li>Confirm only the active player's colored marker scores, and its partial repetitions reset after temporary occlusion.</li>
       <li>Test optional Voice Profile recognition and transcription in the main game separately. This page tests microphone access, not model identification accuracy.</li></ol>
   </section>
-  <section class="panel"><h2>4. Export measurement report</h2>
-    <p>Review the measured FPS, both marker confidence values, four-zone coverage and dropout/jump counts. Your report contains only aggregate counters, calibration thresholds and microphone-level status.</p>
+  <section class="panel"><h2>4. Resilience &amp; lifecycle acceptance</h2>
+    <p>These checks require a real browser and real hardware. Tracky2 records only your explicit pass/fail confirmations plus aggregate runtime/permission/storage measurements.</p>
+    <div class="diag-actions"><button id="refreshReleaseHealth" type="button">Refresh permission &amp; storage health</button></div>
+    <div class="diag-metrics">
+      <p id="releasePermissionStatus" role="status">Permissions not checked.</p>
+      <p id="releaseStorageStatus" role="status">Storage not checked.</p>
+      <p id="releaseRuntimeStatus" role="status">Runtime budget not measured.</p>
+    </div>
+    <fieldset class="diag-acceptance" id="releaseAcceptanceChecks">
+      <legend>Manual representative-device checks</legend>
+      <label><input type="checkbox" data-release-check="camera-recovery"> Interrupt an already-granted camera, restore it, and verify the app recovers without inventing participant departure.</label>
+      <label><input type="checkbox" data-release-check="microphone-recovery"> Interrupt an already-granted microphone, restore it, and verify recovery without treating the outage as room silence.</label>
+      <label><input type="checkbox" data-release-check="permission-lifecycle"> Revoke and restore camera/microphone permission and verify denied permissions are not background-reprompted.</label>
+      <label><input type="checkbox" data-release-check="foreground-resume"> Background then foreground the page and verify tracking/audio state resumes or clearly requests manual recovery.</label>
+      <label><input type="checkbox" data-release-check="long-session"> Run the representative camera/AGENT workload for at least 20 minutes and review aggregate stalls/backlog before marking this check complete.</label>
+      <label><input type="checkbox" data-release-check="restart-integrity"> Reload/restart and verify no fake historical participant departure, speaker attribution, task result or revoked memory is created.</label>
+      <label><input type="checkbox" data-release-check="storage-pressure"> Verify storage-pressure behavior on a constrained/test profile: optional ROOM history pauses without deleting existing data or stopping live operation.</label>
+    </fieldset>
+    <label class="diag-notes">Acceptance notes (optional)<textarea id="releaseAcceptanceNotes" rows="4" maxlength="1200" placeholder="Device/browser, interruption method, observed limitations"></textarea></label>
+    <p id="releaseAcceptanceStatus" role="status">Real-device acceptance is incomplete until every manual check is confirmed.</p>
+  </section>
+  <section class="panel"><h2>5. Export measurement report</h2>
+    <p>Review measured FPS, marker confidence, four-zone coverage, dropout/jump counts, permission/storage state, aggregate runtime budget and the explicit real-device checklist. No raw camera, microphone, transcript, face or voice samples are exported.</p>
     <button id="exportTestReport" disabled>Export hardware test report (JSON)</button>
     <p id="testExportStatus" role="status">Start a test to enable export.</p>
   </section>
