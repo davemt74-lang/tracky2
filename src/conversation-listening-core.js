@@ -57,7 +57,8 @@ export function replyEligibility({
    Object.freeze({allow:false,action:'none',reason:'unverified-stop-intent'});
  }
  if(modalOpen)return Object.freeze({allow:false,action:'none',reason:'modal-open'});
- if(responsePending)return Object.freeze({allow:false,action:'none',reason:'response-pending'});
+ if(responsePending)
+  return Object.freeze({allow:true,action:'replace-pending-reply',reason:'newer-turn-supersedes-pending'});
  if(agentSpeaking)return Object.freeze({allow:false,action:'none',reason:'agent-speaking'});
  if(finite(lastReplyAt)&&lastReplyAt>0&&now-lastReplyAt<Math.max(0,minGapMs))
   return Object.freeze({allow:false,action:'none',reason:'reply-cooldown'});
