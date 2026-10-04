@@ -1,5 +1,5 @@
 import {projectRoomState} from './room-event-core.js';
-import {activeMemories} from './agent-memory-core.js';
+import {normalizeMemoryRecord,memoryExpired} from './agent-memory-core.js';
 
 export const RECALL_SOURCE_TYPES=Object.freeze([
  'conversation','room','meeting','task','memory'
@@ -65,8 +65,9 @@ export function buildRecallProjection({
   const pid=turn.participantId||null;
   const person=pid?people.get(pid):null;
   const createdAt=atOf(turn.createdAt)||Number(turn.at)||0;
-  const provenance=['canonical-dialogue',
-   String(turn.transcriptState||turn.transcriptEditedAt?'corrected':'final')];
+  const transcriptState=String(turn.transcriptState||(
+   turn.transcriptEditedAt?'corrected':'final'));
+  const provenance=['canonical-dialogue',transcriptState];
   if(turn.transcriptSource)provenance.push('transcript:'+String(turn.transcriptSource));
   if(turn.associationState)provenance.push('speaker:'+String(turn.associationState));
   rows.push(item({
@@ -177,7 +178,13 @@ export function buildRecallProjection({
   }));
  }
 
- for(const memory of activeMemories(memories,{now,limit:200})){
+ const activeMemoryRows=(Array.isArray(memories)?memories:[])
+  .map(row=>{try{return normalizeMemoryRecord(row,now);}catch{return null;}})
+  .filter(Boolean)
+  .filter(row=>row.status==='active'&&!memoryExpired(row,now))
+  .sort((a,b)=>b.updatedAt-a.updatedAt||b.createdAt-a.createdAt)
+  .slice(0,200);
+ for(const memory of activeMemoryRows){
   rows.push(item({
    id:'memory:'+memory.id,sourceType:'memory',sourceId:memory.id,subtype:memory.type,
    at:Number(memory.updatedAt||memory.createdAt)||0,
