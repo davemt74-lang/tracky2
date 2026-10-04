@@ -30,9 +30,9 @@ export function createAgentMemoryUi({
   return memory.participantId?(names().get(memory.participantId)||'Deleted participant'):'Room / general';
  }
  async function persistIfNeeded(memory){
-  if(!memory.persistent)return memory;
-  try{return await saveAgentMemory(memory);}
-  catch(error){setStatus('Memory changed in this session, but local save failed: '+error.message);return memory;}
+  if(!memory.persistent)return true;
+  await saveAgentMemory(memory);
+  return true;
  }
  function renderContext(){
   if(!ui.context)return;
@@ -85,8 +85,9 @@ export function createAgentMemoryUi({
      const revised=window.prompt('Revise this owner-authored memory:',memory.text);
      if(revised===null)return;
      try{
-      const next=ledger.revise(memory.id,revised,Date.now());if(!next)return;
-      await persistIfNeeded(next);
+      const before=memory,next=ledger.revise(memory.id,revised,Date.now());if(!next)return;
+      try{await persistIfNeeded(next);}
+      catch(error){ledger.replace(before);setStatus('Revision not saved: '+error.message);render();return;}
       onAudit('Owner revised historical memory',next);
       setStatus('Memory revised; previous wording retained in local revision history.');
       render();onChanged();
@@ -96,8 +97,9 @@ export function createAgentMemoryUi({
     revoke.addEventListener('click',async()=>{
      const reason=window.prompt('Why revoke this memory?','No longer accurate');
      if(reason===null)return;
-     const next=ledger.revoke(memory.id,reason,Date.now());if(!next)return;
-     await persistIfNeeded(next);
+     const before=memory,next=ledger.revoke(memory.id,reason,Date.now());if(!next)return;
+     try{await persistIfNeeded(next);}
+     catch(error){ledger.replace(before);setStatus('Revocation not saved: '+error.message);render();return;}
      onAudit('Owner revoked historical memory',next);
      setStatus('Memory revoked. It is no longer supplied to AGENT.');
      render();onChanged();
@@ -107,7 +109,10 @@ export function createAgentMemoryUi({
    const del=document.createElement('button');del.type='button';del.textContent='Delete';
    del.addEventListener('click',async()=>{
     if(!window.confirm('Permanently delete this owner-authored memory?'))return;
-    if(memory.persistent)await deleteAgentMemory(memory.id).catch(error=>setStatus('Delete failed: '+error.message));
+    if(memory.persistent){
+     try{await deleteAgentMemory(memory.id);}
+     catch(error){setStatus('Delete failed; memory remains active locally: '+error.message);return;}
+    }
     if(ledger.delete(memory.id)){
      onAudit('Owner deleted historical memory',memory);
      setStatus('Memory deleted.');render();onChanged();
@@ -130,7 +135,8 @@ export function createAgentMemoryUi({
      participantId:ui.person.value||null,type:ui.type.value,text:ui.text.value,
      expiresAt:expiryAt(now),persistent:ui.persist.checked
     },now);
-    await persistIfNeeded(memory);
+    try{await persistIfNeeded(memory);}
+    catch(error){ledger.delete(memory.id);setStatus('Memory was not added because local save failed: '+error.message);render();return;}
     onAudit('Owner added historical memory',memory);
     setStatus(memory.persistent?'Memory saved locally on this device.':'Session-only memory added.');
     ui.text.value='';render();onChanged();
