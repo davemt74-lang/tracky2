@@ -47,7 +47,7 @@ test('11E roster tracks verified joins/leaves and unknown counts without inventi
  meeting=step.meeting;
  assert.deepEqual(step.events.map(x=>x.type).sort(),['joined','left']);
  assert.deepEqual(meeting.activeParticipantIds,['p2']);
- assert.deepEqual(meeting.rosterParticipantIds.sort(),['p1','p2']);
+ assert.deepEqual([...meeting.rosterParticipantIds].sort(),['p1','p2']);
  assert.equal(meeting.peakUnverifiedCount,2);
  assert.ok(meeting.rosterEvents.every(x=>x.participantId));
 });
