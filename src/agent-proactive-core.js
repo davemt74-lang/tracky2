@@ -164,13 +164,14 @@ export class ProactiveAgentGovernor{
  interruptionGate({
   participantId=null,now=Date.now(),localMinute=null,quietPolicy=null,
   pageVisible=true,busy=false,meetingActive=false,participant=null,
-  visibleParticipantIds=[],activeTaskCount=0,lastDialogueAt=0,opportunity=null
+  visibleParticipantIds=[],activeTaskCount=0,lastDialogueAt=0,opportunity=null,
+  respectEnabled=true
  }={}){
   this.prune(now);
   const policy=this.policy;
   const minute=localMinute===null
    ? new Date(now).getHours()*60+new Date(now).getMinutes():localMinute;
-  if(!policy.enabled)return Object.freeze({allow:false,reason:'proactivity disabled'});
+  if(respectEnabled&&!policy.enabled)return Object.freeze({allow:false,reason:'proactivity disabled'});
   if(!pageVisible)return Object.freeze({allow:false,reason:'page not visible'});
   if(quietPolicy&&inQuietHours(minute,quietPolicy))
    return Object.freeze({allow:false,reason:'quiet hours'});
