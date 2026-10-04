@@ -122,6 +122,14 @@
         <div><small>ROOM CONVERSATION</small><strong>Participants + AGENT</strong></div>
         <span id="transcriptModelState">Transcription standby</span>
       </div>
+      <div class="transcript-tools" aria-label="Transcript search and export">
+        <label><span>SEARCH TRANSCRIPTS</span><input id="transcriptSearch" type="search" maxlength="120" placeholder="Search canonical transcript text"></label>
+        <button type="button" id="transcriptSearchRun">Search</button>
+        <button type="button" id="transcriptExportSession">Export session</button>
+        <button type="button" id="transcriptExportAll">Export all</button>
+        <small id="transcriptSessionSummary" role="status">No transcript session loaded.</small>
+      </div>
+      <div id="transcriptSearchResults" class="transcript-search-results" aria-live="polite" hidden></div>
       <div id="roomEvents" class="room-events" aria-live="polite"></div>
       <div class="agent-conversation-thread agent-chat-thread" id="agentConversationThread" hidden aria-label="Chronological participant and agent messages"></div>
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">
