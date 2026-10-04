@@ -75,6 +75,10 @@ import {
  speakerAssociationTurnFields
 } from './src/speaker-participant-core.js';
 import {
+ MultimodalFusionTracker,deriveMultimodalEvidence,fuseMultimodalIdentity,
+ multimodalFusionTurnFields
+} from './src/multimodal-identity-core.js';
+import {
  TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
@@ -237,6 +241,7 @@ const cognitiveLoop=new AgentCognitiveLoop();
 const proactiveGovernor=new ProactiveAgentGovernor();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
+const multimodalFusionTracker=new MultimodalFusionTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
 const roomSessionId='room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -771,6 +776,13 @@ const state = {
     currentAssociationState: 'unknown-speaker',
     currentAssociationProvenance: [],
     currentAssociationTransition: null,
+    currentFusionState: 'unknown-speaker',
+    currentFusionDecision: 'abstain',
+    currentFusionConfidence: 0,
+    currentFusionProvenance: [],
+    currentFusionConflicts: [],
+    currentFusionAbstentionReason: 'no-identity-authority',
+    currentFusionTransition: null,
     currentConversationAttention: 'unknown',
     currentConversationGroupSize: 1,
     currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
@@ -1533,6 +1545,13 @@ async function reloadIdentityParticipants() {
        currentSpeaker?'voice-recognition-disabled':'participant-record-unavailable'
       ];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentFusionState='unknown-speaker';
+      state.voice.currentFusionDecision='abstain';
+      state.voice.currentFusionConfidence=0;
+      state.voice.currentFusionProvenance=['signal-rejected'];
+      state.voice.currentFusionConflicts=[];
+      state.voice.currentFusionAbstentionReason='signal-rejected';
+      state.voice.currentFusionTransition=null;
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -1552,6 +1571,13 @@ async function reloadIdentityParticipants() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['participant-store-unavailable'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentFusionState='unknown-speaker';
+    state.voice.currentFusionDecision='abstain';
+    state.voice.currentFusionConfidence=0;
+    state.voice.currentFusionProvenance=['speaker-unverified'];
+    state.voice.currentFusionConflicts=[];
+    state.voice.currentFusionAbstentionReason='no-identity-authority';
+    state.voice.currentFusionTransition=null;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -2114,10 +2140,20 @@ function renderVoiceHud() {
     ? (state.voice.currentBodyLock ? 'CONFIRMED' : 'NOT CURRENT')
     : '—';
   if(ui.roomSpeakerAssociation)
-    ui.roomSpeakerAssociation.textContent=speakerAssociationLabel(state.voice.currentAssociationState);
-  if(ui.roomSpeakerProvenance)
-    ui.roomSpeakerProvenance.textContent=state.voice.currentAssociationProvenance.length
-      ? state.voice.currentAssociationProvenance.join(' · ') : 'speaker-unverified';
+    ui.roomSpeakerAssociation.textContent=speakerAssociationLabel(state.voice.currentAssociationState)+
+      ' · FUSION '+String(state.voice.currentFusionState||'unknown-speaker').toUpperCase();
+  if(ui.roomSpeakerProvenance){
+    const fusionBits=[
+      ...state.voice.currentFusionConflicts.map(value=>'conflict:'+value),
+      ...(state.voice.currentFusionAbstentionReason?
+        ['abstain:'+state.voice.currentFusionAbstentionReason]:[])
+    ];
+    ui.roomSpeakerProvenance.textContent=[
+      ...state.voice.currentAssociationProvenance,
+      ...state.voice.currentFusionProvenance.map(value=>'fusion:'+value),
+      ...fusionBits
+    ].slice(0,12).join(' · ')||'speaker-unverified';
+  }
   if(ui.roomConversationAttention)
     ui.roomConversationAttention.textContent=state.voice.currentConversationLabel||'UNKNOWN';
   if(ui.roomConversationGroupSize)
@@ -2369,6 +2405,19 @@ async function processRoomSegment(segment) {
     const currentRoomTracks=roomTracks.filter(candidate=>
       candidate?.id&&!['occluded','reacquiring'].includes(candidate.status));
     const conversationTracks=group?.tracks?.length?group.tracks:currentRoomTracks;
+    const fusionReferenceAt=Number(segment.queuedAt)||Date.now();
+    const fusionEvidence=deriveMultimodalEvidence({
+      voiceMatch,roomTracks,
+      conversationParticipantIds:conversationTracks.map(candidate=>candidate.participantId).filter(Boolean),
+      referenceAt:fusionReferenceAt,
+      revokedParticipantIds:state.identity.participants
+        .filter(candidate=>candidate.voiceRecognitionEnabled===false)
+        .map(candidate=>candidate.id),
+      // 12A preserves camera-relative spatial context only. Metric/source-aware spatial
+      // evidence is introduced later and cannot become speaker identity proof here.
+      spatialCalibrated:false
+    });
+    const fusion=fuseMultimodalIdentity({evidence:fusionEvidence,referenceAt:fusionReferenceAt});
 
     state.voice.currentSpeakerId = association.participantId;
     state.voice.currentSpeakerName = participant?.name
@@ -2378,6 +2427,12 @@ async function processRoomSegment(segment) {
     state.voice.currentBodyLock = association.bodyConfirmed;
     state.voice.currentAssociationState=association.state;
     state.voice.currentAssociationProvenance=Array.from(association.provenance);
+    state.voice.currentFusionState=fusion.state;
+    state.voice.currentFusionDecision=fusion.decision;
+    state.voice.currentFusionConfidence=fusion.confidence;
+    state.voice.currentFusionProvenance=Array.from(fusion.provenance);
+    state.voice.currentFusionConflicts=Array.from(fusion.conflicts);
+    state.voice.currentFusionAbstentionReason=fusion.abstentionReason;
     state.voice.currentGroupId = group
       ? (group.tracks.length > 1 ? group.id : 'SOLO')
       : null;
@@ -2462,7 +2517,9 @@ async function processRoomSegment(segment) {
     const transcriptFields=canonicalTranscriptFields(transcriptRecord);
 
     const associationTransition=speakerAssociationTracker.preview(association,Date.now());
+    const fusionTransition=multimodalFusionTracker.preview(fusion,Date.now());
     state.voice.currentAssociationTransition=associationTransition?.type||null;
+    state.voice.currentFusionTransition=fusionTransition?.type||null;
 
     // Gate and transcription have completed: only NOW may a verified voice match
     // with CURRENT visual evidence animate a participant-specific meter.
@@ -2479,6 +2536,7 @@ async function processRoomSegment(segment) {
       }
     }
     const associationFields=speakerAssociationTurnFields(association);
+    const fusionFields=multimodalFusionTurnFields(fusion);
     let turn = {
      ...createSpeakerTurn({
       participantId: association.participantId,
@@ -2503,6 +2561,11 @@ async function processRoomSegment(segment) {
        toState:associationTransition.toState,at:associationTransition.at
       }:null
      }),
+     ...fusionFields,
+     multimodalTransition:fusionTransition?{
+      type:fusionTransition.type,fromState:fusionTransition.fromState,
+      toState:fusionTransition.toState,at:fusionTransition.at
+     }:null,
      ...transcriptFields
     };
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
@@ -2558,6 +2621,7 @@ async function processRoomSegment(segment) {
     }
 
     speakerAssociationTracker.commit(association);
+    multimodalFusionTracker.commit(fusion);
     if(state.mode==='agent'&&associationTransition){
       if(associationTransition.type==='speaker-handoff'&&savedTurn.participantId){
         logRoomMessage('audio','Verified speaker handoff · current voice profile: '+
@@ -2626,6 +2690,7 @@ function roomTrackSnapshot() {
     status: track.status,
     identitySource:track.identitySource||null,
     similarity:Number(track.similarity||0),
+    bodyScore:Number(track.bodyScore||0),
     lastBodySeenAt:Number(track.lastBodySeenAt||0),
     lastFaceSeenAt:Number(track.lastFaceSeenAt||0),
     box: track.box ? { ...track.box } : null
@@ -2798,6 +2863,7 @@ async function startRoomAudio() {
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
     speakerAssociationTracker.reset();
+    multimodalFusionTracker.reset();
     transcriptLifecycle.clear();
     state.voice.currentTranscriptState='idle';
     state.voice.currentTranscriptSegmentId=null;
@@ -2866,10 +2932,18 @@ function stopRoomAudio() {
   state.voice.currentAssociationState='unknown-speaker';
   state.voice.currentAssociationProvenance=['speaker-unverified'];
   state.voice.currentAssociationTransition=null;
+  state.voice.currentFusionState='unknown-speaker';
+  state.voice.currentFusionDecision='abstain';
+  state.voice.currentFusionConfidence=0;
+  state.voice.currentFusionProvenance=['speaker-unverified'];
+  state.voice.currentFusionConflicts=[];
+  state.voice.currentFusionAbstentionReason='no-identity-authority';
+  state.voice.currentFusionTransition=null;
   state.voice.currentConversationAttention='unknown';
   state.voice.currentConversationGroupSize=1;
   state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
   speakerAssociationTracker.reset();
+  multimodalFusionTracker.reset();
   transcriptLifecycle.clear();
   state.voice.currentTranscriptState='idle';
   state.voice.currentTranscriptSegmentId=null;
