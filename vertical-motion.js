@@ -58,6 +58,9 @@ import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
+import {
+ ProactiveAgentGovernor,DEFAULT_PROACTIVE_POLICY,normalizeProactivePolicy
+} from './src/agent-proactive-core.js';
 import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from './src/room-ui-core.js';
 import {
  RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
@@ -230,6 +233,7 @@ const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
+const proactiveGovernor=new ProactiveAgentGovernor();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
@@ -247,6 +251,7 @@ let storageHealthTimer=0;
 let runtimeHealthLastPaint=0;
 const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
+let proactiveTimer=0,lastProactiveDecisionSignature='';
 function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
