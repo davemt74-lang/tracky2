@@ -98,6 +98,28 @@ export class SpeakerDiarizationSession{
   this.reset();
  }
  reset(){this.clusters=[];this.nextCluster=1;this.windowCount=0;return this.snapshot();}
+ fork(){
+  const copy=new SpeakerDiarizationSession({
+   maxClusters:this.maxClusters,clusterThreshold:this.clusterThreshold,
+   overlapThreshold:this.overlapThreshold,overlapMargin:this.overlapMargin
+  });
+  copy.clusters=this.clusters.map(cluster=>({
+   id:cluster.id,centroid:cloneEmbedding(cluster.centroid),
+   count:cluster.count,lastWindowId:cluster.lastWindowId||null
+  }));
+  copy.nextCluster=this.nextCluster;copy.windowCount=this.windowCount;
+  return copy;
+ }
+ commitFrom(other){
+  if(!(other instanceof SpeakerDiarizationSession))
+   throw new TypeError('Diarization session commit requires a compatible session.');
+  this.clusters=other.clusters.map(cluster=>({
+   id:cluster.id,centroid:cloneEmbedding(cluster.centroid),
+   count:cluster.count,lastWindowId:cluster.lastWindowId||null
+  }));
+  this.nextCluster=other.nextCluster;this.windowCount=other.windowCount;
+  return this.snapshot();
+ }
  snapshot(){
   return Object.freeze({
    clusterCount:this.clusters.length,windowCount:this.windowCount,
