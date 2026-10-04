@@ -36,6 +36,10 @@ test('11D explicit addressee detection requires a vocative/tag, not a casual nam
 
  a=resolveConversationAddress('What do you think, Tracky?',people);
  assert.equal(a.addressedAgent,true);
+ a=resolveConversationAddress('What do you think, Sam',people);
+ assert.equal(a.addressedParticipantId,null,'trailing names require explicit punctuation');
+ a=resolveConversationAddress('What do you think, Sam?',people);
+ assert.equal(a.addressedParticipantId,'p2');
 
  a=resolveConversationAddress('@Sam @Lee please compare notes',people);
  assert.equal(a.kind,'participants');
@@ -124,6 +128,8 @@ test('11D three-person group context includes only current group members and lab
    transcript:'First Pat turn',createdAt:'2026-10-04T10:00:00Z',conversationScopeId:'scope:p:p1|p:p2'},
   {id:'b',sessionId:'s1',participantId:'p2',participantName:'Sam',attribution:'voice-only',
    transcript:'Sam reply',createdAt:'2026-10-04T10:00:02Z',conversationScopeId:'scope:p:p1|p:p2'},
+  {id:'solo',sessionId:'s1',participantId:'p1',participantName:'Pat',attribution:'voice-only',
+   transcript:'Private solo Pat turn',createdAt:'2026-10-04T10:00:02.500Z',conversationScopeId:'scope:p:p1'},
   {id:'c',sessionId:'s1',participantId:'p3',participantName:'Lee',attribution:'voice-only',
    transcript:'Outside group',createdAt:'2026-10-04T10:00:03Z',conversationScopeId:'scope:p:p1|p:p3'},
   {id:'u',sessionId:'s1',participantId:null,attribution:'unknown',
@@ -134,6 +140,8 @@ test('11D three-person group context includes only current group members and lab
  const ctx=groupConversationContext(current,turns,people);
  assert.deepEqual(ctx.map(x=>x.text),['First Pat turn','Sam reply','Unknown in same group']);
  assert.deepEqual(ctx.map(x=>x.speakerName),['P','Sam','Unknown speaker']);
+ assert.equal(ctx.some(x=>x.text==='Private solo Pat turn'),false,
+  'solo participant context must not leak into a multi-person scope');
  assert.equal(ctx.some(x=>x.text==='Outside group'),false);
  assert.equal(ctx.some(x=>x.text==='Other session'),false);
 });
