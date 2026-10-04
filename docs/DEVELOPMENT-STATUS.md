@@ -22,3 +22,13 @@
 - Build privacy-gated optional **acoustic pattern metadata** (sustained/intermittent energy patterns only; never label music, television, cough, specific acoustic source or a medical condition), interruption-safe ambient summaries, owner transcript correction with immutable attribution metadata and correction history, deduplicated unified chat that respects deletion, and speaker/TTS fail-closed tests.
 - Advanced music/TV identification and multi-speaker source separation remain separately scoped until an appropriate explicitly authorized model/service and real hardware acceptance.
 - **Gate:** do not mark complete or start 10E until PR Node/PHP checks, merge, post-merge jobs, direct V0.10.3 deploy ZIP and SHA are all verified. Real-device testing remains independent.
+
+## 10D VERIFIED
+- [PR #36](https://github.com/davemt74-lang/tracky2/pull/36) merged `ed09c180576a7a2820b72d6d064fa08ce5898ff8`; required and post-merge workflows passed. Direct [V0.10.3 release](https://github.com/davemt74-lang/tracky2/releases/tag/v0.10.3) published with deployment SHA-256 `aac31ad113b01471d5e512976069bd9282c29a9be7a8cd387979a16fe562991f`. Delivery gates **10/10**; physical microphone/source-classification acceptance remains separate.
+
+## Active section: 10E — governed cognitive loop
+- **Branch:** `feat/v010e-governed-cognitive-loop`, based on verified 10D main.
+- **Scope:** canonical `participant-observed` evidence -> explicit observe/verify/interpret/evaluate/decide trace -> only the already-existing local greeting action or explicit abstention. No arbitrary skill/task execution in this section.
+- **Governance:** stable enrolled identity + live matched/body-lock evidence required; automatic greeting and participant-level greeting opt-out; quiet hours, active-conversation suppression, cooldown and hourly interruption limit; successful/failed greeting outcome linked to its decision and source ROOM event.
+- **Privacy:** policy is session-local; participant opt-out is local participant profile data. Participant deletion purges ephemeral cognitive history and attributed persisted ROOM records through existing deletion rules.
+- **Gate:** do not start 10F until deterministic 10E tests, Node/PHP PR checks, merge, post-merge checks and direct V0.10.4 ZIP + SHA-256 are verified. Physical camera/audio acceptance remains separate.
