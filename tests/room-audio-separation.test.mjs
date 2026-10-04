@@ -41,8 +41,8 @@ test('AGENT room audit stores only bounded metadata via existing opt-in ROOM led
  assert.match(source,/if\(suppressed\)\{/);
  assert.match(source,/saveRoomAudioSummary\(roomAmbientAudit\.flush\(Date\.now\(\)\)\)/);
  assert.match(source,/logRoomMessage\('audio',roomAudioAuditMessage\(summary\),'shared-room-mic'/);
- assert.match(source,/if\(saveRoomHistory\)\{/);
- assert.match(source,/epoch===roomPrivacyEpoch\?saveRoomObservation\(event\)/);
+ assert.match(source,/if\(saveRoomHistory&&storageHealth\.optionalPersistence\)\{/);
+ assert.match(source,/epoch===roomPrivacyEpoch&&storageHealth\.optionalPersistence\?saveRoomObservation\(event\)/);
  assert.match(source,/await roomWrites\.catch/);
  assert.match(source,/state.voice.currentSpeakerId=null/);
  assert.match(source,/level.suppressed\|\|state.voice.audio\?\.suppressed/);
