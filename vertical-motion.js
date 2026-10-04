@@ -1695,6 +1695,8 @@ function speakAcknowledgement(message) {
 
   state.voice.ttsPending += 1;
   state.voice.audio?.setSuppressed(true);
+  listeningController.setSuppressed(true,'acknowledgement-tts');
+  renderListeningHealth();
 
   const utterance = new SpeechSynthesisUtterance(message);
   utterance.rate = 1.02;
@@ -1712,7 +1714,11 @@ function speakAcknowledgement(message) {
 
     setTimeout(() => {
       if (state.voice.ttsPending === 0) {
-        state.voice.audio?.setSuppressed(false);
+        const suppressed=Boolean(agentSpeechActive);
+        state.voice.audio?.setSuppressed(suppressed);
+        listeningController.setSuppressed(suppressed,
+          suppressed?'agent-tts':'acknowledgement-ended');
+        renderListeningHealth();
       }
     }, 350);
   };
@@ -1787,17 +1793,18 @@ function renderVoiceHud() {
     : '—';
   ui.roomDialogueGroup.textContent = state.voice.currentGroupId || '—';
 
-  ui.voiceStatus.textContent = !state.voice.active
-    ? 'Voice standby'
-    : state.voice.processing
-      ? 'Analyzing speaker…'
-      : state.voice.vad
-        ? 'Speech detected'
-        : state.voice.lastDecision === 'ambiguous-speaker'
-          ? 'Speaker ambiguous'
-          : state.voice.lastDecision === 'noise-rejected'
-            ? 'Background rejected'
-            : 'Room audio live';
+  const listening=listeningController.snapshot();
+  ui.voiceStatus.textContent = ({
+    offline:'Voice standby',
+    recovering:'Recovering microphone…',
+    'agent-speaking':'Agent speaking · room input suppressed',
+    suppressed:'Room input suppressed',
+    speech:'Speech detected',
+    processing:'Analyzing speaker…',
+    queued:'Speech queued',
+    listening:'Room audio live'
+  })[listening.state]||'Voice standby';
+  renderListeningHealth();
 
   ui.transcriptModelState.textContent = !ui.liveTranscription.checked
     ? 'Transcription off'
@@ -1915,6 +1922,11 @@ function onRoomAudioLevel(level) {
   state.voice.noiseFloorDb = level.noiseFloorDb;
   state.voice.vad = level.speaking;
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
+  listeningController.setVad(Boolean(level.speaking));
+  const captureSuppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
+   agentSpeechActive||state.voice.ttsPending>0);
+  listeningController.setSuppressed(captureSuppressed,
+   captureSuppressed?(agentSpeechActive?'agent-tts':'capture-suppressed'):'capture-active');
   renderVoiceHud();
   updateParticipantAudioMeters();
   if(state.mode==='agent'&&state.voice.active){
@@ -1933,10 +1945,8 @@ function onRoomAudioLevel(level) {
 }
 
 function voiceSegmentIsCurrent(segment) {
-  return Boolean(
-    state.voice.active &&
-    segment?.generation === state.voice.generation
-  );
+  return Boolean(state.voice.active&&
+   listeningController.canContinue(segment,Date.now()).valid);
 }
 
 async function processRoomSegment(segment) {
