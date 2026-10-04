@@ -113,7 +113,17 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      ...(entry.multimodalAbstentionReason?['abstain:'+entry.multimodalAbstentionReason]:[])
     ].filter(Boolean);
     fusionMeta.textContent='Fusion · '+fusionBits.join(' · ');
-    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta);
+    const diarizationMeta=document.createElement('small');
+    diarizationMeta.className='agent-conversation-provenance';
+    const diarizationBits=[
+     entry.diarizationState||'not-recorded',
+     (entry.diarizationSpeakerCount||0)+' speaker cluster'+
+      ((entry.diarizationSpeakerCount||0)===1?'':'s'),
+     entry.diarizationOverlapObserved?'overlap unresolved':'',
+     entry.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
+    ].filter(Boolean);
+    diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
+    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }
