@@ -48,6 +48,7 @@ const ui = {
   nickname: $('#participantNickname'),
   notes: $('#participantNotes'),
   recognitionEnabled: $('#recognitionEnabled'),
+  agentProactiveEnabled: $('#agentProactiveEnabled'),
   sampleCount: $('#sampleCount'),
   enrollmentDots: $('#enrollmentDots'),
   faceGallery: $('#faceSampleGallery'),
@@ -206,6 +207,7 @@ function clearForm() {
   ui.nickname.value = '';
   ui.notes.value = '';
   ui.recognitionEnabled.checked = true;
+  ui.agentProactiveEnabled.checked = true;
   ui.delete.hidden = true;
 
   updatePhotos();
@@ -300,6 +302,7 @@ async function loadParticipant(id) {
   ui.nickname.value = participant.nickname || '';
   ui.notes.value = participant.notes || '';
   ui.recognitionEnabled.checked = participant.recognitionEnabled !== false;
+  ui.agentProactiveEnabled.checked = participant.agentProactiveEnabled !== false;
   ui.delete.hidden = false;
 
   updatePhotos();
@@ -561,7 +564,8 @@ async function saveForm() {
     primaryPhoto: state.primaryPhoto,
     latestPhoto: state.latestPhoto || state.primaryPhoto,
     ...galleryFields,
-    recognitionEnabled: ui.recognitionEnabled.checked
+    recognitionEnabled: ui.recognitionEnabled.checked,
+    agentProactiveEnabled: ui.agentProactiveEnabled.checked
   });
 
   state.editingId = record.id;

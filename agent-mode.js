@@ -132,9 +132,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
  }
  function say(text,participantId=null,scopeId=null){
-  if(!text)return;
+  if(!text)return false;
   append('agent',text,participantId,scopeId);
-  if(!ui.speak.checked||!speech||typeof SpeechSynthesisUtterance==='undefined')return;
+  if(!ui.speak.checked||!speech||typeof SpeechSynthesisUtterance==='undefined')return true;
   stopSpeech();suppressMic(true);
   ui.speaker.textContent='Agent speaking';
   const utterance=new SpeechSynthesisUtterance(text);
@@ -154,6 +154,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   utterance.addEventListener('end',release,{once:true});
   utterance.addEventListener('error',release,{once:true});
   speech.speak(utterance);
+  return true;
  }
  function greet(track,person){
   if(getMeeting()?.status==='active')return false;
@@ -406,6 +407,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
  return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
+  isBusy:()=>Boolean(open||responsePending||speech?.speaking),
+  proactiveSpeak(text,{participantId=null,scopeId=null}={}){
+   if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
+   return say(text,participantId,scopeId)===true;
+  },
   onMeetingChange(meeting){
    responseGeneration+=1;responsePending=false;modelController?.abort();stopSpeech();
    ui.modelStatus.textContent=meeting?.status==='active'

@@ -43,7 +43,7 @@ export class AgentCognitiveLoop{
    this.lastDecision=null;
  }
  evaluate(event,{participant=null,track=null,busy=false,now=Date.now(),
-  localMinute=null}={}){
+  localMinute=null,interruptionAllowed=true,interruptionReason=''}={}){
   if(!event||event.semantic!=='participant-observed'||event.category!=='presence')return null;
   const key=String(event.id||'');
   if(!key||this.processed.has(key))return null;
@@ -64,6 +64,8 @@ export class AgentCognitiveLoop{
    reason='abstain: participant greeting preference disabled';
   else if(inQuietHours(minute,policy))reason='abstain: quiet hours';
   else if(busy)reason='abstain: conversation or agent audio busy';
+  else if(!interruptionAllowed)
+   reason='abstain: '+(String(interruptionReason||'interruption budget').replace(/^abstain:\s*/,''));
   else{
    const last=this.greetings.get(participant.id);
    this.history=this.history.filter(item=>now-item.at>=0&&now-item.at<3600000);
