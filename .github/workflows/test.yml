@@ -28,165 +28,167 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf dist tracky2-v0.12.1-deploy.zip
-          mkdir -p dist/tracky2-v0.12.1/src/games dist/tracky2-v0.12.1/docs dist/tracky2-v0.12.1/assets
-          cp manifest.webmanifest sw.js pwa.js index.html tracker.html launch.js games.html games.js vertical-motion.html participants.html diagnostics.html app.js vertical-motion.js room-tabs-controller.js agent-mode.js agent-presence.js participants.js participants-sidebar.js participants-stage.js participant-voice.js diagnostics.js styles.css participants-stage.css game-stage.css scene-analysis.css room-tabs.css agent-mode.css agent-presence.css README.md package.json dist/tracky2-v0.12.1/
-          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/camera-preference.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/scene-analysis.js src/player-activity.js src/visitor-session.js src/room-tabs-state.js src/agent-conversation.js src/agent-provider.js src/agent-presentation.js src/conversation-timeline.js src/room-event-core.js src/room-scene-graph.js src/room-scene-ui.js src/room-temporal-core.js src/room-acoustic-patterns.js src/transcript-correction.js src/agent-cognitive-core.js src/agent-proactive-core.js src/session-recall-core.js src/session-recall-ui.js src/agent-task-core.js src/agent-task-ui.js src/agent-memory-core.js src/agent-memory-ui.js src/server-sync-core.js src/room-ui-core.js src/runtime-resilience-core.js src/v011-release-core.js src/multimodal-identity-core.js src/speaker-diarization-core.js src/conversation-listening-core.js src/speaker-participant-core.js src/transcript-lifecycle-core.js src/multi-conversation-core.js src/meeting-core.js src/meeting-ui.js src/environmental-audio-core.js src/environmental-audio-engine.js src/spatial-calibration-core.js src/orb-spatial-core.js src/agent-shortcuts.js src/participant-audio-meter.js src/room-audio-audit.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.12.1/src/
-          cp src/games/random-follow-pattern.js src/games/pattern-setup.js src/games/reaction-challenge.js src/games/agent.js dist/tracky2-v0.12.1/src/games/
-          cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md docs/V010-RELEASE-ACCEPTANCE.md docs/V011-MASTER-PLAN.md docs/V011-RELEASE-ACCEPTANCE.md docs/V012-MASTER-PLAN.md dist/tracky2-v0.12.1/docs/
-          cp assets/tracky-mark.svg assets/icon-192.png assets/icon-512.png dist/tracky2-v0.12.1/assets/
-          mkdir -p dist/tracky2-v0.12.1/server
-          cp server/bootstrap.php server/install.php server/admin.php server/api.php server/providers.php server/session.php server/sync.js server/sync-api.php server/backup.php dist/tracky2-v0.12.1/server/
-          cp docs/SELFHOST-FOUNDATION.md docs/V09-AGENT-ROADMAP.md docs/V010-MASTER-PLAN.md docs/V011-MASTER-PLAN.md docs/DEVELOPMENT-STATUS.md dist/tracky2-v0.12.1/docs/
+          rm -rf dist tracky2-v0.12.2-deploy.zip
+          mkdir -p dist/tracky2-v0.12.2/src/games dist/tracky2-v0.12.2/docs dist/tracky2-v0.12.2/assets
+          cp manifest.webmanifest sw.js pwa.js index.html tracker.html launch.js games.html games.js vertical-motion.html participants.html diagnostics.html app.js vertical-motion.js room-tabs-controller.js agent-mode.js agent-presence.js participants.js participants-sidebar.js participants-stage.js participant-voice.js diagnostics.js styles.css participants-stage.css game-stage.css scene-analysis.css room-tabs.css agent-mode.css agent-presence.css README.md package.json dist/tracky2-v0.12.2/
+          cp src/launch-core.js src/tracker-core.js src/movement-core.js src/gameplay-core.js src/game-platform.js src/shared-board.js src/game-lobby.js src/camera-preference.js src/game-session.js src/game-input.js src/game-presenter.js src/color-controllers.js src/multiplayer-match.js src/controller-stability.js src/player-presence.js src/match-history.js src/hardware-diagnostics.js src/face-gallery.js src/face-preview.js src/roster-layout.js src/participant-core.js src/participant-store.js src/identity-engine.js src/room-tracking-core.js src/scene-analysis.js src/player-activity.js src/visitor-session.js src/room-tabs-state.js src/agent-conversation.js src/agent-provider.js src/agent-presentation.js src/conversation-timeline.js src/room-event-core.js src/room-scene-graph.js src/room-scene-ui.js src/room-temporal-core.js src/room-acoustic-patterns.js src/transcript-correction.js src/agent-cognitive-core.js src/agent-proactive-core.js src/session-recall-core.js src/session-recall-ui.js src/agent-task-core.js src/agent-task-ui.js src/agent-memory-core.js src/agent-memory-ui.js src/server-sync-core.js src/room-ui-core.js src/runtime-resilience-core.js src/v011-release-core.js src/multimodal-identity-core.js src/speaker-diarization-core.js src/continuous-fusion-core.js src/conversation-listening-core.js src/speaker-participant-core.js src/transcript-lifecycle-core.js src/multi-conversation-core.js src/meeting-core.js src/meeting-ui.js src/environmental-audio-core.js src/environmental-audio-engine.js src/spatial-calibration-core.js src/orb-spatial-core.js src/agent-shortcuts.js src/participant-audio-meter.js src/room-audio-audit.js src/voice-core.js src/voice-engine.js src/room-audio-engine.js src/room-audio-worklet.js src/model-config.js dist/tracky2-v0.12.2/src/
+          cp src/games/random-follow-pattern.js src/games/pattern-setup.js src/games/reaction-challenge.js src/games/agent.js dist/tracky2-v0.12.2/src/games/
+          cp docs/GAME-PLATFORM.md docs/hardware-acceptance.md docs/V010-RELEASE-ACCEPTANCE.md docs/V011-MASTER-PLAN.md docs/V011-RELEASE-ACCEPTANCE.md docs/V012-MASTER-PLAN.md dist/tracky2-v0.12.2/docs/
+          cp assets/tracky-mark.svg assets/icon-192.png assets/icon-512.png dist/tracky2-v0.12.2/assets/
+          mkdir -p dist/tracky2-v0.12.2/server
+          cp server/bootstrap.php server/install.php server/admin.php server/api.php server/providers.php server/session.php server/sync.js server/sync-api.php server/backup.php dist/tracky2-v0.12.2/server/
+          cp docs/SELFHOST-FOUNDATION.md docs/V09-AGENT-ROADMAP.md docs/V010-MASTER-PLAN.md docs/V011-MASTER-PLAN.md docs/DEVELOPMENT-STATUS.md dist/tracky2-v0.12.2/docs/
           cd dist
-          zip -r ../tracky2-v0.12.1-deploy.zip tracky2-v0.12.1
+          zip -r ../tracky2-v0.12.2-deploy.zip tracky2-v0.12.2
 
       - name: Verify deploy ZIP
         shell: bash
         run: |
           set -euo pipefail
-          unzip -t tracky2-v0.12.1-deploy.zip
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/multimodal-identity-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/speaker-diarization-core.js'
+          unzip -t tracky2-v0.12.2-deploy.zip
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/multimodal-identity-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/speaker-diarization-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/continuous-fusion-core.js'
+          node --input-type=module -e "import('./src/continuous-fusion-core.js').then(m=>{if(!m.recordVisualHistory||!m.visualSnapshotForWindow||!m.ContinuousSpeakerFusionTracker||!m.summarizeContinuousFusion)process.exit(1)})"
           node --input-type=module -e "import('./src/speaker-diarization-core.js').then(m=>{if(!m.createDiarizationWindows||!m.SpeakerDiarizationSession||!m.finalizeDiarization)process.exit(1)})"
           node --input-type=module -e "import('./src/multimodal-identity-core.js').then(m=>{if(!m.deriveMultimodalEvidence||!m.fuseMultimodalIdentity||!m.MultimodalFusionTracker)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/session-recall-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/session-recall-ui.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/session-recall-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/session-recall-ui.js'
           node --input-type=module -e "import('./src/session-recall-core.js').then(m=>{if(!m.buildRecallProjection||!m.searchRecall||!m.explainRecallResult)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-proactive-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-proactive-core.js'
           node --input-type=module -e "import('./src/agent-proactive-core.js').then(m=>{if(!m.ProactiveAgentGovernor||!m.followupOpportunity||!m.statusOpportunity)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/spatial-calibration-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/spatial-calibration-core.js'
           node --input-type=module -e "import('./src/spatial-calibration-core.js').then(m=>{if(!m.normalizeFloorCalibration||!m.calibratedTrackPosition||!m.listenerRelation)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/environmental-audio-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/environmental-audio-engine.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/environmental-audio-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/environmental-audio-engine.js'
           node --input-type=module -e "import('./src/environmental-audio-core.js').then(m=>{if(!m.EnvironmentalAudioQueue||!m.normalizeEnvironmentalPredictions||!m.EnvironmentalClassificationTracker)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/meeting-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/meeting-ui.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/meeting-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/meeting-ui.js'
           node --input-type=module -e "import('./src/meeting-core.js').then(m=>{if(!m.createMeetingRecord||!m.meetingTurns||!m.meetingSummary||!m.meetingAgentReplyPolicy)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/multi-conversation-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/multi-conversation-core.js'
           node --input-type=module -e "import('./src/multi-conversation-core.js').then(m=>{if(!m.multiConversationTurnFields||!m.multiParticipantReplyPolicy||!m.groupConversationContext||!m.agentHistoryForScope)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/transcript-lifecycle-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/transcript-lifecycle-core.js'
           node --input-type=module -e "import('./src/transcript-lifecycle-core.js').then(m=>{if(!m.TranscriptLifecycleController||!m.transcriptExport||!m.searchTranscriptTurns||!m.transcriptSessionSummaries)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/speaker-participant-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/speaker-participant-core.js'
           node --input-type=module -e "import('./src/speaker-participant-core.js').then(m=>{if(!m.resolveSpeakerAssociation||!m.SpeakerAssociationTracker||!m.speakerAssociationTurnFields)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/conversation-listening-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/V011-MASTER-PLAN.md'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/conversation-listening-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/V011-MASTER-PLAN.md'
           node --input-type=module -e "import('./src/conversation-listening-core.js').then(m=>{if(!m.ConversationListeningController||!m.replyEligibility||!m.segmentValidity)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/runtime-resilience-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/V010-RELEASE-ACCEPTANCE.md'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/runtime-resilience-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/V010-RELEASE-ACCEPTANCE.md'
           node --input-type=module -e "import('./src/runtime-resilience-core.js').then(m=>{if(!m.RuntimeBudget||!m.RecoveryBudget||!m.storagePressure||!m.releaseAcceptanceSummary)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-ui-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-ui-core.js'
           node --input-type=module -e "import('./src/room-ui-core.js').then(m=>{if(!m.roomUiOverview||!m.roomEventMatchesFilter)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/server-sync-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/sync-api.php'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/backup.php'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/server-sync-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/sync-api.php'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/backup.php'
           node --input-type=module -e "import('./src/server-sync-core.js').then(m=>{if(!m.planParticipantSync||!m.changeForServer)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-memory-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-memory-ui.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-memory-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-memory-ui.js'
           node --input-type=module -e "import('./src/agent-memory-core.js').then(m=>{if(!m.AgentMemoryLedger||!m.sessionContextReferences)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-task-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-task-ui.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-task-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-task-ui.js'
           node --input-type=module -e "import('./src/agent-task-core.js').then(m=>{if(!m.AgentTaskQueue||!m.executeRegisteredTask)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-cognitive-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-cognitive-core.js'
           node --input-type=module -e "import('./src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-acoustic-patterns.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/transcript-correction.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-temporal-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-acoustic-patterns.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/transcript-correction.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-temporal-core.js'
           node --input-type=module -e "import('./src/room-temporal-core.js').then(m=>{if(!m.RoomTemporalLedger)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-scene-graph.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-scene-ui.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-scene-graph.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-scene-ui.js'
           node --input-type=module -e "import('./src/room-scene-graph.js').then(m=>{if(m.ROOM_SCENE_SCHEMA!==2||!m.upsertRoomArea||!m.setRoomCalibration)process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/V010-MASTER-PLAN.md'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/DEVELOPMENT-STATUS.md'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-audio-audit.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F "tracky2-v0.12.1/src/model-config.js"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F "tracky2-v0.12.1/src/room-audio-worklet.js"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/games/random-follow-pattern.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/games/reaction-challenge.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/face-gallery.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/participants-sidebar.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/participants-stage.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/participants-stage.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/game-stage.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/scene-analysis.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/room-tabs.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/scene-analysis.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/player-activity.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/room-tabs-controller.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/visitor-session.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-tabs-state.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/agent-mode.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/agent-mode.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/games/agent.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-conversation.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-provider.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/camera-preference.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/roster-layout.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/face-preview.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/games.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/game-lobby.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/GAME-PLATFORM.md'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/V010-MASTER-PLAN.md'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/DEVELOPMENT-STATUS.md'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-audio-audit.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F "tracky2-v0.12.2/src/model-config.js"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F "tracky2-v0.12.2/src/room-audio-worklet.js"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/games/random-follow-pattern.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/games/reaction-challenge.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/face-gallery.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/participants-sidebar.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/participants-stage.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/participants-stage.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/game-stage.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/scene-analysis.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/room-tabs.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/scene-analysis.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/player-activity.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/room-tabs-controller.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/visitor-session.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-tabs-state.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/agent-mode.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/agent-mode.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/games/agent.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-conversation.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-provider.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/camera-preference.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/roster-layout.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/face-preview.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/games.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/game-lobby.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/GAME-PLATFORM.md'
           rm -rf dist/package-smoke
           mkdir -p dist/package-smoke
-          unzip -q tracky2-v0.12.1-deploy.zip -d dist/package-smoke
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/session-recall-core.js').then(m=>{if(!m.buildRecallProjection||!m.searchRecall||!m.explainRecallResult)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-proactive-core.js').then(m=>{if(!m.ProactiveAgentGovernor||!m.followupOpportunity||!m.statusOpportunity)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/spatial-calibration-core.js').then(m=>{if(!m.normalizeFloorCalibration||!m.calibratedTrackPosition||!m.listenerRelation)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/environmental-audio-core.js').then(m=>{if(!m.EnvironmentalAudioQueue||!m.normalizeEnvironmentalPredictions||!m.EnvironmentalClassificationTracker)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/meeting-core.js').then(m=>{if(!m.createMeetingRecord||!m.meetingSummary||!m.meetingAgentReplyPolicy)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/multi-conversation-core.js').then(m=>{if(!m.multiConversationTurnFields||!m.multiParticipantReplyPolicy||!m.groupConversationContext)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/transcript-lifecycle-core.js').then(m=>{if(!m.TranscriptLifecycleController||!m.transcriptExport||!m.searchTranscriptTurns)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/speaker-participant-core.js').then(m=>{if(!m.resolveSpeakerAssociation||!m.SpeakerAssociationTracker)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/conversation-listening-core.js').then(m=>{if(!m.ConversationListeningController||!m.replyEligibility||!m.segmentValidity)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/runtime-resilience-core.js').then(m=>{if(!m.RuntimeBudget||!m.RecoveryBudget||!m.storagePressure)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/room-ui-core.js').then(m=>{if(!m.roomUiOverview||!m.roomEventMatchesFilter)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/server-sync-core.js').then(m=>{if(!m.planParticipantSync||!m.changeForServer)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-memory-core.js').then(m=>{if(!m.AgentMemoryLedger||!m.sessionContextReferences)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-task-core.js').then(m=>{if(!m.AgentTaskQueue||!m.executeRegisteredTask)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/game-lobby.js').then(m => { if (!m.validateLobbySelection || !m.roundRosterPreview) process.exit(1); })"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/tracker.html'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/assets/tracky-mark.svg'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/assets/icon-512.png'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/sw.js'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/games/reaction-challenge.js').then(m => { if (!m.reactionChallengeGame || m.reactionChallengeGame.id !== 'reaction-challenge') process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/roster-layout.js').then(m => { if (m.rosterView({wide:false,mobileOpen:true}).state !== 'mobile-open') process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/camera-preference.js').then(m => { if (!m.cameraAutostartEligible({optIn:true,permission:'granted'}) || m.cameraAutostartEligible({optIn:true,permission:'prompt'})) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/scene-analysis.js').then(m => { if (!m.cameraFacingPoint || !m.stablePublicTracks) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/player-activity.js').then(m => { if (!m.activityEvent || m.MAX_ACTIVITY_ITEMS !== 36) process.exit(1); })"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/visitor-session.js').then(m=>{if(!m.createVisitorSession || !m.reconcileVisitors || !m.promoteVisitorTurn) process.exit(1);})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/room-tabs-state.js').then(m=>{if(m.nextRoomTab('dialogue','activity')!=='activity') process.exit(1);})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/games/agent.js').then(m=>{if(m.agentGame.createSession().requiresBoard!==false) process.exit(1);})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-provider.js').then(m=>{if(m.validateLocalAgentEndpoint('http://localhost:11434')!=='http://localhost:11434') process.exit(1);})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/agent-presence.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/agent-presence.css'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-presentation.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/participant-audio-meter.js'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('dialogue','agent')!=='agent'||!m.orbPresentation({view:'orb',speaking:true}).orbSpeaking)process.exit(1);})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/conversation-timeline.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/room-event-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/orb-spatial-core.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/src/agent-shortcuts.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/V09-AGENT-ROADMAP.md'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.1/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('agent','ArrowRight')!=='meeting'||m.nextAgentTab('meeting','ArrowRight')!=='room')process.exit(1)})"
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/install.php'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/admin.php'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/session.php'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/server/sync.js'
-          unzip -l tracky2-v0.12.1-deploy.zip | grep -F 'tracky2-v0.12.1/docs/SELFHOST-FOUNDATION.md'
-          sha256sum tracky2-v0.12.1-deploy.zip | tee tracky2-v0.12.1-deploy.zip.sha256
+          unzip -q tracky2-v0.12.2-deploy.zip -d dist/package-smoke
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/session-recall-core.js').then(m=>{if(!m.buildRecallProjection||!m.searchRecall||!m.explainRecallResult)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-proactive-core.js').then(m=>{if(!m.ProactiveAgentGovernor||!m.followupOpportunity||!m.statusOpportunity)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/spatial-calibration-core.js').then(m=>{if(!m.normalizeFloorCalibration||!m.calibratedTrackPosition||!m.listenerRelation)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/environmental-audio-core.js').then(m=>{if(!m.EnvironmentalAudioQueue||!m.normalizeEnvironmentalPredictions||!m.EnvironmentalClassificationTracker)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/meeting-core.js').then(m=>{if(!m.createMeetingRecord||!m.meetingSummary||!m.meetingAgentReplyPolicy)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/multi-conversation-core.js').then(m=>{if(!m.multiConversationTurnFields||!m.multiParticipantReplyPolicy||!m.groupConversationContext)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/transcript-lifecycle-core.js').then(m=>{if(!m.TranscriptLifecycleController||!m.transcriptExport||!m.searchTranscriptTurns)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/speaker-participant-core.js').then(m=>{if(!m.resolveSpeakerAssociation||!m.SpeakerAssociationTracker)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/conversation-listening-core.js').then(m=>{if(!m.ConversationListeningController||!m.replyEligibility||!m.segmentValidity)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/runtime-resilience-core.js').then(m=>{if(!m.RuntimeBudget||!m.RecoveryBudget||!m.storagePressure)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/room-ui-core.js').then(m=>{if(!m.roomUiOverview||!m.roomEventMatchesFilter)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/server-sync-core.js').then(m=>{if(!m.planParticipantSync||!m.changeForServer)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-memory-core.js').then(m=>{if(!m.AgentMemoryLedger||!m.sessionContextReferences)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-task-core.js').then(m=>{if(!m.AgentTaskQueue||!m.executeRegisteredTask)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/game-lobby.js').then(m => { if (!m.validateLobbySelection || !m.roundRosterPreview) process.exit(1); })"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/tracker.html'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/assets/tracky-mark.svg'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/assets/icon-512.png'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/sw.js'
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/games/reaction-challenge.js').then(m => { if (!m.reactionChallengeGame || m.reactionChallengeGame.id !== 'reaction-challenge') process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/roster-layout.js').then(m => { if (m.rosterView({wide:false,mobileOpen:true}).state !== 'mobile-open') process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/camera-preference.js').then(m => { if (!m.cameraAutostartEligible({optIn:true,permission:'granted'}) || m.cameraAutostartEligible({optIn:true,permission:'prompt'})) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/scene-analysis.js').then(m => { if (!m.cameraFacingPoint || !m.stablePublicTracks) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/player-activity.js').then(m => { if (!m.activityEvent || m.MAX_ACTIVITY_ITEMS !== 36) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/visitor-session.js').then(m=>{if(!m.createVisitorSession || !m.reconcileVisitors || !m.promoteVisitorTurn) process.exit(1);})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/room-tabs-state.js').then(m=>{if(m.nextRoomTab('dialogue','activity')!=='activity') process.exit(1);})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/games/agent.js').then(m=>{if(m.agentGame.createSession().requiresBoard!==false) process.exit(1);})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-provider.js').then(m=>{if(m.validateLocalAgentEndpoint('http://localhost:11434')!=='http://localhost:11434') process.exit(1);})"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/agent-presence.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/agent-presence.css'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-presentation.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/participant-audio-meter.js'
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('dialogue','agent')!=='agent'||!m.orbPresentation({view:'orb',speaking:true}).orbSpeaking)process.exit(1);})"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/conversation-timeline.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/room-event-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/orb-spatial-core.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/src/agent-shortcuts.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/V09-AGENT-ROADMAP.md'
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.12.2/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('agent','ArrowRight')!=='meeting'||m.nextAgentTab('meeting','ArrowRight')!=='room')process.exit(1)})"
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/install.php'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/admin.php'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/session.php'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/server/sync.js'
+          unzip -l tracky2-v0.12.2-deploy.zip | grep -F 'tracky2-v0.12.2/docs/SELFHOST-FOUNDATION.md'
+          sha256sum tracky2-v0.12.2-deploy.zip | tee tracky2-v0.12.2-deploy.zip.sha256
 
       - name: Upload deploy ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: tracky2-v0.12.1-deploy
+          name: tracky2-v0.12.2-deploy
           path: |
-            tracky2-v0.12.1-deploy.zip
-            tracky2-v0.12.1-deploy.zip.sha256
+            tracky2-v0.12.2-deploy.zip
+            tracky2-v0.12.2-deploy.zip.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -200,20 +202,20 @@ jobs:
         run: |
           set -euo pipefail
           # Documentation-only merges must not try to recreate an existing immutable release.
-          if gh release view v0.12.1 >/dev/null 2>&1; then
-            echo 'v0.12.1 already published; leaving its original assets untouched.'
+          if gh release view v0.12.2 >/dev/null 2>&1; then
+            echo 'v0.12.2 already published; leaving its original assets untouched.'
             exit 0
           fi
-          gh release create v0.12.1 \
-            tracky2-v0.12.1-deploy.zip \
-            tracky2-v0.12.1-deploy.zip.sha256 \
+          gh release create v0.12.2 \
+            tracky2-v0.12.2-deploy.zip \
+            tracky2-v0.12.2-deploy.zip.sha256 \
             --target "$GITHUB_SHA" \
-            --title "Tracky2 v0.12.1 — Session Recall, Search and Explainability" \
+            --title "Tracky2 v0.12.2 — Session Recall, Search and Explainability" \
             --notes "V0.11 Section 11I: standalone Session Recall, Search and Explainability reads the existing canonical dialogue, effective ROOM events, meeting metadata, task metadata, active owner-authored memory and existing AGENT reply history at search time. It creates no persistent search index. Transcript corrections and ROOM replacements are reflected from current canonical records; retractions, revocations and deletions disappear; meeting/task references expose stale-source state instead of reconstructing missing content. Search supports strict participant scope, current-vs-historical scope, cross-source decision filtering and per-result provenance/reference explanations. No new media path, transcript authority, external network dependency, VP3 Cloud/HomeServer integration or hidden durable memory is introduced."
-          gh release view v0.12.1 --json assets \
-            --jq '.assets[].name' | grep -Fx 'tracky2-v0.12.1-deploy.zip'
-          gh release view v0.12.1 --json assets \
-            --jq '.assets[].name' | grep -Fx 'tracky2-v0.12.1-deploy.zip.sha256'
+          gh release view v0.12.2 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.12.2-deploy.zip'
+          gh release view v0.12.2 --json assets \
+            --jq '.assets[].name' | grep -Fx 'tracky2-v0.12.2-deploy.zip.sha256'
 
   php-foundation:
     runs-on: ubuntu-latest
