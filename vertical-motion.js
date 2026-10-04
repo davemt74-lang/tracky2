@@ -1285,6 +1285,9 @@ async function reloadIdentityParticipants() {
        currentSpeaker?'voice-recognition-disabled':'participant-record-unavailable'
       ];
       state.voice.currentAssociationTransition=null;
+      state.voice.currentConversationAttention='unknown';
+      state.voice.currentConversationGroupSize=1;
+      state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
       speakerAssociationTracker.reset();
       renderVoiceHud();
     }
@@ -1301,6 +1304,9 @@ async function reloadIdentityParticipants() {
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['participant-store-unavailable'];
     state.voice.currentAssociationTransition=null;
+    state.voice.currentConversationAttention='unknown';
+    state.voice.currentConversationGroupSize=1;
+    state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
     speakerAssociationTracker.reset();
     refreshPlayerChoices();
     ui.multiplayerSetupStatus.textContent='Could not read participant profiles from local browser storage: '+error.message;
