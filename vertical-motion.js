@@ -65,6 +65,10 @@ import {
  speakerAssociationTurnFields
 } from './src/speaker-participant-core.js';
 import {
+ TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
+ transcriptExport,transcriptSessionSummaries
+} from './src/transcript-lifecycle-core.js';
+import {
   clearDialogueTurns,
   deleteDialogueTurn,
   listDialogueTurns,
@@ -159,6 +163,12 @@ const ui = {
   roomSpeakerAssociation: $('#roomSpeakerAssociation'),
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
   transcriptModelState: $('#transcriptModelState'),
+  transcriptSearch: $('#transcriptSearch'),
+  transcriptSearchRun: $('#transcriptSearchRun'),
+  transcriptExportSession: $('#transcriptExportSession'),
+  transcriptExportAll: $('#transcriptExportAll'),
+  transcriptSessionSummary: $('#transcriptSessionSummary'),
+  transcriptSearchResults: $('#transcriptSearchResults'),
   roomEvents: $('#roomEvents'),
   dialogueTurns: $('#dialogueTurns'),
   startRoomAudio: $('#startRoomAudio'),
@@ -211,6 +221,7 @@ const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
+const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
@@ -492,6 +503,9 @@ const state = {
     speakerLoading: false,
     transcriptReady: false,
     transcriptLoading: false,
+    currentTranscriptState: 'idle',
+    currentTranscriptSegmentId: null,
+    currentTranscriptModelRevision: null,
     processing: false,
     micDb: -100,
     noiseFloorDb: -60,
