@@ -612,6 +612,16 @@ async function watchMediaPermission(name){
    renderRuntimeHealth(true);
    if(before!==mediaPermissions[name]&&state.mode==='agent'){
     logRoomMessage('system',name+' permission changed to '+mediaPermissions[name],'permission-lifecycle');
+    if(mediaPermissions[name]==='denied'){
+     if(name==='camera'&&state.running){
+      cameraRecoveryPending=true;stopCamera();
+      roomSensorState('camera','degraded','Camera permission revoked · participant absence not inferred');
+     }
+     if(name==='microphone'&&state.voice.active){
+      microphoneRecoveryPending=true;stopRoomAudio();
+      roomSensorState('microphone','degraded','Microphone permission revoked · room silence not inferred');
+     }
+    }
     if(mediaPermissions[name]==='granted'){
      if(name==='camera'&&cameraRecoveryPending)void scheduleCameraRecovery('permission-restored');
      if(name==='microphone'&&microphoneRecoveryPending)void scheduleMicrophoneRecovery('permission-restored');
