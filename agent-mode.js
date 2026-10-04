@@ -155,6 +155,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   speech.speak(utterance);
  }
  function greet(track,person){
+  if(getMeeting()?.status==='active')return false;
   if(!person?.id||!track?.participantId||
     track.participantId!==person.id||
     person.recognitionEnabled===false||
@@ -239,6 +240,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
       });
       if(responseToken!==responseGeneration||open)return;
       if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
+      if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
       say(reply,turn.participantId||null,turn.conversationScopeId||null);
       ui.modelStatus.textContent='Local model connected · scoped conversation';
       return;
@@ -253,6 +255,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    }
    if(responseToken!==responseGeneration||open)return;
    if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
+   if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
    const reply=localAgentReply(turn.transcript,{name:verifiedMemoryScope?(known?.name||''):'',previousTopics:recent,memories:memoryContext});
    if(reply)say(reply,turn.participantId||null,turn.conversationScopeId||null);
@@ -393,7 +396,16 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
- return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,setCameraActive(active){
+ return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
+  onMeetingChange(meeting){
+   responseGeneration+=1;responsePending=false;modelController?.abort();stopSpeech();
+   ui.modelStatus.textContent=meeting?.status==='active'
+    ? (meeting.agentPolicy==='listen-only'
+      ? 'Meeting active · AGENT listen-only'
+      : 'Meeting active · AGENT replies only when explicitly addressed')
+    : 'Meeting boundary changed · stale meeting replies cancelled';
+  },
+  setCameraActive(active){
   if(!active){ui.box.replaceChildren();ui.scene.textContent='Camera offline';
    window.dispatchEvent(new CustomEvent('tracky:agent-room-tracks',{detail:{target:null}}));}
   ui.camStart.disabled=active;ui.camStop.disabled=!active;
