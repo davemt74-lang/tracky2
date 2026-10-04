@@ -64,7 +64,10 @@ try{
             $resolution=(string)($change['resolution']??'');
             if($resolution!==''&&$resolution!=='browser')throw new InvalidArgumentException('Invalid conflict resolution.');
             $current=tracky_sync_select($db,$id);$currentVersion=$current?(int)$current['version']:0;
-            if($baseVersion!==$currentVersion&&$resolution!=='browser'){
+            // Even an explicit "keep browser" decision is scoped to the server
+            // version the owner actually reviewed. A newer unseen server change
+            // re-opens the conflict instead of being overwritten.
+            if($baseVersion!==$currentVersion){
                 $results[]=['id'=>$id,'status'=>'conflict','server'=>$current?tracky_sync_record($current):null];
                 continue;
             }
