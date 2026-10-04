@@ -58,7 +58,8 @@ export function normalizeFloorCalibration(input){
  }
  const ordered=FLOOR_POINT_KEYS.map(key=>points[key]);
  if(!quadrilateralValid(ordered))return null;
- const listener=listenerAnchor(input.listener,dims);
+ const listener=input.listener==null?null:listenerAnchor(input.listener,dims);
+ if(input.listener!=null&&!listener)return null;
  const updatedAt=finite(input.updatedAt)?input.updatedAt:Date.now();
  return Object.freeze({
   schema:FLOOR_CALIBRATION_SCHEMA,mode:'floor-plane',
