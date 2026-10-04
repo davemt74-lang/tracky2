@@ -107,7 +107,7 @@ test('12B runtime uses the existing VoiceIdentityEngine and existing room segmen
  const audio=fs.readFileSync('src/room-audio-engine.js','utf8');
  const core=fs.readFileSync('src/speaker-diarization-core.js','utf8');
  assert.match(runtime,/createDiarizationWindows\(segment\.samples/);
- assert.match(runtime,/diarizationSession\.assign\(/);
+ assert.match(runtime,/working\.assign\(/);
  assert.match(runtime,/diarizationTurnFields\(/);
  assert.equal((runtime.match(/new RoomAudioCapture\(/g)||[]).length,1);
  assert.equal((audio.match(/getUserMedia\(/g)||[]).length,1);
