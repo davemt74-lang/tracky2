@@ -284,11 +284,22 @@ export async function pruneDialogueTurns(maxRows = MAX_DIALOGUE_TURNS) {
 }
 
 export async function saveDialogueTurn(input) {
+  if(!input||typeof input!=='object')throw new TypeError('Invalid dialogue turn.');
+  if(['pending','partial','cancelled'].includes(input.transcriptState))
+    throw new Error('Ephemeral transcript lifecycle state cannot be persisted.');
+  const {
+    partialText:discardPartial,samples:discardSamples,pcm:discardPcm,
+    rawAudio:discardRawAudio,audio:discardAudio,...safeInput
+  }=input;
+  const transcript=String(safeInput.transcript||'').trim();
   const record = {
-    ...input,
-    id: input.id || cryptoRandomId(),
-    sessionId: input.sessionId || 'room-session',
-    createdAt: input.createdAt || new Date().toISOString()
+    ...safeInput,
+    transcript,
+    transcriptState:safeInput.transcriptState||
+      (safeInput.transcriptEditedAt?'corrected':transcript?'final':'unavailable'),
+    id: safeInput.id || cryptoRandomId(),
+    sessionId: safeInput.sessionId || 'room-session',
+    createdAt: safeInput.createdAt || new Date().toISOString()
   };
 
   await storeAction(DIALOGUE, 'readwrite', async (store) => {

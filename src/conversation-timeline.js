@@ -15,7 +15,14 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    associationState:String(t.associationState||(
     verified?(t.attribution==='voice+body'?'verified-voice+body':'verified-voice-only'):'unknown-speaker')),
    associationProvenance:Array.isArray(t.associationProvenance)?t.associationProvenance.slice(0,8):[],
-   associationTransition:t.associationTransition||null};
+   associationTransition:t.associationTransition||null,
+   transcriptState:String(t.transcriptState||(t.transcriptEditedAt?'corrected':'final')),
+   transcriptSource:String(t.transcriptSource||'local-whisper'),
+   transcriptModelId:t.transcriptModelId||null,
+   transcriptModelRevision:t.transcriptModelRevision||null,
+   transcriptConfidence:Number.isFinite(t.transcriptConfidence)?t.transcriptConfidence:null,
+   transcriptCaptureDurationMs:Number.isFinite(t.transcriptCaptureDurationMs)?t.transcriptCaptureDurationMs:null,
+   transcriptProcessingDurationMs:Number.isFinite(t.transcriptProcessingDurationMs)?t.transcriptProcessingDurationMs:null};
  });
  // Remove historical duplicated participant entries in AGENT localStorage.
  // Canonical IndexedDB transcript changes/deletion must never resurrect stale copies.

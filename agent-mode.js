@@ -85,7 +85,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     note.textContent=entry.verified
       ? 'Speaker link · '+speakerAssociationLabel(entry.associationState)
       : 'Speaker unverified · '+speakerAssociationLabel(entry.associationState);
-    bubble.append(note);
+    const transcriptMeta=document.createElement('small');
+    transcriptMeta.className='agent-transcript-provenance';
+    const bits=[String(entry.transcriptState||'final').toUpperCase(),
+      entry.transcriptSource||'local-whisper'];
+    if(entry.transcriptModelRevision)bits.push('rev '+String(entry.transcriptModelRevision).slice(0,8));
+    if(Number.isFinite(entry.transcriptProcessingDurationMs))
+      bits.push(Math.round(entry.transcriptProcessingDurationMs)+'ms');
+    transcriptMeta.textContent='Transcript · '+bits.join(' · ');
+    bubble.append(note,transcriptMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

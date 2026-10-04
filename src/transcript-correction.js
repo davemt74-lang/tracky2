@@ -11,13 +11,23 @@ export function reviseTranscriptRecord(turn,replacement,at=Date.now()){
  if(!text||text.length>MAX_TRANSCRIPT_LENGTH)
   throw new RangeError('Transcript correction must be 1–800 characters.');
  if(text===turn.transcript.trim())throw new RangeError('Transcript text is unchanged.');
- const revision=Object.freeze({at,previous:turn.transcript});
+ const revision=Object.freeze({
+  at,previous:turn.transcript,
+  previousState:String(turn.transcriptState||'final').slice(0,32)
+ });
  const previous=Array.isArray(turn.transcriptRevisions)?
   turn.transcriptRevisions.filter(r=>r&&Number.isFinite(r.at)&&typeof r.previous==='string'):[];
  return Object.freeze({...turn,
   transcript:text,originalTranscript:typeof turn.originalTranscript==='string'?
    turn.originalTranscript:turn.transcript,
+  transcriptState:'corrected',
   transcriptRevisions:Object.freeze([...previous,revision].slice(-MAX_TRANSCRIPT_REVISIONS)),
-  transcriptEditedAt:new Date(at).toISOString(),transcriptEditedBy:'local-owner'
+  transcriptEditedAt:new Date(at).toISOString(),transcriptEditedBy:'local-owner',
+  transcriptCorrectionProvenance:Object.freeze({
+   source:'local-owner',
+   originalSource:String(turn.transcriptSource||'local-whisper').slice(0,64),
+   originalModelId:String(turn.transcriptModelId||'').slice(0,160)||null,
+   originalModelRevision:String(turn.transcriptModelRevision||'').slice(0,80)||null
+  })
  });
 }

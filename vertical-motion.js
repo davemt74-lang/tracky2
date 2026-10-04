@@ -65,6 +65,10 @@ import {
  speakerAssociationTurnFields
 } from './src/speaker-participant-core.js';
 import {
+ TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
+ transcriptExport,transcriptSessionSummaries
+} from './src/transcript-lifecycle-core.js';
+import {
   clearDialogueTurns,
   deleteDialogueTurn,
   listDialogueTurns,
@@ -159,6 +163,12 @@ const ui = {
   roomSpeakerAssociation: $('#roomSpeakerAssociation'),
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
   transcriptModelState: $('#transcriptModelState'),
+  transcriptSearch: $('#transcriptSearch'),
+  transcriptSearchRun: $('#transcriptSearchRun'),
+  transcriptExportSession: $('#transcriptExportSession'),
+  transcriptExportAll: $('#transcriptExportAll'),
+  transcriptSessionSummary: $('#transcriptSessionSummary'),
+  transcriptSearchResults: $('#transcriptSearchResults'),
   roomEvents: $('#roomEvents'),
   dialogueTurns: $('#dialogueTurns'),
   startRoomAudio: $('#startRoomAudio'),
@@ -211,6 +221,7 @@ const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
+const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionId='room-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTimelineFilter='all';
@@ -492,6 +503,9 @@ const state = {
     speakerLoading: false,
     transcriptReady: false,
     transcriptLoading: false,
+    currentTranscriptState: 'idle',
+    currentTranscriptSegmentId: null,
+    currentTranscriptModelRevision: null,
     processing: false,
     micDb: -100,
     noiseFloorDb: -60,
@@ -1857,13 +1871,21 @@ function renderVoiceHud() {
   })[listening.state]||'Voice standby';
   renderListeningHealth();
 
+  const transcriptLifecycleLabel={
+    pending:'Transcribing…',partial:'Partial transcript · ephemeral',
+    final:'Transcript final',corrected:'Transcript corrected',
+    cancelled:'Transcript cancelled',unavailable:'Transcript unavailable'
+  }[state.voice.currentTranscriptState];
   ui.transcriptModelState.textContent = !ui.liveTranscription.checked
     ? 'Transcription off'
-    : state.voice.transcriptReady
-      ? 'Local transcription online'
-      : state.voice.transcriptLoading
-        ? 'Loading transcription…'
-        : 'Loads on first accepted turn';
+    : transcriptLifecycleLabel
+      ? transcriptLifecycleLabel+(state.voice.currentTranscriptModelRevision
+        ? ' · '+state.voice.currentTranscriptModelRevision.slice(0,8):'')
+      : state.voice.transcriptReady
+        ? 'Local transcription online'
+        : state.voice.transcriptLoading
+          ? 'Loading transcription…'
+          : 'Loads on first accepted turn';
 }
 
 function renderDialogueTurns() {
@@ -1914,8 +1936,19 @@ function renderDialogueTurns() {
       turn.nearbyParticipantNames?.length?
         'Nearby: '+turn.nearbyParticipantNames.join(', ')+' · speaker not verified':
       'Speaker not matched · no reliable person association yet';
+    const transcriptMeta=document.createElement('small');
+    const transcriptBits=[
+      String(turn.transcriptState||(turn.transcriptEditedAt?'corrected':'final')).toUpperCase(),
+      turn.transcriptSource||'local-whisper'
+    ];
+    if(turn.transcriptModelRevision)transcriptBits.push('rev '+String(turn.transcriptModelRevision).slice(0,8));
+    if(Number.isFinite(turn.transcriptCaptureDurationMs))
+      transcriptBits.push((turn.transcriptCaptureDurationMs/1000).toFixed(1)+'s capture');
+    if(Number.isFinite(turn.transcriptProcessingDurationMs))
+      transcriptBits.push(Math.round(turn.transcriptProcessingDurationMs)+'ms process');
+    transcriptMeta.textContent='Transcript · '+transcriptBits.join(' · ');
 
-    card.append(top, transcript, context);
+    card.append(top, transcript, context,transcriptMeta);
     ui.dialogueTurns.append(card);
   }
 }
@@ -2095,14 +2128,58 @@ async function processRoomSegment(segment) {
       return;
     }
 
-    let transcript = '';
-    if (ui.liveTranscription.checked) {
-      const transcriptReady = await ensureTranscriptionEngine();
-      if (transcriptReady && voiceSegmentIsCurrent(segment)) {
-        transcript = await state.voice.transcriber.transcribe(segment.samples);
-        if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+    let transcript='';
+    let transcriptRecord=null;
+    if(ui.liveTranscription.checked){
+      transcriptLifecycle.begin({
+        segmentId:segment.segmentId,generation:segment.generation,
+        sessionId:state.voice.sessionId,source:'local-whisper',
+        captureDurationMs:segment.captureDurationMs,at:Date.now()
+      });
+      state.voice.currentTranscriptState='pending';
+      state.voice.currentTranscriptSegmentId=segment.segmentId;
+      state.voice.currentTranscriptModelRevision=null;
+      renderVoiceHud();
+
+      const transcriptReady=await ensureTranscriptionEngine();
+      if(!voiceSegmentIsCurrent(segment)){
+        transcriptLifecycle.cancel(segment.segmentId,'segment-invalidated',Date.now());
+        state.voice.currentTranscriptState='cancelled';
+        outcome='cancelled';return;
       }
+      if(transcriptReady){
+        const detail=await state.voice.transcriber.transcribeDetailed(segment.samples);
+        if(!voiceSegmentIsCurrent(segment)){
+          transcriptLifecycle.cancel(segment.segmentId,'stale-transcription-result',Date.now());
+          state.voice.currentTranscriptState='cancelled';
+          outcome='cancelled';return;
+        }
+        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+          text:detail.text,confidence:detail.confidence,language:detail.language,
+          source:detail.source,modelId:detail.modelId,modelRevision:detail.modelRevision,
+          processingDurationMs:detail.processingDurationMs,at:detail.completedAt
+        });
+        transcript=transcriptRecord?.text||'';
+        state.voice.currentTranscriptState=transcriptRecord?.state||'unavailable';
+        state.voice.currentTranscriptModelRevision=transcriptRecord?.modelRevision||null;
+      }else{
+        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+          text:'',source:'local-whisper',at:Date.now()
+        });
+        state.voice.currentTranscriptState='unavailable';
+      }
+      renderVoiceHud();
+    }else{
+      transcriptRecord={
+        state:'unavailable',source:'disabled',segmentId:segment.segmentId,
+        sessionId:state.voice.sessionId,captureDurationMs:segment.captureDurationMs,
+        completedAt:Date.now()
+      };
+      state.voice.currentTranscriptState='unavailable';
+      state.voice.currentTranscriptSegmentId=segment.segmentId;
+      state.voice.currentTranscriptModelRevision=null;
     }
+    const transcriptFields=canonicalTranscriptFields(transcriptRecord);
 
     const associationTransition=speakerAssociationTracker.preview(association,Date.now());
     state.voice.currentAssociationTransition=associationTransition?.type||null;
@@ -2122,7 +2199,8 @@ async function processRoomSegment(segment) {
       }
     }
     const associationFields=speakerAssociationTurnFields(association);
-    let turn = createSpeakerTurn({
+    let turn = {
+     ...createSpeakerTurn({
       participantId: association.participantId,
       participantName: participant?.name || null,
       trackId: association.trackId,
@@ -2144,12 +2222,18 @@ async function processRoomSegment(segment) {
        type:associationTransition.type,fromState:associationTransition.fromState,
        toState:associationTransition.toState,at:associationTransition.at
       }:null
-    });
+     }),
+     ...transcriptFields
+    };
     if(nearestVisitor)turn=associateVisitorTurn(turn,nearestVisitor);
     if(nearestEnrolled && !participant)
       turn={...turn,speakerAssociation:'nearby-identified-person-unverified'};
     turn.at=Date.now();
-    if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+    if (!voiceSegmentIsCurrent(segment)){
+      transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
+      state.voice.currentTranscriptState='cancelled';
+      outcome='cancelled';return;
+    }
 
     let savedTurn;
     try {
@@ -2159,6 +2243,8 @@ async function processRoomSegment(segment) {
         createdAt: new Date().toISOString()
       });
     } catch (error) {
+      transcriptLifecycle.cancel(segment.segmentId,'dialogue-save-failed',Date.now());
+      state.voice.currentTranscriptState='cancelled';
       outcome='failed';
       state.voice.lastDecision='dialogue-save-failed';
       console.error('Could not persist dialogue turn', error);
@@ -2167,6 +2253,8 @@ async function processRoomSegment(segment) {
     }
 
     if (!voiceSegmentIsCurrent(segment)) {
+      transcriptLifecycle.cancel(segment.segmentId,'post-persistence-stale',Date.now());
+      state.voice.currentTranscriptState='cancelled';
       outcome='cancelled';
       await deleteDialogueTurn(savedTurn.id).catch(() => {});
       return;
@@ -2189,6 +2277,7 @@ async function processRoomSegment(segment) {
 
     state.voice.turns.push(savedTurn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
+    void refreshTranscriptSessionSummary();
     state.voice.lastDecision = 'accepted';
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
@@ -2204,6 +2293,7 @@ async function processRoomSegment(segment) {
     console.error(error);
     pushRoomEvent('Speech turn could not be analyzed.', 'error');
   } finally {
+    transcriptLifecycle.forget(segment?.segmentId);
     state.voice.processing = false;
     listeningController.complete(segment,outcome,Date.now());
     renderVoiceHud();
@@ -2255,10 +2345,102 @@ function onRoomAudioSegment(segment) {
   void drainRoomAudioQueue();
 }
 
+function transcriptParticipantName(turn){
+ const person=turn?.participantId?participantById(turn.participantId):null;
+ return turn?.participantId?(person?.nickname||person?.name||turn.participantName||'Participant'):'Unknown speaker';
+}
+
+function renderTranscriptSearchResults(matches=[],query=''){
+ if(!ui.transcriptSearchResults)return;
+ ui.transcriptSearchResults.replaceChildren();
+ if(!query){
+  ui.transcriptSearchResults.hidden=true;return;
+ }
+ ui.transcriptSearchResults.hidden=false;
+ if(!matches.length){
+  const empty=document.createElement('p');
+  empty.className='dialogue-empty';empty.textContent='No canonical transcripts match “'+query+'”.';
+  ui.transcriptSearchResults.append(empty);return;
+ }
+ for(const turn of matches){
+  const row=document.createElement('article');row.className='transcript-search-result';
+  const name=document.createElement('strong');name.textContent=transcriptParticipantName(turn);
+  const text=document.createElement('p');text.textContent=turn.transcript;
+  const meta=document.createElement('small');
+  const at=Date.parse(turn.createdAt||'')||Number(turn.at||0);
+  meta.textContent=(Number.isFinite(at)&&at>0?new Date(at).toLocaleString():'Unknown time')+
+   ' · '+String(turn.transcriptState||(turn.transcriptEditedAt?'corrected':'final')).toUpperCase()+
+   ' · '+String(turn.sessionId||'room-session');
+  row.append(name,text,meta);ui.transcriptSearchResults.append(row);
+ }
+}
+
+async function runTranscriptSearch(){
+ const query=String(ui.transcriptSearch?.value||'').trim();
+ if(!query){renderTranscriptSearchResults([],'');return;}
+ try{
+  const rows=await listDialogueTurns();
+  const matches=searchTranscriptTurns(rows,query,{limit:30});
+  renderTranscriptSearchResults(matches,query);
+  if(ui.transcriptSessionSummary)
+   ui.transcriptSessionSummary.textContent=matches.length+' result'+(matches.length===1?'':'s')+
+    ' · canonical local transcript search';
+ }catch(error){
+  console.error('Transcript search failed',error);
+  if(ui.transcriptSessionSummary)ui.transcriptSessionSummary.textContent='Transcript search unavailable.';
+ }
+}
+
+async function refreshTranscriptSessionSummary(rows=null){
+ if(!ui.transcriptSessionSummary)return;
+ try{
+  const all=rows||await listDialogueTurns();
+  const summaries=transcriptSessionSummaries(all);
+  const current=summaries.find(item=>item.sessionId===state.voice.sessionId);
+  const total=all.filter(turn=>String(turn.transcript||'').trim()).length;
+  ui.transcriptSessionSummary.textContent=current
+   ? 'Current session · '+current.transcriptCount+' transcript'+(current.transcriptCount===1?'':'s')+
+     (current.correctedCount?' · '+current.correctedCount+' corrected':'')+
+     ' · '+total+' searchable on device'
+   : total+' searchable transcript'+(total===1?'':'s')+' on this device · current session empty';
+ }catch(error){
+  console.error('Transcript session summary failed',error);
+  ui.transcriptSessionSummary.textContent='Transcript session summary unavailable.';
+ }
+}
+
+function downloadTranscriptJson(payload,scope){
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);
+ const link=document.createElement('a');
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+ link.href=url;link.download='tracky2-transcripts-'+scope+'-'+stamp+'.json';
+ link.hidden=true;document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+
+async function exportCanonicalTranscripts(all=false){
+ try{
+  const rows=await listDialogueTurns();
+  const payload=transcriptExport(rows,state.identity.participants,{
+   sessionId:all?null:state.voice.sessionId,includeUnknown:true
+  });
+  downloadTranscriptJson(payload,all?'all':'session');
+  if(ui.transcriptSessionSummary)
+   ui.transcriptSessionSummary.textContent='Exported '+payload.turnCount+
+    ' canonical transcript'+(payload.turnCount===1?'':'s')+
+    ' · text/provenance only · no audio, photos or biometrics';
+ }catch(error){
+  console.error('Transcript export failed',error);
+  if(ui.transcriptSessionSummary)ui.transcriptSessionSummary.textContent='Transcript export unavailable.';
+ }
+}
+
 async function loadSavedDialogue() {
   try {
     const rows = await listDialogueTurns();
     state.voice.turns = rows.slice(-50);
+    await refreshTranscriptSessionSummary(rows);
   } catch (error) {
     console.error('Could not load saved dialogue', error);
   }
@@ -2273,7 +2455,13 @@ async function clearSavedDialogue() {
     listeningController.invalidateGeneration(state.voice.generation,'dialogue-cleared');
     await clearDialogueTurns();
     state.voice.turns = [];
+    transcriptLifecycle.clear();
+    state.voice.currentTranscriptState='idle';
+    state.voice.currentTranscriptSegmentId=null;
+    state.voice.currentTranscriptModelRevision=null;
+    renderTranscriptSearchResults([],'');
     renderDialogueTurns();
+    await refreshTranscriptSessionSummary([]);
     agentRuntime?.refreshConversation();
     pushRoomEvent('Saved dialogue history cleared from this device.', 'system');
   } catch (error) {
@@ -2307,6 +2495,10 @@ async function startRoomAudio() {
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
     speakerAssociationTracker.reset();
+    transcriptLifecycle.clear();
+    state.voice.currentTranscriptState='idle';
+    state.voice.currentTranscriptSegmentId=null;
+    state.voice.currentTranscriptModelRevision=null;
     state.voice.currentAssociationState='unknown-speaker';
     state.voice.currentAssociationProvenance=['speaker-unverified'];
     state.voice.currentAssociationTransition=null;
@@ -2369,6 +2561,10 @@ function stopRoomAudio() {
   state.voice.currentAssociationProvenance=['speaker-unverified'];
   state.voice.currentAssociationTransition=null;
   speakerAssociationTracker.reset();
+  transcriptLifecycle.clear();
+  state.voice.currentTranscriptState='idle';
+  state.voice.currentTranscriptSegmentId=null;
+  state.voice.currentTranscriptModelRevision=null;
   state.voice.captureMode = 'offline';
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
@@ -3120,6 +3316,12 @@ ui.stopRoomAudio.addEventListener('click',()=>{
  roomAudioManuallyStopped=true;cancelMicrophoneRecovery();stopRoomAudio();
 });
 ui.clearDialogue.addEventListener('click', clearSavedDialogue);
+ui.transcriptSearchRun?.addEventListener('click',()=>{void runTranscriptSearch();});
+ui.transcriptSearch?.addEventListener('keydown',event=>{
+ if(event.key==='Enter'){event.preventDefault();void runTranscriptSearch();}
+});
+ui.transcriptExportSession?.addEventListener('click',()=>{void exportCanonicalTranscripts(false);});
+ui.transcriptExportAll?.addEventListener('click',()=>{void exportCanonicalTranscripts(true);});
 ui.stop.addEventListener('click', () => {
   cameraStoppedThisPage=true;
   roomAudioManuallyStopped=true;
@@ -3236,6 +3438,9 @@ if(state.mode==='agent'){
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
+     state.voice.currentTranscriptState='corrected';
+     void refreshTranscriptSessionSummary();
+     if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
