@@ -72,7 +72,7 @@ test('11J package, PWA, audit and physical-evidence boundary are wired for V0.11
  assert.match(audit,/0\.11\.9/);
  assert.match(workflow,/tracky2-v0\.11\.9-deploy\.zip/);
  assert.match(workflow,/V011-RELEASE-ACCEPTANCE\.md/);
- assert.match(sw,/tracky2-v0\.11\.9/);
+ assert.match(sw,/tracky2-static-v0\.11\.9/);
  assert.match(docs,/physical device evidence/i);
  assert.match(docs,/not hardware certification/i);
 });
