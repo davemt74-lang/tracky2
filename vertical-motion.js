@@ -1990,28 +1990,28 @@ async function processRoomSegment(segment) {
     if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const voiceMatch = bestVoiceMatch(embedding, state.identity.participants);
-    const participant = voiceMatch.matched ? voiceMatch.participant : null;
     const roomTracks = segment.roomTracks || [];
-    const possibleNearby=roomTracks.filter(candidate=>
-      candidate.participantId || candidate.visitorId);
-    // A single stable body is contextual proximity, not proof of speaking.
-    const soleNearby=possibleNearby.length===1?possibleNearby[0]:null;
-    const nearestVisitor=!participant&&soleNearby?.visitorId?
-      state.visitors.records.get(soleNearby.visitorId):null;
-    const nearestEnrolled=!participant&&soleNearby?.participantId?
-      participantById(soleNearby.participantId):null;
-    const roomGroups = buildConversationGroups(roomTracks);
-    const track = participant
-      ? roomTracks.find((candidate) => candidate.participantId === participant.id)
+    const association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    const participant=association.participantId
+      ? (voiceMatch.participant?.id===association.participantId
+        ? voiceMatch.participant : participantById(association.participantId))
       : null;
+    const track=association.trackId
+      ? roomTracks.find(candidate=>candidate.id===association.trackId)||null
+      : null;
+    const nearestVisitor=association.nearbyVisitorId
+      ? state.visitors.records.get(association.nearbyVisitorId)||null
+      : null;
+    const nearestEnrolled=association.nearbyParticipantId
+      ? participantById(association.nearbyParticipantId)
+      : null;
+    const roomGroups = buildConversationGroups(roomTracks);
 
-    const bodyConfirmed = Boolean(track);
-    const effectiveVoiceConfidence = voiceMatch.matched ? voiceMatch.similarity : 0;
     const gate = transcriptSignalGate({
       levelDb: segment.avgDb,
       noiseFloorDb: segment.noiseFloorDb,
-      voiceConfidence: effectiveVoiceConfidence,
-      bodyConfirmed,
+      voiceConfidence: association.participantId?association.voiceConfidence:0,
+      bodyConfirmed:association.bodyConfirmed,
       vadConfirmed: true
     });
 
@@ -2022,21 +2022,23 @@ async function processRoomSegment(segment) {
     if (track) {
       group = conversationGroupForTrack(roomGroups, track.id);
       nearbyNames = (group?.tracks || [])
-        .filter((candidate) => candidate.id !== track.id)
-        .map((candidate) => candidate.participantName || candidate.id)
+        .filter(candidate => candidate.id !== track.id)
+        .map(candidate => candidate.participantName || candidate.id)
         .filter(Boolean);
       nearbyIds = (group?.tracks || [])
-        .filter((candidate) => candidate.id !== track.id)
-        .map((candidate) => candidate.participantId)
+        .filter(candidate => candidate.id !== track.id)
+        .map(candidate => candidate.participantId)
         .filter(Boolean);
-
     }
 
-    state.voice.currentSpeakerId = participant?.id || null;
+    state.voice.currentSpeakerId = association.participantId;
     state.voice.currentSpeakerName = participant?.name
-      || (voiceMatch.ambiguous ? 'Ambiguous voice' : (voiceMatch.similarity ? 'Unknown voice' : null));
-    state.voice.currentVoiceConfidence = voiceMatch.similarity || 0;
-    state.voice.currentBodyLock = bodyConfirmed;
+      || (association.state==='ambiguous-voice'?'Ambiguous voice':
+        association.voiceConfidence?'Unknown voice':null);
+    state.voice.currentVoiceConfidence = association.voiceConfidence;
+    state.voice.currentBodyLock = association.bodyConfirmed;
+    state.voice.currentAssociationState=association.state;
+    state.voice.currentAssociationProvenance=Array.from(association.provenance);
     state.voice.currentGroupId = group
       ? (group.tracks.length > 1 ? group.id : 'SOLO')
       : null;
