@@ -2186,9 +2186,14 @@ function roomTrackSnapshot() {
     participantId: track.participantId || null,
     participantName: track.participantName || null,
     visitorId:track.visitorId||null,
+    visitorLabel:track.visitorLabel||null,
     cx: track.cx,
     cy: track.cy,
     status: track.status,
+    identitySource:track.identitySource||null,
+    similarity:Number(track.similarity||0),
+    lastBodySeenAt:Number(track.lastBodySeenAt||0),
+    lastFaceSeenAt:Number(track.lastFaceSeenAt||0),
     box: track.box ? { ...track.box } : null
   }));
 }
@@ -2257,6 +2262,10 @@ async function startRoomAudio() {
     state.voice.captureMode = state.voice.audio.captureMode;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    speakerAssociationTracker.reset();
+    state.voice.currentAssociationState='unknown-speaker';
+    state.voice.currentAssociationProvenance=['speaker-unverified'];
+    state.voice.currentAssociationTransition=null;
     listeningController.start(state.voice.generation,Date.now());
     const initiallySuppressed=Boolean(state.voice.ttsPending>0||agentSpeechActive);
     listeningController.setAgentSpeaking(Boolean(agentSpeechActive));
@@ -2312,6 +2321,10 @@ function stopRoomAudio() {
   state.voice.currentVoiceConfidence = 0;
   state.voice.currentBodyLock = false;
   state.voice.currentGroupId = null;
+  state.voice.currentAssociationState='unknown-speaker';
+  state.voice.currentAssociationProvenance=['speaker-unverified'];
+  state.voice.currentAssociationTransition=null;
+  speakerAssociationTracker.reset();
   state.voice.captureMode = 'offline';
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
