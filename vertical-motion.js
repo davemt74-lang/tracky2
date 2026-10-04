@@ -281,6 +281,35 @@ function renderAmbientAudioMeter(force=false){
   ' · '+(Number.isFinite(db)?db.toFixed(1):'—')+' dB · floor '+
   (Number.isFinite(state.voice.noiseFloorDb)?state.voice.noiseFloorDb.toFixed(1):'—')+' dB';
 }
+let lastListeningDropEventAt=-Infinity;
+function listeningLabel(value){
+ return String(value||'standby').replaceAll('-',' ').replace(/\b\w/g,m=>m.toUpperCase());
+}
+function renderListeningHealth(force=false){
+ if(state.mode!=='agent')return;
+ const snapshot=listeningController.snapshot();
+ const stateEl=document.getElementById('roomListeningState');
+ const queueEl=document.getElementById('roomListeningQueue');
+ const dropsEl=document.getElementById('roomListeningDrops');
+ const reasonEl=document.getElementById('roomListeningReason');
+ if(stateEl)stateEl.textContent=listeningLabel(snapshot.state);
+ if(queueEl)queueEl.textContent=snapshot.queueDepth+' pending'+
+  (snapshot.processingSegmentId?' · 1 processing':'');
+ if(dropsEl)dropsEl.textContent=String(snapshot.droppedTotal);
+ if(reasonEl)reasonEl.textContent=listeningLabel(snapshot.lastReason);
+ if(force)renderRuntimeHealth(true);
+}
+function reportListeningDrops(dropped=[]){
+ if(!dropped.length)return;
+ renderListeningHealth();
+ const now=Date.now();
+ if(state.mode!=='agent'||now-lastListeningDropEventAt<2500)return;
+ lastListeningDropEventAt=now;
+ const reasons=[...new Set(dropped.map(item=>item.reason))].join(', ');
+ logRoomMessage('audio','Listening backlog discarded '+dropped.length+
+  ' segment'+(dropped.length===1?'':'s')+' · '+reasons,
+  'conversation-listening',{semantic:'listening-backpressure'});
+}
 function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
  logRoomMessage('audio',roomAudioAuditMessage(summary),'shared-room-mic',
