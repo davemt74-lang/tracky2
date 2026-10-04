@@ -83,6 +83,10 @@ import {
  finalizeDiarization
 } from './src/speaker-diarization-core.js';
 import {
+ ContinuousSpeakerFusionTracker,continuousFusionTurnFields,recordVisualHistory,
+ summarizeContinuousFusion,visualSnapshotForWindow
+} from './src/continuous-fusion-core.js';
+import {
  TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
@@ -247,10 +251,12 @@ const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
 const multimodalFusionTracker=new MultimodalFusionTracker();
 const diarizationSession=new SpeakerDiarizationSession();
+const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
 const roomSessionId='room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
+let roomTrackHistory=[];
 let roomTimelineFilter='all';
 const runtimeBudget=new RuntimeBudget();
 const cameraRecovery=new RecoveryBudget();
@@ -792,6 +798,10 @@ const state = {
     currentDiarizationSpeakerCount: 0,
     currentDiarizationOverlap: false,
     currentDiarizationReason: null,
+    currentContinuousFusionState: 'unresolved',
+    currentContinuousFusionParticipantIds: [],
+    currentContinuousFusionConflicts: [],
+    currentContinuousFusionUnresolvedWindows: 0,
     currentConversationAttention: 'unknown',
     currentConversationGroupSize: 1,
     currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
@@ -2811,10 +2821,33 @@ function roomTrackSnapshot() {
   }));
 }
 
+function recordRoomTrackHistory(now=performance.now()) {
+  roomTrackHistory=Array.from(recordVisualHistory(roomTrackHistory,{
+    at:now,tracks:roomTrackSnapshot()
+  },{now}));
+  return roomTrackHistory;
+}
+
+function roomTrackHistoryForSegment(segment) {
+  const started=Number(segment?.startedAt)||0;
+  const ended=Number(segment?.endedAt)||started;
+  const padding=1800;
+  return roomTrackHistory
+    .filter(row=>row.at>=started-padding&&row.at<=ended+padding)
+    .slice(-36)
+    .map(row=>({
+      at:row.at,
+      tracks:Array.from(row.tracks||[]).map(track=>({...track}))
+    }));
+}
+
 function onRoomAudioSegment(segment) {
   queueEnvironmentalAudio(segment);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
-  const queued=listeningController.enqueue({...segment,...meetingFields},{
+  const queued=listeningController.enqueue({
+    ...segment,...meetingFields,
+    roomTrackHistory:roomTrackHistoryForSegment(segment)
+  },{
     generation:state.voice.generation,
     roomTracks:roomTrackSnapshot(),
     now:Date.now()
@@ -3303,6 +3336,7 @@ async function scanRoom(now) {
     ]);
     reconcileRoomVisitors(now);
     updateConversationGroups();
+    recordRoomTrackHistory(now);
     recordObservedPresence(now);
     acknowledgeRoomTracks(now);
 
@@ -3379,6 +3413,7 @@ function stopCamera() {
   ui.trackingStatus.textContent = 'No signal';
   ui.identityStatus.textContent = state.identity.ready ? 'Identity standby' : 'Identity offline';
   state.identity.tracks = [];
+  roomTrackHistory=[];
   state.visitors=createVisitorSession();
   state.activity.seenParticipants.clear();
   state.identity.sceneGeneration+=1;
@@ -3417,6 +3452,8 @@ async function startCamera(deviceId = '') {
     await enumerateCameras();
 
     state.running = true;
+    roomTrackHistory=[];
+    continuousSpeakerFusionTracker.reset();
     const capturedStream=state.stream;
     for(const track of capturedStream.getVideoTracks()){
       track.addEventListener('ended',()=>{
