@@ -91,7 +91,7 @@ test('11D AGENT responds in a group only when explicitly addressed',()=>{
  });
 });
 
-test('11D ambiguous multi-person voice is unresolved possible overlap, never assigned to a visible person',()=>{
+test('11D ambiguous multi-person voice is unresolved ownership, not invented overlap',()=>{
  const turn={
   id:'amb',sessionId:'s1',participantId:null,attribution:'unknown',
   associationState:'ambiguous-voice',transcript:'Agent, can you hear me?',
@@ -100,12 +100,15 @@ test('11D ambiguous multi-person voice is unresolved possible overlap, never ass
  const fields=multiConversationTurnFields(turn,{
   visibleParticipants:[people[0],people[1]],groupSize:2
  });
- assert.equal(fields.turnOwnership,'unverified-speaker');
- assert.equal(fields.overlapState,'possible-overlap-unresolved');
- assert.equal(fields.attentionTarget,'unresolved');
+ assert.equal(fields.turnOwnership,'ambiguous-speaker');
+ assert.equal(fields.overlapState,'not-observed');
+ assert.equal(fields.attentionTarget,'unresolved-speaker');
  assert.equal(fields.conversationParticipantIds.length,2);
- assert.equal(multiParticipantReplyPolicy(fields).allow,false,
-  'explicit AGENT address cannot override unresolved multi-speaker ownership');
+ const policy=multiParticipantReplyPolicy(fields);
+ assert.equal(policy.allow,false,
+  'explicit AGENT address cannot override ambiguous ownership in a multi-person room');
+ assert.match(policy.reason,/ambiguous speaker/);
+ assert.equal(conversationContextLabel(fields),'AMBIGUOUS SPEAKER · GROUP');
 });
 
 test('11D explicit external overlap evidence always forces abstention',()=>{
@@ -175,6 +178,17 @@ test('11D AGENT history is scoped by canonical conversation membership',()=>{
  assert.deepEqual(solo.map(x=>x.text),['solo Pat']);
 });
 
+test('11D anonymous group scopes never reuse saved AGENT history across unknown people',()=>{
+ const history=[
+  {role:'agent',text:'reply to an earlier unknown pair',scopeId:'scope:unknown-group-2',at:1},
+  {role:'agent',text:'known Pat group',participantId:'p1',scopeId:'scope:p:p1|p:p2',at:2}
+ ];
+ const unknown=agentHistoryForScope(history,{
+  participantId:null,conversationGroupSize:2,conversationScopeId:'scope:unknown-group-2'
+ });
+ assert.deepEqual(unknown,[]);
+});
+
 test('11D saved AGENT history retains bounded scope metadata',()=>{
  const data=new Map(),storage={
   getItem:key=>data.get(key),setItem:(key,value)=>data.set(key,value)
@@ -232,5 +246,7 @@ test('11D core never treats proximity as speaker identity or opens a media/netwo
  const core=fs.readFileSync('src/multi-conversation-core.js','utf8');
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|fetch\(|embedding\(|transcrib|bestVoiceMatch/);
  assert.match(core,/never opens sensors/);
- assert.match(core,/never.*infers an addressee from proximity alone/i);
+ assert.match(core,/never.*infers addressees from camera proximity alone/i);
+ assert.match(core,/scope\.startsWith\('scope:unknown-'\)/);
+ assert.doesNotMatch(core,/possible-overlap-unresolved/);
 });
