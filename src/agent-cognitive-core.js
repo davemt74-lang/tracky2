@@ -73,9 +73,18 @@ export class AgentCognitiveLoop{
     reason='abstain: hourly interruption limit';
    else{action='greet';reason='engage: verified participant in view and policy allows greeting';}
   }
+  const trace=Object.freeze([
+   Object.freeze({stage:'observe',ok:true,detail:'canonical participant-observed event'}),
+   Object.freeze({stage:'verify',ok:eligible,detail:eligible?
+    'enrolled identity and live stable camera track agree':'identity/live-track verification incomplete'}),
+   Object.freeze({stage:'interpret',ok:eligible,detail:eligible?
+    'candidate greeting opportunity only':'no proactive interpretation'}),
+   Object.freeze({stage:'evaluate',ok:Boolean(action),detail:reason}),
+   Object.freeze({stage:'decide',ok:Boolean(action),detail:action||'abstain'})
+  ]);
   this.lastDecision=Object.freeze({eventId:key,participantId:eligible?participant.id:null,
    at:now,action,reason,stage:action?'approved-opportunity':'abstain',
-   evidence:'stable-camera-track',priority:action?'low':null});
+   evidence:'stable-camera-track',priority:action?'low':null,trace});
   return this.lastDecision;
  }
  recordOutcome(decision,{executed=false,at=Date.now()}={}){
