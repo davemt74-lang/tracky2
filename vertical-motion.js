@@ -1518,6 +1518,7 @@ async function reloadIdentityParticipants() {
     proactiveGovernor.forgetRemovedParticipants(participantIds);
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
+    recallUI?.refreshParticipants();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
       : null;
