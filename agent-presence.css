@@ -466,3 +466,65 @@
 .game-page.agent-mode .agent-task-error{color:#ffd0d0!important}
 .game-page.agent-mode .agent-task-actions{display:flex;flex-wrap:wrap;gap:6px}
 .game-page.agent-mode .agent-task-empty{font-size:.64rem;color:#aac7cf}
+
+
+/* V0.10G explicit owner-authored memory and canonical current-session context. */
+.game-page.agent-mode .agent-memory-settings{
+ margin:10px 0;padding:9px 10px;border:1px solid rgba(134,215,201,.3);
+ border-radius:9px;background:rgba(5,38,42,.46)
+}
+.game-page.agent-mode .agent-memory-settings>summary{
+ cursor:pointer;font-weight:800;font-size:.7rem;color:#e0fff5;letter-spacing:.04em
+}
+.game-page.agent-mode .agent-memory-settings>small{
+ display:block;margin:7px 0;color:#b9d4d0;font-size:.62rem;line-height:1.5
+}
+.game-page.agent-mode .agent-memory-form{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0
+}
+.game-page.agent-mode .agent-memory-form label{display:grid;gap:4px;font-size:.63rem;color:#c8e7df}
+.game-page.agent-mode .agent-memory-form select,
+.game-page.agent-mode .agent-memory-form textarea{
+ width:100%;min-width:0;padding:7px;border:1px solid #678f8c;border-radius:6px;
+ background:#123a3a;color:#effffb;font-size:.72rem;resize:vertical
+}
+.game-page.agent-mode .agent-memory-form .agent-memory-wide{grid-column:1/-1}
+.game-page.agent-mode .agent-memory-form button,
+.game-page.agent-mode .agent-memory-tools button,
+.game-page.agent-mode .agent-memory-actions button{
+ padding:6px 9px;border:1px solid #649c92;border-radius:7px;
+ background:rgba(15,73,68,.78);color:#effff9;font-size:.66rem;cursor:pointer
+}
+.game-page.agent-mode .agent-memory-tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:7px 0}
+.game-page.agent-mode .agent-memory-status{
+ padding:7px 8px;margin:7px 0;border-left:2px solid #78d9b7;
+ background:rgba(11,67,58,.33);font-size:.63rem;color:#dcf8ef;line-height:1.45
+}
+.game-page.agent-mode .agent-memory-list,.game-page.agent-mode .agent-session-context{
+ display:grid;gap:7px;margin:8px 0
+}
+.game-page.agent-mode .agent-memory-row,.game-page.agent-mode .agent-session-context-row{
+ display:grid;gap:5px;padding:8px;border:1px solid rgba(107,203,185,.25);
+ border-radius:8px;background:rgba(4,31,35,.55)
+}
+.game-page.agent-mode .agent-memory-row[data-status="revoked"]{opacity:.72;border-style:dashed}
+.game-page.agent-mode .agent-memory-row>strong,.game-page.agent-mode .agent-session-context-row>strong{
+ font-size:.69rem;color:#f0fffa
+}
+.game-page.agent-mode .agent-memory-row>p,.game-page.agent-mode .agent-session-context-row>p{
+ margin:0;font-size:.65rem;line-height:1.5;color:#d0ebe5;overflow-wrap:anywhere
+}
+.game-page.agent-mode .agent-memory-row>small,.game-page.agent-mode .agent-session-context-row>small{
+ font-size:.58rem;line-height:1.45;color:#aacdc7
+}
+.game-page.agent-mode .agent-memory-actions{display:flex;flex-wrap:wrap;gap:6px}
+.game-page.agent-mode .agent-session-context-head{display:grid;gap:2px;margin-top:10px}
+.game-page.agent-mode .agent-session-context-head strong{font-size:.67rem;color:#d9fff5}
+.game-page.agent-mode .agent-session-context-head small{font-size:.58rem;color:#9ec2bd}
+.game-page.agent-mode .agent-memory-empty,.game-page.agent-mode .agent-session-context>p{
+ font-size:.63rem;color:#aac9c4
+}
+@media(max-width:380px){
+ .game-page.agent-mode .agent-memory-form{grid-template-columns:1fr}
+ .game-page.agent-mode .agent-memory-form .agent-memory-wide{grid-column:auto}
+}
