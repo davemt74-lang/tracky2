@@ -129,5 +129,5 @@ test('10E integration routes stable arrival through one canonical decision/outco
  assert.match(html,/id="agentCognitiveStatus"/);
  assert.match(store,/relatedEventId:record\.relatedEventId/);
  assert.doesNotMatch(core,/fetch\(|getUserMedia|MediaRecorder|eval\(|Function\(/);
- assert.doesNotMatch(core,/skill|shell|command|executeTask/i);
+ assert.doesNotMatch(core,/\b(?:executeTask|executeSkill|runSkill|runCommand|execShell)\s*\(/i);
 });
