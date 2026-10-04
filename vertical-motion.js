@@ -252,13 +252,83 @@ let runtimeHealthLastPaint=0;
 const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
 let proactiveTimer=0,lastProactiveDecisionSignature='';
+function activeAgentTaskCount(){
+ return (taskUI?.getTasks?.()||[]).filter(task=>
+  ['pending-confirmation','scheduled','running'].includes(task.status)).length;
+}
+function latestCanonicalDialogueAt(){
+ const last=state.voice?.turns?.[state.voice.turns.length-1];
+ if(!last)return 0;
+ return Number.isFinite(last.at)?last.at:(Date.parse(last.createdAt||'')||0);
+}
+function proactiveContext(now=Date.now()){
+ const visible=state.running?publicRoomTracks().filter(track=>
+  !['occluded','reacquiring'].includes(track.status)&&track.participantId):[];
+ return {
+  now,pageVisible:!document.hidden,
+  busy:Boolean(state.voice.vad||state.voice.processing||agentSpeechActive||
+   state.voice.ttsPending>0||agentRuntime?.isBusy?.()),
+  meetingActive:meetingUI?.activeMeeting()?.status==='active',
+  visibleParticipantIds:[...new Set(visible.map(track=>track.participantId))],
+  activeTaskCount:activeAgentTaskCount(),
+  lastDialogueAt:latestCanonicalDialogueAt(),
+  participantById,
+  quietPolicy:cognitiveLoop.policy
+ };
+}
 function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
- const snapshot=cognitiveLoop.snapshot();
- label.textContent=snapshot.lastDecision?
-  snapshot.lastDecision.reason+' · '+snapshot.greetedThisHour+' greetings this hour':
+ const cognitive=cognitiveLoop.snapshot(),proactive=proactiveGovernor.snapshot();
+ const last=proactive.lastDecision||cognitive.lastDecision;
+ label.textContent=last?
+  last.reason+' · '+proactive.pending+' proactive pending · '+
+   proactive.interruptionsThisHour+'/'+proactive.maxInterruptionsPerHour+' interruptions this hour':
   'Waiting for stable room evidence · no engagement decisions yet';
+}
+function recordProactiveSourceEvent(category,message,source,options={}){
+ const event=logRoomMessage(category,message,source,options);
+ if(event){
+  proactiveGovernor.noteStatusEvent(event,Date.now());
+  renderCognitiveStatus();
+ }
+ return event;
+}
+function tickProactive(){
+ if(state.mode!=='agent'||!agentRuntime)return;
+ const decision=proactiveGovernor.evaluateNext(proactiveContext(Date.now()));
+ renderCognitiveStatus();
+ if(!decision?.opportunityId)return;
+ const signature=decision.opportunityId+':'+decision.action+':'+decision.reason;
+ if(decision.action==='speak'){
+  const decisionEvent=logRoomMessage('decision',
+   'Proactive opportunity approved · '+decision.opportunity.type+' · '+decision.reason,
+   'agent-proactive-governor',{
+    kind:'decision',semantic:'agent-proactive-decision',
+    participantId:decision.participantId,
+    relatedEventId:decision.opportunity.relatedEventId||null
+   });
+  const executed=agentRuntime.proactiveSpeak(decision.opportunity.text,{
+   participantId:decision.participantId,
+   scopeId:decision.opportunity.scopeId
+  })===true;
+  const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
+  if(outcome)logRoomMessage('decision',outcome.reason,'agent-proactive-governor',{
+   kind:'outcome',semantic:'agent-proactive-outcome',
+   participantId:outcome.participantId,
+   relatedEventId:decisionEvent?.id||decision.opportunity.relatedEventId||null
+  });
+  lastProactiveDecisionSignature='';
+ }else if(decision.action==='cancel'&&signature!==lastProactiveDecisionSignature){
+  lastProactiveDecisionSignature=signature;
+  logRoomMessage('decision','Proactive opportunity cancelled · '+decision.reason,
+   'agent-proactive-governor',{
+    kind:'decision',semantic:'agent-proactive-abstain',
+    participantId:decision.participantId,
+    relatedEventId:decision.opportunity.relatedEventId||null
+   });
+ }
+ renderCognitiveStatus();
 }
 function considerCognitiveObservation(event){
  if(state.mode!=='agent'||event.semantic!=='participant-observed')return;
@@ -266,10 +336,16 @@ function considerCognitiveObservation(event){
  const person=event.participantId?participantById(event.participantId):null;
  const track=event.participantId?publicRoomTracks().find(x=>
    x.participantId===event.participantId&&['matched','body-lock'].includes(x.status)):null;
+ const now=Date.now();
+ const interrupt=proactiveGovernor.interruptionGate({
+  ...proactiveContext(now),participantId:person?.id||null,participant:null,
+  respectEnabled:false
+ });
  const decision=cognitiveLoop.evaluate(event,{
-  participant:person,track,now:Date.now(),
+  participant:person,track,now,
   busy:Boolean(state.voice.vad||state.voice.processing||agentSpeechActive||
-    state.voice.ttsPending>0)
+    state.voice.ttsPending>0||agentRuntime?.isBusy?.()),
+  interruptionAllowed:interrupt.allow,interruptionReason:interrupt.reason
  });
  if(!decision)return;
  const decisionEvent=logRoomMessage('decision',decision.reason,'agent-cognitive-loop',{
@@ -279,6 +355,9 @@ function considerCognitiveObservation(event){
  if(decision.action==='greet'){
   const executed=agentRuntime?.greet(track,person)===true;
   const result=cognitiveLoop.recordOutcome(decision,{executed,at:Date.now()});
+  if(executed)proactiveGovernor.recordExternalInterruption({
+   participantId:person?.id||null,type:'greeting',at:Date.now()
+  });
   if(result)logRoomMessage('decision',result.reason,'agent-cognitive-loop',{
    kind:'outcome',semantic:'agent-greeting-outcome',
    participantId:result.participantId,relatedEventId:decisionEvent?.id||event.id
