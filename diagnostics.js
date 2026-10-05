@@ -9,7 +9,7 @@ import {
  compareHardwareCertificationReports,normalizeCapabilityMatrix
 } from './src/hardware-certification-core.js';
 
-const DIAGNOSTICS_RELEASE={version:'0.13.6'};
+const DIAGNOSTICS_RELEASE={version:'0.13.7'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
