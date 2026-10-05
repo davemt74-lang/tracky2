@@ -8,9 +8,12 @@ import {
 } from './multi-person-attribution-core.js';
 import {normalizeMemoryRecord} from './agent-memory-core.js';
 import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
+import {
+ endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity
+} from './session-identity-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -20,6 +23,7 @@ const AGENT_TASKS = 'agent-tasks';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
 const MEETINGS = 'meetings';
+const SESSION_IDENTITIES = 'session-identities';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -27,6 +31,7 @@ export const MAX_DIALOGUE_TURNS = 500;
 export const MAX_PERSISTED_AGENT_TASKS = 200;
 export const MAX_PERSISTED_AGENT_MEMORIES = 200;
 export const MAX_PERSISTED_MEETINGS = 120;
+export const MAX_PERSISTED_SESSION_IDENTITIES = 120;
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -106,6 +111,11 @@ export async function openParticipantDb() {
         meetings.createIndex('status','status',{unique:false});
         meetings.createIndex('startedAt','startedAt',{unique:false});
       }
+      if (!db.objectStoreNames.contains(SESSION_IDENTITIES)) {
+        const sessions=db.createObjectStore(SESSION_IDENTITIES,{keyPath:'id'});
+        sessions.createIndex('status','status',{unique:false});
+        sessions.createIndex('startedAt','startedAt',{unique:false});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -132,6 +142,42 @@ async function storeAction(storeName, mode, action) {
   } finally {
     db.close();
   }
+}
+
+export function saveSessionIdentity(input) {
+  const record=normalizeSessionIdentity(input);
+  return storeAction(SESSION_IDENTITIES,'readwrite',async store=>{
+    await requestToPromise(store.put(record));
+    const rows=await requestToPromise(store.getAll());
+    const remove=rows
+      .sort((a,b)=>(Number(a.startedAt)||0)-(Number(b.startedAt)||0))
+      .slice(0,Math.max(0,rows.length-MAX_PERSISTED_SESSION_IDENTITIES));
+    for(const row of remove)store.delete(row.id);
+    return record;
+  });
+}
+
+export function getSessionIdentity(id) {
+  return storeAction(SESSION_IDENTITIES,'readonly',store=>requestToPromise(store.get(id)));
+}
+
+export function listSessionIdentities() {
+  return storeAction(SESSION_IDENTITIES,'readonly',async store=>{
+    const rows=await requestToPromise(store.getAll());
+    return rows.map(normalizeSessionIdentity)
+      .sort((a,b)=>(Number(b.startedAt)||0)-(Number(a.startedAt)||0));
+  });
+}
+
+export function endStoredSessionIdentity(id,reason='ended',at=Date.now()) {
+  if(typeof id!=='string'||!id)return Promise.reject(new TypeError('Invalid session ID.'));
+  return storeAction(SESSION_IDENTITIES,'readwrite',async store=>{
+    const current=await requestToPromise(store.get(id));
+    if(!current)return null;
+    const ended=closeSessionIdentity(current,reason,at);
+    await requestToPromise(store.put(ended));
+    return ended;
+  });
 }
 
 export function listParticipants() {
