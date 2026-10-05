@@ -8,8 +8,12 @@ import {
  buildHardwareCertificationReport,canonicalCertificationJson,
  compareHardwareCertificationReports,normalizeCapabilityMatrix
 } from './src/hardware-certification-core.js';
+import {
+ DevicePerformanceGovernor,coarseDevicePerformanceCapabilities,
+ performanceCertificationOutcome,performanceSampleDelta
+} from './src/device-performance-core.js';
 
-const DIAGNOSTICS_RELEASE={version:'0.13.7'};
+const DIAGNOSTICS_RELEASE={version:'0.13.8'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
@@ -23,16 +27,19 @@ const ui = {
  certCameraLabel:$('#certCameraLabel'),certMicrophoneLabel:$('#certMicrophoneLabel'),
  certEnvironmentLabel:$('#certEnvironmentLabel'),certLightingLabel:$('#certLightingLabel'),
  certNoiseLabel:$('#certNoiseLabel'),certCapabilityMatrix:$('#certCapabilityMatrix'),
- certificationStatus:$('#certificationStatus'),
+ certificationStatus:$('#certificationStatus'),performanceTrend:$('#certPerformanceTrend'),
  compareReport:$('#compareCertificationReport'),compareStatus:$('#certCompareStatus')
 };
 
 const context=ui.canvas.getContext('2d',{willReadFrequently:true});
 const metrics=createHardwareDiagnostics();
 const runtimeBudget=new RuntimeBudget();
+const performanceGovernor=new DevicePerformanceGovernor();
 const trackers={green:createControllerStability(),blue:createControllerStability()};
 
-let stream=null,raf=0,lastDisplay=0,lastLongCheckpoint=0;
+let stream=null,raf=0,lastDisplay=0,lastLongCheckpoint=0,lastPerformanceSampleAt=0;
+let lastPerformanceRuntime=null;
+let batteryState={level:null,charging:null,supported:false};
 let cameraOutcome='not-tested';
 let micOutcome={status:'not-tested',peakRms:0,channelCount:null,stereoAvailable:null};
 let permissionHealth={camera:'unsupported',microphone:'unsupported'};
@@ -133,6 +140,12 @@ function exerciseInputs(){
  };
 }
 
+function currentPerformanceReport(){
+ const snapshot=performanceGovernor.snapshot();
+ const outcome=performanceCertificationOutcome(snapshot.trend);
+ return {...snapshot.trend,outcome:outcome.outcome,outcomeReason:outcome.reason};
+}
+
 function buildCurrentReport(measuredAt=new Date().toISOString()){
  return buildHardwareCertificationReport({
   measuredAt,
@@ -150,6 +163,7 @@ function buildCurrentReport(measuredAt=new Date().toISOString()){
   camera:metrics.snapshot(),
   microphone:micOutcome,
   runtime:runtimeBudget.snapshot(),
+  performance:currentPerformanceReport(),
   permissionStates:permissionHealth,
   storage:{status:storageHealth.status,ratio:storageHealth.ratio},
   evidenceEvents
@@ -177,9 +191,63 @@ function renderCapabilityMatrix(){
     ' · AudioWorklet '+matrix.audioWorklet+
     ' · local model '+matrix.localModel
  ];
+ const perfCaps=coarseDevicePerformanceCapabilities({
+  deviceMemory:navigator.deviceMemory,
+  hardwareConcurrency:navigator.hardwareConcurrency,
+  heapMetrics:Boolean(globalThis.performance?.memory),
+  batteryMetrics:batteryState.supported
+ });
+ rows.push('Performance metrics: memory '+perfCaps.deviceMemoryClass+
+  ' · CPU concurrency '+perfCaps.concurrencyClass+
+  ' · heap '+perfCaps.heapMetrics+' · battery '+perfCaps.batteryMetrics);
  for(const line of rows){
   const p=document.createElement('p');p.textContent=line;ui.certCapabilityMatrix.append(p);
  }
+}
+
+function sampleDevicePerformance(now=Date.now(),force=false){
+ if(!force&&now-lastPerformanceSampleAt<10000)return performanceGovernor.snapshot();
+ lastPerformanceSampleAt=now;
+ const runtime=runtimeBudget.snapshot();
+ const heap=globalThis.performance?.memory;
+ const heapRatio=heap?.jsHeapSizeLimit>0?heap.usedJSHeapSize/heap.jsHeapSizeLimit:null;
+ const current={
+  at:now,visible:!document.hidden,frameCount:runtime.frames,stallCount:runtime.stalls,
+  meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
+  meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
+  audioQueueDepth:runtime.audioQueueMax,
+  heapRatio,batteryLevel:batteryState.level,charging:batteryState.charging,
+  storageRatio:storageHealth.ratio
+ };
+ const delta=performanceSampleDelta(current,lastPerformanceRuntime);
+ lastPerformanceRuntime=current;
+ return performanceGovernor.observe(delta);
+}
+function renderPerformanceTrend(){
+ if(!ui.performanceTrend)return;
+ const snapshot=sampleDevicePerformance(Date.now());
+ const trend=snapshot.trend,outcome=performanceCertificationOutcome(trend);
+ ui.performanceTrend.textContent='Device performance · '+snapshot.level.toUpperCase()+
+  ' · '+trend.samples+' samples · '+Math.round(trend.durationMs/60000)+' active min'+
+  ' · p95 frame gap '+(trend.p95FrameGapMs===null?'—':Math.round(trend.p95FrameGapMs)+'ms')+
+  ' · p95 scan '+(trend.p95ScanMs===null?'—':Math.round(trend.p95ScanMs)+'ms')+
+  ' · audio queue '+trend.maxAudioQueue+
+  ' · '+outcome.outcome.toUpperCase()+' ('+outcome.reason.replaceAll('-',' ')+')';
+}
+async function initBatteryMetrics(){
+ if(typeof navigator.getBattery!=='function')return false;
+ try{
+  const battery=await navigator.getBattery();
+  const update=()=>{
+   batteryState={level:Number.isFinite(battery.level)?battery.level:null,
+    charging:battery.charging===true,supported:true};
+   sampleDevicePerformance(Date.now(),true);renderCapabilityMatrix();renderPerformanceTrend();
+  };
+  update();
+  battery.addEventListener?.('levelchange',update);
+  battery.addEventListener?.('chargingchange',update);
+  return true;
+ }catch{return false;}
 }
 
 function renderCertificationStatus(){
@@ -222,8 +290,10 @@ function render() {
   ' · '+runtime.frames+' active frames · '+runtime.stalls+' stalls · max gap '+
   runtime.maxFrameGapMs+' ms · active duration '+Math.round(runtime.durationMs/1000)+' s';
  ui.export.disabled=snapshot.frames===0&&micOutcome.status==='not-tested'&&cameraOutcome==='not-tested';
+ sampleDevicePerformance(Date.now());
  renderAcceptanceStatus();
  renderCapabilityMatrix();
+ renderPerformanceTrend();
  renderCertificationStatus();
 }
 
@@ -513,4 +583,5 @@ ui.export.addEventListener('click',async()=>{
 window.addEventListener('beforeunload',()=>stopCamera({record:false}));
 recordEvidence('restart-note','page-loaded');
 render();
+void initBatteryMetrics();
 void Promise.all([refreshReleaseHealth(),refreshCapabilities(),enumerateCameras()]);
