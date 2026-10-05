@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+import {nextTripleShortcut} from '../src/agent-shortcuts.js';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('v0.14.6 account participant API is authenticated encrypted versioned and consent gated',()=>{
@@ -64,10 +65,10 @@ test('CCC is a centralized triple-key shortcut that opens Control Center',()=>{
  assert.match(html,/id="agentControlCenter"/);
  assert.match(html,/CCC ◎/);
  assert.match(center,/server\/session\.php/);
- assert.match(center,/Participants/);
- assert.match(center,/Admin/);
- assert.match(center,/Diagnostics/);
- assert.match(center,/does not start camera, microphone, recording, provider calls, or background synchronization/i);
+ assert.match(html,/Participants/);
+ assert.match(html,/Admin/);
+ assert.match(html,/Diagnostics/);
+ assert.match(html,/does not start camera, microphone, recording, provider calls, or background synchronization/i);
 });
 
 test('Control Center is responsive and visible shortcut is desktop-only',()=>{
@@ -76,4 +77,16 @@ test('Control Center is responsive and visible shortcut is desktop-only',()=>{
  assert.match(css,/\.control-center-grid/);
  assert.match(css,/@media\(max-width:760px\)/);
  assert.match(css,/\.agent-control-center-button\{display:none\}/);
+});
+
+
+test('CCC triple key fires independently of existing ZZZ and XXX shortcuts',()=>{
+ let state={key:'',count:0,lastAt:0};
+ let step=nextTripleShortcut(state,'c',0);state=step.state;assert.equal(step.trigger,null);
+ step=nextTripleShortcut(state,'c',100);state=step.state;assert.equal(step.trigger,null);
+ step=nextTripleShortcut(state,'c',200);assert.equal(step.trigger,'c');
+ state={key:'',count:0,lastAt:0};
+ step=nextTripleShortcut(state,'z',0);state=step.state;assert.equal(step.trigger,null);
+ step=nextTripleShortcut(state,'z',100);state=step.state;assert.equal(step.trigger,null);
+ step=nextTripleShortcut(state,'z',200);assert.equal(step.trigger,'z');
 });
