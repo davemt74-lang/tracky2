@@ -150,7 +150,8 @@ test('13G persistence stores owner review metadata separately from Agent Memory'
  assert.match(store,/saveRoutineFeedback/);
  assert.match(store,/listRoutineFeedback/);
  assert.match(store,/scrubRoutineFeedbackParticipant/);
- const dbVersion=Number(store.match(/const DB_VERSION = (\\d+)/)?.[1]||0);\n assert.ok(dbVersion>=12,'V0.13 persistence stores must remain present after additive browser schema upgrades');
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=12,'V0.13 persistence stores must remain present after additive browser schema upgrades');
  assert.match(store,/ROUTINE_FEEDBACK/);
  const start=store.indexOf('export function listRoutineFeedback');
  const end=store.indexOf('// Only owner-entered area rectangles',start);
