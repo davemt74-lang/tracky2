@@ -89,7 +89,24 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Tracky2 remains standalone. No VP3 Cloud/HomeServer dependency is introduced by the V0.14 plan.
 - Stale PR #76 was closed as superseded by merged PRs #77 and #78.
 
+## V0.14 planning merged
+
+- Planning PR #79 merged at `7b29ee27c2314413c94701600211684272f80501` after green CI.
+- V0.13 remains closed.
+
+## 14A — Provider Runtime & Model Router
+
+- Branch: `feat/v014a-provider-runtime-router`.
+- Release target: **v0.14.0**.
+- Added a pure provider-routing contract with bounded text projection, fixed model allowlists/defaults, deterministic remote fallback ordering and budget presentation.
+- Added authenticated same-origin server routing for OpenAI Responses API and Anthropic Messages API; credentials remain encrypted server-side and are never returned to browser JavaScript.
+- Added optional ElevenLabs text-to-speech through the same credential boundary with bounded reply text and owner-entered voice ID; browser/system speech remains fallback.
+- Added independent `providers.use` permission, schema-v4 persistent daily usage accounting, authenticated-session budgets, bounded timeout/retry behavior, short circuit breaker, and privacy-safe provider audit metadata.
+- AGENT retains local Ollama and deterministic scripted reply paths. Provider routing does not gain identity, microphone, transcript, memory, meeting, recording, room-handoff or deletion authority.
+- Package/PWA/diagnostics/CI are aligned to **v0.14.0** with provider-runtime smoke tests and direct ZIP/SHA release wiring.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Merge the V0.14 planning PR after CI is green. Then start **14A** from the resulting merged `main`. No 14B runtime work starts until 14A is 10/10, green, merged, and post-merge verified.
+Run the 14A PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.0 ZIP/SHA/direct release, then begin **14B — Governed Skills & Tool Execution**.
 
