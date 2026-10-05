@@ -1,7 +1,7 @@
 // Owner-defined scene metadata. V0.11G optionally adds an explicit floor-plane
 // calibration; no images, biometrics, participants or sensor frames are stored.
 import {normalizeFloorCalibration,calibratedTrackPosition} from './spatial-calibration-core.js';
-export const ROOM_SCENE_SCHEMA=2;
+export const ROOM_SCENE_SCHEMA=3;
 export const MAX_ROOM_AREAS=16;
 export const MAX_ROOM_OBJECTS=32;
 export const AREA_KINDS=Object.freeze(['zone','entrance','desk','seat','other']);
@@ -19,8 +19,11 @@ export function normalizeAreaRect(input){
  return Object.freeze({x:clamp(x),y:clamp(y),width:clamp(width),height:clamp(height)});
 }
 export function emptyRoomScene(){
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze([]),
-  objects:Object.freeze([]),calibration:null});
+ return Object.freeze({
+  version:ROOM_SCENE_SCHEMA,id:'local-room',
+  roomIdentityId:'room-local',roomName:'Local room',
+  areas:Object.freeze([]),objects:Object.freeze([]),calibration:null
+ });
 }
 export function normalizeRoomScene(input={}){
  const areas=[],objects=[],ids=new Set(),objectIds=new Set();
@@ -40,8 +43,18 @@ export function normalizeRoomScene(input={}){
    areaId:ids.has(row.areaId)?row.areaId:null,provenance:'owner-defined'}));
  }
  const calibration=normalizeFloorCalibration(input.calibration);
- return Object.freeze({version:ROOM_SCENE_SCHEMA,id:'local-room',areas:Object.freeze(areas),
-  objects:Object.freeze(objects),calibration});
+ const roomIdentityId=label(input.roomIdentityId,96)||'room-local';
+ const roomName=label(input.roomName,96)||'Local room';
+ return Object.freeze({
+  version:ROOM_SCENE_SCHEMA,id:'local-room',roomIdentityId,roomName,
+  areas:Object.freeze(areas),objects:Object.freeze(objects),calibration
+ });
+}
+export function setRoomIdentity(scene,{roomIdentityId,roomName}={}){
+ const base=normalizeRoomScene(scene);
+ const identity=label(roomIdentityId,96),name=label(roomName,96);
+ if(!identity||!name)throw Error('Enter a room ID and room name.');
+ return normalizeRoomScene({...base,roomIdentityId:identity,roomName:name});
 }
 export function upsertRoomArea(scene,input){
  const base=normalizeRoomScene(scene);
