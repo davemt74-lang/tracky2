@@ -9,7 +9,7 @@ const memory=(more={})=>({id:'memory01',type:'preference',participantId:null,tex
  authority:'owner',provenance:'owner-authored',createdAt:10,updatedAt:20,status:'active',
  revisions:[],persistent:true,...more});
 const task=(more={})=>({id:'task0001',schema:2,skillId:'describe_object',targetId:'obj',
- targetSource:'local-owner-defined',status:'succeeded',createdAt:10,updatedAt:20,completedAt:20,
+ targetSource:'local-owner-defined',status:'succeeded',createdAt:10,updatedAt:20,confirmedAt:12,completedAt:20,
  attempts:1,maxAttempts:2,resultText:'done',resultSources:[],...more});
 const scene=(more={})=>({id:'local-room',version:4,roomIdentityId:'room-local',roomName:'Local room',
  areas:[],objects:[],calibration:null,...more});
@@ -19,6 +19,7 @@ test('14F allowlists only memory terminal task and scene resources',()=>{
  assert.equal(syncEligibleResource('memory',memory()),true);
  assert.equal(syncEligibleResource('task',task()),true);
  assert.equal(syncEligibleResource('task',task({status:'scheduled'})),false);
+ assert.equal(syncEligibleResource('task',task({confirmedAt:null})),false);
  assert.equal(syncEligibleResource('scene',scene()),true);
  assert.equal(syncEligibleResource('dialogue',{id:'turn'}),false);
  assert.equal(syncEligibleResource('recording',{id:'rec'}),false);
