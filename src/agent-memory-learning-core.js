@@ -162,13 +162,13 @@ export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings
    const refs=[proposalSource({kind:'meeting-decision',sourceId:decision.id,meetingId:meeting.id,
     at:decision.at,text:note})];
    const turn=turnMap.get(String(decision.sourceTurnId||''));
-   let participantId=null;
    if(turn&&dialogueEligibleForParticipantMemory(turn)){
-    participantId=turn.participantId;
     refs.push(proposalSource({kind:'dialogue',sourceId:turn.id,participantId:turn.participantId,
      meetingId:meeting.id,at:Date.parse(turn.createdAt||'')||Number(turn.at)||0,text:turn.transcript}));
    }
-   const proposal=proposalRecord({...candidate,participantId,sourceRefs:refs,
+   // A meeting decision is general meeting context; verified source-turn identity
+   // does not make the decision a participant attribute.
+   const proposal=proposalRecord({...candidate,participantId:null,sourceRefs:refs,
     method:'owner-marked-meeting-decision',createdAt:decision.at||meeting.startedAt||Date.now()});
    if(proposal)rows.push(proposal);
   }
