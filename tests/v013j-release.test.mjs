@@ -113,7 +113,12 @@ test('13J source separation remains metadata-only at persistence and export boun
  const store=fs.readFileSync('src/participant-store.js','utf8');
  const transcript=fs.readFileSync('src/transcript-lifecycle-core.js','utf8');
  assert.match(core,/canonical-transcript-unchanged/);
- assert.doesNotMatch(store,/separationInput/);
+ const saveStart=store.indexOf('export async function saveDialogueTurn');
+ const saveEnd=store.indexOf('export function reviseDialogueTurn',saveStart);
+ const saveBlock=store.slice(saveStart,saveEnd);
+ assert.match(saveBlock,/separationInput:discardSeparationInput/);
+ assert.match(saveBlock,/\.\.\.safeInput/);
+ assert.doesNotMatch(saveBlock,/record\s*=\s*\{[^}]*separationInput/s);
  const exportStart=transcript.indexOf('export function transcriptExport');
  assert.doesNotMatch(transcript.slice(exportStart),/separationInput|source\.samples/);
 });
