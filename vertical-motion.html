@@ -455,15 +455,16 @@
           <div><strong>ROOM</strong><span>Live updates · observations · background ROOM / AGENT actions</span></div>
           <button type="button" id="roomOpenControlCenter" class="room-settings-link">ROOM Settings</button>
         </div>
-        <div id="roomCurrentState" class="room-current-state" aria-live="off">Waiting for room observations</div>
-        <div id="roomSensorStates" class="room-sensor-states" aria-live="off">Sensor history: unavailable</div>
+        <section class="room-live-sense-panel room-live-vision" aria-label="What the agent sees">
+          <header class="room-live-sense-head"><span>VISION</span><strong>WHAT THE AGENT SEES</strong></header>
+          <div id="roomCurrentState" class="room-current-state" aria-live="off">Waiting for room observations</div>
+          <div id="roomSensorStates" class="room-sensor-states" aria-live="off">Sensor history: unavailable</div>
         <section class="room-ui-overview" id="roomUiOverview" aria-label="ROOM overview">
           <article><span>VISIBLE</span><strong id="roomOverviewParticipants">0</strong><small>stable participants</small></article>
           <article><span>SENSORS</span><strong id="roomOverviewSensors">—</strong><small>camera / microphone</small></article>
           <article><span>EVIDENCE</span><strong id="roomOverviewEvidence">0</strong><small>effective events</small></article>
           <article><span>DECISIONS</span><strong id="roomOverviewDecisions">0</strong><small>decisions / outcomes</small></article>
         </section>
-        
         <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
           <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
@@ -472,7 +473,8 @@
         
         
         <section class="room-audio-audit-panel" aria-label="Shared room ambient audio diagnostics">
-          <strong>SHARED ROOM AUDIO · UNATTRIBUTED</strong>
+          <header class="room-live-sense-head"><span>AUDIO</span><strong>WHAT THE AGENT HEARS</strong></header>
+          <small class="room-live-sense-subtitle">Live room audio observations · shared/unattributed unless canonical speaker attribution is available elsewhere.</small>
           <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
             aria-label="Combined ambient room microphone level, not participant-specific"
             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -764,7 +766,12 @@
         </section>
         </section>
         <section class="control-center-room-section control-center-room-wide">
-          <header><span>MAPPING</span><strong>Room map, calibration, areas & objects</strong></header>
+          <header><span>MAPPING</span><strong>Advanced Room Mapping</strong></header>
+          <label class="control-center-master-toggle">
+            <input type="checkbox" id="roomAdvancedMappingEnabled">
+            <span><strong>Enable Advanced Room Mapping</strong><small>Opt in to zones, floor calibration, listener anchor, object placement and spatial map editing.</small></span>
+          </label>
+          <div id="roomAdvancedMappingControls" class="control-center-advanced-map" hidden>
 <details class="room-scene-editor" id="roomSceneEditor">
           <summary>ROOM MAP · Configure camera-relative areas</summary>
           <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
@@ -829,15 +836,18 @@
           <button type="button" id="roomClearScene">Clear owner-defined map</button>
           <small id="roomSceneMessage" role="status">Not calibrated. Owner labels never establish a participant's physical location.</small>
         </details>
+          </div>
+          <small id="roomAdvancedMappingStatus">Advanced mapping is off. ROOM uses camera-relative observations only.</small>
         </section>
         <section class="control-center-room-section control-center-room-wide" aria-label="ROOM observation settings">
-          <header><span>OBSERVATION POLICY</span><strong>What ROOM may analyze or retain</strong></header>
+          <header><span>BASIC ROOM</span><strong>Observation & hearing defaults</strong></header>
+          <p class="control-center-section-copy">Basic ROOM is enabled by default: live visual observations, local ambient/audio analysis, observation history and background routine intelligence. Turn individual behaviors off here if desired.</p>
           <div class="control-center-setting-stack">
-            <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations"> Save observation history on this device</label>
+            <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations" checked> Save observation history on this device</label>
             <button type="button" id="roomClearObservations">Clear room observations</button>
-            <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns"> Analyze shared audio energy patterns locally (this session only)</label>
+            <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns" checked> Analyze shared audio energy patterns locally (this session only)</label>
             <small>Energy/VAD summaries stay local and unattributed. They do not identify a sound source.</small>
-            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio"> Classify environmental audio locally with the optional AudioSet model (this session only)</label>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Classify environmental audio locally with the optional AudioSet model (this session only)</label>
             <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
             <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
             <div class="control-center-setting-row">
