@@ -2341,9 +2341,24 @@ function renderDialogueTurns() {
       ...(turn.continuousFusionConflicts||[]).map(value=>'conflict:'+value)
     ].filter(Boolean);
     continuousMeta.textContent='Continuous fusion · '+continuousBits.join(' · ');
+    const attributionMeta=document.createElement('small');
+    const attributionBits=[
+      turn.multiPersonAttributionState||'not-recorded',
+      (turn.multiPersonAttributionIntervals||[]).length+
+       ' interval'+((turn.multiPersonAttributionIntervals||[]).length===1?'':'s'),
+      turn.multiPersonOwnershipChangeCount
+       ?turn.multiPersonOwnershipChangeCount+' ownership change'+
+        (turn.multiPersonOwnershipChangeCount===1?'':'s'):'',
+      turn.multiPersonInterruptionCount
+       ?turn.multiPersonInterruptionCount+' interruption'+
+        (turn.multiPersonInterruptionCount===1?'':'s'):'',
+      turn.multiPersonPartialAttribution?'partial attribution':'',
+      (turn.multiPersonAttributionCorrections||[]).length?'owner corrected':''
+    ].filter(Boolean);
+    attributionMeta.textContent='Turn attribution · '+attributionBits.join(' · ');
 
     card.append(top, transcript, context,transcriptMeta,conversationMeta,
-      fusionMeta,diarizationMeta,continuousMeta);
+      fusionMeta,diarizationMeta,continuousMeta,attributionMeta);
     ui.dialogueTurns.append(card);
   }
 }
