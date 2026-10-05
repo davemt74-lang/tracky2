@@ -85,3 +85,11 @@ test('14F acknowledgement stores exact server version and local fingerprint',()=
  assert.equal(next.serverVersion,4);assert.equal(next.serverUpdatedAt,9000);
  assert.equal(next.lastSyncedFingerprint,resourceFingerprint('scene',scene()));
 });
+
+test('14F scene configuration cannot be tombstoned by metadata sync',()=>{
+ assert.throws(()=>changeForResourceServer('push-delete',{
+  type:'scene',local:null,server:{id:'local-room',version:1},
+  state:{...defaultResourceSyncState('scene','local-room'),serverVersion:1},
+  changeId:'change-scene-delete'
+ }),/cannot be deleted/);
+});
