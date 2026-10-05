@@ -22,7 +22,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   follow:$('agentFollowParticipant'),distanceAudio:$('agentDistanceAudio'),
   spatialStatus:$('agentSpatialStatus'),
   useModel:$('agentUseModel'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
-  modelStatus:$('agentModelStatus'),
+  modelStatus:$('agentModelStatus'),reasoningStatus:$('agentReasoningStatus'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
   heading:$('agentParticipantHeading'),modal:$('agentVoiceModal'),
   close:$('agentCloseVoiceModal'),backdrop:$('agentVoiceBackdrop'),title:$('agentVoiceModalTitle')
@@ -311,6 +311,18 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   ].sort((a,b)=>a.at-b.at).slice(-12);
   lastSpeakerId=reasoningContext.mayUseParticipantName
    ?reasoningContext.speakerParticipantId:null;
+  if(ui.reasoningStatus){
+   const bits=[
+    reasoningContext.speakerState,
+    reasoningContext.mayUseParticipantMemory?'memory authorized':'memory isolated',
+    reasoningContext.identityConflict?'identity conflict':'',
+    reasoningContext.overlapAmbiguous?'overlap unresolved':'',
+    reasoningContext.meeting?.turnInMeeting
+     ?'meeting '+(reasoningContext.meeting.status||'unknown')+' · '+(reasoningContext.meeting.policy||'policy unavailable'):'',
+    ...(reasoningContext.evidenceLabels||[]).slice(0,6)
+   ].filter(Boolean);
+   ui.reasoningStatus.textContent='Reasoning context · '+bits.join(' · ');
+  }
   showThread();
   const now=Date.now();
   const policy=replyEligibility({
