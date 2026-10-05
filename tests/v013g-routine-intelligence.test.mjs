@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {projectRoomState,roomObservation} from '../src/room-event-core.js';
 import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineFeedbackIdsToPrune,
  scrubRoutineFeedbackParticipant,routineLabel,ROUTINE_MIN_OCCURRENCES
@@ -17,6 +18,33 @@ test('13G sparse routine data abstains until three distinct recurring observatio
  assert.equal(ROUTINE_MIN_OCCURRENCES,3);
  assert.equal(rows.length,1);
  assert.equal(rows[0].occurrences,3);
+});
+
+test('13G repeated observations on one day are not a recurring routine',()=>{
+ const base=Date.UTC(2026,0,1,8,0);
+ const rows=deriveRoutineCandidates([
+  event(base),event(base+3*60*60*1000),event(base+6*60*60*1000)
+ ]);
+ assert.equal(rows.length,0);
+});
+
+test('13G morning and evening recurrence become separate time clusters',()=>{
+ const base=Date.UTC(2026,0,1,8,0);
+ const rows=deriveRoutineCandidates([
+  event(base),event(base+day),event(base+2*day),
+  event(base+10*60*60*1000),event(base+day+10*60*60*1000),event(base+2*day+10*60*60*1000)
+ ]);
+ assert.equal(rows.length,2);
+ assert.ok(Math.abs(rows[0].centerMinute-rows[1].centerMinute)>300);
+});
+
+test('13G midnight-spanning recurrence keeps a midnight clock center',()=>{
+ const base=Date.UTC(2026,0,1,23,50);
+ const rows=deriveRoutineCandidates([
+  event(base),event(base+day+20*60000),event(base+2*day+10*60000)
+ ]);
+ assert.equal(rows.length,1);
+ assert.ok(rows[0].centerMinute<60||rows[0].centerMinute>1380);
 });
 
 test('13G recurring arrival window produces bounded observable routine candidate',()=>{
@@ -69,6 +97,22 @@ test('13G feedback pruning remains bounded',()=>{
  assert.equal(routineFeedbackIdsToPrune(rows,160).length,40);
 });
 
+test('13G owner-retracted canonical ROOM evidence no longer contributes to routine learning',()=>{
+ const base=Date.UTC(2026,0,1,8,0);
+ const originals=[0,1,2].map(i=>roomObservation({
+  id:'r'+i,at:base+i*day,category:'presence',semantic:'participant-observed',
+  message:'Pat observed',participantId:'p1',roomId:'kitchen',sessionId:'s'+i
+ },base+i*day));
+ const correction=roomObservation({
+  id:'fix',at:base+2*day+1000,category:'system',kind:'correction',
+  semantic:'owner-correction',message:'Correction',participantId:'p1',
+  correction:{targetId:'r1',operation:'retract'}
+ },base+2*day+1000);
+ const effective=projectRoomState([...originals,correction]).events;
+ assert.equal(effective.filter(row=>row.semantic==='participant-observed').length,2);
+ assert.equal(deriveRoutineCandidates(effective).length,0);
+});
+
 test('13G unsafe or participant-less ROOM events cannot become routines',()=>{
  const base=Date.UTC(2026,0,1,8,0);
  const events=[
@@ -102,6 +146,8 @@ test('13G persistence stores owner review metadata separately from Agent Memory'
  assert.match(store,/saveRoutineFeedback/);
  assert.match(store,/listRoutineFeedback/);
  assert.match(store,/scrubRoutineFeedbackParticipant/);
+ assert.match(store,/const DB_VERSION = 12/);
+ assert.match(store,/ROUTINE_FEEDBACK/);
  const section=store.slice(store.indexOf('export function listRoutineFeedback'));
  assert.doesNotMatch(section.slice(0,5000),/saveAgentMemory/);
 });
