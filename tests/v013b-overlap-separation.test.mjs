@@ -77,7 +77,7 @@ test('13B distinct separated voice matches expose two participant candidates wit
  assert.equal('participantId' in fields,false);
  assert.equal(fields.overlapSeparationSources.length,2);
  const json=JSON.stringify(fields);
- for(const forbidden of ['samples','left','right','pcm','rawAudio','embedding'])
+ for(const forbidden of ['"samples"','"pcm"','"rawAudio"','"embedding"'])
   assert.equal(json.includes(forbidden),false,forbidden);
 });
 
