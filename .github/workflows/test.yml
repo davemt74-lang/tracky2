@@ -103,7 +103,7 @@ jobs:
           node --input-type=module -e "import('./src/room-temporal-core.js').then(m=>{if(!m.RoomTemporalLedger)process.exit(1)})"
           unzip -l tracky2-v0.12.5-deploy.zip | grep -F 'tracky2-v0.12.5/src/room-scene-graph.js'
           unzip -l tracky2-v0.12.5-deploy.zip | grep -F 'tracky2-v0.12.5/src/room-scene-ui.js'
-          node --input-type=module -e "import('./src/room-scene-graph.js').then(m=>{if(m.ROOM_SCENE_SCHEMA!==2||!m.upsertRoomArea||!m.setRoomCalibration)process.exit(1)})"
+          node --input-type=module -e "import('./src/room-scene-graph.js').then(m=>{if(m.ROOM_SCENE_SCHEMA!==3||!m.upsertRoomArea||!m.setRoomCalibration||!m.setRoomIdentity)process.exit(1)})"
           unzip -l tracky2-v0.12.5-deploy.zip | grep -F 'tracky2-v0.12.5/docs/V010-MASTER-PLAN.md'
           unzip -l tracky2-v0.12.5-deploy.zip | grep -F 'tracky2-v0.12.5/docs/DEVELOPMENT-STATUS.md'
           unzip -l tracky2-v0.12.5-deploy.zip | grep -F 'tracky2-v0.12.5/src/room-audio-audit.js'
