@@ -41,6 +41,7 @@ import {
   dedupeParticipantAssignments,
   roomPresenceState
 } from './src/room-tracking-core.js';
+import {ParticipantContinuityTracker} from './src/participant-continuity-core.js';
 import { IdentityEngine, cropFacePhoto } from './src/identity-engine.js';
 import {
   acknowledgeNewTrack,
@@ -273,6 +274,7 @@ const speakerAssociationTracker=new SpeakerAssociationTracker();
 const multimodalFusionTracker=new MultimodalFusionTracker();
 const diarizationSession=new SpeakerDiarizationSession();
 const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
+const participantContinuity=new ParticipantContinuityTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
 let canonicalRuntimeInstanceId='';
@@ -1011,6 +1013,14 @@ function reconcileLongSessionParticipantRefs(participantIds=[]){
   reconcileTransientDialogueTurns(state.voice.turns,ids,50)
  );
  continuousSpeakerFusionTracker.reconcile(ids);
+ participantContinuity.reconcile(ids);
+ state.identity.tracks=state.identity.tracks.map(track=>
+  track.participantId&&!allowed.has(String(track.participantId))
+   ?{...track,participantId:null,participantName:null,similarity:0,
+     status:track.face?'ready':'body-detected',identitySource:'participant-removed',
+     continuityState:'removed',continuityParticipantId:null,continuityConfidence:0}
+   :track
+ );
  agentRuntime?.reconcileParticipants?.(ids);
  return {
   announcedParticipants:state.voice.announcedParticipants.size,
@@ -1954,6 +1964,11 @@ function participantById(id) {
 }
 
 function statusLabel(track) {
+  if(track.continuityState==='owner-corrected')return 'OWNER-CORRECTED IDENTITY';
+  if(track.continuityState==='voice-recovered')return 'VOICE + BODY RECOVERY';
+  if(track.identitySource==='continuity-short-carry')return 'CONTINUITY RECOVERY';
+  if(track.continuityState==='verification-required')return 'REENTRY · VERIFY IDENTITY';
+  if(track.continuityState==='ambiguous')return 'IDENTITY AMBIGUOUS';
   if (track.status === 'matched') return 'FACE + BODY LOCK';
   if (track.status === 'body-lock') return 'BODY LOCK';
   if (track.status === 'occluded') return 'OCCLUSION MEMORY';
@@ -2005,6 +2020,18 @@ function createParticipantCard(track) {
   const detail = document.createElement('span');
   if (track.visitorLabel) {
     detail.textContent='Stable visitor · checking enrolled profiles';
+  } else if(track.continuityState==='owner-corrected'){
+    detail.textContent='Owner-corrected identity · current track';
+  } else if(track.continuityState==='voice-recovered'){
+    detail.textContent='Verified voice + body association recovered identity';
+  } else if(track.identitySource==='continuity-short-carry'){
+    detail.textContent='Recent verified identity · fragmented body track recovered';
+  } else if(track.continuityState==='verification-required'){
+    const candidate=participantById(track.continuityParticipantId);
+    detail.textContent='Prior '+(candidate?.name||'participant')+
+      ' candidate · face or voice verification required';
+  } else if(track.continuityState==='ambiguous'){
+    detail.textContent='Multiple continuity candidates · identity not assigned';
   } else if (track.status === 'matched') {
     detail.textContent = Math.round(track.similarity * 100) + '% face match · full-body track active';
   } else if (track.status === 'body-lock') {
@@ -2139,6 +2166,30 @@ function createParticipantCard(track) {
     create.textContent = 'Create participant';
     create.addEventListener('click', () => createParticipantFromTrack(track));
     actions.append(create);
+  }
+
+  if(state.mode==='agent'&&(track.participantId||track.visitorLabel||
+     ['new','body-detected','ready','reacquiring'].includes(track.status))){
+    const correction=document.createElement('select');
+    correction.className='participant-identity-correction';
+    correction.setAttribute('aria-label','Correct identity for '+(track.participantName||track.visitorLabel||track.id));
+    const choose=document.createElement('option');choose.value='';choose.textContent='Correct identity…';
+    correction.append(choose);
+    if(track.participantId){
+      const clear=document.createElement('option');clear.value='__clear__';clear.textContent='Clear identity';
+      correction.append(clear);
+    }
+    for(const person of state.identity.participants.filter(person=>person.recognitionEnabled!==false)){
+      const option=document.createElement('option');option.value=person.id;
+      option.textContent='Assign '+(person.nickname||person.name);
+      correction.append(option);
+    }
+    correction.addEventListener('change',()=>{
+      const value=correction.value;
+      correction.value='';
+      if(value)correctTrackIdentity(track,value==='__clear__'?null:value);
+    });
+    actions.append(correction);
   }
 
   if (actions.children.length) card.append(actions);
@@ -2877,6 +2928,14 @@ async function processRoomSegment(segment) {
       ? (voiceMatch.participant?.id===association.participantId
         ? voiceMatch.participant : participantById(association.participantId))
       : null;
+    if(voiceMatch.matched&&association.participantId&&association.trackId&&participant){
+      state.identity.tracks=Array.from(participantContinuity.recoverByVoice(
+       state.identity.tracks,{
+        participantId:participant.id,participantName:participant.nickname||participant.name,
+        trackId:association.trackId,confidence:association.voiceConfidence,at:Date.now()
+       }
+      ));
+    }
     const track=association.trackId
       ? roomTracks.find(candidate=>candidate.id===association.trackId)||null
       : null;
@@ -3632,6 +3691,36 @@ function rejectTrackMatch(track) {
   renderParticipantCards();
 }
 
+function correctTrackIdentity(track,participantId){
+ const person=participantId?participantById(participantId):null;
+ if(participantId&&!person)return;
+ try{
+  state.identity.tracks=Array.from(participantContinuity.noteOwnerCorrection(
+   state.identity.tracks,{
+    trackId:track.id,participantId:person?.id||null,
+    participantName:person?.nickname||person?.name||null,at:Date.now()
+   }
+  ));
+  if(state.mode==='agent')logRoomMessage(
+   'identity',
+   person?'Owner corrected track '+track.id+' to '+(person.nickname||person.name):
+    'Owner cleared identity from track '+track.id,
+   'participant-continuity',
+   {semantic:'participant-continuity-correction',participantId:person?.id||null,
+    confidence:person?1:0,evidence:{trackId:track.id}}
+  );
+  reconcileRoomVisitors(performance.now());
+  updateConversationGroups();
+  recordRoomTrackHistory(performance.now());
+  renderParticipantCards();
+ }catch(error){
+  console.error('Identity correction failed',error);
+  if(state.mode==='agent')logRoomMessage('identity',
+   'Identity correction blocked · '+String(error?.message||error),
+   'participant-continuity',{semantic:'participant-continuity-correction-blocked'});
+ }
+}
+
 async function createParticipantFromTrack(track) {
   try {
     const pending = await savePendingCapture({
@@ -3799,8 +3888,27 @@ async function scanRoom(now) {
       }
     }
 
+    const continuityNow=Date.now();
+    for(const track of resolved){
+      if(track.participantId&&track.status==='matched'&&track.face){
+        participantContinuity.observeVerified({
+          participantId:track.participantId,participantName:track.participantName,
+          trackId:track.id,authority:track.identitySource==='owner-correction'
+           ?'owner-correction':'face',
+          confidence:track.identitySource==='owner-correction'?1:track.similarity,
+          at:continuityNow,track
+        });
+      }else if(track.participantId){
+        participantContinuity.observeVisibleTrack(track,continuityNow);
+      }
+    }
+    const continuityPass=participantContinuity.annotateTracks(resolved,continuityNow);
+    const continuityResolved=Array.from(continuityPass.tracks);
+    for(const track of continuityResolved)
+      if(track.participantId)participantContinuity.observeVisibleTrack(track,continuityNow);
+
     const liveParticipantIds = new Set(
-      resolved
+      continuityResolved
         .filter((track) => track.participantId)
         .map((track) => track.participantId)
     );
@@ -3809,7 +3917,7 @@ async function scanRoom(now) {
     );
 
     state.identity.tracks = dedupeParticipantAssignments([
-      ...resolved,
+      ...continuityResolved,
       ...nonConflictingCarried
     ]);
     reconcileRoomVisitors(now);
