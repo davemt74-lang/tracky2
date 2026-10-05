@@ -16,6 +16,9 @@ function tracky_sync_v2_quota(string $type): int {
 function tracky_sync_v2_item_limit(string $type): int {
     return match($type){'memory'=>12288,'task'=>24576,'scene'=>65536,default=>0};
 }
+function tracky_sync_v2_count_limit(string $type): int {
+    return match($type){'memory'=>200,'task'=>200,'scene'=>1,default=>0};
+}
 function tracky_sync_v2_type(mixed $value): string {
     $type=(string)$value;
     if(!in_array($type,TRACKY_SYNC_V2_TYPES,true))throw new InvalidArgumentException('Invalid resource type.');
@@ -256,6 +259,12 @@ try{
             $nextVersion=$currentVersion+1;$deleted=$operation==='delete';$cipher=null;$bytes=0;
             if(!$deleted){
                 [, $json,$bytes]=tracky_sync_v2_validate_payload($type,$resourceId,$change['payload']??null);
+                if(!$current||$current['deleted_at']!==null){
+                    $countQ=$db->prepare("SELECT COUNT(*) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
+                    $countQ->execute([$type]);
+                    if((int)$countQ->fetchColumn()>=tracky_sync_v2_count_limit($type))
+                        throw new RuntimeException('Resource sync record-count quota exceeded for '.$type.'.');
+                }
                 $totalQ=$db->prepare("SELECT COALESCE(SUM(payload_bytes),0) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
                 $totalQ->execute([$type]);$total=(int)$totalQ->fetchColumn();
                 $oldBytes=$current&&$current['deleted_at']===null?(int)$current['payload_bytes']:0;
