@@ -133,9 +133,14 @@ async function postJournal(entry,localMap,{resolution=''}={}){
  serverCache.set(recordKey(result.record),result.record);
  return result.record;
 }
+async function clearPendingForKey(key){
+ const rows=await listResourceSyncJournal();
+ for(const row of rows)if(row.status==='pending'&&row.key===key)await deleteResourceSyncJournal(row.id);
+}
 async function pushPlan(type,id,plan,local,server,state,{resolution=''}={}){
  if(type==='scene'&&plan.action==='push-delete')throw new Error('Scene deletion is not a sync operation; save an empty scene configuration instead.');
  const operation=plan.action==='push-delete'?'push-delete':'push-upsert';
+ await clearPendingForKey(resourceSyncKey(type,id));
  const entry=journalEntry({
   type,id,operation,baseVersion:Number(server?.version??state?.serverVersion)||0,
   localFingerprint:local?resourceFingerprint(type,local):null,now:Date.now()
@@ -151,6 +156,7 @@ async function pushPlan(type,id,plan,local,server,state,{resolution=''}={}){
  }
 }
 async function pullPlan(type,id,server,state){
+ await clearPendingForKey(resourceSyncKey(type,id));
  const operation=server?.deleted?'pull-delete':'pull-upsert';
  const entry=journalEntry({type,id,operation,serverVersion:Number(server?.version)||0,now:Date.now()});
  await saveResourceSyncJournal(entry);
@@ -221,12 +227,15 @@ async function render(){
    }else if(plan.action==='ack-delete'){
     const button=node('button','Acknowledge deletion');button.type='button';
     button.addEventListener('click',()=>void action(async()=>{
+     await clearPendingForKey(key);
      await saveResourceSyncState(resourceSyncStateAfterRecord(type,state,server,null,Date.now()));
      setStatus('Deletion acknowledged.');
     }));card.append(button);
    }else if(plan.action==='clear-state'){
     const button=node('button','Clear sync state');button.type='button';
-    button.addEventListener('click',()=>void action(()=>deleteResourceSyncState(type,id)));card.append(button);
+    button.addEventListener('click',()=>void action(async()=>{
+     await clearPendingForKey(key);await deleteResourceSyncState(type,id);
+    }));card.append(button);
    }else if(plan.action==='conflict'){
     const browser=node('button','Keep browser copy');browser.type='button';
     browser.addEventListener('click',()=>void action(()=>pushPlan(type,id,{action:local?'push-upsert':'push-delete'},local,server,state,{resolution:'browser'})));
