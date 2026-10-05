@@ -104,9 +104,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Added independent `providers.use` permission, schema-v4 persistent daily usage accounting, authenticated-session budgets, bounded timeout/retry behavior, short circuit breaker, and privacy-safe provider audit metadata.
 - AGENT retains local Ollama and deterministic scripted reply paths. Provider routing does not gain identity, microphone, transcript, memory, meeting, recording, room-handoff or deletion authority.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.0** with provider-runtime smoke tests and direct ZIP/SHA release wiring.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #80 merged at `6307a348dc387bbe174a57bd99c721d80387c228`.
+- Post-merge Tracky2 CI run #37345890199 passed Node/package/PWA and PHP/security/installer checks.
+- Direct **v0.14.0** release published against the merged commit with `tracky2-v0.14.0-deploy.zip` and `tracky2-v0.14.0-deploy.zip.sha256`.
+- Verified deploy ZIP SHA-256: `be5a0794bd64f0d0cd47141931954fbf9bb86d8c74edd733dee39e0ce69929d0`.
+- **14A final score: 10/10.**
 
 ## Exact next action
 
-Run the 14A PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.0 ZIP/SHA/direct release, then begin **14B — Governed Skills & Tool Execution**.
+Begin **14B — Governed Skills & Tool Execution** from current merged `main`. Do not reopen 14A.
 
