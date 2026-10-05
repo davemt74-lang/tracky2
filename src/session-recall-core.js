@@ -1,5 +1,6 @@
 import {projectRoomState} from './room-event-core.js';
 import {normalizeMemoryRecord,memoryExpired} from './agent-memory-core.js';
+import {memoryEvidenceFingerprint} from './agent-memory-learning-core.js';
 
 export const RECALL_SOURCE_TYPES=Object.freeze([
  'conversation','room','meeting','recording','decision','task','memory'
@@ -65,13 +66,15 @@ export function buildRecallProjection({
  const dialogueIds=new Set(dialogueById.keys());
  const roomProjection=projectRoomState(Array.isArray(roomEvents)?roomEvents:[]);
  const effectiveRoom=roomProjection.events||[];
- const roomIds=new Set(effectiveRoom.map(event=>String(event.id)));
+ const roomById=new Map(effectiveRoom.filter(event=>event?.id).map(event=>[String(event.id),event]));
+ const roomIds=new Set(roomById.keys());
  const meetingRows=Array.isArray(meetings)?meetings:[];
- const meetingNoteIds=new Set(),meetingDecisionIds=new Set();
+ const meetingNoteById=new Map(),meetingDecisionById=new Map();
  for(const meeting of meetingRows){
-  for(const note of meeting?.notes||[])if(note?.id)meetingNoteIds.add(String(note.id));
-  for(const decision of meeting?.decisions||[])if(decision?.id)meetingDecisionIds.add(String(decision.id));
+  for(const note of meeting?.notes||[])if(note?.id)meetingNoteById.set(String(note.id),{...note,meetingId:meeting.id});
+  for(const decision of meeting?.decisions||[])if(decision?.id)meetingDecisionById.set(String(decision.id),{...decision,meetingId:meeting.id});
  }
+ const meetingNoteIds=new Set(meetingNoteById.keys()),meetingDecisionIds=new Set(meetingDecisionById.keys());
  const rows=[];
 
  for(const turn of dialogue){
@@ -244,6 +247,33 @@ export function buildRecallProjection({
   }));
  }
 
+ const memorySourceRef=source=>{
+  const id=String(source?.sourceId||'');if(!id)return ref('memory-source','missing','stale');
+  let type='memory-source',current=null,text='',participantId=null,meetingId=source?.meetingId||null,at=null;
+  if(source.kind==='dialogue'){
+   type='dialogue-turn';current=dialogueById.get(id)||null;
+   text=current?.transcript||'';participantId=current?.participantId||null;
+   at=current?(atOf(current.createdAt)||Number(current.at)||0):null;
+  }else if(source.kind==='room-event'){
+   type='room-event';current=roomById.get(id)||null;
+   text=current?.message||'';participantId=current?.participantId||null;
+   at=current?Number(current.at)||0:null;
+  }else if(source.kind==='meeting-note'){
+   type='meeting-note';current=meetingNoteById.get(id)||null;
+   text=current?.text||'';meetingId=current?.meetingId||meetingId;
+   at=current?Number(current.at)||0:null;
+  }else if(source.kind==='meeting-decision'){
+   type='meeting-decision';current=meetingDecisionById.get(id)||null;
+   text=current?.note||'';meetingId=current?.meetingId||meetingId;
+   at=current?Number(current.at)||0:null;
+  }
+  if(!current)return ref(type,id,'stale');
+  const fingerprint=memoryEvidenceFingerprint({
+   kind:source.kind,sourceId:id,participantId,meetingId,at,text
+  });
+  const state=source.fingerprint&&fingerprint!==source.fingerprint?'changed':'available';
+  return ref(type,id,state);
+ };
  const activeMemoryRows=(Array.isArray(memories)?memories:[])
   .map(row=>{try{return normalizeMemoryRecord(row,now);}catch{return null;}})
   .filter(Boolean)
@@ -252,15 +282,9 @@ export function buildRecallProjection({
   .slice(0,200);
  for(const memory of activeMemoryRows){
   const approved=memory.provenance==='owner-approved-proposal';
-  const memoryRefs=approved?(memory.sourceRefs||[]).slice(0,5).map(source=>{
-   let type='memory-source',state='stale';
-   if(source.kind==='dialogue'){type='dialogue-turn';state=dialogueIds.has(String(source.sourceId))?'available':'stale';}
-   else if(source.kind==='room-event'){type='room-event';state=roomIds.has(String(source.sourceId))?'available':'stale';}
-   else if(source.kind==='meeting-note'){type='meeting-note';state=meetingNoteIds.has(String(source.sourceId))?'available':'stale';}
-   else if(source.kind==='meeting-decision'){type='meeting-decision';state=meetingDecisionIds.has(String(source.sourceId))?'available':'stale';}
-   return ref(type,source.sourceId,state);
-  }):[];
+  const memoryRefs=approved?(memory.sourceRefs||[]).slice(0,5).map(memorySourceRef):[];
   const staleCount=memoryRefs.filter(reference=>reference.state==='stale').length;
+  const changedCount=memoryRefs.filter(reference=>reference.state==='changed').length;
   rows.push(item({
    id:'memory:'+memory.id,sourceType:'memory',sourceId:memory.id,subtype:memory.type,
    at:Number(memory.updatedAt||memory.createdAt)||0,
@@ -274,7 +298,8 @@ export function buildRecallProjection({
     ...(approved?[String(memory.proposalMethod||'canonical-evidence-approval')]:[])
    ],
    references:memoryRefs,
-   status:'active'+(staleCount?' · '+staleCount+' source reference'+(staleCount===1?'':'s')+' stale':'')
+   status:'active'+(staleCount?' · '+staleCount+' source reference'+(staleCount===1?'':'s')+' stale':'')+
+    (changedCount?' · '+changedCount+' source reference'+(changedCount===1?'':'s')+' changed':'')
   }));
  }
 
@@ -328,6 +353,7 @@ export function searchRecall(rows=[],query='',options={}){
 export function explainRecallResult(result){
  if(!result)return Object.freeze({summary:'Unavailable recall result.',references:Object.freeze([])});
  const stale=(result.references||[]).filter(reference=>reference.state==='stale');
+ const changed=(result.references||[]).filter(reference=>reference.state==='changed');
  const sourceLabels={
   conversation:'canonical dialogue turn',room:'effective canonical ROOM event',
   meeting:'meeting metadata',recording:'saved recording metadata',
@@ -336,6 +362,7 @@ export function explainRecallResult(result){
  const temporal=result.temporal==='current-session'?'current session':'historical';
  const summary=(sourceLabels[result.sourceType]||result.sourceType)+' · '+temporal+
   ' · provenance: '+(result.provenance.join(', ')||'unspecified')+
-  (stale.length?' · '+stale.length+' referenced source'+(stale.length===1?' is':'s are')+' unavailable':'');
+  (stale.length?' · '+stale.length+' referenced source'+(stale.length===1?' is':'s are')+' unavailable':'')+
+  (changed.length?' · '+changed.length+' referenced source'+(changed.length===1?' has':'s have')+' changed since approval':'');
  return Object.freeze({summary,references:Object.freeze([...(result.references||[])])});
 }
