@@ -749,6 +749,15 @@
         </section>
         <section class="control-center-room-section control-center-room-wide">
           <header><span>FEDERATION</span><strong>Room identity & handoff authority</strong></header>
+          <div class="control-center-room-identity">
+            <form id="roomIdentityForm" class="room-scene-form">
+              <label>Physical room ID<input id="roomIdentityId" maxlength="96" required value="room-local" placeholder="kitchen"></label>
+              <label>Room name<input id="roomIdentityName" maxlength="96" required value="Local room" placeholder="Kitchen"></label>
+              <button type="submit">Save room identity</button>
+            </form>
+            <small id="roomIdentityStatus" role="status">Current room · Local room · room-local</small>
+            <small>Room identity is owner-defined metadata. A room ID never proves participant movement; handoffs remain explicit.</small>
+          </div>
 <section class="room-temporal-panel" id="roomHandoffPanel" aria-label="Explicit multi-room handoff controls">
           <strong>MULTI-ROOM HANDOFF · EXPLICIT ONLY</strong>
           <div id="roomHandoffCurrent" class="room-temporal-summary">Current room · Local room · room-local</div>
@@ -775,13 +784,7 @@
 <details class="room-scene-editor" id="roomSceneEditor">
           <summary>ROOM MAP · Configure camera-relative areas</summary>
           <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
-          <form id="roomIdentityForm" class="room-scene-form">
-            <label>Physical room ID<input id="roomIdentityId" maxlength="96" required value="room-local" placeholder="kitchen"></label>
-            <label>Room name<input id="roomIdentityName" maxlength="96" required value="Local room" placeholder="Kitchen"></label>
-            <button type="submit">Save room identity</button>
-          </form>
-          <small id="roomIdentityStatus" role="status">Current room · Local room · room-local</small>
-          <small>Room identity is owner-defined metadata. Camera areas below remain positions inside this room and never prove movement to another room.</small>
+
           <div id="roomAreaPreview" class="room-scene-preview" role="img"
                aria-label="Owner-defined camera view rectangles and temporary visible-track positions">
             <div id="roomAreaPreviewLayers" class="room-scene-layers" aria-hidden="true"></div>
