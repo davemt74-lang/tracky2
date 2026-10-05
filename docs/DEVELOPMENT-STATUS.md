@@ -188,7 +188,23 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Verified deploy ZIP SHA-256: `29c71b9ab29170f3501bac2b58a0a452154890986c9eb63f558d094f69a24ad1`.
 - **14E final score: 10/10.**
 
+## 14F — Encrypted Server Sync V2
+
+- Branch: `feat/v014f-encrypted-server-sync-v2`.
+- Release target: **v0.14.5**.
+- Legacy participant/biometric sync remains unchanged, manual, per-participant, and separately consented.
+- Added a separate allowlisted metadata-sync lane for exactly three resource types: owner-authorized durable memory, owner-confirmed terminal task metadata, and owner-defined `local-room` scene configuration.
+- Each browser registers a persistent device ID, label, and selected resource-type scopes. Device revocation is available from the browser and Admin; revoked IDs cannot silently re-register.
+- Server schema advances to 6 with encrypted sync resources, device scopes, optimistic resource versions/tombstones, bounded change cursor, and stable change-ID receipts for replay-safe lost acknowledgements.
+- Browser IndexedDB advances to 14 with device config, resource version/fingerprint state, and an ID/fingerprint-only resumable journal capped at 200 entries. Synchronized payloads are never duplicated into the journal.
+- Resume revalidates local fingerprints and exact server versions before replay. Stale push intent and stale pull intent stop for explicit owner review.
+- Per-item and per-resource quotas are enforced. Scene tombstones are rejected; an empty scene configuration must be saved explicitly instead.
+- Transcripts, ROOM events, meetings as resources, recordings/media, workflows, raw camera/audio, biometrics, embeddings, provider prompts/credentials, arbitrary resource types and blanket database mirroring are excluded.
+- Metadata sync is manual from Admin. No timer, service-worker Background Sync, periodic sync, or hidden automatic upload path was added.
+- Package/PWA/diagnostics/CI are aligned to **v0.14.5**, including sync-v2 core/API/controller, fresh-install/upgrade, package-smoke and direct ZIP/SHA checks.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Begin **14F — Encrypted Server Sync V2** from current merged `main`. Do not reopen 14E.
+Run the 14F PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.5 ZIP/SHA/direct release, then begin **14G — Multi-Room Federation V3**.
 
