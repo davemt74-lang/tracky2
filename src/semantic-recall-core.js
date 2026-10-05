@@ -20,7 +20,9 @@ const CONCEPTS=Object.freeze([
  ['recording',['record','recorded','recording','audio','microphone','voice']],
  ['search',['search','searched','find','found','lookup','looked','query']],
  ['music',['music','song','songs','album','artist','track']],
- ['project',['project','projects','initiative','pilot','release','launch']]
+ ['project',['project','projects','initiative','pilot','release','launch']],
+ ['brevity',['short','concise','brief','compact','succinct']],
+ ['response',['reply','replies','response','responses','answer','answers']]
 ]);
 const CONCEPT_BY_WORD=(()=>{
  const map=new Map();
