@@ -95,6 +95,15 @@ test('13C owner correction can assign or clear identity and rejects visible dupl
  ],{trackId:'T2',participantId:'p1'}),/already assigned/);
 });
 
+test('13C owner rejected participant is not immediately reattached by continuity',()=>{
+ const t=new ParticipantContinuityTracker();
+ t.observeVerified({participantId:'p1',trackId:'T1',authority:'face',confidence:.95,
+  at:1000,track:track('T1',.5,{participantId:'p1'})});
+ const result=t.annotateTracks([track('T1',.5,{blockedParticipantIds:['p1']})],2000);
+ assert.equal(result.tracks[0].participantId,null);
+ assert.notEqual(result.tracks[0].continuityParticipantId,'p1');
+});
+
 test('13C participant deletion/revocation removes continuity records',()=>{
  const t=new ParticipantContinuityTracker();
  t.observeVerified({participantId:'p1',trackId:'T1',authority:'face',at:1,track:track('T1')});
@@ -113,6 +122,17 @@ test('13C confidence history is bounded and contains no image/audio/embedding pa
  const json=JSON.stringify(snap);
  for(const forbidden of ['embedding','photo','imageData','rawAudio','transcript'])
   assert.equal(json.includes(forbidden),false,forbidden);
+});
+
+test('13C runtime integrates continuity recovery, owner correction and deletion reconciliation',()=>{
+ const runtime=fs.readFileSync('vertical-motion.js','utf8');
+ assert.match(runtime,/ParticipantContinuityTracker/);
+ assert.match(runtime,/participantContinuity\.annotateTracks/);
+ assert.match(runtime,/participantContinuity\.recoverByVoice/);
+ assert.match(runtime,/participantContinuity\.noteOwnerCorrection/);
+ assert.match(runtime,/participantContinuity\.reconcile\(ids\)/);
+ assert.match(runtime,/Correct identity…/);
+ assert.match(runtime,/participant-continuity-correction/);
 });
 
 test('13C pure continuity core opens no media, persistence, model or network path',()=>{
