@@ -137,6 +137,15 @@ test('12H local model prompt consumes explicit reasoning context and preserves n
  assert.match(agent,/reasoningContext\.mayUseParticipantName/);
 });
 
+test('12H AGENT UI exposes bounded canonical reasoning status',()=>{
+ const html=fs.readFileSync('vertical-motion.html','utf8');
+ const agent=fs.readFileSync('agent-mode.js','utf8');
+ assert.match(html,/id="agentReasoningStatus"/);
+ assert.match(html,/cannot create or override participant identity/i);
+ assert.match(agent,/reasoningStatus:\$\('agentReasoningStatus'\)/);
+ assert.match(agent,/Reasoning context ·/);
+});
+
 test('12H proactive follow-up uses multimodal eligibility rather than participant id alone',()=>{
  const proactive=fs.readFileSync('src/agent-proactive-core.js','utf8');
  assert.match(proactive,/agentTurnProactivityEligibility/);
