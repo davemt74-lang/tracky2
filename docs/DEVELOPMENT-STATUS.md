@@ -38,20 +38,28 @@
 - Section baselines: **13A 7.4**, **13B 5.8**, **13C 7.6**, **13D 6.3**, **13E 5.4**, **13F 6.8**, **13G 5.9**, **13H 7.3**, **13I 7.9**, **13J 6.6**.
 - V0.12 remains closed. V0.13 extends the existing canonical runtime and does not create parallel microphone, transcript, participant, memory or hidden-recording authorities.
 
-## Active section: 13A — Representative Hardware Certification
-- **Branch:** `feat/v013a-representative-hardware-certification`.
-- **Audited baseline:** **7.4/10**.
-- Added pure `src/hardware-certification-core.js` with deterministic **PASS / PARTIAL / FAIL / NOT-RUN**, required exercise normalization, capability normalization, coarse browser/OS profile, owner device/environment labels, bounded evidence events, redacted report construction, canonical serialization and prior-report comparison.
-- Diagnostics now records camera capability/FPS/coverage, microphone signal + channel capability, Permissions API/storage/AudioWorklet support, bounded camera/mic/permission/visibility/storage/checkpoint events and explicit four-state manual exercise outcomes.
-- Microphone certification prefers stereo only to measure channel capability; it records aggregate RMS/channel metadata and still saves/transcribes no audio.
-- A selected long-session Pass is automatically reduced to Partial if measured active runtime is under 20 minutes.
-- Export produces a local redacted certification JSON plus **SHA-256** checksum computed in the browser from canonical redacted report data.
-- Prior certification JSON can be compared locally for status/capability/exercise changes without upload or persistence.
-- Reports exclude raw camera frames, raw audio, transcripts, face/voice embeddings, browser device IDs, group IDs and raw user-agent/platform strings.
-- `docs/hardware-acceptance.md` is upgraded to the V0.13 certification standard and explicitly states a passing report is **not universal hardware certification**.
-- Release target: **V0.13.0** with package/PWA/runtime-audit/deploy-manifest/direct-release wiring.
-- Deterministic fixtures cover coarse runtime metadata, mono/stereo capability, outcome scoring, 20-minute enforcement, required-hardware failure, bounded evidence, export redaction/canonicalization, report comparison, diagnostics UI/checksum wiring and pure-core safety.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.0 artifact/release validation.
+## Completed V0.13 sections
+- **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
+- Representative hardware PASS/PARTIAL/FAIL evidence remains specific to the actual tested device/browser/environment and is not universal hardware certification.
+
+## Active section: 13B — Overlapping-Speaker Source Separation V2
+- **Branch:** `feat/v013b-overlap-source-separation`.
+- **Audited baseline:** **5.8/10**.
+- Added pure `src/overlap-source-separation-core.js` with a conservative maximum of **two sources**, stereo channel-diversity analysis, bilateral dominance checks, correlation/side-ratio quality thresholds, bounded transient source estimates and explicit unavailable/weak/refused states.
+- **One microphone remains authoritative.** The existing `RoomAudioCapture` still contains exactly one live `getUserMedia` path and continues to produce the same mono PCM for VAD, transcription, environmental audio, whole-turn voice matching and canonical diarization.
+- AudioWorklet and ScriptProcessor fallback now expose left/right PCM only as transient frames while an accepted speech segment is active. That stereo PCM is resampled into a bounded `separationInput` carried only by the existing listening segment queue.
+- Environmental audio receives the mono segment with `separationInput` stripped, preventing duplicate raw-channel retention in its queue.
+- Separation runs **only after canonical diarization reports overlap**. Mono input, missing stereo PCM, correlated/weak stereo, silence, too-short/too-long material, and more-than-two-speaker requests remain unavailable/weak/refused instead of inventing separated speakers.
+- Accepted two-source estimates are embedded through the existing speaker engine under the same listening generation/deadline cancellation checks.
+- Distinct verified voice matches become bounded **candidate participant IDs** for overlap intervals; canonical turn ownership remains `overlap`. If both source estimates match the same participant, the result becomes `ambiguous-same-participant` and no participant IDs are emitted.
+- The canonical turn stores only separation state, quality, source count, bounded source direction/voice-match metadata, participant candidates, reason and provenance. **Separated PCM never enters the canonical dialogue record or transcript export.**
+- `saveDialogueTurn` explicitly strips `separationInput`, left/right samples and other PCM fields as a defense-in-depth persistence boundary.
+- Participant deletion/revocation propagation scrubs separated-source participant IDs from persisted dialogue and current in-memory turns and downgrades a formerly fully verified separated result when necessary.
+- ROOM and AGENT views expose overlap-separation state/quality/candidate count. AGENT receives the separation state only as evidence labels; unresolved overlap still blocks participant-specific memory/proactivity.
+- Existing multi-person attribution accepts separated participant IDs only as candidates on an overlap interval; it never turns them into a single owner.
+- Release target: **V0.13.1** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover clean synthetic two-source stereo, identical-channel refusal, mono fallback, three-speaker refusal, silence, distinct verified source matches, same-participant ambiguity, overlap candidate projection, one-mic/transient-PCM runtime wiring, generation cancellation, environmental queue stripping, persistence/export privacy, deletion scrubbing and visible provenance.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.1 artifact/release validation.
 
 ## Exact next action
-Open the 13A PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.0 ZIP/SHA-256/direct release, score **13A 10/10**, then start **13B — Overlapping-Speaker Source Separation V2** from merged main.
+Open the 13B PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.1 ZIP/SHA-256/direct release, score **13B 10/10**, then start **13C — Advanced Participant Continuity** from merged main.
