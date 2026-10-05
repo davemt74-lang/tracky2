@@ -17,7 +17,8 @@ test('14F encrypted sync release evidence remains present under later additive V
 test('14F schemas advance additively for server and browser reconciliation metadata',()=>{
  const bootstrap=read('server/bootstrap.php'),store=read('src/participant-store.js');
  assert.match(bootstrap,/TRACKY_SCHEMA_VERSION=6/);
- const dbVersion=Number(store.match(/const DB_VERSION = (\\d+)/)?.[1]||0);\n assert.ok(dbVersion>=14);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=14);
  for(const table of ['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'])
   assert.match(bootstrap,new RegExp(table));
  for(const storeName of ['resource-sync-config','resource-sync-state','resource-sync-journal'])
