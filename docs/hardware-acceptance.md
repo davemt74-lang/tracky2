@@ -1,54 +1,159 @@
-# Tracky2 V0.10 — Representative-device release acceptance
+# Tracky2 V0.13 — Representative-device hardware certification
 
-This checklist must be completed on real cameras and microphones. GitHub CI validates deterministic software behavior and packaging; it cannot certify physical hardware, browser drivers, acoustics, lighting, thermal behavior, or permission UI.
+Tracky2 software CI and representative-device certification are two different evidence classes.
 
-## Automated self-test evidence
+- **Software delivery** is proven by deterministic tests, package/PWA validation, PHP foundation checks, merge state and release artifacts.
+- **Representative-device certification** is produced by running `diagnostics.html` with a real camera, microphone, browser and operating system.
+- A passing representative-device report proves only the tested configuration. It is **not universal hardware certification** and must never be presented as proof that every camera, microphone, browser or computer will behave identically.
 
-1. Serve Tracky2 on localhost or HTTPS and open `diagnostics.html`.
-2. Explicitly allow a supported camera. Hold the green marker, then the blue marker, in each of the same four vertical gameboard sections. Keep the test active for at least eight seconds.
-3. Review measured FPS, confidence, stable-frame coverage, dropouts, rejected jumps and the aggregate runtime-stall counter. The report stores counters only, never frames.
-4. Run the microphone transport test and speak normally. Confirm access and a nonzero peak signal. This test does not record or transcribe audio and does not validate speaker identification.
-5. Use **Refresh permission & storage health** and review the browser-reported camera/microphone permission state plus aggregate storage-pressure state.
+The certification workflow never records or exports raw camera frames, raw audio, transcripts, face embeddings, voice embeddings, browser device IDs or raw user-agent strings.
 
-## Participant / AGENT functional acceptance
+## 1. Certification profile
 
-1. Enroll at least two consenting participants on `participants.html`. Voice Profiles remain optional and require their separate enrollment process.
-2. Confirm face recognition when each participant faces the camera and conservative full-body continuity when they turn away or are briefly occluded.
-3. Confirm participant audio cards react only after a speech segment passes the voice-profile and signal gate. Shared room noise must remain in ROOM, not animate a participant meter.
-4. Confirm optional transcription creates canonical dialogue turns and owner corrections retain the original wording/revision trail.
-5. Confirm the AGENT greeting/cognitive loop abstains for unknown people, quiet hours, opt-out and busy voice states.
-6. Confirm allowlisted tasks still require explicit confirmation and that cancelled/failed tasks do not fabricate successful outcomes.
-7. Confirm revoked/expired participant memory is not supplied to AGENT.
+Open `diagnostics.html` on localhost or HTTPS.
 
-## Resilience and lifecycle acceptance
+Enter descriptive owner labels for:
+- camera;
+- microphone;
+- test environment;
+- lighting;
+- ambient noise.
 
-Check each matching item in the diagnostics page only after observing it on the representative device:
+These labels are owner-authored context. Do not paste serial numbers, passwords, account IDs or other secrets.
 
-- **Camera recovery:** interrupt an already-granted camera (device disconnect or browser/device disable), restore it, and verify Tracky2 either recovers within its bounded retry budget or clearly requires manual Start camera. The outage must not manufacture a participant departure.
-- **Microphone recovery:** interrupt an already-granted microphone, restore it, and verify bounded recovery or clear manual fallback. The outage must not be recorded as room silence.
-- **Permission lifecycle:** revoke and restore camera/microphone permission. Tracky2 must not background-reprompt a denied or prompt-state permission. Automatic retry is allowed only for an already-granted permission.
-- **Foreground resume:** background the page, return to it and verify hidden-tab suspension is not counted as an active runtime stall. Pending sensor recovery may resume only when foregrounded.
-- **Long session:** run the representative camera/AGENT workload for at least **20 minutes**. Review aggregate runtime stalls, room-scan latency and audio queue depth. Investigate sustained degradation before accepting the device.
-- **Restart integrity:** reload/restart and verify Tracky2 does not create a fake historical departure, speech attribution, task outcome, current observation or resurrect revoked memory.
-- **Storage pressure:** on a constrained browser profile or test environment, confirm critical reported storage pressure pauses only optional ROOM-history persistence. Live operation must continue, existing data must not be auto-deleted and the owner’s save preference must remain intact.
+The report automatically reduces browser/OS information to a coarse runtime profile such as browser family/major version, OS family, device class, secure-context state and locale. The raw user-agent and platform strings are not retained.
 
-Automatic sensor recovery is intentionally capped at three attempts per two-minute window. After the retry budget is exhausted, recovery becomes explicit/manual.
+## 2. Capability matrix
 
-## Browser/server recovery acceptance
+The diagnostics page reports only bounded capability state:
 
-For self-hosted PHP/SQLite installs:
+- camera availability and device count;
+- observed camera width/height/frame rate after a successful camera start;
+- microphone availability and device count;
+- observed microphone channel count and whether stereo input is available;
+- `getUserMedia` / `enumerateDevices`;
+- Permissions API support;
+- browser storage-estimate support;
+- AudioWorklet support;
+- local-model state when explicitly observable without a network probe.
 
-1. Verify participant synchronization remains manually enabled per participant.
-2. Create a server backup with `php server/backup.php create <directory>`.
-3. Verify it with `php server/backup.php verify <directory>`.
-4. In a maintenance window, test restore on a disposable copy and confirm a pre-restore recovery point is created.
-5. Confirm an intentionally conflicting browser/server participant update requires explicit **Keep browser** or **Keep server** resolution.
-6. Confirm synced participant profile JSON is encrypted at rest and that losing the original `secret.key` fails closed rather than silently rotating it.
+Unsupported or unknown capabilities must remain explicit. Tracky2 must not fabricate support.
 
-## Report and release decision
+## 3. Camera coverage/performance
 
-Export the diagnostics JSON after review. The report may contain aggregate counters, calibration thresholds, permission states, storage ratio/status, manual checklist state and optional owner-entered notes. It must not contain raw images, audio, transcripts, face embeddings or voice embeddings.
+1. Start the camera test.
+2. Hold the green marker and then the blue marker in each of the four vertical gameboard sections.
+3. Keep the test active for at least eight seconds.
+4. Review measured FPS, stable-frame coverage, confidence, dropouts and rejected jumps.
+5. A camera-coverage **Pass** requires the existing deterministic coverage/performance threshold.
 
-Record the camera model, microphone model, browser/version, operating system, lighting/noise conditions and any issue notes in the optional acceptance notes or your release records. A completed report proves only that the tested representative configuration passed the stated checks.
+The certification report stores aggregate counters only. It never stores the camera frame.
 
-Do **not** describe V0.10 as universally hardware-certified from CI or from one report. Camera-relative scene areas are not a calibrated floor plan; shared microphone level is not per-person source separation; acoustic patterns do not identify sounds or diagnose health; physical hardware and browser permission behavior remain environment-dependent.
+## 4. Microphone transport and channel capability
+
+Run the microphone test and speak normally.
+
+The test:
+- opens one temporary microphone stream;
+- prefers stereo input when the browser/device can supply it;
+- measures peak RMS;
+- records only aggregate channel capability and signal outcome;
+- does not save or transcribe audio;
+- does not perform Voice Profile identification.
+
+A mono microphone is valid. Stereo availability is a capability, not a release requirement.
+
+## 5. Manual representative-device outcomes
+
+Each required exercise has four states:
+
+- **Not run** — no conclusion;
+- **Pass** — the exercised behavior met the requirement;
+- **Partial** — usable but degraded/incomplete;
+- **Fail** — demonstrated unacceptable behavior.
+
+Required exercises are:
+
+- **Camera recovery:** interrupt an already-granted camera, restore it, and verify bounded recovery or a clear manual restart path. The outage must not manufacture participant departure.
+- **Microphone recovery:** interrupt an already-granted microphone, restore it, and verify bounded recovery or a clear manual fallback. The outage must not become room silence.
+- **Permission lifecycle:** revoke and restore camera/microphone permission. Denied/prompt-state permission must not be background-reprompted.
+- **Foreground resume:** background and foreground the page. Hidden-tab suspension must not become an active runtime stall.
+- **Long session:** run the representative camera/AGENT workload for at least **20 active minutes**. A selected Pass is automatically reduced to Partial if the diagnostics runtime has less than 20 measured active minutes.
+- **Restart integrity:** reload/restart and verify no fabricated departure, speaker attribution, task result, current observation or revoked memory is created.
+- **Storage pressure:** verify critical reported pressure pauses only optional ROOM-history persistence and does not auto-delete existing data or stop live operation.
+
+The evidence ledger records bounded timestamped state transitions such as camera start/end, microphone result, permission changes, visibility changes, storage state and long-session checkpoints. It is not a raw sensor log.
+
+## 6. Participant / AGENT functional acceptance
+
+For a full representative configuration review:
+
+1. Enroll at least two consenting participants.
+2. Confirm face recognition when each participant faces the camera.
+3. Confirm conservative full-body continuity through turn-away and brief occlusion.
+4. Confirm participant audio meters animate only after the voice-profile/signal gate; ambient noise stays in ROOM.
+5. Confirm canonical transcription and owner correction behavior.
+6. Confirm unknown/conflicted/overlapping speakers do not receive participant-specific AGENT memory.
+7. Confirm meetings, quiet hours, participant opt-out and interruption budgets still govern AGENT.
+8. Confirm revoked/deleted participant identity and memory do not resurrect after restart.
+
+These checks may be recorded in owner notes until dedicated automated certification fields are added by later V0.13 sections.
+
+## 7. PASS / PARTIAL / FAIL / NOT-RUN
+
+The 13A certification core determines one representative-device result:
+
+- **PASS:** every required exercise passes and required camera/microphone media capability is present.
+- **PARTIAL:** no required failure exists, but at least one required exercise is Partial or Not run.
+- **FAIL:** a required exercise fails, the camera is unsupported, the microphone is unsupported, or `getUserMedia` is unavailable.
+- **NOT-RUN:** no required exercise has meaningful evidence yet.
+
+The result always includes `universalHardwareClaim:false`.
+
+## 8. Export, SHA-256 and comparison
+
+Export creates:
+- `tracky2-hardware-certification-<timestamp>.json`;
+- `tracky2-hardware-certification-<timestamp>.json.sha256`.
+
+The SHA-256 is calculated locally from the canonical redacted certification payload before the integrity field is attached.
+
+The report may contain:
+- coarse runtime profile;
+- owner-entered descriptive labels;
+- capability matrix;
+- required exercise outcomes;
+- aggregate camera/microphone/runtime measurements;
+- permission/storage state;
+- bounded evidence events;
+- certification summary;
+- SHA-256 digest.
+
+It must not contain raw images, audio, transcripts, face/voice embeddings, device IDs, group IDs or raw user-agent strings.
+
+A previous Tracky2 hardware-certification JSON can be loaded locally for comparison. Comparison reports only certification-status, capability and exercise-outcome changes. The prior report is not uploaded or persisted by the comparison control.
+
+## 9. Server recovery acceptance
+
+For self-hosted PHP/SQLite installs, continue to verify separately:
+
+1. participant synchronization remains manually enabled per participant;
+2. `php server/backup.php create <directory>`;
+3. `php server/backup.php verify <directory>`;
+4. disposable restore creates a pre-restore recovery point;
+5. browser/server participant conflicts require explicit resolution;
+6. encrypted participant profile data fails closed if the original secret key is unavailable.
+
+## 10. Certification decision
+
+Store the exported report and SHA-256 with release evidence if desired.
+
+A PASS result means:
+
+> This representative Tracky2 configuration completed the stated V0.13 hardware exercises successfully.
+
+It does **not** mean:
+
+> Tracky2 is certified on all cameras, microphones, browsers, operating systems, acoustic environments or computers.
+
+Physical performance remains environment-dependent. Later V0.13 sections may add more demanding multi-speaker, multi-room, recording and multi-hour device exercises; they must extend this certification contract rather than bypass it.
