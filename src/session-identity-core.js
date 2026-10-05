@@ -72,6 +72,7 @@ function timelineItem(input={}){
   text:short(input.text,800),
   participantId:short(input.participantId)||null,
   participantIds:Object.freeze(uniq(input.participantIds).slice(0,24)),
+  roomId:short(input.roomId)||null,
   status:short(input.status,64)||null,
   provenance:Object.freeze(uniq(input.provenance).slice(0,16)),
   references:Object.freeze((input.references||[]).slice(0,12).map(ref=>Object.freeze({
@@ -144,6 +145,7 @@ export function buildSessionIdentityTimeline({
    subtype:'dialogue-turn',at,
    title:primary?participantName(primary,people):'Unknown speaker',
    text:short(turn.transcript||'[transcription unavailable]',800),
+   roomId:turn.roomId||null,
    participantId:primary,participantIds,
    status:String(turn.transcriptState||(
     turn.transcriptEditedAt?'corrected':'final')),
@@ -164,6 +166,7 @@ export function buildSessionIdentityTimeline({
    subtype:event.kind||event.category||'observation',at:Number(event.at)||record.startedAt,
    title:'ROOM · '+String(event.category||'event').toUpperCase(),
    text:event.message||'ROOM event',participantId:event.participantId||null,
+   roomId:event.roomId||null,
    participantIds:event.participantId?[event.participantId]:[],
    status:event.correctedBy?'corrected':event.status||event.kind||'observed',
    provenance:[
@@ -238,6 +241,7 @@ export function sessionIdentityExport(timeline=[],session){
    title:short(row.title,180),text:short(row.text,800),
    participantId:short(row.participantId)||null,
    participantIds:Object.freeze(uniq(row.participantIds).slice(0,24)),
+   roomId:short(row.roomId)||null,
    status:short(row.status,64)||null,
    provenance:Object.freeze(uniq(row.provenance).slice(0,16)),
    references:Object.freeze((row.references||[]).slice(0,12).map(ref=>({
