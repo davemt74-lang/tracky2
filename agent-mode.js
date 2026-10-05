@@ -10,6 +10,7 @@ import {
  conversationContextLabel
 } from './src/multi-conversation-core.js';
 import {meetingAgentReplyPolicy} from './src/meeting-core.js';
+import {buildAgentMultimodalContext} from './src/agent-multimodal-context.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
 export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,getScene=()=>null,editTranscript=async()=>{},editAttribution=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
@@ -295,11 +296,21 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(!turn?.transcript?.trim())return;
   // Canonical participant context is scoped to the current conversation membership.
   // AGENT history is separately scoped; no participant transcript is duplicated there.
+  const people=participants();
+  const preliminaryReasoning=buildAgentMultimodalContext({
+   turn,participants:people,meeting:getMeeting(),memoryLines:[]
+  });
+  const scopedMemory=preliminaryReasoning.mayUseParticipantMemory&&preliminaryReasoning.speakerParticipantId
+   ?getMemories(preliminaryReasoning.speakerParticipantId):[];
+  const reasoningContext=buildAgentMultimodalContext({
+   turn,participants:people,meeting:getMeeting(),memoryLines:scopedMemory
+  });
   const prior=[
-   ...groupConversationContext(turn,getDialogueTurns(),participants()),
+   ...groupConversationContext(turn,getDialogueTurns(),people),
    ...agentHistoryForScope(entries,turn)
   ].sort((a,b)=>a.at-b.at).slice(-12);
-  lastSpeakerId=turn.participantId||null;
+  lastSpeakerId=reasoningContext.mayUseParticipantName
+   ?reasoningContext.speakerParticipantId:null;
   showThread();
   const now=Date.now();
   const policy=replyEligibility({
@@ -344,9 +355,10 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   lastTurnAt=now;responsePending=true;
   const responseToken=++responseGeneration;
   try{
-   const known=participants().find(x=>x.id===turn.participantId);
-   const verifiedMemoryScope=Boolean(known&&turn.participantId&&turn.attribution!=='unknown');
-   const memoryContext=verifiedMemoryScope?getMemories(turn.participantId):[];
+   const known=reasoningContext.speakerParticipantId
+    ?people.find(x=>x.id===reasoningContext.speakerParticipantId):null;
+   const verifiedMemoryScope=reasoningContext.mayUseParticipantMemory===true;
+   const memoryContext=reasoningContext.memoryLines;
    if(ui.useModel.checked){
     let endpoint;
     try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
@@ -359,8 +371,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      try{
       const reply=await queryLocalOllama({
        endpoint,model:ui.modelName.value.trim(),
-       messages:buildAgentMessages(prior,turn.transcript,
-        verifiedMemoryScope?(known?.name||''):'',memoryContext,turn),
+       messages:buildAgentMessages(
+        prior,turn.transcript,
+        reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
+        memoryContext,turn,reasoningContext
+       ),
        signal:controller.signal
       });
       if(responseToken!==responseGeneration||open)return;
@@ -382,7 +397,10 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
    if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
-   const reply=localAgentReply(turn.transcript,{name:verifiedMemoryScope?(known?.name||''):'',previousTopics:recent,memories:memoryContext});
+   const reply=localAgentReply(turn.transcript,{
+    name:reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
+    previousTopics:recent,memories:memoryContext
+   });
    if(reply)say(reply,turn.participantId||null,turn.conversationScopeId||null);
   }finally{
    if(responseToken===responseGeneration)responsePending=false;
