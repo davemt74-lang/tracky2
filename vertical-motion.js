@@ -5199,9 +5199,9 @@ if(state.mode==='agent'){
     let savedAmbient=null;try{savedAmbient=window.localStorage.getItem('tracky2-room-acoustic-patterns');}catch{}
     ambientAnalysis.checked=savedAmbient!=='no';
     analyzeAmbientPatterns=ambientAnalysis.checked;
-     try{window.localStorage.setItem('tracky2-room-acoustic-patterns',analyzeAmbientPatterns?'yes':'no');}catch{}
    ambientAnalysis.addEventListener('change',()=>{
     analyzeAmbientPatterns=ambientAnalysis.checked;
+     try{window.localStorage.setItem('tracky2-room-acoustic-patterns',analyzeAmbientPatterns?'yes':'no');}catch{}
     if(analyzeAmbientPatterns)logRoomMessage('system',
      'Owner enabled local room energy-pattern notes · no sound identification','audio-consent');
     else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
@@ -5251,13 +5251,13 @@ if(state.mode==='agent'){
     }
    });
   }
-  const roomOptIn=document.getElementById('roomSaveObservations');
+   const roomOptIn=document.getElementById('roomSaveObservations');
+   const roomClear=document.getElementById('roomClearObservations');
    try{
     const savedRoomHistory=window.localStorage.getItem('tracky2-save-room-observations');
     saveRoomHistory=savedRoomHistory!=='no';
    }catch{saveRoomHistory=true;}
-  catch{saveRoomHistory=false;}
-  roomOptIn.checked=saveRoomHistory;
+   roomOptIn.checked=saveRoomHistory;
   if(saveRoomHistory){
    const epoch=roomPrivacyEpoch;
    void listRoomObservations().then(rows=>{
