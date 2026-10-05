@@ -275,7 +275,7 @@ const htmlContracts = [
   ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-presence.js',
   'account-participants.js',
   'control-center.js', 'agent-mode.css', 'agent-presence.css']],
-  ['participants.html', ['participants.js', 'participants-sidebar.js', 'participants-stage.js', 'participant-voice.js']],
+  ['participants.html', ['account-participants.js', 'participants.js', 'participants-sidebar.js', 'participants-stage.js', 'participant-voice.js']],
   ['diagnostics.html', ['diagnostics.js']]
 ];
 
