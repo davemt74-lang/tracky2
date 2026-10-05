@@ -152,7 +152,6 @@ export class RoomAudioCapture {
     this.lastVoiceAt = 0;
     this.running = false;
     this.suppressed = false;
-    this.inputChannelCount = 1;
     this.captureMode = 'offline';
 
     this.hangoverMs = options.hangoverMs ?? 650;
@@ -317,7 +316,8 @@ export class RoomAudioCapture {
         speaking: false,
         elapsedSeconds: 0,
         suppressed: true,
-        captureMode: this.captureMode
+        captureMode: this.captureMode,
+        inputChannelCount:this.inputChannelCount
       });
       return;
     }
@@ -452,6 +452,7 @@ export class RoomAudioCapture {
     this.processor = null;
     this.mute = null;
     this.suppressed = false;
+    this.inputChannelCount = 1;
     this.captureMode = 'offline';
   }
 }
