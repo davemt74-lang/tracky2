@@ -219,6 +219,12 @@ export function roomHandoffMessage(record,roomName=id=>id){
  if(record.state==='handoff-pending')
   return 'Explicit handoff declared · '+name(record.transition?.fromRoomId)+' → '+
    name(record.transition?.toRoomId)+' · awaiting target-room observation';
+ if(record.state==='departed')
+  return 'Explicit departure confirmed from '+name(record.lastKnownRoomId)+
+   ' · destination not inferred';
+ if(record.state==='observed-after-explicit-departure')
+  return 'Participant observed in '+name(record.currentRoomId)+
+   ' after explicit departure · route not inferred';
  if(record.state==='reentered')
   return 'Participant re-observed in '+name(record.currentRoomId)+
    ' · prior camera loss did not imply departure';
