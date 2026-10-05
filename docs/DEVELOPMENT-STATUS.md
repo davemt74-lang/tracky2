@@ -228,7 +228,22 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Verified deploy ZIP SHA-256: `8778fb9acce46b12141565309ee63565e043d1182f9d99e94c367ae84ed24158`.
 - **V0.14.6 final score: 10/10.**
 
+## V0.14.7 — ROOM Feed, Control Center & Shared Conversation
+
+- Branch: `feat/v0147-room-control-center`.
+- Pre-14G UI/authority cleanup requested by the owner.
+- ROOM is now one unified chronological **room-level** feed. It displays aggregate occupancy, ambient/hearing/environment observations, background ROOM/AGENT actions, decisions and system events.
+- Participant-scoped identity, movement, dwell and voice/face activity are excluded from the ROOM feed and remain in Player / Participant surfaces.
+- Participant temporal movement summary moved into Player Activity.
+- ROOM configuration moved to **Control Center → ROOM**: runtime/recovery, room identity, handoff/federation authority, observation policy, hearing diagnostics, routine review and mapping controls.
+- **Basic ROOM defaults on** while explicit prior off preferences remain respected.
+- **Advanced Room Mapping is opt-in** for new installs. Existing saved maps are treated as an existing opt-in during migration. When off, saved zones/calibration/objects are ignored by spatial reasoning while room identity remains available.
+- Conversation is one chronological shared thread for all canonical participant/user turns plus AGENT responses.
+- Conversation scrolls to the newest message on initial render, every new turn/reply and whenever the Conversation tab is opened.
+- Release target: **v0.14.7**.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Begin **14G — Multi-Room Federation V3** from current merged `main`. Do not reopen v0.14.6 unless testing finds a regression.
+Run the v0.14.7 PR gate. Merge only when Node/package/PWA and PHP/security/foundation are green, verify the direct ZIP/SHA release, then begin **14G — Multi-Room Federation V3**.
 

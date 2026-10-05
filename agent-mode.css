@@ -135,3 +135,49 @@ body.control-center-open{overflow:hidden}
  .control-center-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .agent-control-center-button{display:none}
 }
+
+/* Control Center V0.14.7 — Account + ROOM control plane. */
+.control-center-tabs{display:flex;gap:8px;margin:0 0 16px;padding:4px;border:1px solid rgba(78,232,255,.13);
+ border-radius:12px;background:rgba(3,16,22,.72)}
+.control-center-tabs button{min-height:40px;padding:8px 18px;border:1px solid transparent;border-radius:9px;
+ background:transparent;color:#8fb9bf;font-weight:850;letter-spacing:.06em;cursor:pointer}
+.control-center-tabs button[aria-selected="true"]{color:#eaffff;border-color:rgba(78,232,255,.34);
+ background:rgba(23,91,104,.42);box-shadow:inset 0 2px 0 rgba(95,245,225,.75)}
+.control-center-pane[hidden]{display:none!important}
+.control-center-section-heading{display:flex;justify-content:space-between;align-items:end;gap:18px;
+ margin:0 0 13px;padding:0 2px 11px;border-bottom:1px solid rgba(78,232,255,.14)}
+.control-center-section-heading div{display:grid;gap:3px}.control-center-section-heading small,
+.control-center-room-section>header span{font-size:.59rem;letter-spacing:.13em;color:#79cbd6;font-weight:850}
+.control-center-section-heading strong,.control-center-room-section>header strong{font-size:.88rem;color:#efffff}
+.control-center-section-heading p{margin:0;max-width:420px;text-align:right;color:#8eafb4;font-size:.68rem;line-height:1.4}
+.control-center-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.control-center-room-section{min-width:0;padding:14px;border:1px solid rgba(78,232,255,.15);border-radius:15px;
+ background:rgba(6,26,34,.6)}
+.control-center-room-section.control-center-room-wide{grid-column:1/-1}
+.control-center-room-section>header{display:flex;justify-content:space-between;gap:12px;align-items:center;
+ margin-bottom:11px;padding-bottom:8px;border-bottom:1px solid rgba(78,232,255,.12)}
+.control-center-room-identity{display:grid;gap:8px}
+.control-center-master-toggle{display:flex;gap:11px;align-items:flex-start;padding:12px;border:1px solid rgba(104,232,190,.26);
+ border-radius:12px;background:rgba(13,52,51,.42);cursor:pointer}
+.control-center-master-toggle input{margin-top:3px}
+.control-center-master-toggle span{display:grid;gap:4px}
+.control-center-master-toggle strong{font-size:.78rem;color:#dffff5}
+.control-center-master-toggle small{font-size:.64rem;color:#9dbfc0;line-height:1.45}
+.control-center-advanced-map[hidden]{display:none!important}
+.control-center-advanced-map{margin-top:10px}
+.control-center-diagnostics{margin-top:10px;border:1px solid rgba(78,232,255,.12);border-radius:10px;
+ background:rgba(3,18,24,.5);overflow:hidden}
+.control-center-diagnostics>summary{cursor:pointer;padding:10px 12px;font-size:.69rem;font-weight:800;color:#bcecef}
+.control-center-diagnostics[open]>summary{border-bottom:1px solid rgba(78,232,255,.12)}
+.control-center-setting-stack{display:grid;gap:9px}
+.control-center-setting-stack>button,.control-center-setting-row button{min-height:36px;padding:7px 10px;border-radius:8px;
+ border:1px solid rgba(78,232,255,.24);background:rgba(11,52,62,.72);color:#eaffff;cursor:pointer}
+.control-center-setting-row{display:flex;gap:8px;flex-wrap:wrap}
+.control-center-section-copy{margin:0 0 11px;color:#a9c5c8;font-size:.69rem;line-height:1.5}
+@media(max-width:760px){
+ .control-center-room-grid{grid-template-columns:1fr}
+ .control-center-room-section.control-center-room-wide{grid-column:auto}
+ .control-center-section-heading{align-items:start;flex-direction:column}
+ .control-center-section-heading p{text-align:left}
+ .control-center-tabs{position:sticky;top:-1px;z-index:3;background:rgba(3,16,22,.96)}
+}

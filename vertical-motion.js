@@ -315,6 +315,7 @@ const roomSessionId=canonicalSessionId;
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTrackHistory=[];
 let roomTimelineFilter='all';
+let lastRoomOccupancyCount=null;
 const runtimeBudget=new RuntimeBudget();
 const devicePerformanceGovernor=new DevicePerformanceGovernor();
 let lastDevicePerformanceRuntime=null;
@@ -464,7 +465,7 @@ let environmentalAudioClassifier=null;
 let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
 let environmentalAudioDecision='Disabled by owner';
 let environmentalAudioLastErrorAt=-Infinity;
-let analyzeAmbientPatterns=false;
+let analyzeAmbientPatterns=false,advancedRoomMappingEnabled=false;
 let lastRoomAudioPaint=-Infinity,lastRejectedRoomSegmentAt=-Infinity;
 function renderAmbientAudioMeter(force=false){
  const bar=document.getElementById('roomAmbientAudioMeter');
@@ -840,7 +841,7 @@ function renderRoomTemporalSummary(){
   mount.textContent='Camera offline · movement and dwell estimates paused';
   return;
  }
- const scene=sceneUI?.getScene()||emptyRoomScene();
+ const scene=effectiveRoomScene();
  const records=roomTemporal.summary(scene,Date.now());
  if(!records.length){mount.textContent='Waiting for stable camera measurements';return;}
  for(const record of records){
@@ -859,6 +860,18 @@ function renderRoomTemporalSummary(){
   detail.textContent=parts.join(' · ');
   item.append(name,detail);mount.append(item);
  }
+}
+function noteAggregateRoomOccupancy(visibleTracks=[]){
+ const count=Array.isArray(visibleTracks)?visibleTracks.filter(track=>
+  !['occluded','reacquiring'].includes(String(track?.status||''))).length:0;
+ if(lastRoomOccupancyCount===count)return;
+ const previous=lastRoomOccupancyCount;lastRoomOccupancyCount=count;
+ const message=count
+  ?'ROOM occupancy'+(previous===null?'':' changed')+' · '+count+' '+(count===1?'person':'people')+' visible in the current camera view'
+  :'ROOM occupancy'+(previous===null?'':' changed')+' · room appears empty in the current camera view';
+ logRoomMessage('presence',message,'aggregate-camera-presence',{
+  semantic:'room-occupancy',dedupeKey:'room-occupancy:'+count+':'+Date.now()
+ });
 }
 function renderRoomObservations(){
  const timeline=document.getElementById('roomObservationsTimeline');
@@ -886,9 +899,9 @@ function renderRoomObservations(){
  if(sensorSummary)sensorSummary.textContent=overview.camera+' / '+overview.microphone;
  if(evidenceCount)evidenceCount.textContent=String(overview.evidence);
  if(decisionCount)decisionCount.textContent=String(overview.decisions);
- const filtered=roomHistory.slice(-65).reverse().filter(e=>roomEventMatchesFilter(e,roomTimelineFilter));
+  const filtered=roomHistory.slice(-90).reverse().filter(e=>!e?.participantId&&roomEventMatchesFilter(e,roomTimelineFilter));
  const count=document.getElementById('roomTimelineCount');
- if(count)count.textContent=filtered.length+' event'+(filtered.length===1?'':'s')+' shown';
+  if(count)count.textContent=filtered.length+' room event'+(filtered.length===1?'':'s')+' shown';
  for(const e of filtered){
   const item=document.createElement('article');item.className='room-observation';
   item.dataset.category=String(e.category||'');
@@ -934,7 +947,7 @@ function renderRoomObservations(){
  }
  if(!roomHistory.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
-  empty.textContent='Room observations appear as participant and device events occur.';timeline.append(empty);
+   empty.textContent='ROOM activity appears here as the environment, shared audio and background systems change.';timeline.append(empty);
  }else if(!filtered.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
   empty.textContent='No ROOM events match this filter.';timeline.append(empty);
@@ -946,6 +959,12 @@ function currentRoomIdentity(){
   id:String(scene.roomIdentityId||'room-local').slice(0,96),
   name:String(scene.roomName||'Local room').slice(0,96)
  };
+}
+function effectiveRoomScene(){
+ const scene=sceneUI?.getScene?.()||emptyRoomScene();
+ if(advancedRoomMappingEnabled)return scene;
+ return Object.freeze({...emptyRoomScene(),
+  roomIdentityId:scene.roomIdentityId||'room-local',roomName:scene.roomName||'Local room'});
 }
 function roomNameForHandoff(id){
  const current=currentRoomIdentity();
@@ -2602,9 +2621,10 @@ function renderRoomRadar(visibleTracks) {
 function renderParticipantCards() {
   ui.participantCards.replaceChildren();
   const visible=publicRoomTracks();
+  if(state.mode==='agent')noteAggregateRoomOccupancy(state.running?visible:[]);
   if(state.mode==='agent'&&state.running){
    for(const event of roomPresence.update(visible,Date.now()))addRoomObservation(event);
-   const scene=sceneUI?.getScene()||emptyRoomScene();
+   const scene=effectiveRoomScene();
    for(const event of roomTemporal.update(visible,scene,Date.now()))addRoomObservation(event);
    renderRoomTemporalSummary();
    renderRoomObservations();
@@ -4987,7 +5007,7 @@ if(state.mode==='agent'){
     getDialogueTurns:()=>state.voice.turns,
     getMemories:participantId=>memoryUI?.contextFor(participantId)||[],
     getMeeting:()=>meetingUI?.activeMeeting()||null,
-    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+    getScene:()=>effectiveRoomScene(),
     editTranscript:async(id,text)=>{
      const revised=await reviseDialogueTurn(id,text);
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
@@ -5087,7 +5107,7 @@ if(state.mode==='agent'){
   });
   initRoomHandoffControls();
    taskUI=createAgentTaskUi({
-    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+    getScene:()=>effectiveRoomScene(),
     recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
     captureImage:captureGovernedSceneImage,
     cameraActive:()=>state.running&&ui.video.readyState>=2,
@@ -5095,7 +5115,7 @@ if(state.mode==='agent'){
    });
    void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
    workflowUI=createAgentWorkflowUi({
-    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+    getScene:()=>effectiveRoomScene(),
     getParticipants:()=>state.identity.participants,
     recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
     captureImage:captureGovernedSceneImage,
@@ -5142,20 +5162,46 @@ if(state.mode==='agent'){
    )
   });
   void recordingUI.init().catch(error=>console.warn('Recording runtime initialization failed:',error));
-  void sceneUI.init().then(ok=>{
-   if(ok){
-    roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();
-    lastRoomIdentityId=currentRoomIdentity().id;renderRoomHandoffUi();
-    void startMultiRoomRuntime();
-   }
-  }).catch(error=>console.warn('Scene initialization failed:',error));
+   void sceneUI.init().then(ok=>{
+    if(ok){
+     const toggle=document.getElementById('roomAdvancedMappingEnabled');
+     const controls=document.getElementById('roomAdvancedMappingControls');
+     const status=document.getElementById('roomAdvancedMappingStatus');
+     let stored=null;try{stored=window.localStorage.getItem('tracky2-advanced-room-mapping');}catch{}
+     const savedScene=sceneUI.getScene();
+     const existingMap=Boolean(savedScene.calibration||savedScene.areas?.length||savedScene.objects?.length);
+     advancedRoomMappingEnabled=stored==='yes'||(stored===null&&existingMap);
+     const renderAdvancedMapping=()=>{
+      if(toggle)toggle.checked=advancedRoomMappingEnabled;
+      if(controls)controls.hidden=!advancedRoomMappingEnabled;
+      if(status)status.textContent=advancedRoomMappingEnabled
+       ?'Advanced mapping enabled · owner-defined zones, calibration and objects may be used for spatial context.'
+       :'Advanced mapping is off · ROOM uses aggregate camera-relative observations only.';
+     };
+     renderAdvancedMapping();
+     toggle?.addEventListener('change',()=>{
+      advancedRoomMappingEnabled=toggle.checked;
+      try{window.localStorage.setItem('tracky2-advanced-room-mapping',advancedRoomMappingEnabled?'yes':'no');}catch{}
+      renderAdvancedMapping();roomTemporal.sceneChanged();renderRoomTemporalSummary();
+      taskUI?.refresh();workflowUI?.refresh();
+      logRoomMessage('system','Advanced Room Mapping '+(advancedRoomMappingEnabled?'enabled':'disabled')+' by owner',
+       'owner-room-policy',{semantic:'advanced-room-mapping-policy'});
+     });
+     roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();
+     lastRoomIdentityId=currentRoomIdentity().id;renderRoomHandoffUi();
+     void startMultiRoomRuntime();
+    }
+   }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
   const ambientAnalysis=document.getElementById('roomAnalyzeAcousticPatterns');
   if(ambientAnalysis){
-   ambientAnalysis.checked=false;
+    let savedAmbient=null;try{savedAmbient=window.localStorage.getItem('tracky2-room-acoustic-patterns');}catch{}
+    ambientAnalysis.checked=savedAmbient!=='no';
+    analyzeAmbientPatterns=ambientAnalysis.checked;
    ambientAnalysis.addEventListener('change',()=>{
     analyzeAmbientPatterns=ambientAnalysis.checked;
+     try{window.localStorage.setItem('tracky2-room-acoustic-patterns',analyzeAmbientPatterns?'yes':'no');}catch{}
     if(analyzeAmbientPatterns)logRoomMessage('system',
      'Owner enabled local room energy-pattern notes · no sound identification','audio-consent');
     else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
@@ -5188,10 +5234,12 @@ if(state.mode==='agent'){
   });
   const environmentalAudioToggle=document.getElementById('roomClassifyEnvironmentalAudio');
   if(environmentalAudioToggle){
-   environmentalAudioToggle.checked=false;
-   renderEnvironmentalAudio();
+    let savedEnvironmental=null;try{savedEnvironmental=window.localStorage.getItem('tracky2-room-environmental-audio');}catch{}
+    environmentalAudioToggle.checked=savedEnvironmental!=='no';
+    if(environmentalAudioToggle.checked)setEnvironmentalAudioEnabled(true);else renderEnvironmentalAudio();
    environmentalAudioToggle.addEventListener('change',()=>{
     setEnvironmentalAudioEnabled(environmentalAudioToggle.checked);
+     try{window.localStorage.setItem('tracky2-room-environmental-audio',environmentalAudioToggle.checked?'yes':'no');}catch{}
     if(environmentalAudioToggle.checked){
      logRoomMessage('system',
       'Owner enabled session-only local environmental audio classification · raw audio is not saved or uploaded',
@@ -5203,11 +5251,13 @@ if(state.mode==='agent'){
     }
    });
   }
-  const roomOptIn=document.getElementById('roomSaveObservations');
-  const roomClear=document.getElementById('roomClearObservations');
-  try{saveRoomHistory=window.localStorage.getItem('tracky2-save-room-observations')==='yes';}
-  catch{saveRoomHistory=false;}
-  roomOptIn.checked=saveRoomHistory;
+   const roomOptIn=document.getElementById('roomSaveObservations');
+   const roomClear=document.getElementById('roomClearObservations');
+   try{
+    const savedRoomHistory=window.localStorage.getItem('tracky2-save-room-observations');
+    saveRoomHistory=savedRoomHistory!=='no';
+   }catch{saveRoomHistory=true;}
+   roomOptIn.checked=saveRoomHistory;
   if(saveRoomHistory){
    const epoch=roomPrivacyEpoch;
    void listRoomObservations().then(rows=>{

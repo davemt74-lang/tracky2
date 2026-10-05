@@ -125,7 +125,7 @@
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
 
       <div class="dialogue-hud-head">
-        <div><small>ROOM CONVERSATION</small><strong>Participants + AGENT</strong></div>
+        <div><small>SHARED CONVERSATION</small><strong>All participants + AGENT</strong></div>
         <span id="transcriptModelState">Transcription standby</span>
       </div>
       <div class="transcript-tools" aria-label="Transcript search and export">
@@ -138,7 +138,7 @@
       </div>
       <div id="transcriptSearchResults" class="transcript-search-results" aria-live="polite" hidden></div>
       <div id="roomEvents" class="room-events" aria-live="polite"></div>
-      <div class="agent-conversation-thread agent-chat-thread" id="agentConversationThread" hidden aria-label="Chronological participant and agent messages"></div>
+      <div class="agent-conversation-thread agent-chat-thread" id="agentConversationThread" hidden aria-label="Chronological conversation for all participants and agents"></div>
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">
         <div class="dialogue-empty">Enable room audio to begin speaker tracking.</div>
       </div>
@@ -146,6 +146,11 @@
       </section>
       <section id="playerActivityPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="playerActivityTab" hidden>
         <div class="player-activity-intro"><strong>Live player history</strong><span>Confirmed presence and assigned game actions. Marker ownership is not inferred.</span></div>
+        <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
+          <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
+          <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
+          <small>Area dwell and relative stillness are observations, not calibrated physical movement, sitting or sleeping assessments. Camera interruption suspends estimates.</small>
+        </section>
         <div id="playerActivityTimeline" class="player-activity-timeline" aria-live="off">
           <p class="player-activity-empty">Activity appears here as enrolled participants are confirmed or play.</p>
         </div>
@@ -451,169 +456,24 @@
         <small>Post-meeting summary is deterministic metadata derived from the meeting record plus canonical dialogue turns. It does not invent decisions or action items.</small>
       </section>
       <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
-        <div class="agent-tab-heading"><strong>ROOM</strong><span>Timestamped observations · not diagnostic assessments</span></div>
-        <div id="roomCurrentState" class="room-current-state" aria-live="off">Waiting for room observations</div>
-        <div id="roomSensorStates" class="room-sensor-states" aria-live="off">Sensor history: unavailable</div>
-        <section class="room-ui-overview" id="roomUiOverview" aria-label="ROOM overview">
-          <article><span>VISIBLE</span><strong id="roomOverviewParticipants">0</strong><small>stable participants</small></article>
-          <article><span>SENSORS</span><strong id="roomOverviewSensors">—</strong><small>camera / microphone</small></article>
-          <article><span>EVIDENCE</span><strong id="roomOverviewEvidence">0</strong><small>effective events</small></article>
-          <article><span>DECISIONS</span><strong id="roomOverviewDecisions">0</strong><small>decisions / outcomes</small></article>
-        </section>
-        <details class="room-runtime-health" id="roomRuntimeHealth" open>
-          <summary>RUNTIME HEALTH &amp; RECOVERY</summary>
-          <div class="room-runtime-grid">
-            <article><span>CAMERA PERMISSION</span><strong id="roomCameraPermission">Checking…</strong></article>
-            <article><span>MIC PERMISSION</span><strong id="roomMicrophonePermission">Checking…</strong></article>
-            <article><span>STORAGE</span><strong id="roomStorageHealth">Checking…</strong></article>
-            <article><span>RUNTIME BUDGET</span><strong id="roomRuntimeBudget">Collecting…</strong></article>
-            <article><span>CAMERA RECOVERY</span><strong id="roomCameraRecovery">Idle</strong></article>
-            <article><span>MIC RECOVERY</span><strong id="roomMicrophoneRecovery">Idle</strong></article>
-          </div>
-          <small id="roomRuntimeHealthNote">Aggregate health counters only. Automatic retry is bounded and occurs only after an already-granted sensor is interrupted; Tracky2 never re-prompts denied permissions in the background.</small>
-        </details>
-        <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
-          <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
-          <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
-          <small>Area dwell and relative stillness are observations, not calibrated physical movement, sitting or sleeping assessments. Camera interruption suspends estimates.</small>
-        </section>
-        <section class="room-temporal-panel" id="roomHandoffPanel" aria-label="Explicit multi-room handoff controls">
-          <strong>MULTI-ROOM HANDOFF · EXPLICIT ONLY</strong>
-          <div id="roomHandoffCurrent" class="room-temporal-summary">Current room · Local room · room-local</div>
-          <form id="roomHandoffForm" class="room-scene-form">
-            <label>Participant<select id="roomHandoffParticipant"><option value="">Choose enrolled participant</option></select></label>
-            <label>Destination room ID<input id="roomHandoffTargetRoom" maxlength="96" placeholder="office"></label>
-            <button type="submit">Declare handoff</button>
-            <button type="button" id="roomHandoffDeparture">Confirm departure from this room</button>
-          </form>
-          <div id="roomHandoffStatus" class="room-temporal-summary" role="status">No explicit room handoff is active.</div>
-          <div id="roomMultiNodeStatus" class="room-temporal-summary" role="status">Multi-room transport · local-only until a permitted self-hosted session is available.</div>
-          <div id="roomMultiNodeList" class="room-temporal-summary" aria-live="polite"></div>
-          <div id="roomHandoffList" class="room-temporal-summary" aria-live="polite"></div>
-          <small>Camera loss means only “out of view.” A room transition is never inferred from disappearance, area movement, or a later observation elsewhere. Handoffs require an explicit declaration and a target-room observation before they are confirmed.</small>
-        </section>
-        <details class="room-scene-editor" id="roomSceneEditor">
-          <summary>ROOM MAP · Configure camera-relative areas</summary>
-          <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
-          <form id="roomIdentityForm" class="room-scene-form">
-            <label>Physical room ID<input id="roomIdentityId" maxlength="96" required value="room-local" placeholder="kitchen"></label>
-            <label>Room name<input id="roomIdentityName" maxlength="96" required value="Local room" placeholder="Kitchen"></label>
-            <button type="submit">Save room identity</button>
-          </form>
-          <small id="roomIdentityStatus" role="status">Current room · Local room · room-local</small>
-          <small>Room identity is owner-defined metadata. Camera areas below remain positions inside this room and never prove movement to another room.</small>
-          <div id="roomAreaPreview" class="room-scene-preview" role="img"
-               aria-label="Owner-defined camera view rectangles and temporary visible-track positions">
-            <div id="roomAreaPreviewLayers" class="room-scene-layers" aria-hidden="true"></div>
-          </div>
-          <div id="roomAreaOccupants" class="room-scene-occupants" aria-label="Current camera-relative participant area associations">No stable participant associations yet.</div>
-          <section class="room-spatial-calibration" aria-label="Optional floor-plane calibration">
-            <strong>OPTIONAL FLOOR-PLANE CALIBRATION</strong>
-            <small>For approximate same-floor coordinates only. Enter measured room width/depth, then capture four visible floor points in this order: near-left, near-right, far-right, far-left. This does not create a 3-D room model.</small>
-            <div class="room-spatial-dimensions">
-              <label>Room width (m)<input id="roomCalibrationWidthM" type="number" min=".5" max="50" step=".01" placeholder="4.20"></label>
-              <label>Room depth (m)<input id="roomCalibrationDepthM" type="number" min=".5" max="50" step=".01" placeholder="5.80"></label>
-              <label>Listener X (m, optional)<input id="roomCalibrationListenerX" type="number" min="0" max="50" step=".01" placeholder="2.10"></label>
-              <label>Listener depth (m, optional)<input id="roomCalibrationListenerDepth" type="number" min="0" max="50" step=".01" placeholder=".30"></label>
-            </div>
-            <div class="room-spatial-actions">
-              <button type="button" id="roomCalibrationCapture">Capture floor corners</button>
-              <button type="button" id="roomCalibrationSave">Save calibration</button>
-              <button type="button" id="roomCalibrationClear">Clear calibration</button>
-            </div>
-            <div id="roomCalibrationPointSummary" class="room-spatial-point-summary">No floor corners captured.</div>
-            <small id="roomCalibrationStatus" role="status">Uncalibrated · positions remain camera-relative.</small>
-          </section>
-          <form id="roomAreaForm" class="room-scene-form">
-            <input type="hidden" id="roomAreaId">
-            <label>Area name<input id="roomAreaName" required maxlength="64" placeholder="Desk / Entry / Couch"></label>
-            <label>Area type<select id="roomAreaKind">
-              <option value="zone">Zone</option><option value="entrance">Entrance</option>
-              <option value="desk">Desk</option><option value="seat">Seat</option><option value="other">Other</option>
-            </select></label>
-            <div class="room-scene-coords">
-              <label>X<input id="roomAreaX" type="number" required min="0" max="1" step=".001" value=".15"></label>
-              <label>Y<input id="roomAreaY" type="number" required min="0" max="1" step=".001" value=".2"></label>
-              <label>Width<input id="roomAreaW" type="number" required min=".025" max="1" step=".001" value=".35"></label>
-              <label>Height<input id="roomAreaH" type="number" required min=".025" max="1" step=".001" value=".5"></label>
-            </div>
-            <button type="submit" id="roomSaveArea">Save area</button>
-            <button type="button" id="roomCancelAreaEdit">Cancel edit</button>
-          </form>
-          <div id="roomAreaList" class="room-scene-items" aria-label="Owner-defined areas"></div>
-          <form id="roomObjectForm" class="room-scene-form">
-            <label>Object name<input id="roomObjectName" maxlength="64" required placeholder="Monitor / Chair / Lamp"></label>
-            <label>Kind<select id="roomObjectKind"><option value="furniture">Furniture</option><option value="device">Device</option><option value="other">Other</option></select></label>
-            <label>Located in<select id="roomObjectArea"><option value="">Unassigned</option></select></label>
-            <fieldset class="room-object-skills"><legend>Approved local skills</legend>
-              <label><input type="checkbox" id="roomObjectSkillDescribe" checked> Describe object</label>
-              <label><input type="checkbox" id="roomObjectSkillCapture"> Capture current mapped camera area</label>
-            </fieldset>
-            <small>These grants apply only to this owner-defined local object. Camera capture still requires a fresh foreground owner action.</small>
-            <button type="submit">Add owner-defined object</button>
-          </form>
-          <div id="roomObjectList" class="room-scene-items" aria-label="Owner-defined objects"></div>
-          <button type="button" id="roomClearScene">Clear owner-defined map</button>
-          <small id="roomSceneMessage" role="status">Not calibrated. Owner labels never establish a participant's physical location.</small>
-        </details>
-        <section class="room-audio-audit-panel" aria-label="Shared room ambient audio diagnostics">
-          <strong>SHARED ROOM AUDIO · UNATTRIBUTED</strong>
-          <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
-            aria-label="Combined ambient room microphone level, not participant-specific"
-            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <i id="roomAmbientAudioFill"></i>
-          </div>
-          <div id="roomAmbientAudioStatus" class="room-ambient-audio-status" role="status">Room mic offline · no ambient audio captured</div>
-          <div class="room-listening-health" id="roomListeningHealth" aria-label="Conversation listening engine health">
-            <article><span>LISTENING STATE</span><strong id="roomListeningState">Offline</strong></article>
-            <article><span>QUEUE</span><strong id="roomListeningQueue">0 pending</strong></article>
-            <article><span>DROPS</span><strong id="roomListeningDrops">0</strong></article>
-            <article><span>LAST TRANSITION</span><strong id="roomListeningReason">Standby</strong></article>
-          </div>
-          <small>Listening segments are memory-only PCM work items with bounded age/depth. Stale or superseded work is discarded before it can become a transcript or AGENT reply.</small>
-          <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns">
-            Analyze shared audio energy patterns locally (this session only)
-          </label>
-          <small>Optional energy/VAD measurements describe sustained level or intermittent peaks only: they are not music, TV, coughing, voices or any identifiable sound source. The model-based environmental classifier below is a separate, explicitly enabled capability.</small>
-          <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio">
-            Classify environmental audio locally with the optional AudioSet model (this session only)
-          </label>
-          <div class="room-environment-audio-status" id="roomEnvironmentalAudioStatus" role="status">Environmental classification off</div>
-          <div class="room-environment-audio-result" id="roomEnvironmentalAudioResult">No environmental classification this session.</div>
-          <div class="room-environment-audio-result" id="roomEnvironmentalCurrent">No current grouped environmental event.</div>
-          <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
-          <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
-          <small>Disabled by default. When enabled, Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech remains filtered. A high-confidence cough-like model result may be logged only as an unattributed observable acoustic event with no health meaning; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
-          <small>Exact song, movie or TV-title identification is not performed by this classifier and requires a separately approved media-identification provider.</small>
-          <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
-          <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
-        </section>
-        <section class="room-temporal-panel" id="roomRoutinePanel" aria-label="Behavioral routine intelligence">
-          <strong>ROUTINES · OWNER-REVIEWED OBSERVATIONS</strong>
-          <div id="roomRoutineStatus" class="room-temporal-summary" role="status">No routine candidates derived yet.</div>
-          <div class="room-spatial-actions">
-            <button type="button" id="roomRoutineRefresh">Refresh routines</button>
-            <button type="button" id="roomRoutineClearFeedback">Clear routine reviews</button>
-          </div>
-          <div id="roomRoutineInsights" class="room-scene-items" aria-live="polite"></div>
-          <small>Routine candidates are rebuilt from canonical ROOM history. At least three recurring observations are required. Confirming a routine stores only owner review metadata; it does not create Agent Memory or a new participant-history store.</small>
-          <small>“Outside baseline” means timing differs from prior observations only. It is not a health, emotion, sleep, protected-trait or intent inference.</small>
-        </section>
+        <div class="agent-tab-heading room-feed-heading">
+          <div><strong>ROOM</strong><span>One live room-level feed · environment, hearing, background actions & system events</span></div>
+          <button type="button" id="roomOpenControlCenter" class="room-settings-link">ROOM Settings</button>
+        </div>
+        <p class="room-feed-intro">ROOM tracks the overall environment. Person-specific identity, movement, dwell and voice-profile activity stays in Player / Participant views.</p>
         <div class="room-timeline-toolbar">
-          <div class="room-timeline-filters" role="group" aria-label="Filter ROOM evidence">
+          <div class="room-timeline-filters" role="group" aria-label="Filter unified ROOM feed">
             <button type="button" data-room-filter="all" aria-pressed="true">All</button>
-            <button type="button" data-room-filter="presence" aria-pressed="false">Presence</button>
-            <button type="button" data-room-filter="audio" aria-pressed="false">Audio</button>
-            <button type="button" data-room-filter="decision" aria-pressed="false">Decisions</button>
-            <button type="button" data-room-filter="activity" aria-pressed="false">Activity</button>
+            <button type="button" data-room-filter="presence" aria-pressed="false">Occupancy</button>
+            <button type="button" data-room-filter="audio" aria-pressed="false">Hearing</button>
+            <button type="button" data-room-filter="decision" aria-pressed="false">Actions</button>
+            <button type="button" data-room-filter="activity" aria-pressed="false">Room activity</button>
             <button type="button" data-room-filter="system" aria-pressed="false">System</button>
           </div>
-          <small id="roomTimelineCount" aria-live="polite">0 events shown</small>
+          <small id="roomTimelineCount" aria-live="polite">0 room events shown</small>
         </div>
-        <div id="roomObservationsTimeline" class="room-observations-timeline" aria-live="off" aria-label="ROOM evidence timeline"></div>
-        <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations"> Save observation history on this device</label>
-        <button type="button" id="roomClearObservations">Clear room observations</button>
-        <small class="room-privacy-notice">Room observations use existing camera/mic permissions. This view does not diagnose health, infer sleep from stillness or automatically capture screenshots.</small>
+        <div id="roomObservationsTimeline" class="room-observations-timeline room-unified-feed" aria-live="off" aria-label="Unified ROOM activity feed"></div>
+        <small class="room-privacy-notice">ROOM shows aggregate/environmental activity only. Individual participant tracking remains in Player / Participant views. Existing camera/mic permission and privacy boundaries still apply.</small>
       </section>
     </aside>
     <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
@@ -796,23 +656,218 @@
   <button type="button" id="agentControlCenterBackdrop" class="control-center-backdrop" aria-label="Close Control Center"></button>
   <section class="control-center-shell" role="dialog" aria-modal="true" aria-labelledby="agentControlCenterTitle" tabindex="-1">
     <header class="control-center-head">
-      <div><small>CONTROL CENTER · ACCOUNT</small><h2 id="agentControlCenterTitle">Tracky2 Account</h2></div>
+      <div><small>CONTROL CENTER</small><h2 id="agentControlCenterTitle">Tracky2 Control Center</h2></div>
       <button type="button" id="agentControlCenterClose" aria-label="Close Control Center">×</button>
     </header>
-    <div id="agentControlCenterStatus" class="control-center-status" role="status">Checking account session…</div>
-    <div class="control-center-grid">
-      <article><span>SIGNED IN</span><strong id="agentAccountUsername">—</strong><small id="agentAccountRole">Session unavailable</small></article>
-      <article><span>PARTICIPANTS</span><strong id="agentAccountParticipants">—</strong><small>Account-backed + local offline cache</small></article>
-      <article><span>ACCOUNT SYNC</span><strong id="agentAccountSyncState">Checking…</strong><small id="agentAccountSyncDetail">Desktop/mobile participant continuity</small></article>
-      <article><span>BIOMETRICS</span><strong>Consent gated</strong><small>Face/voice cross-device sync is participant-controlled</small></article>
-    </div>
-    <nav class="control-center-actions" aria-label="Account dashboard links">
-      <a href="./participants.html">Participants</a>
-      <a href="./server/admin.php">Admin</a>
-      <a href="./diagnostics.html">Diagnostics</a>
-      <button type="button" id="agentControlCenterRefresh">Refresh account</button>
+    <nav class="control-center-tabs" role="tablist" aria-label="Control Center sections">
+      <button type="button" id="controlCenterAccountTab" role="tab" aria-controls="controlCenterAccountPanel" aria-selected="true">Account</button>
+      <button type="button" id="controlCenterRoomTab" role="tab" aria-controls="controlCenterRoomPanel" aria-selected="false" tabindex="-1">ROOM</button>
     </nav>
-    <p class="control-center-note">Control Center shows account/session state only. Opening it does not start camera, microphone, recording, provider calls, or background synchronization.</p>
+    <section id="controlCenterAccountPanel" class="control-center-pane" role="tabpanel" aria-labelledby="controlCenterAccountTab">
+      <div id="agentControlCenterStatus" class="control-center-status" role="status">Checking account session…</div>
+      <div class="control-center-grid">
+        <article><span>SIGNED IN</span><strong id="agentAccountUsername">—</strong><small id="agentAccountRole">Session unavailable</small></article>
+        <article><span>PARTICIPANTS</span><strong id="agentAccountParticipants">—</strong><small>Account-backed + local offline cache</small></article>
+        <article><span>ACCOUNT SYNC</span><strong id="agentAccountSyncState">Checking…</strong><small id="agentAccountSyncDetail">Desktop/mobile participant continuity</small></article>
+        <article><span>BIOMETRICS</span><strong>Consent gated</strong><small>Face/voice cross-device sync is participant-controlled</small></article>
+      </div>
+      <nav class="control-center-actions" aria-label="Account dashboard links">
+        <a href="./participants.html">Participants</a>
+        <a href="./server/admin.php">Admin</a>
+        <a href="./diagnostics.html">Diagnostics</a>
+        <button type="button" id="agentControlCenterRefresh">Refresh account</button>
+      </nav>
+      <p class="control-center-note">Account controls do not start camera, microphone, recording, provider calls, or background synchronization.</p>
+    </section>
+    <section id="controlCenterRoomPanel" class="control-center-pane control-center-room-pane" role="tabpanel" aria-labelledby="controlCenterRoomTab" hidden>
+      <div class="control-center-section-heading">
+        <div><small>ROOM CONTROL PLANE</small><strong>Mapping, observation policy & federation</strong></div>
+        <p>Configuration lives here. The ROOM tab remains the live operational feed.</p>
+      </div>
+      <div class="control-center-room-grid">
+        <section class="control-center-room-section">
+          <header><span>RUNTIME</span><strong>Health & recovery</strong></header>
+<details class="room-runtime-health" id="roomRuntimeHealth" open>
+          <summary>RUNTIME HEALTH &amp; RECOVERY</summary>
+          <div class="room-runtime-grid">
+            <article><span>CAMERA PERMISSION</span><strong id="roomCameraPermission">Checking…</strong></article>
+            <article><span>MIC PERMISSION</span><strong id="roomMicrophonePermission">Checking…</strong></article>
+            <article><span>STORAGE</span><strong id="roomStorageHealth">Checking…</strong></article>
+            <article><span>RUNTIME BUDGET</span><strong id="roomRuntimeBudget">Collecting…</strong></article>
+            <article><span>CAMERA RECOVERY</span><strong id="roomCameraRecovery">Idle</strong></article>
+            <article><span>MIC RECOVERY</span><strong id="roomMicrophoneRecovery">Idle</strong></article>
+          </div>
+          <small id="roomRuntimeHealthNote">Aggregate health counters only. Automatic retry is bounded and occurs only after an already-granted sensor is interrupted; Tracky2 never re-prompts denied permissions in the background.</small>
+        </details>
+        </section>
+        <section class="control-center-room-section control-center-room-wide">
+          <header><span>FEDERATION</span><strong>Room identity & handoff authority</strong></header>
+          <div class="control-center-room-identity">
+            <form id="roomIdentityForm" class="room-scene-form">
+              <label>Physical room ID<input id="roomIdentityId" maxlength="96" required value="room-local" placeholder="kitchen"></label>
+              <label>Room name<input id="roomIdentityName" maxlength="96" required value="Local room" placeholder="Kitchen"></label>
+              <button type="submit">Save room identity</button>
+            </form>
+            <small id="roomIdentityStatus" role="status">Current room · Local room · room-local</small>
+            <small>Room identity is owner-defined metadata. A room ID never proves participant movement; handoffs remain explicit.</small>
+          </div>
+<section class="room-temporal-panel" id="roomHandoffPanel" aria-label="Explicit multi-room handoff controls">
+          <strong>MULTI-ROOM HANDOFF · EXPLICIT ONLY</strong>
+          <div id="roomHandoffCurrent" class="room-temporal-summary">Current room · Local room · room-local</div>
+          <form id="roomHandoffForm" class="room-scene-form">
+            <label>Participant<select id="roomHandoffParticipant"><option value="">Choose enrolled participant</option></select></label>
+            <label>Destination room ID<input id="roomHandoffTargetRoom" maxlength="96" placeholder="office"></label>
+            <button type="submit">Declare handoff</button>
+            <button type="button" id="roomHandoffDeparture">Confirm departure from this room</button>
+          </form>
+          <div id="roomHandoffStatus" class="room-temporal-summary" role="status">No explicit room handoff is active.</div>
+          <div id="roomMultiNodeStatus" class="room-temporal-summary" role="status">Multi-room transport · local-only until a permitted self-hosted session is available.</div>
+          <div id="roomMultiNodeList" class="room-temporal-summary" aria-live="polite"></div>
+          <div id="roomHandoffList" class="room-temporal-summary" aria-live="polite"></div>
+          <small>Camera loss means only “out of view.” A room transition is never inferred from disappearance, area movement, or a later observation elsewhere. Handoffs require an explicit declaration and a target-room observation before they are confirmed.</small>
+        </section>
+        </section>
+        <section class="control-center-room-section control-center-room-wide">
+          <header><span>MAPPING</span><strong>Advanced Room Mapping</strong></header>
+          <label class="control-center-master-toggle">
+            <input type="checkbox" id="roomAdvancedMappingEnabled">
+            <span><strong>Enable Advanced Room Mapping</strong><small>Opt in to zones, floor calibration, listener anchor, object placement and spatial map editing.</small></span>
+          </label>
+          <div id="roomAdvancedMappingControls" class="control-center-advanced-map" hidden>
+<details class="room-scene-editor" id="roomSceneEditor">
+          <summary>ROOM MAP · Configure camera-relative areas</summary>
+          <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
+
+          <div id="roomAreaPreview" class="room-scene-preview" role="img"
+               aria-label="Owner-defined camera view rectangles and temporary visible-track positions">
+            <div id="roomAreaPreviewLayers" class="room-scene-layers" aria-hidden="true"></div>
+          </div>
+          <div id="roomAreaOccupants" class="room-scene-occupants" aria-label="Current camera-relative participant area associations">No stable participant associations yet.</div>
+          <section class="room-spatial-calibration" aria-label="Optional floor-plane calibration">
+            <strong>OPTIONAL FLOOR-PLANE CALIBRATION</strong>
+            <small>For approximate same-floor coordinates only. Enter measured room width/depth, then capture four visible floor points in this order: near-left, near-right, far-right, far-left. This does not create a 3-D room model.</small>
+            <div class="room-spatial-dimensions">
+              <label>Room width (m)<input id="roomCalibrationWidthM" type="number" min=".5" max="50" step=".01" placeholder="4.20"></label>
+              <label>Room depth (m)<input id="roomCalibrationDepthM" type="number" min=".5" max="50" step=".01" placeholder="5.80"></label>
+              <label>Listener X (m, optional)<input id="roomCalibrationListenerX" type="number" min="0" max="50" step=".01" placeholder="2.10"></label>
+              <label>Listener depth (m, optional)<input id="roomCalibrationListenerDepth" type="number" min="0" max="50" step=".01" placeholder=".30"></label>
+            </div>
+            <div class="room-spatial-actions">
+              <button type="button" id="roomCalibrationCapture">Capture floor corners</button>
+              <button type="button" id="roomCalibrationSave">Save calibration</button>
+              <button type="button" id="roomCalibrationClear">Clear calibration</button>
+            </div>
+            <div id="roomCalibrationPointSummary" class="room-spatial-point-summary">No floor corners captured.</div>
+            <small id="roomCalibrationStatus" role="status">Uncalibrated · positions remain camera-relative.</small>
+          </section>
+          <form id="roomAreaForm" class="room-scene-form">
+            <input type="hidden" id="roomAreaId">
+            <label>Area name<input id="roomAreaName" required maxlength="64" placeholder="Desk / Entry / Couch"></label>
+            <label>Area type<select id="roomAreaKind">
+              <option value="zone">Zone</option><option value="entrance">Entrance</option>
+              <option value="desk">Desk</option><option value="seat">Seat</option><option value="other">Other</option>
+            </select></label>
+            <div class="room-scene-coords">
+              <label>X<input id="roomAreaX" type="number" required min="0" max="1" step=".001" value=".15"></label>
+              <label>Y<input id="roomAreaY" type="number" required min="0" max="1" step=".001" value=".2"></label>
+              <label>Width<input id="roomAreaW" type="number" required min=".025" max="1" step=".001" value=".35"></label>
+              <label>Height<input id="roomAreaH" type="number" required min=".025" max="1" step=".001" value=".5"></label>
+            </div>
+            <button type="submit" id="roomSaveArea">Save area</button>
+            <button type="button" id="roomCancelAreaEdit">Cancel edit</button>
+          </form>
+          <div id="roomAreaList" class="room-scene-items" aria-label="Owner-defined areas"></div>
+          <form id="roomObjectForm" class="room-scene-form">
+            <label>Object name<input id="roomObjectName" maxlength="64" required placeholder="Monitor / Chair / Lamp"></label>
+            <label>Kind<select id="roomObjectKind"><option value="furniture">Furniture</option><option value="device">Device</option><option value="other">Other</option></select></label>
+            <label>Located in<select id="roomObjectArea"><option value="">Unassigned</option></select></label>
+            <fieldset class="room-object-skills"><legend>Approved local skills</legend>
+              <label><input type="checkbox" id="roomObjectSkillDescribe" checked> Describe object</label>
+              <label><input type="checkbox" id="roomObjectSkillCapture"> Capture current mapped camera area</label>
+            </fieldset>
+            <small>These grants apply only to this owner-defined local object. Camera capture still requires a fresh foreground owner action.</small>
+            <button type="submit">Add owner-defined object</button>
+          </form>
+          <div id="roomObjectList" class="room-scene-items" aria-label="Owner-defined objects"></div>
+          <button type="button" id="roomClearScene">Clear owner-defined map</button>
+          <small id="roomSceneMessage" role="status">Not calibrated. Owner labels never establish a participant's physical location.</small>
+        </details>
+          </div>
+          <small id="roomAdvancedMappingStatus">Advanced mapping is off. ROOM uses camera-relative observations only.</small>
+        </section>
+        <section class="control-center-room-section control-center-room-wide" aria-label="ROOM live diagnostics">
+          <header><span>LIVE STATUS</span><strong>ROOM sensors & analysis</strong></header>
+          <div id="roomCurrentState" class="room-current-state" aria-live="off">Waiting for room observations</div>
+          <div id="roomSensorStates" class="room-sensor-states" aria-live="off">Sensor history: unavailable</div>
+          <section class="room-ui-overview" id="roomUiOverview" aria-label="ROOM overview">
+            <article><span>OCCUPANCY</span><strong id="roomOverviewParticipants">0</strong><small>stable people visible</small></article>
+            <article><span>SENSORS</span><strong id="roomOverviewSensors">—</strong><small>camera / microphone</small></article>
+            <article><span>EVIDENCE</span><strong id="roomOverviewEvidence">0</strong><small>effective room events</small></article>
+            <article><span>ACTIONS</span><strong id="roomOverviewDecisions">0</strong><small>room / agent actions</small></article>
+          </section>
+          <details class="control-center-diagnostics">
+            <summary>Hearing & listening diagnostics</summary>
+            <section class="room-audio-audit-panel room-live-sense-panel room-live-hearing" aria-label="Shared room ambient audio diagnostics">
+          <header class="room-live-sense-head"><span>AUDIO</span><strong>WHAT THE AGENT HEARS</strong></header>
+          <small class="room-live-sense-subtitle">Live room audio observations · shared/unattributed unless canonical speaker attribution is available elsewhere.</small>
+          <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
+            aria-label="Combined ambient room microphone level, not participant-specific"
+            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <i id="roomAmbientAudioFill"></i>
+          </div>
+          <div id="roomAmbientAudioStatus" class="room-ambient-audio-status" role="status">Room mic offline · no ambient audio captured</div>
+          <div class="room-listening-health" id="roomListeningHealth" aria-label="Conversation listening engine health">
+            <article><span>LISTENING STATE</span><strong id="roomListeningState">Offline</strong></article>
+            <article><span>QUEUE</span><strong id="roomListeningQueue">0 pending</strong></article>
+            <article><span>DROPS</span><strong id="roomListeningDrops">0</strong></article>
+            <article><span>LAST TRANSITION</span><strong id="roomListeningReason">Standby</strong></article>
+          </div>
+          <small>Listening segments are memory-only PCM work items with bounded age/depth. Stale or superseded work is discarded before it can become a transcript or AGENT reply.</small>
+
+
+          <div class="room-environment-audio-status" id="roomEnvironmentalAudioStatus" role="status">Environmental classification off</div>
+          <div class="room-environment-audio-result" id="roomEnvironmentalAudioResult">No environmental classification this session.</div>
+          <div class="room-environment-audio-result" id="roomEnvironmentalCurrent">No current grouped environmental event.</div>
+
+          <small>Enabled by default as part of Basic ROOM. Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech remains filtered. A high-confidence cough-like model result may be logged only as an unattributed observable acoustic event with no health meaning; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
+          <small>Exact song, movie or TV-title identification is not performed by this classifier and requires a separately approved media-identification provider.</small>
+          <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
+          <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
+        </section>
+          </details>
+          <details class="control-center-diagnostics">
+            <summary>Background routine review</summary>
+            <section class="room-temporal-panel" id="roomRoutinePanel" aria-label="Background room and agent actions">
+          <strong>BACKGROUND ROOM / AGENT ACTIONS</strong>
+          <div id="roomRoutineStatus" class="room-temporal-summary" role="status">No routine candidates derived yet.</div>
+
+          <div id="roomRoutineInsights" class="room-scene-items" aria-live="polite"></div>
+          <small>Routine candidates are rebuilt from canonical ROOM history. At least three recurring observations are required. Confirming a routine stores only owner review metadata; it does not create Agent Memory or a new participant-history store.</small>
+          <small>“Outside baseline” means timing differs from prior observations only. It is not a health, emotion, sleep, protected-trait or intent inference.</small>
+        </section>
+          </details>
+        </section>
+        <section class="control-center-room-section control-center-room-wide" aria-label="ROOM observation settings">
+          <header><span>BASIC ROOM</span><strong>Observation & hearing defaults</strong></header>
+          <p class="control-center-section-copy">Basic ROOM is enabled by default: live visual observations, local ambient/audio analysis, observation history and background routine intelligence. Turn individual behaviors off here if desired.</p>
+          <div class="control-center-setting-stack">
+            <label class="agent-check room-consent"><input type="checkbox" id="roomSaveObservations" checked> Save observation history on this device</label>
+            <button type="button" id="roomClearObservations">Clear room observations</button>
+            <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns" checked> Analyze shared audio energy patterns locally (this session only)</label>
+            <small>Energy/VAD summaries stay local and unattributed. They do not identify a sound source.</small>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Classify environmental audio locally with the optional AudioSet model (this session only)</label>
+            <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
+            <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
+            <div class="control-center-setting-row">
+              <button type="button" id="roomRoutineRefresh">Refresh routine observations</button>
+              <button type="button" id="roomRoutineClearFeedback">Clear routine reviews</button>
+            </div>
+            <small>Routine review changes owner feedback metadata only. It does not create Agent Memory or infer health, emotion, sleep, protected traits, or intent.</small>
+          </div>
+        </section>
+      </div>
+      <p class="control-center-note">ROOM settings never grant new sensor permission. Camera/microphone access still follows the existing foreground permission and consent boundaries.</p>
+    </section>
   </section>
 </div>
 <div id="agentVoiceModal" class="agent-voice-modal" hidden aria-hidden="true">

@@ -72,7 +72,7 @@ test('10D unverified speaker remains unverified even next to enrolled participan
  assert.equal(turn.participantId,null);
  assert.equal(turn.attribution,'unknown');
 });
-test('10D single-capture integration: owner edit, suppression gap and disabled-by-default acoustic patterns',()=>{
+test('10D single-capture integration: owner edit, suppression gap and bounded acoustic-pattern policy',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const store=fs.readFileSync('src/participant-store.js','utf8');
@@ -81,7 +81,9 @@ test('10D single-capture integration: owner edit, suppression gap and disabled-b
  assert.match(runtime,/if\(suppressed\)\{/);
  assert.match(runtime,/describeAcousticPattern\(summary\)/);
  assert.match(runtime,/analyzeAmbientPatterns=ambientAnalysis\.checked/);
- assert.match(runtime,/ambientAnalysis\.checked=false/);
+ assert.match(runtime,/ambientAnalysis\.checked=savedAmbient!=='no'/);
+ assert.match(runtime,/tracky2-room-acoustic-patterns/);
+ assert.match(runtime,/Owner disabled local room energy-pattern notes/);
  assert.match(runtime,/revised=await reviseDialogueTurn\(id,text\)/);
  assert.match(store,/reviseTranscriptRecord\(current,text,at\)/);
  assert.match(agent,/editTranscript=async\(\)=>\{\}/);

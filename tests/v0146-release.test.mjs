@@ -1,18 +1,17 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('v0.14.6 package contains account participant and Control Center runtime',()=>{
+test('v0.14.6 account participant release evidence remains present under later additive V0.14 releases',()=>{
  const pkg=JSON.parse(read('package.json')),workflow=read('.github/workflows/test.yml');
- const sw=read('sw.js'),audit=read('scripts/audit.mjs'),diagnostics=read('diagnostics.js');
- assert.equal(pkg.version,'0.14.6');
- assert.match(sw,/tracky2-static-v0\.14\.6/);
- assert.match(diagnostics,/version:'0\.14\.6'/);
- assert.match(audit,/packageJson\.version !== '0\.14\.6'/);
+ const sw=read('sw.js'),status=read('docs/DEVELOPMENT-STATUS.md');
+ const parts=value=>String(value).split('.').map(v=>Number(v)||0);
+ const compare=(a,b)=>{const aa=parts(a),bb=parts(b);for(let i=0;i<3;i++){if(aa[i]!==bb[i])return aa[i]-bb[i];}return 0;};
+ assert.ok(compare(pkg.version,'0.14.6')>=0);
  for(const file of ['account-participants.js','control-center.js','src/account-participant-core.js',
-  'server/account-participants-api.php','tracky2-v0.14.6-deploy.zip'])
-  assert.match(workflow,new RegExp(file.replaceAll('.','\\.')));
- assert.match(workflow,/Account-Backed Participants & Control Center/);
- assert.match(workflow,/gh release create v0\.14\.6/);
+  'server/account-participants-api.php'])assert.match(workflow,new RegExp(file.replaceAll('.','\\.')));
+ assert.match(sw,/account-participants\.js/);assert.match(sw,/control-center\.js/);
+ assert.match(status,/V0\.14\.6 final score: 10\/10/);
+ assert.match(status,/8778fb9acce46b12141565309ee63565e043d1182f9d99e94c367ae84ed24158/);
 });
 
 test('v0.14.6 browser schema 15 preserves earlier sync stores additively',()=>{

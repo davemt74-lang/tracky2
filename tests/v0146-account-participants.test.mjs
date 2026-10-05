@@ -68,7 +68,8 @@ test('CCC is a centralized triple-key shortcut that opens Control Center',()=>{
  assert.match(html,/Participants/);
  assert.match(html,/Admin/);
  assert.match(html,/Diagnostics/);
- assert.match(html,/does not start camera, microphone, recording, provider calls, or background synchronization/i);
+ assert.match(html,/Account controls do not start camera, microphone, recording, provider calls, or background synchronization/i);
+ assert.match(html,/ROOM settings never grant new sensor permission/i);
 });
 
 test('Control Center is responsive and visible shortcut is desktop-only',()=>{
