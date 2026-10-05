@@ -107,7 +107,7 @@ export class SemanticRecallIndex{
    const row=entry.row;if(!recallRowAllowed(row,options))continue;
    const semantic=Math.max(0,cosine(queryVector,entry.vector));
    const lexical=lexicalCoverage(row,q);
-   const evidencePenalty=evidenceIssueCount(row)>0?.035:0;
+   const evidencePenalty=evidenceIssueCount(row)>0 ? 0.035 : 0;
    const score=semantic*semanticWeight+lexical*(1-semanticWeight)-evidencePenalty;
    if(score<.08&&lexical===0)continue;
    candidates.push(Object.freeze({...row,
