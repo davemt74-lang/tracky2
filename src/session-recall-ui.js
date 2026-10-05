@@ -223,7 +223,7 @@ export function createSessionRecallUi({
     (result.status?' · '+result.status:'')+(people.length?' · '+people.join(', '):'');
    const why=document.createElement('details');why.className='agent-recall-why';
    const summary=document.createElement('summary');summary.textContent='Why this result';
-   const explain=explainRecallResult(result);
+   const explain=explainRecallResultV2(result);
    const explanation=document.createElement('p');explanation.textContent=explain.summary;
    why.append(summary,explanation);
    if(explain.references.length){
