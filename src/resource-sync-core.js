@@ -51,8 +51,8 @@ function boundedTaskProvenance(input){
   keys.includes(key)&&(typeof value==='string'||finite(value))));
 }
 function projectTask(input={}){
- if(!input.id||!TERMINAL_TASK_STATUSES.has(input.status))
-  throw new Error('Only terminal approved task metadata is sync eligible.');
+ if(!input.id||!TERMINAL_TASK_STATUSES.has(input.status)||!finite(input.confirmedAt))
+  throw new Error('Only terminal owner-confirmed task metadata is sync eligible.');
  return {
   schema:Number(input.schema)||1,id:short(input.id,96),
   skillId:['describe_object','capture_image','product_search'].includes(input.skillId)?input.skillId:'describe_object',
