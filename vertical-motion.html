@@ -179,7 +179,12 @@
         <div class="agent-tab-heading"><strong>AGENT</strong><span>Voice, model and history preferences</span></div>
       <div class="agent-left-controls" id="agentLeftControls">
         <div class="agent-speaking-indicator" id="agentSpeakingIndicator" role="status">Agent listening</div>
-        <label>Agent voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
+        <label>System voice <select id="agentVoiceSelect"><option value="">System default</option></select></label>
+        <label>Speech output <select id="agentSpeechProvider">
+          <option value="browser" selected>Browser / system voice</option>
+          <option value="elevenlabs">ElevenLabs · self-hosted key</option>
+        </select></label>
+        <label>ElevenLabs voice ID <input type="text" id="agentElevenVoiceId" maxlength="64" autocomplete="off" placeholder="Optional when ElevenLabs selected"></label>
         <label class="agent-check"><input type="checkbox" id="agentSpeakEnabled" checked> Speak replies</label>
         <label class="agent-check"><input type="checkbox" id="agentDistanceAudio" checked> Adjust reply volume for participant distance</label>
         <small id="agentSpatialStatus">Camera-relative apparent proximity. Add an explicit floor calibration + listener anchor in ROOM for approximate planar distance.</small>
@@ -316,14 +321,21 @@
           <div id="agentSessionTimeline" class="agent-recall-results" aria-live="polite"></div>
         </details>
         <details class="agent-model-settings">
-          <summary>Conversational AI · optional local model</summary>
+          <summary>Conversational AI · governed provider router</summary>
           <div id="agentReasoningStatus" class="agent-recall-status" role="status">Reasoning context · waiting for a canonical dialogue turn.</div>
           <small>AGENT can reason from labeled canonical evidence, but it cannot create or override participant identity. Unknown/conflicted speakers do not receive participant memory.</small>
-          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
-          <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
-          <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
+          <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable AI model · send bounded conversation text only</label>
+          <label>Provider <select id="agentModelProvider">
+            <option value="ollama" selected>Local Ollama</option>
+            <option value="openai">OpenAI · self-hosted key</option>
+            <option value="anthropic">Anthropic · self-hosted key</option>
+          </select></label>
+          <label>Local Ollama endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
+          <label>Model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
+          <button type="button" id="agentProviderRefresh">Refresh provider status</button>
+          <small id="agentProviderBudget" role="status">Local Ollama has no Tracky2 server API budget.</small>
           <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
-          <small>Your browser must be able to reach this localhost service (CORS may need configuring). No images, audio or biometrics are sent.</small>
+          <small>Ollama remains loopback-only. OpenAI, Anthropic and ElevenLabs requests are sent through the authenticated same-origin Tracky2 server; stored API keys are never returned to this browser. No images, raw audio or biometrics are included in chat requests.</small>
         </details>
         <button type="button" id="agentClearHistory">Clear agent history</button>
         <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>

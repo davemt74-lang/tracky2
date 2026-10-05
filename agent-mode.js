@@ -1,7 +1,8 @@
 import {facePreviewRect} from './src/face-preview.js';
 import {conversationTimeline} from './src/conversation-timeline.js';
 import {orbSpatialTarget} from './src/orb-spatial-core.js';
-import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint} from './src/agent-provider.js';
+import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint,fetchSelfHostedProviderStatus,querySelfHostedProvider,querySelfHostedSpeech} from './src/agent-provider.js';
+import {providerBudgetLabel,providerFallbackPlan,providerModelFor} from './src/provider-router-core.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 import {replyEligibility} from './src/conversation-listening-core.js';
 import {speakerAssociationLabel} from './src/speaker-participant-core.js';
@@ -21,7 +22,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   voice:$('agentVoiceSelect'),speak:$('agentSpeakEnabled'),save:$('agentSaveHistory'),
   follow:$('agentFollowParticipant'),distanceAudio:$('agentDistanceAudio'),
   spatialStatus:$('agentSpatialStatus'),
-  useModel:$('agentUseModel'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
+  useModel:$('agentUseModel'),provider:$('agentModelProvider'),modelEndpoint:$('agentLocalEndpoint'),modelName:$('agentLocalModel'),
+  providerRefresh:$('agentProviderRefresh'),providerBudget:$('agentProviderBudget'),
+  speechProvider:$('agentSpeechProvider'),elevenVoice:$('agentElevenVoiceId'),
   modelStatus:$('agentModelStatus'),reasoningStatus:$('agentReasoningStatus'),
   clear:$('agentClearHistory'),resume:$('agentResumeAudio'),accordion:$('agentRoomAccordion'),
   heading:$('agentParticipantHeading'),modal:$('agentVoiceModal'),
@@ -30,9 +33,42 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
  let responseGeneration=0;
  let modelController=null,lastProximityVolume=.85,lastSpeakerId=null;
- let lastFocusedElement=null;
+ let providerRuntime=null,remoteAudio=null,lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
+ async function refreshProviderRuntime({announce=true}={}){
+  try{
+   providerRuntime=await fetchSelfHostedProviderStatus();
+   const selected=ui.provider?.value||'ollama';
+   const row=providerRuntime.providers.find(item=>item.provider===selected);
+   if(ui.providerBudget)ui.providerBudget.textContent=row?.budget
+    ? providerBudgetLabel(row.budget)
+    : 'Server provider budget applies to OpenAI, Anthropic and ElevenLabs.';
+   if(announce&&selected!=='ollama')ui.modelStatus.textContent=row?.configured
+    ? selected+' configured · '+providerBudgetLabel(row.budget)
+    : selected+' is not configured or not permitted.';
+   return providerRuntime;
+  }catch(error){
+   providerRuntime=null;
+   if(ui.providerBudget)ui.providerBudget.textContent='Self-hosted provider status unavailable.';
+   if(announce&&ui.provider?.value!=='ollama')ui.modelStatus.textContent='Provider runtime unavailable: '+error.message;
+   return null;
+  }
+ }
+ function applyProviderSelection(){
+  const selected=ui.provider?.value||'ollama';
+  if(selected==='ollama'){
+   if(ui.modelName&&!ui.modelName.value.trim())ui.modelName.value='llama3.2';
+   ui.modelEndpoint.disabled=false;
+   if(ui.providerBudget)ui.providerBudget.textContent='Local Ollama has no Tracky2 server API budget.';
+  }else{
+   ui.modelEndpoint.disabled=true;
+   ui.modelName.value=providerModelFor(selected,ui.modelName.value);
+   const row=providerRuntime?.providers?.find(item=>item.provider===selected);
+   if(ui.providerBudget)ui.providerBudget.textContent=row?.budget?providerBudgetLabel(row.budget):
+    'Refresh server provider status to view budget.';
+  }
+ }
  function showThread(){
   ui.thread.replaceChildren();
   const items=conversationTimeline(getDialogueTurns(),entries,participants()).slice(-75);
@@ -265,32 +301,57 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  function stopSpeech(){
   if(speech?.speaking)speech.cancel();
+  if(remoteAudio){try{remoteAudio.pause();}catch{}remoteAudio=null;}
   notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
+ }
+ function speakSystem(text){
+  if(!speech||typeof SpeechSynthesisUtterance==='undefined')return false;
+  stopSpeech();suppressMic(true);ui.speaker.textContent='Agent speaking';
+  const utterance=new SpeechSynthesisUtterance(text);
+  utterance.rate=.98;utterance.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
+  const voice=voices().find(v=>v.voiceURI===ui.voice.value);if(voice)utterance.voice=voice;
+  let released=false;
+  const release=()=>{if(released)return;released=true;notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';};
+  utterance.addEventListener('start',()=>notifySpeech(true),{once:true});
+  utterance.addEventListener('boundary',event=>{
+   const word=(text.slice(Math.max(0,event.charIndex||0)).match(/^\S+/)||[''])[0];
+   window.dispatchEvent(new CustomEvent('tracky:agent-speech-cadence',{
+    detail:{strength:Math.min(1,Math.max(.24,word.length/11)),durationMs:Math.max(200,Math.min(490,word.length*48))}}));
+  });
+  utterance.addEventListener('end',release,{once:true});utterance.addEventListener('error',release,{once:true});
+  speech.speak(utterance);return true;
+ }
+ async function speakElevenLabs(text){
+  const voiceId=String(ui.elevenVoice?.value||'').trim();
+  if(!voiceId)throw new Error('Enter an ElevenLabs voice ID.');
+  stopSpeech();suppressMic(true);ui.speaker.textContent='Agent voice loading…';
+  const result=await querySelfHostedSpeech({text,voiceId,status:providerRuntime});
+  const binary=atob(result.audioBase64),bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([bytes],{type:result.mimeType||'audio/mpeg'}));
+  const audio=new Audio(url);remoteAudio=audio;audio.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
+  let released=false;const release=()=>{
+   if(released)return;released=true;if(remoteAudio===audio)remoteAudio=null;
+   URL.revokeObjectURL(url);notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
+  };
+  audio.addEventListener('play',()=>{ui.speaker.textContent='Agent speaking';notifySpeech(true);},{once:true});
+  audio.addEventListener('ended',release,{once:true});audio.addEventListener('error',release,{once:true});
+  await audio.play();return result;
  }
  function say(text,participantId=null,scopeId=null){
   if(!text)return false;
   append('agent',text,participantId,scopeId);
-  if(!ui.speak.checked||!speech||typeof SpeechSynthesisUtterance==='undefined')return true;
-  stopSpeech();suppressMic(true);
-  ui.speaker.textContent='Agent speaking';
-  const utterance=new SpeechSynthesisUtterance(text);
-  utterance.rate=.98;utterance.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
-  const voice=voices().find(v=>v.voiceURI===ui.voice.value);
-  if(voice)utterance.voice=voice;
-  let released=false;
-  const release=()=>{if(released)return;released=true;notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';};
-  utterance.addEventListener('start',()=>notifySpeech(true),{once:true});
-  // Word boundaries pulse the orb in real speech cadence. CSS handles unsupported voices.
-  utterance.addEventListener('boundary',event=>{
-   const word=(text.slice(Math.max(0,event.charIndex||0)).match(/^\S+/)||[''])[0];
-   window.dispatchEvent(new CustomEvent('tracky:agent-speech-cadence',{
-    detail:{strength:Math.min(1,Math.max(.24,word.length/11)),
-      durationMs:Math.max(200,Math.min(490,word.length*48))}}));
-  });
-  utterance.addEventListener('end',release,{once:true});
-  utterance.addEventListener('error',release,{once:true});
-  speech.speak(utterance);
-  return true;
+  if(!ui.speak.checked)return true;
+  if(ui.speechProvider?.value==='elevenlabs'){
+   void speakElevenLabs(text).then(result=>{
+    if(ui.providerBudget&&result?.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
+   }).catch(error=>{
+    ui.modelStatus.textContent='ElevenLabs unavailable: '+error.message+' · using system voice';
+    speakSystem(text);
+   });
+   return true;
+  }
+  speakSystem(text);return true;
  }
  function greet(track,person){
   if(getMeeting()?.status==='active')return false;
@@ -384,37 +445,57 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    const verifiedMemoryScope=reasoningContext.mayUseParticipantMemory===true;
    const memoryContext=reasoningContext.memoryLines;
    if(ui.useModel.checked){
-    let endpoint;
-    try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
-    catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
-    if(endpoint){
-     const controller=new AbortController();
-     modelController=controller;
-     const timeout=setTimeout(()=>controller.abort(),16000);
-     ui.modelStatus.textContent='Local model thinking…';
-     try{
-      const reply=await queryLocalOllama({
-       endpoint,model:ui.modelName.value.trim(),
-       messages:buildAgentMessages(
-        prior,turn.transcript,
-        reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
-        memoryContext,turn,reasoningContext
-       ),
-       signal:controller.signal
-      });
-      if(responseToken!==responseGeneration||open)return;
-      if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
-      if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
-      say(reply,turn.participantId||null,turn.conversationScopeId||null);
-      ui.modelStatus.textContent='Local model connected · scoped conversation';
-      return;
-     }catch(error){
-      if(responseToken!==responseGeneration)return;
-      ui.modelStatus.textContent='Local model unavailable: '+error.message+' · using basic reply';
-     }finally{
-      clearTimeout(timeout);
-      if(modelController===controller)modelController=null;
+    const messages=buildAgentMessages(
+     prior,turn.transcript,
+     reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
+     memoryContext,turn,reasoningContext
+    );
+    const selected=ui.provider?.value||'ollama';
+    if(selected==='ollama'){
+     let endpoint;
+     try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
+     catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
+     if(endpoint){
+      const controller=new AbortController();modelController=controller;
+      const timeout=setTimeout(()=>controller.abort(),16000);ui.modelStatus.textContent='Local Ollama thinking…';
+      try{
+       const reply=await queryLocalOllama({endpoint,model:ui.modelName.value.trim(),messages,signal:controller.signal});
+       if(responseToken!==responseGeneration||open)return;
+       if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
+       if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
+       say(reply,turn.participantId||null,turn.conversationScopeId||null);
+       ui.modelStatus.textContent='Local Ollama connected · scoped conversation';return;
+      }catch(error){
+       if(responseToken!==responseGeneration)return;
+       ui.modelStatus.textContent='Local Ollama unavailable: '+error.message+' · using basic reply';
+      }finally{clearTimeout(timeout);if(modelController===controller)modelController=null;}
      }
+    }else{
+     const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+     const plan=providerFallbackPlan(selected,runtime?.providers||[]);
+     let lastError=null;
+     for(const candidate of plan){
+      if(responseToken!==responseGeneration||open)return;
+      const controller=new AbortController();modelController=controller;
+      const timeout=setTimeout(()=>controller.abort(),16000);
+      ui.modelStatus.textContent=candidate+' thinking…'+(candidate!==selected?' · fallback':'');
+      try{
+       const result=await querySelfHostedProvider({
+        provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
+        messages,status:runtime,signal:controller.signal
+       });
+       if(responseToken!==responseGeneration||open)return;
+       if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
+       if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
+       say(result.reply,turn.participantId||null,turn.conversationScopeId||null);
+       if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
+       ui.modelStatus.textContent=candidate+' connected · scoped conversation'+
+        (candidate!==selected?' · fallback from '+selected:'');return;
+      }catch(error){lastError=error;
+      }finally{clearTimeout(timeout);if(modelController===controller)modelController=null;}
+     }
+     if(responseToken!==responseGeneration)return;
+     ui.modelStatus.textContent=(lastError?'Provider unavailable: '+lastError.message:'No configured provider available')+' · using basic reply';
     }
    }
    if(responseToken!==responseGeneration||open)return;
@@ -527,13 +608,28 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(sharedStatus)sharedStatus.hidden=true;
   ui.save.checked=false;
   ui.useModel.checked=false;
-  ui.useModel.addEventListener('change',()=>{
-    if(ui.useModel.checked){
-      try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
-       ui.modelStatus.textContent='Enabled · messages will be sent only to the local model.';
-      }catch(error){ui.useModel.checked=false;ui.modelStatus.textContent=error.message;}
-    }else ui.modelStatus.textContent='Off. Local scripted conversation is active.';
+  applyProviderSelection();
+  ui.provider?.addEventListener('change',()=>{
+   applyProviderSelection();
+   if(ui.provider.value!=='ollama')void refreshProviderRuntime();
+   else ui.modelStatus.textContent=ui.useModel.checked?'Local Ollama enabled.':'Off. Local scripted conversation is active.';
   });
+  ui.providerRefresh?.addEventListener('click',()=>void refreshProviderRuntime());
+  ui.useModel.addEventListener('change',async()=>{
+    if(!ui.useModel.checked){ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;}
+    const selected=ui.provider?.value||'ollama';
+    if(selected==='ollama'){
+     try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
+      ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
+     }catch(error){ui.useModel.checked=false;ui.modelStatus.textContent=error.message;}
+     return;
+    }
+    const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+    const row=runtime?.providers?.find(item=>item.provider===selected);
+    if(!row?.configured){ui.useModel.checked=false;ui.modelStatus.textContent=selected+' is not configured or not permitted.';return;}
+    ui.modelStatus.textContent=selected+' enabled · server-mediated text only · '+providerBudgetLabel(row.budget);
+  });
+  void refreshProviderRuntime({announce:false});
   refillVoices();
   if(speech?.addEventListener)speech.addEventListener('voiceschanged',refillVoices);
   ui.clear.addEventListener('click',()=>{

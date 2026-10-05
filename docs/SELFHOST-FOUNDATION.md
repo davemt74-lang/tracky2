@@ -1,6 +1,6 @@
 # Tracky2 self-hosted installation, encrypted participant sync and recovery
 
-Tracky2 includes an optional PHP/SQLite server backend for the standalone browser application. It works on a self-hosted HTTPS website with PHP 8.1+, PDO SQLite and sodium. No installation API key or external service is needed to create the first user. V0.10.7 adds additive schema migration, encrypted participant profiles, explicit browser/server participant synchronization, optimistic conflict handling and CLI backup/recovery.
+Tracky2 includes an optional PHP/SQLite server backend for the standalone browser application. It works on a self-hosted HTTPS website with PHP 8.1+, PDO SQLite and sodium. PHP cURL is additionally required only when using the V0.14 external provider runtime. No installation API key or external service is needed to create the first user. V0.10.7 adds additive schema migration, encrypted participant profiles, explicit browser/server participant synchronization, optimistic conflict handling and CLI backup/recovery.
 
 ## First-time setup
 
@@ -37,7 +37,13 @@ The relay is optional. If the server session, permission or endpoint is unavaila
 
 ## LLM and voice providers
 
-Admin can securely save/replace/remove encrypted OpenAI (ChatGPT API), Anthropic (Claude), and ElevenLabs API keys. Credentials never appear in the browser after saving or enter a release ZIP. Configuring credentials does not yet enable live provider routing: the existing local AGENT/Ollama path remains available, while provider calls, spending limits and voice synthesis integration are separate work.
+Admin can securely save/replace/remove encrypted OpenAI (ChatGPT API), Anthropic (Claude), and ElevenLabs API keys. Credentials never appear in the browser after saving or enter a release ZIP.
+
+V0.14.0 adds an authenticated same-origin provider runtime. OpenAI and Anthropic chat requests are constructed on the server from bounded text-only conversation messages; the browser never receives the stored key and cannot supply an arbitrary upstream URL. Models are allowlisted server-side. The owner can grant or revoke `providers.use` independently of `providers.manage`; owner/admin/operator receive provider-use permission by default while viewer does not.
+
+Provider use has both persistent daily and authenticated-session request/unit budgets. Three consecutive provider failures open a short per-session circuit breaker; successful requests reset it. Provider audit records contain only provider/model/outcome/unit metadata, never prompt/reply text, biometrics, recordings or credentials. The existing loopback-only Ollama path remains available without using the server budget.
+
+ElevenLabs is optional speech output only. Tracky sends at most the bounded reply text plus an owner-entered voice ID to the same-origin provider endpoint; the API key stays server-side. If provider speech fails, AGENT falls back to the existing browser/system voice. External provider routing requires PHP cURL; when cURL is missing the runtime reports transport unavailable and local/scripted operation continues.
 
 ## Scene and object foundation
 

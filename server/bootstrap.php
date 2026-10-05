@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=3;
+const TRACKY_SCHEMA_VERSION=4;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -179,6 +179,13 @@ CREATE TABLE IF NOT EXISTS provider_credentials(
  provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),
  ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS provider_usage_daily(
+ actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ provider TEXT NOT NULL CHECK(provider IN ('openai','anthropic','elevenlabs')),
+ usage_day TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+ units INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(actor_id,provider,usage_day)
+);
 CREATE TABLE IF NOT EXISTS room_nodes(
  id TEXT PRIMARY KEY, room_id TEXT NOT NULL, room_name TEXT NOT NULL,
  runtime_instance_id TEXT, preferred_primary INTEGER NOT NULL DEFAULT 0,
@@ -210,9 +217,9 @@ SQL);
     $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
-      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
-      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','rooms.read','rooms.write'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
+      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
+      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','providers.use','rooms.read','rooms.write'],
       'viewer'=>['participants.read','scene.read']
     ];
     $db->beginTransaction();
