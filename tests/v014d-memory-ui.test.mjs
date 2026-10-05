@@ -30,9 +30,11 @@ test('14D contradiction replacement is one local transaction',()=>{
  const end=store.indexOf('export function deleteAgentMemory',start);
  const block=store.slice(start,end);
  assert.match(block,/revokeMemoryRecord/);
- assert.match(block,/requestToPromise\(store\.put\(persistableAgentMemory\(next\)\)\)/);
- assert.match(block,/requestToPromise\(store\.put\(safe\)\)/);
- assert.match(block,/await done/);
+ assert.match(block,/const read=store\.getAll\(\)/);
+ assert.match(block,/read\.onsuccess=/);
+ assert.match(block,/store\.put\(persistableAgentMemory\(revokedMemory\)\)/);
+ assert.match(block,/store\.put\(safe\)/);
+ assert.match(block,/tx\.oncomplete=/);
 });
 
 test('14D participant deletion also removes proposal-derived provenance references',()=>{
