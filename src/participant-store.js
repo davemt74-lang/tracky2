@@ -17,9 +17,12 @@ import {
  recordingIdsToExpire,recordingIdsToPrune,recordingMediaState,recoverInterruptedRecording
 } from './recording-core.js';
 import {normalizeEnvironmentalFeedback} from './environmental-intelligence-core.js';
+import {
+ normalizeRoutineFeedback,routineFeedbackIdsToPrune,scrubRoutineFeedbackParticipant
+} from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -33,8 +36,10 @@ const SESSION_IDENTITIES = 'session-identities';
 const RECORDINGS = 'recordings';
 const RECORDING_MEDIA = 'recording-media';
 const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback';
+const ROUTINE_FEEDBACK = 'routine-feedback';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 export const MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK=200;
+export const MAX_PERSISTED_ROUTINE_FEEDBACK=160;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
@@ -142,6 +147,11 @@ export async function openParticipantDb() {
         const feedback=db.createObjectStore(ENVIRONMENTAL_FEEDBACK,{keyPath:'id'});
         feedback.createIndex('at','at',{unique:false});
         feedback.createIndex('category','category',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(ROUTINE_FEEDBACK)) {
+        const routines=db.createObjectStore(ROUTINE_FEEDBACK,{keyPath:'id'});
+        routines.createIndex('at','at',{unique:false});
+        routines.createIndex('routineId','routineId',{unique:false});
       }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
@@ -389,7 +399,7 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id,{remoteSyncState=null}={}) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS, RECORDINGS], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS, RECORDINGS, ROUTINE_FEEDBACK], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
@@ -398,6 +408,7 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     const sync = tx.objectStore(PARTICIPANT_SYNC);
     const meetings = tx.objectStore(MEETINGS);
     const recordings = tx.objectStore(RECORDINGS);
+    const routineFeedback = tx.objectStore(ROUTINE_FEEDBACK);
     const deletedTurnIds=new Set();
 
     const participant = await requestToPromise(participants.get(id));
@@ -498,6 +509,12 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     for (const event of roomRows) {
       if (event.participantId === id) observations.delete(event.id);
     }
+
+    // Routine review metadata follows the same participant deletion boundary.
+    const routineRows=await requestToPromise(routineFeedback.getAll());
+    const keepRoutine=scrubRoutineFeedbackParticipant(routineRows,id);
+    const keepRoutineIds=new Set(keepRoutine.map(row=>row.id));
+    for(const row of routineRows)if(!keepRoutineIds.has(row.id))routineFeedback.delete(row.id);
 
     // Explicit participant memories have the same local deletion boundary.
     const memoryRows = await requestToPromise(memories.getAll());
@@ -792,6 +809,30 @@ export async function saveEnvironmentalFeedback(input){
 }
 export function clearEnvironmentalFeedback(){
  return storeAction(ENVIRONMENTAL_FEEDBACK,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.13G owner review metadata only. Routine candidates are derived from
+   canonical ROOM observations at read time and are never copied into Agent Memory. */
+export function listRoutineFeedback(){
+ return storeAction(ROUTINE_FEEDBACK,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.map(row=>normalizeRoutineFeedback(row,row.at))
+   .sort((a,b)=>a.at-b.at).slice(-MAX_PERSISTED_ROUTINE_FEEDBACK);
+ });
+}
+export async function saveRoutineFeedback(input){
+ const record=normalizeRoutineFeedback(input,input?.at);
+ return storeAction(ROUTINE_FEEDBACK,'readwrite',async store=>{
+  await requestToPromise(store.put(record));
+  const rows=await requestToPromise(store.getAll());
+  for(const id of routineFeedbackIdsToPrune(rows,MAX_PERSISTED_ROUTINE_FEEDBACK))
+   store.delete(id);
+  return record;
+ });
+}
+export function clearRoutineFeedback(){
+ return storeAction(ROUTINE_FEEDBACK,'readwrite',store=>requestToPromise(store.clear()));
 }
 
 
