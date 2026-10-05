@@ -142,9 +142,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Workflow persistence stores only policy/step/status/result/provenance metadata; no raw media, embeddings, credentials, prompts or arbitrary tool payloads.
 - Repaired the 14B runtime connection so the existing foreground camera capture executor is passed into both single-task and workflow execution.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.2**, including workflow core/UI smoke checks and direct ZIP/SHA publication.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #84 merged at `dad63a3ddea6d0235fc9ec8099a47a1d4648f293`.
+- Post-merge Tracky2 CI run #37353574045 passed Node/package/PWA and PHP/security/installer checks.
+- Direct **v0.14.2** release published against the merged commit with `tracky2-v0.14.2-deploy.zip` and `tracky2-v0.14.2-deploy.zip.sha256`.
+- Verified deploy ZIP SHA-256: `604226053d6f36164f84e03cd49faab280aa78b85413c6f84200d7ea9eb88ed2`.
+- **14C final score: 10/10.**
 
 ## Exact next action
 
-Run the 14C PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.2 ZIP/SHA/direct release, then begin **14D — Owner-Approved Memory Learning V2**.
+Begin **14D — Owner-Approved Memory Learning V2** from current merged `main`. Do not reopen 14C.
 
