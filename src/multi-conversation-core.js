@@ -117,6 +117,11 @@ export function multiConversationTurnFields(turn={},{
 }
 
 export function multiParticipantReplyPolicy(context={}){
+ if(context.multiPersonTurnOwnership==='overlap')
+  return Object.freeze({allow:false,reason:'abstain: canonical turn contains overlapping speakers'});
+ if(context.multiPersonTurnOwnership==='multi-speaker'||
+    Number(context.multiPersonOwnershipChangeCount||0)>0)
+  return Object.freeze({allow:false,reason:'abstain: canonical turn changes speaker ownership'});
  if(context.overlapState==='overlap-observed')
   return Object.freeze({allow:false,reason:'abstain: overlap evidence leaves turn ownership unresolved'});
  if(Number(context.diarizationSpeakerCount||0)>1)
@@ -189,6 +194,8 @@ export function agentHistoryForScope(entries=[],turn={}){
 }
 
 export function conversationContextLabel(context={}){
+ if(context.multiPersonTurnOwnership==='overlap')return 'MULTI-PERSON OVERLAP · CANONICAL INTERVALS';
+ if(context.multiPersonTurnOwnership==='multi-speaker')return 'MULTI-SPEAKER TURN · OWNERSHIP CHANGES';
  if(context.overlapState==='overlap-observed')return 'OVERLAP EVIDENCE · TURN UNRESOLVED';
  if(Number(context.diarizationSpeakerCount||0)>1)return 'MULTI-SPEAKER TURN · ATTRIBUTION UNRESOLVED';
  if(context.turnOwnership==='ambiguous-speaker'&&Number(context.conversationGroupSize||1)>1)

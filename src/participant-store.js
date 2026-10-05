@@ -2,6 +2,10 @@ import { participantRecord, cryptoRandomId } from './participant-core.js';
 import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 import {reviseTranscriptRecord} from './transcript-correction.js';
+import {
+ applyAttributionCorrection,attributionFromTurn,multiPersonAttributionTurnFields,
+ scrubAttributionParticipant
+} from './multi-person-attribution-core.js';
 import {normalizeMemoryRecord} from './agent-memory-core.js';
 import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
 
@@ -192,6 +196,12 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
         ?row.continuousFusionClusterLinks:[];
       const continuousFusionWindowLinks=Array.isArray(row.continuousFusionWindowLinks)
         ?row.continuousFusionWindowLinks:[];
+      const multiPersonParticipantIds=Array.from(row.multiPersonParticipantIds||[]);
+      const multiPersonCandidateParticipantIds=Array.from(row.multiPersonCandidateParticipantIds||[]);
+      const multiPersonAttributionIntervals=Array.isArray(row.multiPersonAttributionIntervals)
+        ?row.multiPersonAttributionIntervals:[];
+      const multiPersonAttributionCorrections=Array.isArray(row.multiPersonAttributionCorrections)
+        ?row.multiPersonAttributionCorrections:[];
       const hasNearbyReference = nearbyIds.includes(id);
       const hasNameReference = participant?.name && nearbyNames.includes(participant.name);
       const hasConversationReference=conversationIds.includes(id);
@@ -201,9 +211,16 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
       const hasContinuousFusionReference=continuousFusionParticipantIds.includes(id)||
         continuousFusionClusterLinks.some(link=>link?.participantId===id)||
         continuousFusionWindowLinks.some(link=>link?.participantId===id);
+      const hasMultiPersonReference=multiPersonParticipantIds.includes(id)||
+        multiPersonCandidateParticipantIds.includes(id)||
+        multiPersonAttributionIntervals.some(interval=>
+          interval?.participantId===id||(interval?.candidateParticipantIds||[]).includes(id))||
+        multiPersonAttributionCorrections.some(correction=>
+          correction?.participantId===id||correction?.previousParticipantId===id);
 
       if (hasNearbyReference || hasNameReference || hasConversationReference ||
-          hasAddressReference || hasMultimodalReference || hasContinuousFusionReference) {
+          hasAddressReference || hasMultimodalReference || hasContinuousFusionReference ||
+          hasMultiPersonReference) {
         const nextAddressed=addressedIds.filter(participantId=>participantId!==id);
         dialogue.put({
           ...row,
@@ -225,7 +242,10 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
           continuousFusionClusterLinks:continuousFusionClusterLinks
             .filter(link=>link?.participantId!==id),
           continuousFusionWindowLinks:continuousFusionWindowLinks
-            .filter(link=>link?.participantId!==id)
+            .filter(link=>link?.participantId!==id),
+          ...multiPersonAttributionTurnFields(
+            scrubAttributionParticipant(attributionFromTurn(row),id)
+          )
         });
       }
     }
@@ -367,6 +387,24 @@ export function reviseDialogueTurn(id,text,at=Date.now()){
   const current=await requestToPromise(store.get(id));
   if(!current)throw new Error('Transcript no longer exists.');
   const corrected=reviseTranscriptRecord(current,text,at);
+  await requestToPromise(store.put(corrected));
+  return corrected;
+ });
+}
+
+export function reviseDialogueAttribution(id,correction={},at=Date.now()){
+ if(typeof id!=='string'||!id)return Promise.reject(new TypeError('Invalid transcript ID.'));
+ return storeAction(DIALOGUE,'readwrite',async store=>{
+  const current=await requestToPromise(store.get(id));
+  if(!current)throw new Error('Transcript no longer exists.');
+  const attribution=attributionFromTurn(current);
+  const correctedAttribution=applyAttributionCorrection(attribution,{...correction,at});
+  const corrected={
+   ...current,
+   ...multiPersonAttributionTurnFields(correctedAttribution),
+   speakerAttributionEditedAt:new Date(at).toISOString(),
+   speakerAttributionEditedBy:'local-owner'
+  };
   await requestToPromise(store.put(corrected));
   return corrected;
  });

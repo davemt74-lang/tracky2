@@ -48,6 +48,23 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
     ?t.continuousFusionClusterLinks.slice(0,8):[],
    continuousFusionWindowLinks:Array.isArray(t.continuousFusionWindowLinks)
     ?t.continuousFusionWindowLinks.slice(0,12):[],
+   multiPersonAttributionSchema:Number(t.multiPersonAttributionSchema)||null,
+   multiPersonAttributionState:t.multiPersonAttributionState||null,
+   multiPersonTurnOwnership:t.multiPersonTurnOwnership||null,
+   multiPersonParticipantIds:Array.isArray(t.multiPersonParticipantIds)
+    ?t.multiPersonParticipantIds.slice(0,12):[],
+   multiPersonCandidateParticipantIds:Array.isArray(t.multiPersonCandidateParticipantIds)
+    ?t.multiPersonCandidateParticipantIds.slice(0,12):[],
+   multiPersonOwnershipChangeCount:Math.max(0,Number(t.multiPersonOwnershipChangeCount)||0),
+   multiPersonInterruptionCount:Math.max(0,Number(t.multiPersonInterruptionCount)||0),
+   multiPersonUnresolvedCount:Math.max(0,Number(t.multiPersonUnresolvedCount)||0),
+   multiPersonPartialAttribution:t.multiPersonPartialAttribution===true,
+   multiPersonAttributionIntervals:Array.isArray(t.multiPersonAttributionIntervals)
+    ?t.multiPersonAttributionIntervals.slice(0,16):[],
+   multiPersonAttributionCorrections:Array.isArray(t.multiPersonAttributionCorrections)
+    ?t.multiPersonAttributionCorrections.slice(-10):[],
+   speakerAttributionEditedAt:t.speakerAttributionEditedAt||null,
+   speakerAttributionEditedBy:t.speakerAttributionEditedBy||null,
    transcriptState:String(t.transcriptState||(t.transcriptEditedAt?'corrected':'final')),
    transcriptSource:String(t.transcriptSource||'local-whisper'),
    transcriptModelId:t.transcriptModelId||null,

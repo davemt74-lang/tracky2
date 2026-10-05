@@ -12,7 +12,7 @@ import {
 import {meetingAgentReplyPolicy} from './src/meeting-core.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
 // It never instantiates duplicate identity, camera, transcription or voice models.
-export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,getScene=()=>null,editTranscript=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
+export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemories=()=>[],getMeeting=()=>null,getScene=()=>null,editTranscript=async()=>{},editAttribution=async()=>{},stopAudio,startAudio,startCamera,stopCamera,suppressMic}){
  const $=id=>document.getElementById(id),ui={
   box:$('agentCameraBoxes'),badge:$('agentCameraBadge'),scene:$('agentSceneLabel'),
   camStart:$('agentCameraStart'),camStop:$('agentCameraStop'),camStatus:$('agentCameraControlStatus'),camControls:$('agentCameraControls'),
@@ -83,7 +83,67 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      });
      form.append(field,save,cancel,message);controls.append(form);field.focus();
     });
-    controls.append(edit);bubble.append(controls);
+    controls.append(edit);
+    if((entry.multiPersonAttributionIntervals||[]).length){
+     const correct=document.createElement('button');
+     correct.type='button';correct.textContent='Correct speaker attribution';
+     correct.setAttribute('aria-label','Correct speaker attribution for a time interval');
+     correct.addEventListener('click',()=>{
+      correct.hidden=true;
+      const form=document.createElement('form');form.className='agent-transcript-edit-form';
+      const intervalSelect=document.createElement('select');
+      intervalSelect.setAttribute('aria-label','Speaker attribution interval');
+      for(const interval of entry.multiPersonAttributionIntervals||[]){
+       const option=document.createElement('option');option.value=interval.id;
+       const start=(Number(interval.startOffsetMs||0)/1000).toFixed(1);
+       const end=(Number(interval.endOffsetMs||0)/1000).toFixed(1);
+       option.textContent=start+'–'+end+'s · '+String(interval.state||'unknown')+
+        (interval.speakerClusterId?' · '+interval.speakerClusterId:'');
+       intervalSelect.append(option);
+      }
+      const participantSelect=document.createElement('select');
+      participantSelect.setAttribute('aria-label','Corrected speaker');
+      const clear=document.createElement('option');clear.value='';clear.textContent='Unknown / clear attribution';
+      participantSelect.append(clear);
+      for(const person of participants()){
+       const option=document.createElement('option');option.value=person.id;
+       option.textContent=person.nickname||person.name||'Participant';
+       participantSelect.append(option);
+      }
+      const syncParticipant=()=>{
+       const interval=(entry.multiPersonAttributionIntervals||[])
+        .find(item=>item.id===intervalSelect.value);
+       participantSelect.value=interval?.participantId||'';
+      };
+      intervalSelect.addEventListener('change',syncParticipant);syncParticipant();
+      const save=document.createElement('button');save.type='submit';save.textContent='Save speaker correction';
+      const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
+      const message=document.createElement('span');message.setAttribute('role','status');
+      cancel.addEventListener('click',()=>{form.remove();correct.hidden=false;});
+      form.addEventListener('submit',async event=>{
+       event.preventDefault();save.disabled=true;
+       try{
+        const revised=await editAttribution(entry.id,{
+         intervalId:intervalSelect.value,
+         participantId:participantSelect.value||null,
+         note:'Owner UI correction'
+        });
+        if(revised){
+         message.textContent='Owner corrected speaker attribution';
+         showThread();
+        }else{
+         message.textContent='Speaker correction was not saved';save.disabled=false;
+        }
+       }catch(error){
+        message.textContent=error?.message||'Speaker correction failed';save.disabled=false;
+       }
+      });
+      form.append(intervalSelect,participantSelect,save,cancel,message);
+      controls.append(form);intervalSelect.focus();
+     });
+     controls.append(correct);
+    }
+    bubble.append(controls);
    }
    if(entry.role==='participant'){
     const note=document.createElement('small');
@@ -137,7 +197,24 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      ...(entry.continuousFusionConflicts||[]).map(value=>'conflict:'+value)
     ].filter(Boolean);
     continuousMeta.textContent='Continuous fusion · '+continuousBits.join(' · ');
-    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta,continuousMeta);
+    const attributionMeta=document.createElement('small');
+    attributionMeta.className='agent-conversation-provenance';
+    const attributionBits=[
+     entry.multiPersonAttributionState||'not-recorded',
+     (entry.multiPersonAttributionIntervals||[]).length+
+      ' interval'+((entry.multiPersonAttributionIntervals||[]).length===1?'':'s'),
+     entry.multiPersonOwnershipChangeCount
+      ?entry.multiPersonOwnershipChangeCount+' ownership change'+
+       (entry.multiPersonOwnershipChangeCount===1?'':'s'):'',
+     entry.multiPersonInterruptionCount
+      ?entry.multiPersonInterruptionCount+' interruption'+
+       (entry.multiPersonInterruptionCount===1?'':'s'):'',
+     entry.multiPersonPartialAttribution?'partial attribution':'',
+     (entry.multiPersonAttributionCorrections||[]).length?'owner corrected':''
+    ].filter(Boolean);
+    attributionMeta.textContent='Turn attribution · '+attributionBits.join(' · ');
+    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta,
+     continuousMeta,attributionMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

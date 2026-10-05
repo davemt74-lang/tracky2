@@ -157,13 +157,62 @@ export function transcriptExport(turns=[],participants=[],options={}){
  const selected=(Array.isArray(turns)?turns:[])
   .filter(turn=>cleanText(turn?.transcript))
   .filter(turn=>!sessionId||turn.sessionId===sessionId)
-  .filter(turn=>!participantId||turn.participantId===participantId)
-  .filter(turn=>includeUnknown||Boolean(turn.participantId))
+  .filter(turn=>!participantId||
+   turn.participantId===participantId||
+   (turn.multiPersonParticipantIds||[]).includes(participantId)||
+   (turn.multiPersonCandidateParticipantIds||[]).includes(participantId))
+  .filter(turn=>includeUnknown||Boolean(
+   turn.participantId||(turn.multiPersonParticipantIds||[]).length
+  ))
   .sort((a,b)=>(Date.parse(a.createdAt||'')||a.at||0)-(Date.parse(b.createdAt||'')||b.at||0))
   .slice(-MAX_TRANSCRIPT_EXPORT_TURNS);
 
  const rows=selected.map(turn=>{
   const person=turn.participantId?people.get(turn.participantId):null;
+  const attributionIntervals=Array.from(turn.multiPersonAttributionIntervals||[])
+   .slice(0,16).map(interval=>{
+    const intervalPerson=interval?.participantId?people.get(interval.participantId):null;
+    const candidates=Array.from(interval?.candidateParticipantIds||[]).slice(0,6);
+    return Object.freeze({
+     id:String(interval?.id||'').slice(0,96),
+     startOffsetMs:Math.max(0,Number(interval?.startOffsetMs)||0),
+     endOffsetMs:Math.max(0,Number(interval?.endOffsetMs)||0),
+     state:String(interval?.state||'unknown').slice(0,48),
+     speakerClusterId:String(interval?.speakerClusterId||'').slice(0,48)||null,
+     candidateClusterIds:Object.freeze(
+      Array.from(interval?.candidateClusterIds||[]).map(value=>String(value).slice(0,48)).slice(0,4)
+     ),
+     participantId:interval?.participantId||null,
+     participantName:interval?.participantId
+      ?(intervalPerson?.nickname||intervalPerson?.name||'Participant'):null,
+     candidateParticipantIds:Object.freeze(candidates),
+     candidateParticipantNames:Object.freeze(candidates.map(id=>{
+      const candidate=people.get(id);
+      return candidate?.nickname||candidate?.name||'Participant';
+     })),
+     confidence:cleanConfidence(interval?.confidence),
+     authority:String(interval?.authority||'derived').slice(0,48),
+     provenance:Object.freeze(
+      Array.from(interval?.provenance||[]).map(value=>String(value).slice(0,96)).slice(0,12)
+     ),
+     conflicts:Object.freeze(
+      Array.from(interval?.conflicts||[]).map(value=>String(value).slice(0,96)).slice(0,8)
+     ),
+     reason:String(interval?.reason||'').slice(0,120)||null,
+     correctedAt:finite(interval?.correctedAt)?interval.correctedAt:null,
+     correctedBy:String(interval?.correctedBy||'').slice(0,48)||null
+    });
+   });
+  const attributionCorrections=Array.from(turn.multiPersonAttributionCorrections||[])
+   .slice(-10).map(correction=>Object.freeze({
+    at:Math.max(0,Number(correction?.at)||0),
+    intervalId:String(correction?.intervalId||'').slice(0,96),
+    previousParticipantId:correction?.previousParticipantId||null,
+    participantId:correction?.participantId||null,
+    previousState:String(correction?.previousState||'').slice(0,48)||null,
+    source:'local-owner',
+    note:String(correction?.note||'').slice(0,160)||null
+   }));
   return Object.freeze({
    id:String(turn.id||'').slice(0,96),
    sessionId:String(turn.sessionId||'room-session').slice(0,96),
@@ -172,6 +221,19 @@ export function transcriptExport(turns=[],participants=[],options={}){
    participantName:turn.participantId?(person?.nickname||person?.name||turn.participantName||'Participant'):'Unknown speaker',
    speakerVerified:Boolean(turn.participantId&&turn.attribution!=='unknown'),
    associationState:String(turn.associationState||'unknown-speaker').slice(0,64),
+   multiPersonAttributionState:String(turn.multiPersonAttributionState||'').slice(0,48)||null,
+   multiPersonTurnOwnership:String(turn.multiPersonTurnOwnership||'').slice(0,48)||null,
+   multiPersonParticipantIds:Object.freeze(
+    Array.from(turn.multiPersonParticipantIds||[]).slice(0,12)
+   ),
+   multiPersonCandidateParticipantIds:Object.freeze(
+    Array.from(turn.multiPersonCandidateParticipantIds||[]).slice(0,12)
+   ),
+   multiPersonOwnershipChangeCount:Math.max(0,Number(turn.multiPersonOwnershipChangeCount)||0),
+   multiPersonInterruptionCount:Math.max(0,Number(turn.multiPersonInterruptionCount)||0),
+   multiPersonPartialAttribution:turn.multiPersonPartialAttribution===true,
+   multiPersonAttributionIntervals:Object.freeze(attributionIntervals),
+   multiPersonAttributionCorrections:Object.freeze(attributionCorrections),
    transcript:cleanText(turn.transcript),
    transcriptState:String(turn.transcriptState||(
     turn.transcriptEditedAt?'corrected':'final')).slice(0,32),
