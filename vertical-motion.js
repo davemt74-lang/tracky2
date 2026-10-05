@@ -58,6 +58,7 @@ import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-eve
 import {
  RoomHandoffTracker,roomHandoffMessage,roomHandoffTurnFields
 } from './src/room-handoff-core.js';
+import {MultiRoomRuntimeClient,multiRoomNodeId} from './src/multi-room-runtime.js';
 import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
@@ -263,6 +264,7 @@ const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
 let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null;
+let multiRoomRuntime=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
 const roomHandoffTracker=new RoomHandoffTracker();
@@ -753,6 +755,90 @@ function roomNameForHandoff(id){
  const current=currentRoomIdentity();
  return id===current.id?current.name:id;
 }
+
+function renderMultiRoomRuntime(runtimeState=multiRoomRuntime?.state?.()){
+ const status=document.getElementById('roomMultiNodeStatus');
+ const list=document.getElementById('roomMultiNodeList');
+ if(!status||!list)return;
+ if(!runtimeState){
+  status.textContent='Multi-room transport · local-only';
+  list.textContent='No self-hosted room-node session.';
+  return;
+ }
+ const transport=runtimeState.transport==='self-hosted'?'SELF-HOSTED':'LOCAL-ONLY';
+ status.textContent='Multi-room transport · '+transport+
+  ' · '+runtimeState.nodeCount+' live node'+(runtimeState.nodeCount===1?'':'s')+
+  (runtimeState.nodeId?' · this '+runtimeState.nodeId:'')+
+  (runtimeState.isPrimary?' · PRIMARY FOR ROOM':
+   runtimeState.primaryNodeId?' · secondary · primary '+runtimeState.primaryNodeId:'')+
+  (runtimeState.failures?' · relay errors '+runtimeState.failures:'');
+ list.replaceChildren();
+ const nodes=Array.from(runtimeState.nodes||[]);
+ if(!nodes.length){
+  list.textContent=runtimeState.transport==='self-hosted'
+   ?'No healthy remote room nodes currently reported.'
+   :'Sign in to the self-hosted Tracky2 runtime with room permissions to link room nodes.';
+  return;
+ }
+ for(const node of nodes){
+  const row=document.createElement('div');
+  row.textContent=(node.roomName||node.roomId)+' · '+node.id+' · '+
+   String(node.health?.state||'unknown').toUpperCase()+
+   (node.id===runtimeState.primaryNodeId?' · PRIMARY':'');
+  list.append(row);
+ }
+}
+
+function applyRemoteRoomObservation(remote){
+ if(!remote?.participantId||!participantById(remote.participantId))return false;
+ const at=Number(remote.localNormalizedAt||remote.normalizedAt)||Date.now();
+ if(remote.semantic==='room-handoff-declared'){
+  if(!remote.fromRoomId||!remote.toRoomId)return false;
+  const result=roomHandoffTracker.declareHandoff({
+   participantId:remote.participantId,fromRoomId:remote.fromRoomId,
+   toRoomId:remote.toRoomId,at,authority:remote.authority||'remote-owner'
+  });
+  emitRoomHandoffOutcome(result,{id:remote.id,roomId:remote.roomId});
+  return true;
+ }
+ if(remote.semantic==='room-departure-confirmed'){
+  const result=roomHandoffTracker.declareDeparture({
+   participantId:remote.participantId,roomId:remote.roomId,
+   at,authority:remote.authority||'remote-owner'
+  });
+  emitRoomHandoffOutcome(result,{id:remote.id,roomId:remote.roomId});
+  return true;
+ }
+ const message=remote.semantic==='participant-observed'
+  ?'Remote room node observed enrolled participant'
+  :'Remote room node reports participant out of camera view';
+ return Boolean(addRoomObservation(roomObservation({
+  id:remote.id,at,category:'presence',kind:'observation',
+  semantic:remote.semantic,message,source:'multi-room-node',
+  deviceId:remote.nodeId,sessionId:roomSessionId,roomId:remote.roomId,
+  participantId:remote.participantId,
+  evidence:{serverReceivedAt:remote.serverReceivedAt}
+ },at)));
+}
+
+async function startMultiRoomRuntime(){
+ if(state.mode!=='agent')return;
+ const current=currentRoomIdentity();
+ if(!multiRoomRuntime)multiRoomRuntime=new MultiRoomRuntimeClient({
+  onRemoteObservation:applyRemoteRoomObservation,
+  onState:renderMultiRoomRuntime
+ });
+ try{
+  await multiRoomRuntime.start({
+   nodeId:multiRoomNodeId(canonicalRuntimeInstanceId),
+   roomId:current.id,roomName:current.name,
+   runtimeInstanceId:canonicalRuntimeInstanceId
+  });
+ }catch(error){
+  console.warn('Multi-room runtime unavailable; continuing local-only.',error);
+  renderMultiRoomRuntime();
+ }
+}
 function renderRoomHandoffUi(){
  if(state.mode!=='agent')return;
  const current=currentRoomIdentity();
@@ -842,6 +928,10 @@ function initRoomHandoffControls(){
    logRoomMessage('decision',roomHandoffMessage(result,roomNameForHandoff),'owner-room-handoff',{
     kind:'decision',semantic:'room-handoff-declared',participantId,roomId:current.id
    });
+   multiRoomRuntime?.publishObservation({
+    semantic:'room-handoff-declared',participantId,roomId:current.id,
+    fromRoomId:current.id,toRoomId,authority:'local-owner',at:Date.now()
+   });
   }catch(error){
    const status=document.getElementById('roomHandoffStatus');
    if(status)status.textContent=error.message;
@@ -861,6 +951,10 @@ function initRoomHandoffControls(){
   logRoomMessage('decision',roomHandoffMessage(result,roomNameForHandoff),'owner-room-handoff',{
    kind:'decision',semantic:'room-departure-confirmed',participantId,roomId:current.id
   });
+  multiRoomRuntime?.publishObservation({
+   semantic:'room-departure-confirmed',participantId,roomId:current.id,
+   authority:'local-owner',at:Date.now()
+  });
  });
  renderRoomHandoffUi();
 }
@@ -877,6 +971,14 @@ function addRoomObservation(observation){
  roomHistory=roomLedger.entries();renderRoomObservations();
  updateRoomHandoffFromObservation(accepted.event);
  considerCognitiveObservation(accepted.event);
+ if(accepted.event.source!=='multi-room-node'&&
+    ['participant-observed','participant-out-of-view'].includes(accepted.event.semantic)){
+   multiRoomRuntime?.publishObservation({
+    id:accepted.event.id,semantic:accepted.event.semantic,
+    participantId:accepted.event.participantId,roomId:accepted.event.roomId,
+    at:accepted.event.at
+   });
+ }
  if(saveRoomHistory&&storageHealth.optionalPersistence){
   const epoch=roomPrivacyEpoch,event=accepted.event;
   roomWrites=roomWrites.catch(()=>{}).then(()=>
@@ -1014,6 +1116,7 @@ function reconcileLongSessionParticipantRefs(participantIds=[]){
  );
  continuousSpeakerFusionTracker.reconcile(ids);
  participantContinuity.reconcile(ids);
+ multiRoomRuntime?.reconcileParticipants(ids);
  state.identity.tracks=state.identity.tracks.map(track=>
   track.participantId&&!allowed.has(String(track.participantId))
    ?{...track,participantId:null,participantName:null,similarity:0,
@@ -4698,6 +4801,7 @@ if(state.mode==='agent'){
     const current=currentRoomIdentity();
     const identityChanged=Boolean(lastRoomIdentityId&&lastRoomIdentityId!==current.id);
     lastRoomIdentityId=current.id;
+    multiRoomRuntime?.updateRoom({roomId:current.id,roomName:current.name});
     renderRoomHandoffUi();
     logRoomMessage('activity',message,'owner-scene',{semantic:'owner-map-edit'});
     if(identityChanged){
@@ -4735,6 +4839,7 @@ if(state.mode==='agent'){
    if(ok){
     roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();
     lastRoomIdentityId=currentRoomIdentity().id;renderRoomHandoffUi();
+    void startMultiRoomRuntime();
    }
   }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
