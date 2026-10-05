@@ -29,10 +29,11 @@ test('14F schemas advance additively for server and browser reconciliation metad
 test('14F package retains legacy participant consent and prior V0.14 authority boundaries',()=>{
  const workflow=read('.github/workflows/test.yml'),sw=read('sw.js');
  for(const file of ['server-sync-core.js','agent-memory-learning-core.js','semantic-recall-core.js',
-  'agent-workflow-core.js','governed-skill-core.js','provider-router-core.js','v013-release-core.js']){
+  'agent-workflow-core.js','governed-skill-core.js','provider-router-core.js','v013-release-core.js'])
   assert.match(workflow,new RegExp(file.replaceAll('.','\\.')));
+ for(const file of ['agent-memory-learning-core.js','semantic-recall-core.js','agent-workflow-core.js',
+  'governed-skill-core.js','provider-router-core.js','v013-release-core.js','resource-sync-core.js'])
   assert.match(sw,new RegExp(file.replaceAll('.','\\.')));
- }
  const legacy=read('server/sync.js');
  assert.match(legacy,/participantHasBiometrics/);
  assert.match(legacy,/consent/i);
