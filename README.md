@@ -1,3 +1,10 @@
+# Tracky2 V0.14.5 — Encrypted Server Sync V2
+
+V0.14.5 adds a second, explicitly scoped browser ↔ self-hosted-server synchronization lane without changing legacy participant/biometric sync. A browser must register its own device ID, label, and enabled resource types before metadata can move. The only supported metadata resources are owner-authorized durable memories, owner-confirmed terminal task metadata, and the owner-defined local scene configuration.
+
+Metadata payloads are encrypted at rest with the self-hosted instance key. Each resource uses optimistic versions and deletion tombstones, each write carries a stable change ID for lost-ack replay, server changes have a bounded cursor, and the browser keeps an ID/fingerprint-only journal capped at 200 entries for explicit resume. Per-resource quotas and device revocation are enforced. There is no background timer or service-worker synchronization.
+
+Transcripts, ROOM events, recordings or recording media, workflows, raw camera/audio, biometrics, provider prompts/secrets, and blanket database mirroring are not eligible for metadata sync. Legacy participant sync remains separate and continues to require participant consent whenever biometric profile data is involved.
 # Tracky2 V0.14.4 — Recall & Search Intelligence V2
 
 V0.14.4 upgrades local recall without creating a second durable knowledge store. Every search starts by rebuilding the existing canonical projection over dialogue, effective ROOM events, meetings, recording metadata/transcript references, tasks, and active owner-authorized memory. A bounded in-memory semantic index (maximum 320 canonical rows) adds paraphrase-aware local ranking; lexical search remains the deterministic fallback.
