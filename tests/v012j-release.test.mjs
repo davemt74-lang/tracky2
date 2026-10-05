@@ -97,20 +97,20 @@ test('12J canonical identity, deletion and AGENT no-override contracts remain wi
  assert.match(runtime,/reconcileLongSessionParticipantRefs/);
 });
 
-test('12J package, PWA, audit, acceptance doc and artifact checksum are final-version consistent',()=>{
+test('12J immutable V0.12 release artifacts remain present after later releases advance',()=>{
  const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
  const audit=fs.readFileSync('scripts/audit.mjs','utf8');
  const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
  const sw=fs.readFileSync('sw.js','utf8');
  const docs=fs.readFileSync('docs/V012-RELEASE-ACCEPTANCE.md','utf8');
- assert.equal(pkg.version,V012_RELEASE_VERSION);
+ assert.equal(V012_RELEASE_VERSION,'0.12.9');
  assert.match(pkg.scripts.test,/v012-release-core\.js/);
  assert.match(audit,/V012-RELEASE-ACCEPTANCE\.md/);
  assert.match(audit,/v012-release-core\.js/);
- assert.match(workflow,new RegExp('tracky2-v'+V012_RELEASE_VERSION.replaceAll('.','\\.')+'-deploy\\.zip'));
- assert.match(workflow,/sha256sum tracky2-v0\.12\.9-deploy\.zip/);
+ assert.match(workflow,/src\/v012-release-core\.js/);
  assert.match(workflow,/V012-RELEASE-ACCEPTANCE\.md/);
- assert.match(sw,/tracky2-static-v0\.12\.9/);
+ assert.match(sw,/v012-release-core\.js/);
+ assert.match(docs,/V0\.12\.9/i);
  assert.match(docs,/physical device evidence/i);
  assert.match(docs,/not hardware certification/i);
 });

@@ -34,8 +34,24 @@
 
 ## V0.13 planning
 - **V0.13 — Real-World Agent Intelligence & Reliability** is defined in `docs/V013-MASTER-PLAN.md`.
-- Section baselines are scored before implementation: **13A 7.4**, **13B 5.8**, **13C 7.6**, **13D 6.3**, **13E 5.4**, **13F 6.8**, **13G 5.9**, **13H 7.3**, **13I 7.9**, **13J 6.6**.
-- V0.12 remains closed. V0.13 extends the existing canonical runtime and must not create parallel microphone, transcript, participant, memory or hidden-recording authorities.
+- Planning PR #66 merged at `4086ee2ce24a310b779f65e2c890de5453f27301` with green post-merge CI.
+- Section baselines: **13A 7.4**, **13B 5.8**, **13C 7.6**, **13D 6.3**, **13E 5.4**, **13F 6.8**, **13G 5.9**, **13H 7.3**, **13I 7.9**, **13J 6.6**.
+- V0.12 remains closed. V0.13 extends the existing canonical runtime and does not create parallel microphone, transcript, participant, memory or hidden-recording authorities.
+
+## Active section: 13A — Representative Hardware Certification
+- **Branch:** `feat/v013a-representative-hardware-certification`.
+- **Audited baseline:** **7.4/10**.
+- Added pure `src/hardware-certification-core.js` with deterministic **PASS / PARTIAL / FAIL / NOT-RUN**, required exercise normalization, capability normalization, coarse browser/OS profile, owner device/environment labels, bounded evidence events, redacted report construction, canonical serialization and prior-report comparison.
+- Diagnostics now records camera capability/FPS/coverage, microphone signal + channel capability, Permissions API/storage/AudioWorklet support, bounded camera/mic/permission/visibility/storage/checkpoint events and explicit four-state manual exercise outcomes.
+- Microphone certification prefers stereo only to measure channel capability; it records aggregate RMS/channel metadata and still saves/transcribes no audio.
+- A selected long-session Pass is automatically reduced to Partial if measured active runtime is under 20 minutes.
+- Export produces a local redacted certification JSON plus **SHA-256** checksum computed in the browser from canonical redacted report data.
+- Prior certification JSON can be compared locally for status/capability/exercise changes without upload or persistence.
+- Reports exclude raw camera frames, raw audio, transcripts, face/voice embeddings, browser device IDs, group IDs and raw user-agent/platform strings.
+- `docs/hardware-acceptance.md` is upgraded to the V0.13 certification standard and explicitly states a passing report is **not universal hardware certification**.
+- Release target: **V0.13.0** with package/PWA/runtime-audit/deploy-manifest/direct-release wiring.
+- Deterministic fixtures cover coarse runtime metadata, mono/stereo capability, outcome scoring, 20-minute enforcement, required-hardware failure, bounded evidence, export redaction/canonicalization, report comparison, diagnostics UI/checksum wiring and pure-core safety.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.0 artifact/release validation.
 
 ## Exact next action
-Merge the V0.13 planning PR when CI is green, then start **13A — Representative Hardware Certification** from merged `main`. Build 13A to **10/10**, PR, green CI, merge, post-merge verify, then continue to 13B.
+Open the 13A PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.0 ZIP/SHA-256/direct release, score **13A 10/10**, then start **13B — Overlapping-Speaker Source Separation V2** from merged main.
