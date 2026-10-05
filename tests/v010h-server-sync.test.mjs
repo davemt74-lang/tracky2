@@ -102,7 +102,8 @@ test('10H server contract encrypts profile payloads and uses optimistic versions
  assert.match(api,/resolution.*browser/);
  assert.match(api,/deleted_at/);
  assert.match(api,/tracky_encrypt\(json_encode\(\$profile/);
- assert.match(boot,/TRACKY_SCHEMA_VERSION=2/);
+ const schemaVersion=Number(boot.match(/TRACKY_SCHEMA_VERSION=(\d+)/)?.[1]);
+ assert.ok(schemaVersion>=2,'self-hosted schema may advance additively after V0.10H');
  assert.match(boot,/profile_ciphertext/);
  assert.match(boot,/tracky_migrate_participant_profiles/);
  assert.match(boot,/tracky_schema_version\(\$db\)<TRACKY_SCHEMA_VERSION/);
