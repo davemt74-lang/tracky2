@@ -1,0 +1,91 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+import {conversationTimeline} from '../src/conversation-timeline.js';
+
+const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const section=(text,start,end)=>{
+ const a=text.indexOf(start);assert.ok(a>=0,'missing '+start);
+ const b=text.indexOf(end,a+start.length);assert.ok(b>a,'missing '+end);
+ return text.slice(a,b);
+};
+
+test('v0.14.7 ROOM tab is one aggregate feed with no mapping or participant-detail panels',()=>{
+ const html=read('vertical-motion.html');
+ const room=section(html,'<section id="roomObservationsPanel"','</section>\n    </aside>');
+ assert.match(room,/Unified ROOM activity feed/);
+ assert.match(room,/One live room-level feed/);
+ assert.match(room,/ROOM Settings/);
+ assert.doesNotMatch(room,/roomSceneEditor|roomTemporalSummary|roomAmbientAudioMeter|roomRoutineInsights|WHAT THE AGENT SEES|WHAT THE AGENT HEARS/);
+ const player=section(html,'<section id="playerActivityPanel"','<section id="roomAgentPanel"');
+ assert.match(player,/id="roomTemporalSummary"/);
+});
+
+test('v0.14.7 ROOM settings and mapping live in Control Center ROOM',()=>{
+ const html=read('vertical-motion.html');
+ const control=section(html,'<section id="controlCenterRoomPanel"','</section>\n  </section>\n</div>');
+ for(const id of ['roomIdentityForm','roomHandoffPanel','roomAdvancedMappingEnabled','roomSceneEditor',
+  'roomSaveObservations','roomAnalyzeAcousticPatterns','roomClassifyEnvironmentalAudio',
+  'roomAmbientAudioMeter','roomRoutineInsights'])
+  assert.match(control,new RegExp('id="'+id+'"'));
+ assert.match(control,/Enable Advanced Room Mapping/);
+ assert.match(control,/Basic ROOM is enabled by default/);
+});
+
+test('v0.14.7 room feed filters out participant-scoped evidence and adds aggregate occupancy',()=>{
+ const runtime=read('vertical-motion.js');
+ assert.match(runtime,/filter\(e=>!e\?\.participantId&&roomEventMatchesFilter/);
+ assert.match(runtime,/function noteAggregateRoomOccupancy/);
+ assert.match(runtime,/semantic:'room-occupancy'/);
+ assert.match(runtime,/aggregate-camera-presence/);
+});
+
+test('v0.14.7 Basic ROOM defaults on while explicit prior off is respected',()=>{
+ const runtime=read('vertical-motion.js');
+ assert.match(runtime,/ambientAnalysis\.checked=savedAmbient!==\'no\'/);
+ assert.match(runtime,/environmentalAudioToggle\.checked=savedEnvironmental!==\'no\'/);
+ assert.match(runtime,/saveRoomHistory=savedRoomHistory!==\'no\'/);
+ assert.match(runtime,/tracky2-room-acoustic-patterns/);
+ assert.match(runtime,/tracky2-room-environmental-audio/);
+});
+
+test('v0.14.7 Advanced Mapping is real runtime opt-in with existing-map migration',()=>{
+ const runtime=read('vertical-motion.js');
+ assert.match(runtime,/advancedRoomMappingEnabled=stored===\'yes\'\|\|\(stored===null&&existingMap\)/);
+ assert.match(runtime,/function effectiveRoomScene/);
+ assert.match(runtime,/if\(advancedRoomMappingEnabled\)return scene/);
+ assert.match(runtime,/roomIdentityId:scene\.roomIdentityId/);
+ assert.match(runtime,/tracky2-advanced-room-mapping/);
+ assert.ok(runtime.includes('getScene:()=>effectiveRoomScene()'));
+ assert.ok(runtime.includes('const scene=effectiveRoomScene()'));
+});
+
+test('v0.14.7 shared Conversation timeline contains multiple participants and AGENT in chronological order',()=>{
+ const turns=[
+  {id:'t1',transcript:'Hi from A',participantId:'a',participantName:'A',attribution:'voice',at:100},
+  {id:'t2',transcript:'Hi from B',participantId:'b',participantName:'B',attribution:'voice',at:300}
+ ];
+ const history=[{role:'agent',text:'Hello everyone',at:200}];
+ const participants=[{id:'a',name:'Alice'},{id:'b',name:'Bob'}];
+ const rows=conversationTimeline(turns,history,participants);
+ assert.deepEqual(rows.map(r=>[r.name,r.text]),[
+  ['Alice','Hi from A'],['AGENT','Hello everyone'],['Bob','Hi from B']
+ ]);
+});
+
+test('v0.14.7 Conversation auto-scrolls on render and when tab becomes visible',()=>{
+ const agent=read('agent-mode.js'),tabs=read('room-tabs-controller.js'),html=read('vertical-motion.html');
+ assert.match(html,/All participants \+ AGENT/);
+ assert.match(html,/Chronological conversation for all participants and agents/);
+ assert.match(agent,/function scrollConversationToLatest/);
+ assert.match(agent,/ui\.thread\.scrollTop=ui\.thread\.scrollHeight/);
+ assert.match(agent,/panel\.scrollTop=panel\.scrollHeight/);
+ assert.match(agent,/tracky:conversation-visible/);
+ assert.match(tabs,/tracky:conversation-visible/);
+});
+
+test('v0.14.7 Control Center has Account and ROOM tabs and ROOM shortcut button opens ROOM pane',()=>{
+ const html=read('vertical-motion.html'),controller=read('control-center.js');
+ assert.match(html,/id="controlCenterAccountTab"/);
+ assert.match(html,/id="controlCenterRoomTab"/);
+ assert.match(controller,/ui\.roomOpen\?\.addEventListener\('click',\(\)=>setOpen\(true,'room'\)\)/);
+ assert.match(controller,/selectPane\('room'\)/);
+});
