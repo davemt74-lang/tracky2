@@ -221,6 +221,28 @@ export function transcriptExport(turns=[],participants=[],options={}){
    participantName:turn.participantId?(person?.nickname||person?.name||turn.participantName||'Participant'):'Unknown speaker',
    speakerVerified:Boolean(turn.participantId&&turn.attribution!=='unknown'),
    associationState:String(turn.associationState||'unknown-speaker').slice(0,64),
+   roomId:String(turn.roomId||'').slice(0,96)||null,
+   roomName:String(turn.roomName||'').slice(0,96)||null,
+   roomPresenceState:String(turn.roomPresenceState||'').slice(0,64)||null,
+   currentRoomId:String(turn.currentRoomId||'').slice(0,96)||null,
+   lastKnownRoomId:String(turn.lastKnownRoomId||'').slice(0,96)||null,
+   candidateRoomIds:Object.freeze(
+    Array.from(turn.candidateRoomIds||[]).map(value=>String(value).slice(0,96)).slice(0,8)
+   ),
+   roomTransition:turn.roomTransition?Object.freeze({
+    type:String(turn.roomTransition.type||'').slice(0,64),
+    fromRoomId:String(turn.roomTransition.fromRoomId||'').slice(0,96)||null,
+    toRoomId:String(turn.roomTransition.toRoomId||'').slice(0,96)||null,
+    roomId:String(turn.roomTransition.roomId||'').slice(0,96)||null,
+    at:finite(turn.roomTransition.at)?turn.roomTransition.at:null,
+    declaredAt:finite(turn.roomTransition.declaredAt)?turn.roomTransition.declaredAt:null,
+    confirmedAt:finite(turn.roomTransition.confirmedAt)?turn.roomTransition.confirmedAt:null,
+    authority:String(turn.roomTransition.authority||'').slice(0,48)||null
+   }):null,
+   roomHandoffReason:String(turn.roomHandoffReason||'').slice(0,160)||null,
+   roomHandoffProvenance:Object.freeze(
+    Array.from(turn.roomHandoffProvenance||[]).map(value=>String(value).slice(0,96)).slice(0,12)
+   ),
    multiPersonAttributionState:String(turn.multiPersonAttributionState||'').slice(0,48)||null,
    multiPersonTurnOwnership:String(turn.multiPersonTurnOwnership||'').slice(0,48)||null,
    multiPersonParticipantIds:Object.freeze(
