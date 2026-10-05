@@ -187,13 +187,23 @@ export class ParticipantContinuityTracker{
   const rows=(tracks||[]).map(track=>{
    if(track.participantId)return {...track,participantId:String(track.participantId)};
    const blocked=new Set((track.blockedParticipantIds||[]).map(String));
-   const scored=records.filter(record=>!blocked.has(record.participantId)).map(record=>({
+   const available=records.filter(record=>!blocked.has(record.participantId));
+   const visibleBlocked=available.map(record=>({
+    record,score:continuityCandidateScore(record,track,now)
+   })).filter(row=>currentIds.includes(row.record.participantId)&&row.score>=.54)
+    .sort((a,b)=>b.score-a.score);
+   const scored=available.map(record=>({
     record,result:continuityCandidateState({record,track,now,currentParticipantIds:currentIds})
    })).filter(row=>row.result.score>0).sort((a,b)=>b.result.score-a.result.score);
    const best=scored[0]||null,second=scored[1]||null;
-   if(!best)return {...track,participantId:null,participantName:track.participantName||null,
-    continuityState:'none',continuityConfidence:0,
-    continuityParticipantId:null,continuityReason:'no-continuity-candidate'};
+   if(!best){
+    const blockedCandidate=visibleBlocked[0]||null;
+    return {...track,participantId:null,participantName:track.participantName||null,
+     continuityState:blockedCandidate?'blocked':'none',
+     continuityConfidence:blockedCandidate?Number(blockedCandidate.score.toFixed(3)):0,
+     continuityParticipantId:blockedCandidate?.record.participantId||null,
+     continuityReason:blockedCandidate?'participant-already-visible':'no-continuity-candidate'};
+   }
    const margin=best.result.score-(second?.result.score||0);
    const ambiguous=Boolean(second&&second.result.score>=.50&&margin<.12);
    const state=ambiguous?'ambiguous':best.result.state;
