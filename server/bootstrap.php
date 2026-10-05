@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=5;
+const TRACKY_SCHEMA_VERSION=6;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -201,6 +201,21 @@ CREATE TABLE IF NOT EXISTS room_node_observations(
 );
 CREATE INDEX IF NOT EXISTS idx_room_observations_received ON room_node_observations(server_received_at);
 CREATE INDEX IF NOT EXISTS idx_room_observations_participant ON room_node_observations(participant_id,server_received_at);
+CREATE TABLE IF NOT EXISTS sync_devices(
+ id TEXT PRIMARY KEY, label TEXT NOT NULL,
+ created_by INTEGER REFERENCES users(id), created_at INTEGER NOT NULL,
+ last_seen_at INTEGER NOT NULL, revoked_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS metadata_sync_resources(
+ scope TEXT NOT NULL CHECK(scope IN ('memory','task','scene')),
+ resource_id TEXT NOT NULL, payload_ciphertext TEXT,
+ version INTEGER NOT NULL DEFAULT 1, client_updated_at INTEGER,
+ server_updated_at INTEGER NOT NULL, deleted_at INTEGER,
+ updated_by INTEGER REFERENCES users(id), device_id TEXT,
+ PRIMARY KEY(scope,resource_id)
+);
+CREATE INDEX IF NOT EXISTS idx_metadata_sync_scope_updated
+ ON metadata_sync_resources(scope,server_updated_at);
 CREATE TABLE IF NOT EXISTS audit_log(
  id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
