@@ -25,13 +25,17 @@ export function normalizeSessionIdentity(input={}){
   status,startedAt,endedAt,
   endedReason:status==='ended'?short(input.endedReason||'ended',64)||'ended':null,
   runtimeScope:short(input.runtimeScope||'agent-room',48)||'agent-room',
+  runtimeInstanceId:short(input.runtimeInstanceId,96)||null,
   updatedAt:finite(input.updatedAt)?Math.max(startedAt,input.updatedAt):startedAt
  });
 }
 
-export function createSessionIdentity({id=null,runtimeScope='agent-room'}={},now=Date.now()){
+export function createSessionIdentity({
+ id=null,runtimeScope='agent-room',runtimeInstanceId=null
+}={},now=Date.now()){
  return normalizeSessionIdentity({
-  id:id||identifier(),status:'active',startedAt:now,updatedAt:now,runtimeScope
+  id:id||identifier(),status:'active',startedAt:now,updatedAt:now,
+  runtimeScope,runtimeInstanceId
  });
 }
 
@@ -42,6 +46,17 @@ export function endSessionIdentity(session,reason='ended',at=Date.now()){
   ...current,status:'ended',endedAt:Math.max(current.startedAt,Number(at)||current.startedAt),
   endedReason:short(reason,64)||'ended',updatedAt:Math.max(current.startedAt,Number(at)||current.startedAt)
  });
+}
+
+export function recoverPriorSessionIdentities(records=[],current,at=Date.now()){
+ const active=normalizeSessionIdentity(current);
+ if(!active.runtimeInstanceId)return Object.freeze((records||[]).map(normalizeSessionIdentity));
+ return Object.freeze((records||[]).map(raw=>{
+  const record=normalizeSessionIdentity(raw);
+  if(record.id===active.id||record.status!=='active'||
+     record.runtimeInstanceId!==active.runtimeInstanceId)return record;
+  return endSessionIdentity(record,'reload-recovered',Math.max(record.startedAt,Number(at)||active.startedAt));
+ }));
 }
 
 function timelineItem(input={}){
