@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=3;
+const TRACKY_SCHEMA_VERSION=4;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -178,6 +178,13 @@ CREATE TABLE IF NOT EXISTS object_skills(
 CREATE TABLE IF NOT EXISTS provider_credentials(
  provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),
  ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS provider_usage_daily(
+ actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ provider TEXT NOT NULL CHECK(provider IN ('openai','anthropic','elevenlabs')),
+ usage_day TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+ units INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(actor_id,provider,usage_day)
 );
 CREATE TABLE IF NOT EXISTS room_nodes(
  id TEXT PRIMARY KEY, room_id TEXT NOT NULL, room_name TEXT NOT NULL,
