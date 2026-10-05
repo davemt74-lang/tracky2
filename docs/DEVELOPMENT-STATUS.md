@@ -9,24 +9,26 @@
 - **12A — Canonical Multimodal Identity Fusion** — PR #55 merged at `4a13ee8b1616a900ced3b4f5aaac0708cf4c6305`. Post-merge Node/package/PWA + PHP green. V0.12.0 artifact produced. **10/10**.
 - **12B — Shared-Microphone Diarization** — PR #56 merged at `d8ae0b728851fa40bebfd8b90b65f588f3359e7d`. Post-merge Node/package/PWA + PHP green. V0.12.1 artifact produced. **10/10**.
 - **12C — Continuous Camera + Voice Fusion** — PR #57 merged at `348244185c372cd9ca7420ec93b8f677aa3dcc23`. Post-merge Node/package/PWA + PHP green. V0.12.2 artifact produced. **10/10**.
+- **12D — Real-Time Multi-Person Attribution** — PR #58 merged at `709155df72da0f9793e5034561f25ab523047c6f`. Post-merge Node/package/PWA + PHP green. V0.12.3 artifact produced. **10/10**.
 - Physical camera/microphone representative-device evidence remains separate from CI.
 
-## Active section: 12D — Real-Time Multi-Person Attribution
-- **Branch:** `feat/v012d-real-time-multi-person-attribution`.
-- **Audited baseline:** **7.3/10**. 12B/12C could identify multiple diarized clusters and continuous participant links, but the canonical transcript turn still lacked a first-class interval ownership model and owner speaker corrections.
-- Added pure `src/multi-person-attribution-core.js` to convert diarization spans plus continuous-fusion window links into one bounded canonical turn-attribution object.
-- A single transcript turn can now retain multiple speaker intervals, participant candidates, overlap intervals, ownership changes, interruption counts and partial/unresolved attribution without duplicating transcript text.
-- Overlap remains an observed sensor fact even after an owner changes interval ownership; correction cannot erase the original interruption/overlap state.
-- Top-level verified-speaker fields remain conservative. Owner corrections are stored separately as `local-owner-correction` authority and never masquerade as biometric voice verification.
-- Owner corrections are transactional in the canonical dialogue store and retain bounded prior participant/state provenance.
-- AGENT exposes separate **Edit transcript** and **Correct speaker attribution** controls. Speaker correction selects a specific time interval and an enrolled participant or clears the attribution.
-- Multi-participant reply policy abstains when canonical interval ownership shows overlap or a speaker ownership change.
-- Participant deletion scrubs interval participant/candidate/correction references in addition to existing multimodal/continuous-fusion references.
-- Transcript export includes bounded interval/correction metadata and participant labels while excluding raw audio, PCM, embeddings, photos and other media/biometrics.
-- ROOM and AGENT views expose attribution state, interval count, ownership changes, interruptions, partial attribution and owner-correction state.
-- Release target: **V0.12.3** with package/PWA/runtime-audit/deploy-manifest wiring.
-- Deterministic fixtures cover sequential speaker ownership, overlap candidates, partial attribution, owner assign/clear correction, preserved interruption evidence, participant deletion, bounded provenance, canonical persistence, export/privacy and no new sensor/network/persistence path in the pure core.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.12.3 artifact validation.
+## Active section: 12E — Recording & Session Identity Timeline
+- **Branch:** `feat/v012e-session-identity-timeline`.
+- **Audited baseline:** **7.2/10**. Dialogue/transcripts and ROOM observations used different session IDs, meeting metadata did not own the same session identity, and recall searched sources but did not expose one canonical session timeline.
+- Added pure `src/session-identity-core.js` for canonical session lifecycle, same-tab reload recovery, bounded timeline projection, summary and JSON export.
+- ROOM events, dialogue/transcripts and newly created meetings now share one `canonicalSessionId`.
+- Session lifecycle metadata is stored separately in IndexedDB `session-identities` (DB v9). It stores only session ID/status/start/end/runtime metadata—never transcript text, ROOM messages, audio, video, images, embeddings or recording payloads.
+- A per-tab runtime instance ID is held in `sessionStorage`. Reload recovery ends only older active sessions from that same tab as `reload-recovered`; other tabs are not closed.
+- Best-effort `pagehide` closure ends the current session as `pagehide`. If that browser write does not complete, the next same-tab load repairs the stale active record.
+- The AGENT Recall area now includes a selectable canonical session timeline. It is rebuilt live from current dialogue turns, persisted/current ROOM events and meetings, so transcript wording corrections and 12D speaker corrections appear without duplicating records.
+- Missing linked meeting metadata is shown as an explicit stale reference instead of reconstructing deleted data.
+- Participant deletion is reflected from the current canonical sources; the session timeline does not preserve a copied participant identity payload.
+- Standalone Tracky2 currently has no saved-recording capture/store subsystem. 12E therefore adds a metadata-only recording-reference input to the pure timeline contract and **does not invent a second media capture path**. If/when a canonical recording source exists, its ID/timestamps can join the same session timeline without copying media.
+- Session timeline JSON export is bounded and includes canonical projected text/metadata only; raw audio, PCM, video, photos and biometric embeddings are excluded.
+- Meeting metadata now stores `sessionId`, and meeting UI starts each meeting inside the active canonical session.
+- Release target: **V0.12.4** with package/PWA/runtime-audit/deploy-manifest wiring.
+- Deterministic fixtures cover start/end/reload lifecycle, same-tab versus other-tab recovery, unified dialogue/ROOM/meeting/recording-reference projection, correction propagation, participant deletion, stale meeting references, bounded privacy-safe export, storage wiring and no sensor/storage/network side effects in the pure core.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.12.4 artifact validation.
 
 ## Exact next action
-Open the 12D PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.12.3 packaging, score 12D **10/10**, then begin **12E — Recording & Session Identity Timeline** from merged main.
+Open the 12E PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.12.4 packaging, score 12E **10/10**, then begin **12F — Multi-Room / Handoff Intelligence** from merged main.
