@@ -60,7 +60,7 @@ async function refresh(){
 ui.open?.addEventListener('click',()=>setOpen(true));
 ui.close?.addEventListener('click',()=>setOpen(false));
 ui.backdrop?.addEventListener('click',()=>setOpen(false));
-ui.refresh?.addEventListener('click',()=>void refresh());
+ui.refresh?.addEventListener('click',()=>void (async()=>{await window.trackyAccountParticipants?.syncNow?.();await refresh();})());
 window.addEventListener('tracky:control-center-toggle',()=>setOpen(!open));
 window.addEventListener('tracky:account-participant-sync',()=>{if(open)void refresh();});
 document.addEventListener('keydown',event=>{
