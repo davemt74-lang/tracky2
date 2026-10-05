@@ -40,29 +40,27 @@
 
 ## Completed V0.13 sections
 - **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
-- Representative hardware PASS/PARTIAL/FAIL evidence remains specific to the actual tested device/browser/environment and is not universal hardware certification.
-
-## Completed V0.13 sections
-- **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
 - **13B — Overlapping-Speaker Source Separation V2** — PR #68 merged at `79bd3443c7f7cd3907646034ebf59204a51248f3`. Post-merge Node/package/PWA + PHP green; direct **v0.13.1** ZIP + SHA-256 release published. **10/10**.
+- **13C — Advanced Participant Continuity** — PR #69 merged at `d65b27a6403ffcb049d14ed38eddbc89277f7ddd`. Post-merge Node/package/PWA + PHP green; direct **v0.13.2** ZIP + SHA-256 release published. **10/10**.
 - Representative hardware evidence remains specific to the tested device/browser/environment and is not universal certification.
 
-## Active section: 13C — Advanced Participant Continuity
-- **Branch:** `feat/v013c-advanced-participant-continuity`.
-- **Audited baseline:** **7.6/10**.
-- Added pure `src/participant-continuity-core.js` with bounded session-local verified-participant continuity.
-- Continuity accepts only existing **face**, **voice**, or explicit **owner-correction** identity authority; it never creates a participant identity from proximity, clothing, body shape, orientation or AGENT inference.
-- Short track fragmentation can recover an already verified participant for up to **12 seconds** when geometry, confidence and uniqueness remain strong.
-- Longer same-room re-entry is tracked for up to **120 seconds** only as a **verification-required candidate**; face or verified voice must re-establish identity before participant assignment.
-- Continuity scoring uses coarse current camera geometry plus decayed prior verified state. Appearance/color features are intentionally excluded so normal clothing/orientation changes do not become identity evidence.
-- Duplicate-visible protection blocks continuity transfer when that participant is already assigned to another current track, and duplicate fragmented candidates are downgraded to ambiguous instead of assigning the same person twice.
-- Verified voice + body association can recover a specific current track without stealing a participant already visible elsewhere.
-- Participant cards expose owner **Correct identity…** controls to assign or clear the current track. Owner-cleared/rejected participant IDs are blocked from being immediately reattached by continuity.
-- Participant deletion/revocation reconciles the continuity ledger and clears removed participant references from current tracks.
-- Confidence/event history is bounded to **36 metadata-only rows per participant** and stores no photos, embeddings, raw audio or transcripts.
-- Release target: **V0.13.2** with package/PWA/runtime-audit/deploy/direct-release wiring.
-- Deterministic fixtures cover short fragmentation, long-gap verification requirement, expiry, clothing/orientation independence, duplicate-visible protection, duplicate fragments, voice recovery, owner correction/clear, rejected-match blocking, deletion/revocation, bounded privacy history and runtime integration.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.2 artifact/release validation.
+## Active section: 13D — Multi-Room Runtime V2
+- **Branch:** `feat/v013d-multi-room-runtime-v2`.
+- **Audited baseline:** **6.3/10**.
+- Added pure `src/multi-room-runtime-core.js` with live-node normalization/health, stale-node expiry, deterministic same-room primary-node arbitration, server-time observation normalization, bounded deduplicated cross-room event ledger, participant-reference reconciliation and explicit simultaneous-room conflict/no-teleport arbitration.
+- Added browser `src/multi-room-runtime.js` using authenticated same-origin `server/session.php` + `server/room-node-api.php`. The queue is capped at **32** observations; polling/heartbeat is bounded and failure degrades to **local-only** instead of using an external service.
+- Added PHP/SQLite node relay schema **v3** with `room_nodes` and `room_node_observations`, server receipt timestamps, unique observation IDs, stale-event cleanup and dedicated `rooms.read` / `rooms.write` permissions for owner/admin/operator.
+- Each physical-room browser runtime has a session-scoped node identity and owner-defined room identity. Multiple healthy cameras in one room elect one primary publisher so duplicate same-room presence does not fan out across nodes.
+- Cross-node events contain only participant ID, room/node IDs, four allowlisted presence/handoff semantics and timestamps. No camera frames, audio, transcripts, embeddings, screenshots or AGENT memory are relayed.
+- Remote participant observations are converted back into canonical ROOM observations and fed through the existing `RoomHandoffTracker`; explicit handoff/departure declarations are relayed as explicit authority. A disappearance or later observation never invents a route.
+- Cross-device clock skew is bounded to ±30 seconds and remote events are mapped from server receipt time onto the receiving node clock before entering handoff logic.
+- Stale nodes lose primary authority after **15 seconds**. Relay observations are bounded in-browser and retained server-side only as a short runtime window.
+- Participant deletion/revocation reconciles pending and received multi-room participant references.
+- ROOM UI now reports transport mode, live nodes, health, primary-node state and relay failures.
+- Self-hosted documentation and fresh/upgrade PHP tests cover the new schema and permissions.
+- Release target: **V0.13.3** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover two live room nodes, same-room primary arbitration, stale nodes, clock skew, duplicate events, simultaneous-room conflict, explicit target observation, deletion reconciliation, authenticated bounded transport, schema/permissions and no-teleport runtime integration.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.3 artifact/release validation.
 
 ## Exact next action
-Open the 13C PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.2 ZIP/SHA-256/direct release, score **13C 10/10**, then start **13D — Multi-Room Runtime V2** from merged main.
+Open the 13D PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.3 ZIP/SHA-256/direct release, score **13D 10/10**, then start **13E — Recording & Recall Runtime** from merged main.
