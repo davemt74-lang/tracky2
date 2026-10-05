@@ -16,6 +16,11 @@ import {
  EnvironmentalAudioQueue,EnvironmentalClassificationTracker,
  normalizeEnvironmentalPredictions,environmentalClassificationMessage
 } from './src/environmental-audio-core.js';
+import {
+ EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
+ environmentalFeedbackFromRoomEvent,environmentalV2Message,
+ normalizeEnvironmentalV2Predictions
+} from './src/environmental-intelligence-core.js';
 import {LocalEnvironmentalAudioClassifier} from './src/environmental-audio-engine.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
@@ -123,6 +128,7 @@ import {
   reviseDialogueAttribution,
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations,
+  listEnvironmentalFeedback,saveEnvironmentalFeedback,clearEnvironmentalFeedback,
   startSessionIdentity,endStoredSessionIdentity
 } from './src/participant-store.js';
 
@@ -435,8 +441,10 @@ function roomSensorState(sensor,status,message){
 const roomAmbientAudit=new RoomAmbientAudit();
 const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
+const environmentalEventGrouper=new EnvironmentalEventGrouper();
+let environmentalFeedback=[];
 let environmentalAudioClassifier=null;
-let environmentalAudioState='off',environmentalAudioLast=null;
+let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
 let environmentalAudioDecision='Disabled by owner';
 let environmentalAudioLastErrorAt=-Infinity;
 let analyzeAmbientPatterns=false;
