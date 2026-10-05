@@ -421,6 +421,8 @@
             <button type="button" id="roomHandoffDeparture">Confirm departure from this room</button>
           </form>
           <div id="roomHandoffStatus" class="room-temporal-summary" role="status">No explicit room handoff is active.</div>
+          <div id="roomMultiNodeStatus" class="room-temporal-summary" role="status">Multi-room transport · local-only until a permitted self-hosted session is available.</div>
+          <div id="roomMultiNodeList" class="room-temporal-summary" aria-live="polite"></div>
           <div id="roomHandoffList" class="room-temporal-summary" aria-live="polite"></div>
           <small>Camera loss means only “out of view.” A room transition is never inferred from disappearance, area movement, or a later observation elsewhere. Handoffs require an explicit declaration and a target-room observation before they are confirmed.</small>
         </section>
