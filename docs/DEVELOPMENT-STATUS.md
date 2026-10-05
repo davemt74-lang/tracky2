@@ -12,27 +12,26 @@
 - **12D — Real-Time Multi-Person Attribution** — PR #58 merged at `709155df72da0f9793e5034561f25ab523047c6f`. V0.12.3 post-merge green. **10/10**.
 - **12E — Recording & Session Identity Timeline** — PR #59 merged at `3420c5a1402cae6b55c2748a04c5a356e8b56558`. V0.12.4 post-merge green. **10/10**.
 - **12F — Multi-Room / Handoff Intelligence** — PR #60 merged at `f13168c9b5f338fac73d3d653679865ad339429e`. V0.12.5 post-merge green. **10/10**.
-- **12G — Advanced Spatial + Audio Source Intelligence** — PR #61 merged at `306c9c7007b29253a874d421c602fcf0906f9867`. V0.12.6 post-merge Node/package/PWA + PHP green and deploy artifact verified. **10/10**.
+- **12G — Advanced Spatial + Audio Source Intelligence** — PR #61 merged at `306c9c7007b29253a874d421c602fcf0906f9867`. V0.12.6 post-merge green. **10/10**.
+- **12H — Agent Multimodal Reasoning** — PR #62 merged at `20ce21e5fa370be2a5b7f0b65ad01346206efa50`. V0.12.7 post-merge Node/package/PWA + PHP green and deploy artifact verified. **10/10**.
 - Physical camera/microphone representative-device evidence remains separate from CI.
 
-## Active section: 12H — Agent Multimodal Reasoning
-- **Branch:** `feat/v012h-agent-multimodal-reasoning`.
-- **Audited baseline:** **7.7/10**. AGENT already consumed canonical dialogue scope, owner-approved participant memory and meeting reply policy, but there was no single bounded reasoning contract telling AGENT which multimodal evidence it could use and when participant-specific context must be withheld.
-- Added pure `src/agent-multimodal-context.js` for canonical speaker state, evidence labels, participant-name authorization, participant-memory authorization, meeting context, spatial/audio context and proactive eligibility.
-- **No identity override:** AGENT context exposes `identityOverrideAllowed:false`. It cannot create, replace, merge or reinterpret canonical participant identity.
-- Clean verified canonical speaker turns may use the verified participant name and that participant's owner-approved memory.
-- Unknown, revoked, overlapping/partial, or identity-conflicted turns remain conversationally usable but receive **no participant name and no participant-specific owner memory**.
-- Canonical identity conflict is surfaced as uncertainty; AGENT is explicitly instructed not to resolve the conflict itself.
-- Diarization overlap and partial multi-person attribution remain unresolved in reasoning context; AGENT may not collapse them to one speaker identity.
-- Spatial/audio direction, calibrated distance/bearing and source conflicts are supplied only as labeled context and are explicitly not identity proof.
-- Meeting context is bounded to meeting ID/status/title/policy and remains subordinate to the existing `meetingAgentReplyPolicy`.
-- The optional local Ollama system prompt now includes bounded canonical multimodal reasoning lines and an explicit instruction never to override canonical identity, speaker attribution, participant records or owner corrections.
-- Local scripted replies use the same participant-name/memory gates as the local model path.
-- Participant-specific proactive conversation follow-ups now require the 12H canonical reasoning eligibility gate; unknown/conflicted/overlap/revoked/meeting-scoped turns do not create those follow-ups.
-- AGENT UI now exposes a visible `Reasoning context` status line showing bounded speaker state, memory isolation/authorization, meeting state and evidence labels.
-- Release target: **V0.12.7** with package/PWA/runtime-audit/deploy-manifest wiring.
-- Deterministic fixtures cover verified/unknown speaker behavior, conflict handling, overlap, memory isolation, spatial/audio context, meeting context, proactive suppression, revocation, summary privacy, local-model prompting, visible reasoning status and no identity/storage/sensor/network authority in the pure core.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.12.7 artifact validation.
+## Active section: 12I — Long-Session / Stress Hardening
+- **Branch:** `feat/v012i-long-session-stress-hardening`.
+- **Audited baseline:** **8.0/10**. Core listening queues, ROOM history, player activity, diarization clusters and visual fusion history were already bounded, but participant-scoped transient Sets/Maps could retain deleted/churned IDs, AGENT greeting/history state lacked deletion reconciliation, page-exit cancellation was split across lifecycle handlers, and continuous-fusion links had no independent defensive cap.
+- Added pure `src/long-session-core.js` with bounded participant-reference reconciliation, transient dialogue participant scrubbing, long-session health checks and restart-integrity checks.
+- Removed write-only `announcedTracks` retention; it grew with track churn but was never read.
+- Participant reload/deletion now reconciles announced participants, seen-participant state, gameplay zone maps, current transient dialogue references, continuous speaker fusion and AGENT participant-scoped state.
+- Current transient dialogue now mirrors the canonical deletion boundary: directly attributed turns for a deleted participant disappear; embedded nearby/conversation/addressed/multimodal/continuous-fusion/multi-person references are scrubbed.
+- AGENT now prunes deleted participant IDs from its greeting cooldown map and participant-scoped local AGENT history, clears a removed last-speaker reference, and rewrites saved local history when enabled.
+- Continuous speaker fusion now has an independent **8-link hard cap** in addition to diarization's existing cluster cap and participant reconciliation.
+- Existing bounds remain verified: listening queue max/deadlines + generation invalidation; diarization max clusters/windows; visual history max entries/age; ROOM max 120 events; player activity max 36; proactive pending/interruption limits; trace max 600.
+- Added idempotent runtime-exit preparation. Non-bfcache page exit cancels camera/microphone recovery, invalidates queued/processing listening work by generation, clears transcript/diarization/continuous-fusion transient state and visual history, and disables environmental audio work before unload cleanup.
+- Manual camera/microphone stops already cancel recovery timers and remain authoritative; sensor loss still does not imply participant absence or room silence.
+- Browser storage pressure continues to pause optional ROOM persistence at the critical threshold; no raw media is introduced into persistence.
+- Release target: **V0.12.8** with package/PWA/runtime-audit/deploy-manifest wiring.
+- Deterministic stress fixtures cover 1,000 listening enqueues, 500 diarization assignments, pathological fusion cluster churn, 5,000 visual-history updates, 1,000 ROOM/activity events, participant churn/deletion, recovery budget exhaustion, storage pressure, restart integrity and pure-core privacy.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.12.8 artifact validation.
 
 ## Exact next action
-Open the 12H PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.12.7 packaging, score 12H **10/10**, then begin **12I — Long-Session / Stress Hardening** from merged main.
+Open the 12I PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.12.8 packaging, score 12I **10/10**, then begin **12J — V0.12 Release** from merged main.
