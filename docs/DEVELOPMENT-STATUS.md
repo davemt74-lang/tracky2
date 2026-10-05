@@ -44,26 +44,28 @@
 - **13C — Advanced Participant Continuity** — PR #69 merged at `d65b27a6403ffcb049d14ed38eddbc89277f7ddd`. Post-merge Node/package/PWA + PHP green; direct **v0.13.2** ZIP + SHA-256 release published. **10/10**.
 - **13D — Multi-Room Runtime V2** — PR #70 merged at `d257ae9013ad9cb1b722fa9821d2a861fc0fc58e`. Post-merge Node/package/PWA + PHP green; direct **v0.13.3** ZIP + SHA-256 release published. **10/10**.
 - **13E — Recording & Recall Runtime** — PR #71 merged at `55582f5689d3def80b7e84995936a31155289492`. Post-merge Node/package/PWA + PHP green; direct **v0.13.4** ZIP + SHA-256 release published. **10/10**.
+- **13F — Environmental Intelligence V2** — PR #72 merged at `8b6f303351c4a08eb57d7909b52ea8ddf5506af0`. Post-merge Node/package/PWA + PHP green; direct **v0.13.5** ZIP + SHA-256 release published. **10/10**.
 - Representative hardware evidence remains specific to the tested device/browser/environment and is not universal certification.
 
-## Active section: 13F — Environmental Intelligence V2
-- **Branch:** `feat/v013f-environmental-intelligence-v2`.
-- **Audited baseline:** **6.8/10**.
-- Existing V0.11F environmental audio remains the owner-enabled local classifier sidecar and still defaults to conservative speech/sensitive-label filtering.
-- Added pure `src/environmental-intelligence-core.js` for richer safe subtypes, bounded event grouping, decaying current-event confidence, optional source-direction context, owner feedback calibration and an explicitly non-diagnostic cough-like observable acoustic event path.
-- Safe subtype mapping distinguishes television, radio, video-game, door impact, door/drawer motion, appliances, typing, impacts, applause and music/instruments while retaining broader canonical categories.
-- Speech remains filtered. A cough-like label is accepted only above the stronger V2 confidence/margin gate and is represented as `observable-human-acoustic / cough-like` with `participantId:null`, `healthInference:'none'` and `emotionInference:'none'`.
-- Source direction is copied only from already-bounded shared-mic spatial context. It is optional environmental context and never becomes participant identity.
-- `EnvironmentalEventGrouper` merges repeated category/subtype bursts inside an 8-second window, caps history at 80 groups, emits bounded milestones and decays current confidence with a 30-second half-life; events become non-current after 90 seconds.
-- Owner **Confirm event** / **Mark incorrect** controls feed bounded local calibration metadata. Feedback is idempotent per ROOM event, capped at 200 records and can only reduce model confidence after enough history.
-- Participant IndexedDB advances to **schema v11** with `environmental-feedback`; feedback stores only event/category/subtype/model-label/outcome/time metadata and no participant identity or media.
-- Canonical ROOM evidence now permits an allowlisted `evidence.environmental` object: category/subtype/model label/group ID/count/source direction/raw+calibrated confidence/observable-only/no-health-inference. Raw PCM, model tensors, transcripts and embeddings remain excluded.
-- Environmental runtime uses `normalizeEnvironmentalV2Predictions`, owner calibration and grouping before ROOM emission. ROOM semantic is `environmental-audio-classification-v2`; no participant ID is assigned.
-- Existing bounded classifier queue/backpressure, pinned local model, one ROOM microphone and no-upload behavior remain unchanged.
-- ROOM UI shows the latest classification, grouped current/last environmental event with decayed confidence, feedback count, and a clear-feedback control.
-- Release target: **V0.13.5** with package/PWA/runtime-audit/deploy/direct-release wiring.
-- Deterministic fixtures cover subtype discrimination, speech filtering, safe cough-like behavior, weak/ambiguous abstention, optional source direction, repeated-burst grouping, confidence decay, owner calibration, bounded ROOM metadata, DB v11 persistence, runtime feedback controls and pure-core safety.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.5 ZIP/SHA-256/direct-release validation.
+## Active section: 13G — Behavioral & Routine Intelligence
+- **Branch:** `feat/v013g-behavioral-routine-intelligence`.
+- **Audited baseline:** **5.9/10**.
+- Added pure `src/routine-intelligence-core.js` for sparse-data abstention, distinct-day recurrence, local-time clustering, bounded routine confidence, timing-baseline deviation, expiry, owner review and privacy labels.
+- Routine candidates are **derived at read time from canonical effective ROOM observations**. They are not copied into a second behavioral history and are never promoted automatically into Agent Memory.
+- A candidate requires at least **three observations on three distinct local dates** inside a recurring time cluster. Morning/evening patterns remain separate; midnight-spanning patterns use circular clock math.
+- Candidate evidence expires after 45 days without supporting observations. Old evidence therefore cannot remain an active routine indefinitely.
+- Timing deviations are labeled only as `outside-baseline-window`; they carry explicit `healthInference:none`, `emotionInference:none`, and no protected-trait inference.
+- Owner controls support **Confirm / Reject / Revoke**. Only review metadata is persisted, with `authority:owner`, `provenance:owner-reviewed`, and `memoryAuthority:none`.
+- Participant IndexedDB advances to **schema v12** with a bounded `routine-feedback` store capped at 160 records.
+- Participant deletion removes matching routine review metadata in the same local deletion transaction as dialogue/ROOM/memory cleanup.
+- Cross-session routine learning reuses the existing opt-in ROOM history store (maximum 500 rows) and applies `projectRoomState`, so owner retractions/replacements remain authoritative.
+- If ROOM history saving is disabled, routine learning is session-only and no new persistence is created.
+- The ROOM panel shows derived candidates, occurrence/day count, confidence, review state and owner controls. Clearing routine reviews does not delete canonical ROOM evidence.
+- The runtime compares a new matching observation against the **nearest confirmed time window**, avoiding false deviation alerts when multiple routines exist for the same activity.
+- Unsafe/participant-less events, environmental classifications, raw media, transcripts, biometrics and model outputs outside the allowlisted observable semantics cannot create routine candidates.
+- Release target: **V0.13.6** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover sparse abstention, distinct-day recurrence, morning/evening separation, midnight recurrence, baseline deviation, owner confirm/reject/revoke, participant deletion, expiry, feedback bounds, owner retractions, DB v12 persistence, UI/runtime integration and pure-core safety.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.6 ZIP/SHA-256/direct-release validation.
 
 ## Exact next action
-Open the 13F PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.5 ZIP/SHA-256/direct release, score **13F 10/10**, then start **13G — Behavioral & Routine Intelligence** from merged main.
+Open the 13G PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.6 ZIP/SHA-256/direct release, score **13G 10/10**, then start **13H — Proactive Agent Intelligence V3** from merged main.
