@@ -321,8 +321,8 @@ export function recallRowAllowed(row,options={}){
  const participantId=options.participantId||null;
  const includeCurrent=options.includeCurrent!==false;
  const includeHistorical=options.includeHistorical!==false;
- const fromAt=finite(Number(options.fromAt))?Number(options.fromAt):null;
- const toAt=finite(Number(options.toAt))?Number(options.toAt):null;
+ const fromAt=options.fromAt!==null&&options.fromAt!==undefined&&finite(Number(options.fromAt))?Number(options.fromAt):null;
+ const toAt=options.toAt!==null&&options.toAt!==undefined&&finite(Number(options.toAt))?Number(options.toAt):null;
  if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))return false;
  if(row.temporal==='current-session'&&!includeCurrent)return false;
  if(row.temporal!=='current-session'&&!includeHistorical)return false;
