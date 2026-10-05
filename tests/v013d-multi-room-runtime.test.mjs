@@ -103,7 +103,8 @@ test('13D runtime transport is same-origin authenticated and bounded',()=>{
 test('13D server schema provides room node registry and deduplicated observations',()=>{
  const boot=fs.readFileSync('server/bootstrap.php','utf8');
  const api=fs.readFileSync('server/room-node-api.php','utf8');
- assert.match(boot,/TRACKY_SCHEMA_VERSION=3/);
+ const schemaVersion=Number(boot.match(/TRACKY_SCHEMA_VERSION=(\d+)/)?.[1]||0);
+ assert.ok(schemaVersion>=3,'13D room-node schema must remain present in later additive schemas');
  assert.match(boot,/CREATE TABLE IF NOT EXISTS room_nodes/);
  assert.match(boot,/CREATE TABLE IF NOT EXISTS room_node_observations/);
  assert.match(boot,/rooms\.read/);
