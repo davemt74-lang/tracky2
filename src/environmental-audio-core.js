@@ -102,6 +102,13 @@ export function createEnvironmentalAudioWork(segment,{
   durationMs:Number.isFinite(segment.durationSeconds)
    ?Math.max(0,Math.round(segment.durationSeconds*1000))
    :Number.isFinite(segment.captureDurationMs)?Math.max(0,Math.round(segment.captureDurationMs)):null,
+  audioSource:segment.audioSource&&typeof segment.audioSource==='object'?Object.freeze({
+   state:String(segment.audioSource.state||'unavailable').slice(0,48),
+   direction:['left','right','center'].includes(segment.audioSource.direction)
+    ?segment.audioSource.direction:'unavailable',
+   confidence:finite(segment.audioSource.confidence)?
+    Math.max(0,Math.min(1,segment.audioSource.confidence)):0
+  }):Object.freeze({state:'unavailable',direction:'unavailable',confidence:0}),
   queuedAt,
   deadlineAt:queuedAt+ENVIRONMENT_AUDIO_MAX_AGE_MS
  };

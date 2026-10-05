@@ -16,9 +16,10 @@ import {
  MAX_RECORDINGS,normalizeRecordingRecord,recordingIdsForStoragePressure,
  recordingIdsToExpire,recordingIdsToPrune,recordingMediaState,recoverInterruptedRecording
 } from './recording-core.js';
+import {normalizeEnvironmentalFeedback} from './environmental-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -31,7 +32,9 @@ const MEETINGS = 'meetings';
 const SESSION_IDENTITIES = 'session-identities';
 const RECORDINGS = 'recordings';
 const RECORDING_MEDIA = 'recording-media';
+const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
+export const MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK=200;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
@@ -134,6 +137,11 @@ export async function openParticipantDb() {
         const media=db.createObjectStore(RECORDING_MEDIA,{keyPath:'key'});
         media.createIndex('recordingId','recordingId',{unique:false});
         media.createIndex('seq','seq',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(ENVIRONMENTAL_FEEDBACK)) {
+        const feedback=db.createObjectStore(ENVIRONMENTAL_FEEDBACK,{keyPath:'id'});
+        feedback.createIndex('at','at',{unique:false});
+        feedback.createIndex('category','category',{unique:false});
       }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
@@ -718,8 +726,27 @@ export async function saveRoomObservation(record){
   message:String(record.message||'').slice(0,240),participantId:record.participantId||null,
   confidence:record.confidence??null,source:record.source||'local',
   relatedEventId:record.relatedEventId?String(record.relatedEventId).slice(0,96):null,
-  evidence:Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null?
-   {durationMs:record.evidence.durationMs}:null,
+  evidence:(Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null||
+    record.evidence?.environmental)?{
+   durationMs:Number.isFinite(record.evidence?.durationMs)?record.evidence.durationMs:null,
+   environmental:record.evidence?.environmental?{
+    category:String(record.evidence.environmental.category||'').slice(0,64)||null,
+    subtype:String(record.evidence.environmental.subtype||'').slice(0,64)||null,
+    modelLabel:String(record.evidence.environmental.modelLabel||'').slice(0,96)||null,
+    groupId:String(record.evidence.environmental.groupId||'').slice(0,96)||null,
+    observationCount:Number.isFinite(record.evidence.environmental.observationCount)?
+     Math.max(1,Math.floor(record.evidence.environmental.observationCount)):null,
+    sourceDirection:['left','right','center','unavailable'].includes(
+     record.evidence.environmental.sourceDirection)?
+     record.evidence.environmental.sourceDirection:'unavailable',
+    rawConfidence:Number.isFinite(record.evidence.environmental.rawConfidence)?
+     Math.max(0,Math.min(1,record.evidence.environmental.rawConfidence)):null,
+    calibratedConfidence:Number.isFinite(record.evidence.environmental.calibratedConfidence)?
+     Math.max(0,Math.min(1,record.evidence.environmental.calibratedConfidence)):null,
+    observableOnly:record.evidence.environmental.observableOnly===true,
+    healthInference:'none'
+   }:null
+  }:null,
   version:record.version===1?1:null,kind:record.kind||'observation',
   semantic:String(record.semantic||'').slice(0,48),
   deviceId:String(record.deviceId||'browser').slice(0,40),
@@ -740,6 +767,31 @@ export async function saveRoomObservation(record){
 }
 export function clearRoomObservations(){
  return storeAction(ROOM_OBSERVATIONS,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.13F owner feedback only: bounded category/subtype correction metadata.
+   Never store raw audio, model tensors, transcripts or participant identity here. */
+export function listEnvironmentalFeedback(){
+ return storeAction(ENVIRONMENTAL_FEEDBACK,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.map(row=>normalizeEnvironmentalFeedback(row,row.at))
+   .sort((a,b)=>a.at-b.at).slice(-MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK);
+ });
+}
+export async function saveEnvironmentalFeedback(input){
+ const record=normalizeEnvironmentalFeedback(input,input?.at);
+ return storeAction(ENVIRONMENTAL_FEEDBACK,'readwrite',async store=>{
+  await requestToPromise(store.put(record));
+  const rows=await requestToPromise(store.getAll());
+  for(const row of rows.sort((a,b)=>a.at-b.at)
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK)))
+   store.delete(row.id);
+  return record;
+ });
+}
+export function clearEnvironmentalFeedback(){
+ return storeAction(ENVIRONMENTAL_FEEDBACK,'readwrite',store=>requestToPromise(store.clear()));
 }
 
 
