@@ -218,6 +218,26 @@ function cleanMicrophoneMetrics(input={}){
  });
 }
 
+function cleanPerformance(input={}){
+ return freezeObject({
+  state:text(input.state,32)||'not-run',
+  samples:Math.max(0,Math.floor(Number(input.samples)||0)),
+  durationMs:Math.max(0,Number(input.durationMs)||0),
+  p95FrameGapMs:finite(input.p95FrameGapMs)?Math.max(0,input.p95FrameGapMs):null,
+  p95ScanMs:finite(input.p95ScanMs)?Math.max(0,input.p95ScanMs):null,
+  medianScanMs:finite(input.medianScanMs)?Math.max(0,input.medianScanMs):null,
+  maxAudioQueue:Math.max(0,Math.floor(Number(input.maxAudioQueue)||0)),
+  maxHeapRatio:finite(input.maxHeapRatio)?Math.max(0,Math.min(1,input.maxHeapRatio)):null,
+  minBatteryLevel:finite(input.minBatteryLevel)?Math.max(0,Math.min(1,input.minBatteryLevel)):null,
+  maxStorageRatio:finite(input.maxStorageRatio)?Math.max(0,Math.min(1,input.maxStorageRatio)):null,
+  worstLevel:['normal','reduced','critical'].includes(input.worstLevel)?input.worstLevel:'normal',
+  degradationCount:Math.max(0,Math.floor(Number(input.degradationCount)||0),
+  ),
+  outcome:text(input.outcome,32)||'not-run',
+  outcomeReason:text(input.outcomeReason,160)||null
+ });
+}
+
 function cleanRuntime(input={}){
  return freezeObject({
   status:text(input.status,64)||'unknown',
@@ -252,6 +272,7 @@ export function buildHardwareCertificationReport(input={}){
    camera:cleanCameraMetrics(input.camera),
    microphone:cleanMicrophoneMetrics(input.microphone),
    runtime:cleanRuntime(input.runtime),
+   performance:cleanPerformance(input.performance),
    permissionStates:freezeObject({
     camera:text(input.permissionStates?.camera,32)||'unsupported',
     microphone:text(input.permissionStates?.microphone,32)||'unsupported'

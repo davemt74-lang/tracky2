@@ -82,6 +82,9 @@ import {
  RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
 } from './src/runtime-resilience-core.js';
 import {
+ DevicePerformanceGovernor,performanceSampleDelta
+} from './src/device-performance-core.js';
+import {
  reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
 } from './src/long-session-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
@@ -312,6 +315,8 @@ let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.r
 let roomTrackHistory=[];
 let roomTimelineFilter='all';
 const runtimeBudget=new RuntimeBudget();
+const devicePerformanceGovernor=new DevicePerformanceGovernor();
+let lastDevicePerformanceRuntime=null;
 const cameraRecovery=new RecoveryBudget();
 const microphoneRecovery=new RecoveryBudget();
 let cameraRecoveryTimer=0,microphoneRecoveryTimer=0;
@@ -780,6 +785,11 @@ function drainEnvironmentalAudioQueue(){
  void processEnvironmentalAudioWork(next.work);
 }
 function queueEnvironmentalAudio(segment){
+ const performancePolicy=devicePerformanceGovernor.snapshot().policy;
+ if(!performancePolicy.environmentalAudioAllowed){
+  environmentalAudioDecision='Paused by device performance policy; conversation audio continues';
+  renderEnvironmentalAudio();return false;
+ }
  if(environmentalAudioState!=='ready'||document.hidden)return false;
  const queued=environmentalAudioQueue.enqueue(segment,Date.now());
  reportEnvironmentalDrops(queued.dropped);
@@ -1351,6 +1361,23 @@ function renderRuntimeHealth(force=false){
  if(!force&&now-runtimeHealthLastPaint<1000)return;
  runtimeHealthLastPaint=now;
  const runtime=runtimeBudget.snapshot();
+ const heap=globalThis.performance?.memory;
+ const heapRatio=heap?.jsHeapSizeLimit>0?heap.usedJSHeapSize/heap.jsHeapSizeLimit:null;
+ const performanceSample=performanceSampleDelta({
+  at:Date.now(),visible:!document.hidden,
+  frameCount:runtime.frames,stallCount:runtime.stalls,
+  meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
+  meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
+  audioQueueDepth:listeningController.snapshot().queueDepth,
+  heapRatio,storageRatio:storageHealth.ratio
+ },lastDevicePerformanceRuntime);
+ lastDevicePerformanceRuntime={
+  at:Date.now(),visible:!document.hidden,frameCount:runtime.frames,stallCount:runtime.stalls,
+  meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
+  meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
+  audioQueueDepth:listeningController.snapshot().queueDepth,heapRatio,storageRatio:storageHealth.ratio
+ };
+ const devicePerformance=devicePerformanceGovernor.observe(performanceSample);
  const camera=document.getElementById('roomCameraPermission');
  const microphone=document.getElementById('roomMicrophonePermission');
  const storage=document.getElementById('roomStorageHealth');
@@ -1361,7 +1388,9 @@ function renderRuntimeHealth(force=false){
  if(microphone)microphone.textContent=mediaPermissions.microphone;
  if(storage)storage.textContent=formatStorageHealth();
  if(budget)budget.textContent=runtime.status.toUpperCase()+
-  ' · '+runtime.stalls+' stalls · '+runtime.meanScanMs+'ms scan avg · audio queue '+runtime.audioQueueMax;
+  ' · '+runtime.stalls+' stalls · '+runtime.meanScanMs+'ms scan avg · audio queue '+runtime.audioQueueMax+
+  ' · device '+devicePerformance.level.toUpperCase()+
+  ' · scan ×'+devicePerformance.policy.identityScanMultiplier;
  const cRetry=cameraRecovery.snapshot(),mRetry=microphoneRecovery.snapshot();
  if(cameraRetry)cameraRetry.textContent=(cameraRecoveryPending?'Pending · ':'Idle · ')+
   cRetry.attempts+'/'+cRetry.maxAttempts+' attempts in window';
@@ -4270,7 +4299,8 @@ async function scanRoom(now) {
 
 function maybeScanRoom(now) {
   if (!state.identity.ready || state.identity.busy) return;
-  if (now - state.identity.lastScanAt < IDENTITY_SCAN_INTERVAL) return;
+  const scanMultiplier=devicePerformanceGovernor.snapshot().policy.identityScanMultiplier;
+  if (now - state.identity.lastScanAt < IDENTITY_SCAN_INTERVAL * scanMultiplier) return;
   void scanRoom(now);
 }
 
