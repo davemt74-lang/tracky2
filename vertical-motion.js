@@ -4969,6 +4969,18 @@ if(state.mode==='agent'){
     else logRoomMessage('system','Owner disabled local room energy-pattern notes','audio-consent');
    });
   }
+  void refreshEnvironmentalFeedback();
+  const clearEnvironmentalFeedbackButton=document.getElementById('roomClearEnvironmentalFeedback');
+  clearEnvironmentalFeedbackButton?.addEventListener('click',async()=>{
+   if(!window.confirm('Clear saved environmental calibration feedback on this device?'))return;
+   try{
+    await clearEnvironmentalFeedback();
+    environmentalFeedback=[];
+    renderEnvironmentalAudio();
+    logRoomMessage('system','Owner cleared environmental calibration feedback',
+     'owner-environment-feedback',{semantic:'environmental-feedback-cleared'});
+   }catch(error){console.warn('Unable to clear environmental feedback',error);}
+  });
   const environmentalAudioToggle=document.getElementById('roomClassifyEnvironmentalAudio');
   if(environmentalAudioToggle){
    environmentalAudioToggle.checked=false;
