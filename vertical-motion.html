@@ -470,9 +470,9 @@
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
           <small>Area dwell and relative stillness are observations, not calibrated physical movement, sitting or sleeping assessments. Camera interruption suspends estimates.</small>
         </section>
+        </section>
         
-        
-        <section class="room-audio-audit-panel" aria-label="Shared room ambient audio diagnostics">
+        <section class="room-audio-audit-panel room-live-sense-panel room-live-hearing" aria-label="Shared room ambient audio diagnostics">
           <header class="room-live-sense-head"><span>AUDIO</span><strong>WHAT THE AGENT HEARS</strong></header>
           <small class="room-live-sense-subtitle">Live room audio observations · shared/unattributed unless canonical speaker attribution is available elsewhere.</small>
           <div id="roomAmbientAudioMeter" class="room-ambient-audio-meter" role="meter"
@@ -494,7 +494,7 @@
           <div class="room-environment-audio-result" id="roomEnvironmentalAudioResult">No environmental classification this session.</div>
           <div class="room-environment-audio-result" id="roomEnvironmentalCurrent">No current grouped environmental event.</div>
 
-          <small>Disabled by default. When enabled, Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech remains filtered. A high-confidence cough-like model result may be logged only as an unattributed observable acoustic event with no health meaning; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
+          <small>Enabled by default as part of Basic ROOM. Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech remains filtered. A high-confidence cough-like model result may be logged only as an unattributed observable acoustic event with no health meaning; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
           <small>Exact song, movie or TV-title identification is not performed by this classifier and requires a separately approved media-identification provider.</small>
           <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
           <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
