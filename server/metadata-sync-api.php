@@ -222,10 +222,14 @@ try{
     if((int)($_SERVER['CONTENT_LENGTH']??0)>3_000_000)tracky_reply(['error'=>'Request too large'],413);
     $actor=tracky_require($db,'sync.manage');$method=$_SERVER['REQUEST_METHOD']??'GET';
     if($method==='GET'){
-        $rows=$db->query('SELECT scope,resource_id,payload_ciphertext,version,client_updated_at,server_updated_at,deleted_at,device_id FROM metadata_sync_resources ORDER BY scope,server_updated_at,resource_id')->fetchAll();
         $devices=$db->query('SELECT id,label,created_at,last_seen_at,revoked_at FROM sync_devices ORDER BY created_at,id')->fetchAll();
-        tracky_reply(['schemaVersion'=>TRACKY_SCHEMA_VERSION,'records'=>array_map('tracky_metadata_record',$rows),'devices'=>$devices,
-          'quotas'=>TRACKY_METADATA_QUOTAS]);
+        $deviceValue=(string)($_GET['deviceId']??'');
+        if($deviceValue==='')tracky_reply(['schemaVersion'=>TRACKY_SCHEMA_VERSION,'authorized'=>false,
+          'records'=>[],'devices'=>$devices,'quotas'=>TRACKY_METADATA_QUOTAS]);
+        $deviceId=tracky_metadata_device_id($deviceValue);tracky_metadata_touch_device($db,$deviceId,(int)floor(microtime(true)*1000));
+        $rows=$db->query('SELECT scope,resource_id,payload_ciphertext,version,client_updated_at,server_updated_at,deleted_at,device_id FROM metadata_sync_resources ORDER BY scope,server_updated_at,resource_id')->fetchAll();
+        tracky_reply(['schemaVersion'=>TRACKY_SCHEMA_VERSION,'authorized'=>true,
+          'records'=>array_map('tracky_metadata_record',$rows),'devices'=>$devices,'quotas'=>TRACKY_METADATA_QUOTAS]);
     }
     if($method!=='POST')tracky_reply(['error'=>'Method not allowed'],405);
     tracky_check_csrf();$data=tracky_json();$action=(string)($data['action']??'sync');$now=(int)floor(microtime(true)*1000);
