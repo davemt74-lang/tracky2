@@ -96,7 +96,7 @@ test('10A UI adopts same event ledger, privacy write queue and permission-safe c
  const store=fs.readFileSync('src/participant-store.js','utf8');
  const core=fs.readFileSync('src/room-event-core.js','utf8');
  assert.match(ui,/const roomLedger=new RoomEventLedger\(\)/);
- assert.match(ui,/roomLedger\.append\(observation\)/);
+ assert.match(ui,/roomLedger\.append\((?:observation|scoped)\)/);
  assert.match(ui,/roomLedger\.restore\(\[\.\.\.rows,\.\.\.roomHistory\]\)/);
  assert.match(ui,/roomPrivacyEpoch\+\+/);
  assert.match(ui,/await roomWrites\.catch/);
