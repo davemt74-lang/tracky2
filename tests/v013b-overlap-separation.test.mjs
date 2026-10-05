@@ -92,6 +92,27 @@ test('13B same participant on both estimates is ambiguous and cannot duplicate i
  assert.ok(resolved.sources.every(source=>source.participantId===null));
 });
 
+test('13B separated identities enrich overlap candidates without collapsing canonical overlap ownership',async()=>{
+ const {buildTurnAttribution}=await import('../src/multi-person-attribution-core.js');
+ const attribution=buildTurnAttribution({
+  diarizationSpans:[{
+   state:'overlap-unresolved',candidateClusterIds:['D1','D2'],
+   startOffsetMs:0,endOffsetMs:1200,confidence:.8
+  }],
+  continuousFusionWindowLinks:[],
+  overlapSeparation:{
+   overlapSeparationState:'separated-verified',
+   overlapSeparationParticipantIds:['p1','p2']
+  },
+  turnDurationMs:1200
+ });
+ assert.equal(attribution.turnOwnership,'overlap');
+ assert.equal(attribution.interruptionCount,1);
+ assert.equal(attribution.intervals[0].participantId,null);
+ assert.deepEqual(attribution.intervals[0].candidateParticipantIds,['p1','p2']);
+ assert.equal(attribution.intervals[0].reason,'overlap-separated-participant-candidates');
+});
+
 test('13B RoomAudioCapture keeps one microphone and carries stereo PCM only transiently',()=>{
  const engine=fs.readFileSync('src/room-audio-engine.js','utf8');
  const worklet=fs.readFileSync('src/room-audio-worklet.js','utf8');
