@@ -114,8 +114,10 @@ export function normalizeEnvironmentalFeedback(input={},now=Date.now()){
  const outcome=['confirmed','incorrect'].includes(input.outcome)?input.outcome:null;
  const category=short(input.category,64),subtype=short(input.subtype,64);
  if(!outcome||!category||!subtype)throw new TypeError('Valid environmental feedback required.');
+ const eventId=short(input.eventId,96)||null;
  return Object.freeze({
-  id:short(input.id,96)||id(),schema:ENVIRONMENTAL_V2_SCHEMA,
+  id:short(input.id,96)||(eventId?'env-feedback-'+eventId:id()),
+  schema:ENVIRONMENTAL_V2_SCHEMA,eventId,
   category,subtype,modelLabel:short(input.modelLabel,96)||null,
   outcome,at:finite(input.at)?input.at:now,
   source:'local-owner',participantId:null
@@ -209,7 +211,8 @@ export function environmentalFeedbackFromRoomEvent(event,outcome,now=Date.now())
  if(!meta)return null;
  try{
   return normalizeEnvironmentalFeedback({
-   category:meta.category,subtype:meta.subtype,modelLabel:meta.modelLabel,outcome,at:now
+   eventId:event.id,category:meta.category,subtype:meta.subtype,
+   modelLabel:meta.modelLabel,outcome,at:now
   },now);
  }catch{return null;}
 }
