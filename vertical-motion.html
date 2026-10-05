@@ -296,6 +296,8 @@
         </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
+          <div id="agentReasoningStatus" class="agent-recall-status" role="status">Reasoning context · waiting for a canonical dialogue turn.</div>
+          <small>AGENT can reason from labeled canonical evidence, but it cannot create or override participant identity. Unknown/conflicted speakers do not receive participant memory.</small>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable local Ollama · send conversation text only</label>
           <label>Local endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
           <label>Installed model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
