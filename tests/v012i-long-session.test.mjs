@@ -196,7 +196,7 @@ test('12I runtime removes write-only announced track retention and reconciles pa
  const agent=fs.readFileSync('agent-mode.js','utf8');
  assert.doesNotMatch(runtime,/announcedTracks/);
  assert.match(runtime,/reconcileLongSessionParticipantRefs\(participantIds\)/);
- assert.match(runtime,/agentRuntime\?\.reconcileParticipants\?\.\(participantIds\)/);
+ assert.match(runtime,/agentRuntime\?\.reconcileParticipants\?\.\((?:ids|participantIds)\)/);
  assert.match(agent,/reconcileParticipants\(validIds=\[\]\)/);
 });
 
