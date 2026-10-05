@@ -62,7 +62,7 @@ test('13D simultaneous rooms create conflict and never infer a route',()=>{
  const result=participantRoomArbitration(ledger.snapshot(),{participantId:'p1',now:12000});
  assert.equal(result.state,'conflict');
  assert.equal(result.roomId,null);
- assert.deepEqual(result.candidateRoomIds.sort(),['kitchen','office']);
+ assert.deepEqual([...result.candidateRoomIds].sort(),['kitchen','office']);
  assert.match(result.reason,/no-teleport/);
 });
 
