@@ -185,13 +185,14 @@ export class ParticipantContinuityTracker{
   const records=[...this.records.values()];
   const candidates=[];
   const rows=(tracks||[]).map(track=>{
-   if(track.participantId)return {...track};
+   if(track.participantId)return {...track,participantId:String(track.participantId)};
    const blocked=new Set((track.blockedParticipantIds||[]).map(String));
    const scored=records.filter(record=>!blocked.has(record.participantId)).map(record=>({
     record,result:continuityCandidateState({record,track,now,currentParticipantIds:currentIds})
    })).filter(row=>row.result.score>0).sort((a,b)=>b.result.score-a.result.score);
    const best=scored[0]||null,second=scored[1]||null;
-   if(!best)return {...track,continuityState:'none',continuityConfidence:0,
+   if(!best)return {...track,participantId:null,participantName:track.participantName||null,
+    continuityState:'none',continuityConfidence:0,
     continuityParticipantId:null,continuityReason:'no-continuity-candidate'};
    const margin=best.result.score-(second?.result.score||0);
    const ambiguous=Boolean(second&&second.result.score>=.50&&margin<.12);
@@ -235,10 +236,14 @@ export class ParticipantContinuityTracker{
   participantId,trackId,participantName=null,confidence=0,at=Date.now()
  }={}){
   const id=short(participantId),tid=short(trackId);
-  if(!id||!tid||clamp(confidence)<.58)return Object.freeze((tracks||[]).map(t=>Object.freeze({...t})));
+  if(!id||!tid||clamp(confidence)<.58)return Object.freeze((tracks||[]).map(t=>Object.freeze({
+   ...t,participantId:t.participantId||null,participantName:t.participantName||null
+  })));
   const duplicate=(tracks||[]).some(t=>t.id!==tid&&t.participantId===id&&
    !['occluded','reacquiring'].includes(t.status));
-  if(duplicate)return Object.freeze((tracks||[]).map(t=>Object.freeze({...t})));
+  if(duplicate)return Object.freeze((tracks||[]).map(t=>Object.freeze({
+   ...t,participantId:t.participantId||null,participantName:t.participantName||null
+  })));
   const rows=(tracks||[]).map(track=>track.id===tid?{
    ...track,participantId:id,
    participantName:short(participantName,160)||track.participantName||id,
@@ -248,7 +253,8 @@ export class ParticipantContinuityTracker{
    continuityConfidence:clamp(confidence),
    continuityParticipantId:id,
    continuityReason:'verified-voice-body-association'
-  }:{...track});
+  }:{...track,participantId:track.participantId||null,
+   participantName:track.participantName||null});
   const target=rows.find(track=>track.id===tid);
   if(target)this.observeVerified({
    participantId:id,trackId:tid,participantName:target.participantName,
