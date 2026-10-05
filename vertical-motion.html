@@ -281,6 +281,17 @@
           <div id="agentRecallStatus" class="agent-recall-status" role="status">Recall is ready. No persistent search index is created.</div>
           <div id="agentRecallResults" class="agent-recall-results" aria-live="polite"></div>
           <small>“Why this result” shows source, temporal scope, provenance and reference availability. Stale references are reported, never silently reconstructed.</small>
+          <div class="agent-session-context-head">
+            <strong>Canonical session identity timeline</strong>
+            <small>ROOM, transcripts, meetings and recording references share one session ID; media is never copied here.</small>
+          </div>
+          <div class="agent-recall-tools">
+            <label>Session<select id="agentSessionTimelineSelect" aria-label="Session timeline"></select></label>
+            <button type="button" id="agentSessionTimelineRefresh">Refresh timeline</button>
+            <button type="button" id="agentSessionTimelineExport">Export timeline JSON</button>
+          </div>
+          <div id="agentSessionTimelineStatus" class="agent-recall-status" role="status">Session timeline is loading…</div>
+          <div id="agentSessionTimeline" class="agent-recall-results" aria-live="polite"></div>
         </details>
         <details class="agent-model-settings">
           <summary>Conversational AI · optional local model</summary>
