@@ -175,10 +175,10 @@ export class ProactiveAgentGovernor{
    (item.semanticKey&&item.semanticKey===opportunity.semanticKey&&
     item.participantId===opportunity.participantId&&item.scopeId===opportunity.scopeId));
   if(i>=0){
+   const exact=this.pending[i].dedupeKey===opportunity.dedupeKey;
    this.pending=[...this.pending.slice(0,i),opportunity,...this.pending.slice(i+1)];
    return Object.freeze({accepted:true,reason:
-    this.pending[i]?.dedupeKey===opportunity.dedupeKey?'replaced-duplicate':
-     'replaced-semantic-duplicate',opportunity});
+    exact?'replaced-duplicate':'replaced-semantic-duplicate',opportunity});
   }
   this.pending=[...this.pending,opportunity];
   if(this.pending.length>this.maxPending){
@@ -214,6 +214,8 @@ export class ProactiveAgentGovernor{
   const scope=turn.conversationScopeId|| (turn.participantId?'scope:p:'+turn.participantId:null);
   if(scope)this.pending=this.pending.filter(item=>
    !(item.type==='conversation-followup'&&item.scopeId===scope));
+  const eligibility=agentTurnProactivityEligibility(turn);
+  if(!eligibility.allow)return null;
   this.planner.noteDialogue(turn,now);
   const planning=this.planner.followupContext(turn,now);
   const followup=followupOpportunity(turn,now,this.policy,planning);
