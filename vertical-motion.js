@@ -205,6 +205,7 @@ const ui = {
   roomBodyLock: $('#roomBodyLock'),
   roomDialogueGroup: $('#roomDialogueGroup'),
   roomSpeakerAssociation: $('#roomSpeakerAssociation'),
+  roomOverlapSeparation: $('#roomOverlapSeparation'),
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
   roomConversationAttention: $('#roomConversationAttention'),
   roomConversationGroupSize: $('#roomConversationGroupSize'),
@@ -1781,6 +1782,10 @@ async function reloadIdentityParticipants() {
       state.voice.currentDiarizationSpeakerCount=0;
       state.voice.currentDiarizationOverlap=false;
       state.voice.currentDiarizationReason='signal-rejected';
+      state.voice.currentOverlapSeparationState='unavailable';
+      state.voice.currentOverlapSeparationQuality=0;
+      state.voice.currentOverlapSeparationParticipantIds=[];
+      state.voice.currentOverlapSeparationReason='signal-rejected';
       state.voice.currentContinuousFusionState='unresolved';
       state.voice.currentContinuousFusionParticipantIds=[];
       state.voice.currentContinuousFusionConflicts=[];
@@ -1821,6 +1826,10 @@ async function reloadIdentityParticipants() {
     state.voice.currentDiarizationSpeakerCount=0;
     state.voice.currentDiarizationOverlap=false;
     state.voice.currentDiarizationReason=null;
+    state.voice.currentOverlapSeparationState='unavailable';
+    state.voice.currentOverlapSeparationQuality=0;
+    state.voice.currentOverlapSeparationParticipantIds=[];
+    state.voice.currentOverlapSeparationReason=null;
     state.voice.currentContinuousFusionState='unresolved';
     state.voice.currentContinuousFusionParticipantIds=[];
     state.voice.currentContinuousFusionConflicts=[];
@@ -2406,6 +2415,15 @@ function renderVoiceHud() {
   if(ui.roomSpeakerAssociation)
     ui.roomSpeakerAssociation.textContent=speakerAssociationLabel(state.voice.currentAssociationState)+
       ' · FUSION '+String(state.voice.currentFusionState||'unknown-speaker').toUpperCase();
+  if(ui.roomOverlapSeparation){
+    ui.roomOverlapSeparation.textContent=
+      String(state.voice.currentOverlapSeparationState||'unavailable').toUpperCase()+
+      (state.voice.currentOverlapSeparationQuality
+       ?' · '+Math.round(state.voice.currentOverlapSeparationQuality*100)+'%':'')+
+      (state.voice.currentOverlapSeparationParticipantIds.length
+       ?' · '+state.voice.currentOverlapSeparationParticipantIds.length+' VERIFIED SOURCE'+
+        (state.voice.currentOverlapSeparationParticipantIds.length===1?'':'S'):'');
+  }
   if(ui.roomSpeakerProvenance){
     const fusionBits=[
       ...state.voice.currentFusionConflicts.map(value=>'conflict:'+value),
@@ -2419,6 +2437,9 @@ function renderVoiceHud() {
       'diarization:'+state.voice.currentDiarizationState+
        (state.voice.currentDiarizationSpeakerCount
         ?'('+state.voice.currentDiarizationSpeakerCount+')':''),
+      'separation:'+state.voice.currentOverlapSeparationState+
+       (state.voice.currentOverlapSeparationReason
+        ?'('+state.voice.currentOverlapSeparationReason+')':''),
       'continuous:'+state.voice.currentContinuousFusionState+
        (state.voice.currentContinuousFusionParticipantIds.length
         ?'('+state.voice.currentContinuousFusionParticipantIds.length+' linked)':''),
@@ -2952,6 +2973,10 @@ async function processRoomSegment(segment) {
       state.voice.currentDiarizationSpeakerCount=0;
       state.voice.currentDiarizationOverlap=false;
       state.voice.currentDiarizationReason='signal-rejected';
+      state.voice.currentOverlapSeparationState='unavailable';
+      state.voice.currentOverlapSeparationQuality=0;
+      state.voice.currentOverlapSeparationParticipantIds=[];
+      state.voice.currentOverlapSeparationReason='signal-rejected';
       state.voice.currentConversationAttention='unknown';
       state.voice.currentConversationGroupSize=1;
       state.voice.currentConversationLabel='TURN REJECTED';
@@ -3529,6 +3554,10 @@ function stopRoomAudio() {
   state.voice.currentDiarizationSpeakerCount=0;
   state.voice.currentDiarizationOverlap=false;
   state.voice.currentDiarizationReason=null;
+  state.voice.currentOverlapSeparationState='unavailable';
+  state.voice.currentOverlapSeparationQuality=0;
+  state.voice.currentOverlapSeparationParticipantIds=[];
+  state.voice.currentOverlapSeparationReason=null;
   state.voice.currentContinuousFusionState='unresolved';
   state.voice.currentContinuousFusionParticipantIds=[];
   state.voice.currentContinuousFusionConflicts=[];
