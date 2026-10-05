@@ -66,17 +66,14 @@
 - **13I — Performance / Long-Run Device Hardening V2** — PR #75 merged at `f5548fb20555447c975c28bb19ac2f4b6a12b73b`. Post-merge green; direct **v0.13.8** ZIP + SHA-256 published. **10/10**.
 - Representative hardware evidence remains configuration-specific and is not universal certification.
 
-## Active section: 13J — V0.13 Release Certification
-- **Branch:** `feat/v013j-final-release-certification`.
-- Added pure `src/v013-release-core.js` covering Sections 13A–13I, runtime bounds, one-mic/one-transcript/no-hidden-recording/no-teleport/no-identity-override authority boundaries, representative-device scope, artifact integrity and software readiness.
-- Added `docs/V013-RELEASE-ACCEPTANCE.md` with final V0.13 privacy, deletion, recording, source-separation, environmental/routine/proactive, performance, accessibility and representative-device acceptance boundaries.
-- Added `tests/v013j-release.test.mjs` with the complete 13A–13I regression inventory and final cross-section invariants.
-- Final release target: **V0.13.9**.
-- Package, runtime audit, PWA cache, diagnostics marker and deploy workflow are aligned to V0.13.9.
-- The deploy ZIP includes the final V0.13 release core and acceptance document, is integrity-tested, SHA-256 hashed and published as direct GitHub release assets.
-- V0.12.9 compatibility/release-core checks remain immutable and continue to pass inside the V0.13 release workflow.
-- No new camera, microphone, transcript, identity, recording, storage or network authority is introduced by 13J.
-- **Pre-CI score: 9.8/10.** Remaining 0.2 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.9 ZIP/SHA-256/direct-release validation.
+## Completed V0.13 release
+- **13J — V0.13 Release Certification** — PR #77 merged at `6daf78a6635f6f014b08dc7dd8783c3e0e2ddc16`.
+- Post-merge Node/package/PWA and PHP foundation/security checks are green.
+- Direct **v0.13.9** release published against the merged commit with `tracky2-v0.13.9-deploy.zip` and `tracky2-v0.13.9-deploy.zip.sha256`.
+- Final V0.13 release core, acceptance document, 13A–13I regression inventory, runtime bounds, authority boundaries, representative-device scope and package integrity are verified.
+- Representative-device hardware evidence remains configuration-specific and is **not universal hardware certification**.
+- **13J final score: 10/10.**
+- **Complete V0.13 software delivery: 10/10.**
 
 ## Exact next action
-Open the 13J PR, repair only demonstrated failures, merge when all required checks are green, verify the post-merge V0.13.9 deploy ZIP, SHA-256 and direct release assets, then score **13J and the complete V0.13 release 10/10**.
+Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further work begins as a new explicitly planned release from merged `main`. Representative physical-device evidence may continue as separate certification evidence, not as unfinished V0.13 software work.
