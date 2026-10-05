@@ -47,7 +47,8 @@
         <button type="button" id="agentCameraView" aria-pressed="true">Camera</button>
         <button type="button" id="agentOrbView" aria-pressed="false">Orb</button>
       </div>
-      <span class="agent-shortcut-hint" title="ZZZ switches camera/orb · XXX hides or restores panels">ZZZ ⇄ · XXX ⇔</span>
+      <button type="button" id="agentControlCenterButton" class="agent-control-center-button" aria-haspopup="dialog">Control Center</button>
+      <span class="agent-shortcut-hint" title="ZZZ switches camera/orb · XXX hides/restores panels · CCC opens Control Center">ZZZ ⇄ · XXX ⇔ · CCC ◎</span>
     </nav>
     <div id="agentOrbStage" class="agent-orb-stage" aria-label="Agent voice orb visualization" hidden>
       <div id="agentOrbFollower" class="agent-orb-follower" aria-hidden="true">
@@ -791,6 +792,29 @@
 
   <footer>The 1″ × 5″ lane uses CSS physical units. Exact physical size depends on display scaling and monitor calibration.</footer>
 </main>
+<div id="agentControlCenter" class="control-center-modal" hidden aria-hidden="true">
+  <button type="button" id="agentControlCenterBackdrop" class="control-center-backdrop" aria-label="Close Control Center"></button>
+  <section class="control-center-shell" role="dialog" aria-modal="true" aria-labelledby="agentControlCenterTitle" tabindex="-1">
+    <header class="control-center-head">
+      <div><small>CONTROL CENTER · ACCOUNT</small><h2 id="agentControlCenterTitle">Tracky2 Account</h2></div>
+      <button type="button" id="agentControlCenterClose" aria-label="Close Control Center">×</button>
+    </header>
+    <div id="agentControlCenterStatus" class="control-center-status" role="status">Checking account session…</div>
+    <div class="control-center-grid">
+      <article><span>SIGNED IN</span><strong id="agentAccountUsername">—</strong><small id="agentAccountRole">Session unavailable</small></article>
+      <article><span>PARTICIPANTS</span><strong id="agentAccountParticipants">—</strong><small>Account-backed + local offline cache</small></article>
+      <article><span>ACCOUNT SYNC</span><strong id="agentAccountSyncState">Checking…</strong><small id="agentAccountSyncDetail">Desktop/mobile participant continuity</small></article>
+      <article><span>BIOMETRICS</span><strong>Consent gated</strong><small>Face/voice cross-device sync is participant-controlled</small></article>
+    </div>
+    <nav class="control-center-actions" aria-label="Account dashboard links">
+      <a href="./participants.html">Participants</a>
+      <a href="./server/admin.php">Admin</a>
+      <a href="./diagnostics.html">Diagnostics</a>
+      <button type="button" id="agentControlCenterRefresh">Refresh account</button>
+    </nav>
+    <p class="control-center-note">Control Center shows account/session state only. Opening it does not start camera, microphone, recording, provider calls, or background synchronization.</p>
+  </section>
+</div>
 <div id="agentVoiceModal" class="agent-voice-modal" hidden aria-hidden="true">
   <div class="agent-modal-backdrop" id="agentVoiceBackdrop"></div>
   <section class="agent-modal-content" role="dialog" aria-modal="true" aria-labelledby="agentVoiceModalTitle" tabindex="-1">
@@ -854,6 +878,7 @@
 </div>
 <script type="module" src="./room-tabs-controller.js"></script>
 <script type="module" src="./agent-presence.js"></script>
+<script type="module" src="./control-center.js"></script>
 <script type="module" src="./vertical-motion.js"></script>
 <script type="module" src="./pwa.js"></script>
 </body>
