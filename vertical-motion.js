@@ -798,7 +798,14 @@ function applyRemoteRoomObservation(remote){
    participantId:remote.participantId,fromRoomId:remote.fromRoomId,
    toRoomId:remote.toRoomId,at,authority:remote.authority||'remote-owner'
   });
-  emitRoomHandoffOutcome(result,{id:remote.id,roomId:remote.roomId});
+  addRoomObservation(roomObservation({
+   id:remote.id,at,category:'decision',kind:'decision',
+   semantic:'room-handoff-declared',
+   message:roomHandoffMessage(result,roomNameForHandoff),
+   source:'multi-room-node',deviceId:remote.nodeId,sessionId:roomSessionId,
+   roomId:remote.roomId,participantId:remote.participantId
+  },at));
+  lastRoomHandoffState=result;renderRoomHandoffUi();
   return true;
  }
  if(remote.semantic==='room-departure-confirmed'){
@@ -806,7 +813,14 @@ function applyRemoteRoomObservation(remote){
    participantId:remote.participantId,roomId:remote.roomId,
    at,authority:remote.authority||'remote-owner'
   });
-  emitRoomHandoffOutcome(result,{id:remote.id,roomId:remote.roomId});
+  addRoomObservation(roomObservation({
+   id:remote.id,at,category:'decision',kind:'decision',
+   semantic:'room-departure-confirmed',
+   message:roomHandoffMessage(result,roomNameForHandoff),
+   source:'multi-room-node',deviceId:remote.nodeId,sessionId:roomSessionId,
+   roomId:remote.roomId,participantId:remote.participantId
+  },at));
+  lastRoomHandoffState=result;renderRoomHandoffUi();
   return true;
  }
  const message=remote.semantic==='participant-observed'
