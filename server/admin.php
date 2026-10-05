@@ -28,6 +28,8 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     'create-user','update-user'=>'users.manage',
     'permission'=>'roles.manage',
     'provider-save','provider-delete'=>'providers.manage',
+     'object-approval'=>'objects.review',
+     'skill-toggle'=>'skills.approve',
     default=>'invalid'
    };
    $actor=tracky_require($db,$permission);
@@ -79,6 +81,25 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=(string)($_POST['provider']??'');
     if(!in_array($subject,TRACKY_PROVIDERS,true))throw new RuntimeException('Invalid provider.');
     $db->prepare('DELETE FROM provider_credentials WHERE provider=?')->execute([$subject]);
+    }elseif($action==='object-approval'){
+     $subject=(string)($_POST['object_id']??'');$approved=($_POST['approved']??'')==='1';
+     if(!preg_match('/^[A-Za-z0-9_-]{8,80}$/D',$subject))throw new RuntimeException('Invalid object.');
+     $q=$db->prepare('SELECT id FROM scene_objects WHERE id=?');$q->execute([$subject]);
+     if(!$q->fetchColumn())throw new RuntimeException('Object not found.');
+     $db->prepare('UPDATE scene_objects SET status=?,approved_by=? WHERE id=?')
+       ->execute([$approved?'approved':'proposed',$approved?(int)$actor['id']:null,$subject]);
+     if(!$approved)$db->prepare('UPDATE object_skills SET enabled=0 WHERE object_id=?')->execute([$subject]);
+    }elseif($action==='skill-toggle'){
+     $subject=(string)($_POST['object_id']??'');$skill=(string)($_POST['skill']??'');
+     $enabled=($_POST['enabled']??'')==='1';
+     if(!preg_match('/^[A-Za-z0-9_-]{8,80}$/D',$subject)
+       ||!in_array($skill,['describe_object','product_search'],true))
+       throw new RuntimeException('Invalid object skill.');
+     $q=$db->prepare("SELECT 1 FROM scene_objects WHERE id=? AND status='approved'");$q->execute([$subject]);
+     if(!$q->fetchColumn())throw new RuntimeException('Object approval required.');
+     $db->prepare('INSERT INTO object_skills(object_id,skill,enabled) VALUES(?,?,?) ON CONFLICT(object_id,skill) DO UPDATE SET enabled=excluded.enabled')
+       ->execute([$subject,$skill,$enabled?1:0]);
+     $subject.='/'.$skill;
    }
    $db->prepare('INSERT INTO audit_log(actor_id,action,subject) VALUES(?,?,?)')
       ->execute([$actor['id'],$action,$subject]);
@@ -135,6 +156,29 @@ if(!$user){
   }
   echo '</section>';
  }
+  if(tracky_permission($db,$user,'scene.read')){
+   echo '<section><h2>Scene objects & governed skills</h2><p>Only approved server objects can expose server-governed skills. Revoking object approval disables every server skill grant immediately. Camera capture remains a local foreground-only skill.</p>';
+   $objects=$db->query("SELECT o.id,o.label,o.status,o.confidence,s.title AS scene_title FROM scene_objects o JOIN scenes s ON s.id=o.scene_id ORDER BY o.created_at DESC LIMIT 100")->fetchAll();
+   if(!$objects)echo '<p>No proposed or approved self-hosted scene objects yet.</p>';
+   else{
+    echo '<table><tr><th>Object</th><th>Status</th><th>Govern</th></tr>';
+    foreach($objects as $obj){
+     $id=(string)$obj['id'];$approved=$obj['status']==='approved';
+     echo '<tr><td>'.tracky_html((string)$obj['label']).'<br><small>'.tracky_html((string)$obj['scene_title']).' · '.tracky_html($id).'</small></td><td>'.tracky_html((string)$obj['status']).'</td><td>';
+     if(tracky_permission($db,$user,'objects.review'))
+      echo '<form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="object-approval"><input type="hidden" name="object_id" value="'.tracky_html($id).'"><input type="hidden" name="approved" value="'.($approved?'0':'1').'"><button>'.($approved?'Revoke approval':'Approve object').'</button></form>';
+     if($approved&&tracky_permission($db,$user,'skills.approve')){
+      foreach(['describe_object'=>'Describe object','product_search'=>'Product search'] as $skill=>$label){
+       $q=$db->prepare('SELECT enabled FROM object_skills WHERE object_id=? AND skill=?');$q->execute([$id,$skill]);$on=(int)($q->fetchColumn()?:0)===1;
+       echo '<form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="skill-toggle"><input type="hidden" name="object_id" value="'.tracky_html($id).'"><input type="hidden" name="skill" value="'.$skill.'"><input type="hidden" name="enabled" value="'.($on?'0':'1').'"><button>'.($on?'Disable ':'Enable ').tracky_html($label).'</button></form>';
+      }
+     }
+     echo '</td></tr>';
+    }
+    echo '</table>';
+   }
+   echo '</section>';
+  }
  if(tracky_permission($db,$user,'sync.manage'))
   echo '<section><h2>Browser ↔ server participant sync</h2><p>Manual and opt-in only. Review each participant, confirm biometric synchronization consent where required, and resolve conflicts explicitly. Tracky2 does not background-upload conversations, ROOM events, tasks, memories, or scene data.</p><button type="button" id="loadLocalParticipants">Review participant sync</button><div id="migrationArea" role="status"></div></section><script type="module" src="./sync.js"></script>';
  echo '<section><h2>Storage & privacy</h2><p>Participant profile JSON is encrypted at rest with the same private instance key used for provider credentials. Back up both the SQLite database and secret.key together. Manual CLI backup/verification/recovery is available through <code>php server/backup.php</code>. Do not synchronize biometric records without participant consent.</p></section>';
