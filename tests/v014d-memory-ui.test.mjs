@@ -65,7 +65,7 @@ test('14D runtime uses canonical dialogue ROOM and meeting metadata as evidence 
  assert.match(runtime,/getRoomEvents:\(\)=>roomLedger\.entries\(\)/);
  assert.match(runtime,/getMeetings:\(\)=>meetingUI\?\.meetings\?\.\(\)\|\|\[\]/);
  assert.match(runtime,/memoryUI\?\.refreshProposals\?\.\(\)/);
- assert.match(meetingUi,/meetings:\(\)=>\[\.\.\.records\]/);
+ assert.match(meetingUi,/meetings:\s*\(\)\s*=>\s*\[\.\.\.records\]/);
  assert.doesNotMatch(read('src/agent-memory-learning-core.js'),/getUserMedia|MediaRecorder|fetch\(|WebSocket|AudioContext/);
 });
 
