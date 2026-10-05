@@ -1,3 +1,4 @@
+import {agentTurnProactivityEligibility} from './agent-multimodal-context.js';
 import {inQuietHours} from './agent-cognitive-core.js';
 
 export const DEFAULT_PROACTIVE_POLICY=Object.freeze({
@@ -64,7 +65,9 @@ export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROA
 }
 
 export function followupOpportunity(turn,now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
- if(!turn?.id||!turn.participantId||turn.attribution==='unknown')return null;
+ if(!turn?.id)return null;
+ const eligibility=agentTurnProactivityEligibility(turn);
+ if(!eligibility.allow)return null;
  const p=normalizeProactivePolicy(policy);
  if(!p.enabled||!p.followupsEnabled)return null;
  const sourceAt=finite(turn.at)?turn.at:(Date.parse(turn.createdAt||'')||now);
