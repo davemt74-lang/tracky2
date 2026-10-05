@@ -197,6 +197,8 @@ export function buildRecallProjection({
   const start=Number(recording.startedAt)||0;
   const turnIds=Array.from(recording.transcriptTurnIds||[]).filter(Boolean).slice(0,500);
   const stale=turnIds.filter(id=>!dialogueIds.has(String(id)));
+  const participantIds=[...new Set(turnIds.map(id=>dialogueById.get(String(id))?.participantId)
+   .filter(Boolean))];
   const durationMs=Number.isFinite(recording.durationMs)?Math.max(0,recording.durationMs):null;
   rows.push(item({
    id:'recording:'+recording.id,sourceType:'recording',sourceId:recording.id,
@@ -208,7 +210,8 @@ export function buildRecallProjection({
    ].join(' · '),
    temporal:currentSession(recording.sessionId,currentSessionId,currentSessionIds)
     ?'current-session':'historical',
-   provenance:['canonical-recording-metadata','media-not-indexed'],
+   participantIds,
+   provenance:['canonical-recording-metadata','media-not-indexed','participant-scope-derived-from-canonical-turns'],
    references:turnIds.slice(0,12).map(id=>ref('dialogue-turn',id,
     dialogueIds.has(String(id))?'available':'stale')),
    status:String(recording.status||'unknown')+
