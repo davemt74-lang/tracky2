@@ -28,6 +28,56 @@ export function reconcileParticipantMap(entries=[],validParticipantIds=[],limit=
  ));
 }
 
+export function reconcileTransientDialogueTurns(
+ turns=[],validParticipantIds=[],limit=50
+){
+ const valid=new Set(uniq(validParticipantIds));
+ const keepId=id=>!id||valid.has(String(id));
+ const scrubIds=values=>uniq(values).filter(id=>valid.has(id));
+ const rows=[];
+ for(const input of Array.isArray(turns)?turns:[]){
+  if(!input||input.participantId&&!valid.has(String(input.participantId)))continue;
+  const evidence=Array.isArray(input.multimodalEvidence)
+   ?input.multimodalEvidence.filter(row=>keepId(row?.participantId)):[];
+  const clusterLinks=Array.isArray(input.continuousFusionClusterLinks)
+   ?input.continuousFusionClusterLinks.filter(row=>keepId(row?.participantId)):[];
+  const windowLinks=Array.isArray(input.continuousFusionWindowLinks)
+   ?input.continuousFusionWindowLinks.filter(row=>keepId(row?.participantId)):[];
+  const intervals=Array.isArray(input.multiPersonAttributionIntervals)
+   ?input.multiPersonAttributionIntervals.map(row=>({
+     ...row,
+     participantId:keepId(row?.participantId)?row?.participantId||null:null,
+     candidateParticipantIds:scrubIds(row?.candidateParticipantIds)
+    })):[];
+  const corrections=Array.isArray(input.multiPersonAttributionCorrections)
+   ?input.multiPersonAttributionCorrections.map(row=>({
+     ...row,
+     participantId:keepId(row?.participantId)?row?.participantId||null:null,
+     previousParticipantId:keepId(row?.previousParticipantId)
+      ?row?.previousParticipantId||null:null
+    })):[];
+  rows.push({
+   ...input,
+   nearbyParticipantIds:scrubIds(input.nearbyParticipantIds),
+   conversationParticipantIds:scrubIds(input.conversationParticipantIds),
+   addressedParticipantId:keepId(input.addressedParticipantId)
+    ?input.addressedParticipantId||null:null,
+   addressedParticipantIds:scrubIds(input.addressedParticipantIds),
+   multimodalContextParticipantIds:scrubIds(input.multimodalContextParticipantIds),
+   multimodalEvidence:evidence,
+   continuousFusionParticipantIds:scrubIds(input.continuousFusionParticipantIds),
+   continuousFusionClusterLinks:clusterLinks,
+   continuousFusionWindowLinks:windowLinks,
+   multiPersonParticipantIds:scrubIds(input.multiPersonParticipantIds),
+   multiPersonCandidateParticipantIds:scrubIds(input.multiPersonCandidateParticipantIds),
+   multiPersonAttributionIntervals:intervals,
+   multiPersonAttributionCorrections:corrections
+  });
+ }
+ const cap=Math.max(1,Math.min(120,Math.floor(Number(limit)||50)));
+ return Object.freeze(rows.slice(-cap).map(row=>Object.freeze(row)));
+}
+
 export function longSessionHealth({
  listening=null,diarization=null,continuousFusion=null,
  roomEventCount=0,visualHistoryCount=0,activityEventCount=0,
