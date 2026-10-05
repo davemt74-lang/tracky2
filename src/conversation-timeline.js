@@ -48,6 +48,22 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
     ?t.continuousFusionClusterLinks.slice(0,8):[],
    continuousFusionWindowLinks:Array.isArray(t.continuousFusionWindowLinks)
     ?t.continuousFusionWindowLinks.slice(0,12):[],
+   overlapSeparationSchema:Number(t.overlapSeparationSchema)||null,
+   overlapSeparationState:t.overlapSeparationState||null,
+   overlapSeparationQuality:Number.isFinite(t.overlapSeparationQuality)
+    ?t.overlapSeparationQuality:null,
+   overlapSeparationSourceCount:Math.max(0,Number(t.overlapSeparationSourceCount)||0),
+   overlapSeparationParticipantIds:Array.isArray(t.overlapSeparationParticipantIds)
+    ?t.overlapSeparationParticipantIds.slice(0,2):[],
+   overlapSeparationSources:Array.isArray(t.overlapSeparationSources)
+    ?t.overlapSeparationSources.slice(0,2):[],
+   overlapSeparationReason:t.overlapSeparationReason||null,
+   overlapSeparationCorrelation:Number.isFinite(t.overlapSeparationCorrelation)
+    ?t.overlapSeparationCorrelation:null,
+   overlapSeparationSideRatio:Number.isFinite(t.overlapSeparationSideRatio)
+    ?t.overlapSeparationSideRatio:null,
+   overlapSeparationProvenance:Array.isArray(t.overlapSeparationProvenance)
+    ?t.overlapSeparationProvenance.slice(0,12):[],
    multiPersonAttributionSchema:Number(t.multiPersonAttributionSchema)||null,
    multiPersonAttributionState:t.multiPersonAttributionState||null,
    multiPersonTurnOwnership:t.multiPersonTurnOwnership||null,

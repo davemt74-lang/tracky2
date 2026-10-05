@@ -184,6 +184,18 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      entry.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
     ].filter(Boolean);
     diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
+    const separationMeta=document.createElement('small');
+    separationMeta.className='agent-conversation-provenance';
+    const separationBits=[
+     entry.overlapSeparationState||'unavailable',
+     Number.isFinite(entry.overlapSeparationQuality)
+      ?Math.round(entry.overlapSeparationQuality*100)+'% quality':'',
+     (entry.overlapSeparationParticipantIds||[]).length
+      ?(entry.overlapSeparationParticipantIds||[]).length+' verified source candidate'+
+       ((entry.overlapSeparationParticipantIds||[]).length===1?'':'s'):'',
+     entry.overlapSeparationReason||''
+    ].filter(Boolean);
+    separationMeta.textContent='Overlap separation · '+separationBits.join(' · ');
     const continuousMeta=document.createElement('small');
     continuousMeta.className='agent-conversation-provenance';
     const continuousBits=[
@@ -226,7 +238,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     ].filter(Boolean);
     spatialAudioMeta.textContent='Spatial audio · '+spatialAudioBits.join(' · ');
     bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta,
-     continuousMeta,attributionMeta,spatialAudioMeta);
+     separationMeta,continuousMeta,attributionMeta,spatialAudioMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

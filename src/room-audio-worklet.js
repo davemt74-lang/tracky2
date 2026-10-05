@@ -2,6 +2,8 @@ class TrackyPcmProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.buffer = new Float32Array(2048);
+    this.leftBuffer = new Float32Array(2048);
+    this.rightBuffer = new Float32Array(2048);
     this.offset = 0;
     this.leftSumSquares = 0;
     this.rightSumSquares = 0;
@@ -19,13 +21,14 @@ class TrackyPcmProcessor extends AudioWorkletProcessor {
   flush() {
     if (!this.offset) return;
     const count = Math.max(1, this.energySamples);
+    const stereo = this.channelCount >= 2;
     this.port.postMessage({
       samples: this.buffer.slice(0, this.offset),
+      leftSamples: stereo ? this.leftBuffer.slice(0, this.offset) : null,
+      rightSamples: stereo ? this.rightBuffer.slice(0, this.offset) : null,
       channelCount: this.channelCount,
       leftRms: Math.sqrt(this.leftSumSquares / count),
-      rightRms: this.channelCount >= 2
-        ? Math.sqrt(this.rightSumSquares / count)
-        : null
+      rightRms: stereo ? Math.sqrt(this.rightSumSquares / count) : null
     });
     this.offset = 0;
     this.resetEnergy();
@@ -41,6 +44,8 @@ class TrackyPcmProcessor extends AudioWorkletProcessor {
         const l = left[i] || 0;
         const r = right?.[i] ?? l;
         this.buffer[this.offset] = right ? (l + r) * 0.5 : l;
+        this.leftBuffer[this.offset] = l;
+        this.rightBuffer[this.offset] = r;
         this.leftSumSquares += l * l;
         if (right) this.rightSumSquares += r * r;
         this.energySamples += 1;

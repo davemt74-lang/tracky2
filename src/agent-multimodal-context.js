@@ -51,6 +51,10 @@ function evidenceLabels(turn={}){
  if(turn.multimodalAbstentionReason)labels.push('identity-abstain:'+short(turn.multimodalAbstentionReason,96));
  if(turn.diarizationState)labels.push('diarization:'+short(turn.diarizationState,64));
  if(turn.diarizationOverlap===true)labels.push('diarization:overlap');
+ if(turn.overlapSeparationState)
+  labels.push('overlap-separation:'+short(turn.overlapSeparationState,64));
+ if((turn.overlapSeparationParticipantIds||[]).length)
+  labels.push('overlap-separated-candidates:'+Math.min(2,turn.overlapSeparationParticipantIds.length));
  if(turn.currentContinuousFusionState)labels.push('continuous:'+short(turn.currentContinuousFusionState,64));
  for(const value of turn.currentContinuousFusionConflicts||turn.continuousFusionConflicts||[])
   labels.push('continuous-conflict:'+short(value,96));

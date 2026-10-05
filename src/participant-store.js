@@ -258,6 +258,9 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
         ?row.continuousFusionClusterLinks:[];
       const continuousFusionWindowLinks=Array.isArray(row.continuousFusionWindowLinks)
         ?row.continuousFusionWindowLinks:[];
+      const overlapSeparationParticipantIds=Array.from(row.overlapSeparationParticipantIds||[]);
+      const overlapSeparationSources=Array.isArray(row.overlapSeparationSources)
+        ?row.overlapSeparationSources:[];
       const multiPersonParticipantIds=Array.from(row.multiPersonParticipantIds||[]);
       const multiPersonCandidateParticipantIds=Array.from(row.multiPersonCandidateParticipantIds||[]);
       const multiPersonAttributionIntervals=Array.isArray(row.multiPersonAttributionIntervals)
@@ -273,6 +276,8 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
       const hasContinuousFusionReference=continuousFusionParticipantIds.includes(id)||
         continuousFusionClusterLinks.some(link=>link?.participantId===id)||
         continuousFusionWindowLinks.some(link=>link?.participantId===id);
+      const hasOverlapSeparationReference=overlapSeparationParticipantIds.includes(id)||
+        overlapSeparationSources.some(source=>source?.participantId===id);
       const hasMultiPersonReference=multiPersonParticipantIds.includes(id)||
         multiPersonCandidateParticipantIds.includes(id)||
         multiPersonAttributionIntervals.some(interval=>
@@ -282,7 +287,7 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
 
       if (hasNearbyReference || hasNameReference || hasConversationReference ||
           hasAddressReference || hasMultimodalReference || hasContinuousFusionReference ||
-          hasMultiPersonReference) {
+          hasOverlapSeparationReference || hasMultiPersonReference) {
         const nextAddressed=addressedIds.filter(participantId=>participantId!==id);
         dialogue.put({
           ...row,
@@ -305,6 +310,18 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
             .filter(link=>link?.participantId!==id),
           continuousFusionWindowLinks:continuousFusionWindowLinks
             .filter(link=>link?.participantId!==id),
+          overlapSeparationParticipantIds:overlapSeparationParticipantIds
+            .filter(participantId=>participantId!==id),
+          overlapSeparationSources:overlapSeparationSources.map(source=>
+            source?.participantId===id
+             ?{...source,participantId:null,state:'unverified',voiceConfidence:0,voiceMargin:null}
+             :source
+          ),
+          overlapSeparationState:row.overlapSeparationState==='separated-verified'&&
+            overlapSeparationParticipantIds.filter(participantId=>participantId!==id).length<2
+             ?(overlapSeparationParticipantIds.filter(participantId=>participantId!==id).length
+               ?'separated-partial':'separated-unverified')
+             :row.overlapSeparationState,
           ...multiPersonAttributionTurnFields(
             scrubAttributionParticipant(attributionFromTurn(row),id)
           )
@@ -422,7 +439,9 @@ export async function saveDialogueTurn(input) {
     throw new Error('Ephemeral transcript lifecycle state cannot be persisted.');
   const {
     partialText:discardPartial,samples:discardSamples,pcm:discardPcm,
-    rawAudio:discardRawAudio,audio:discardAudio,...safeInput
+    rawAudio:discardRawAudio,audio:discardAudio,
+    separationInput:discardSeparationInput,leftSamples:discardLeftSamples,
+    rightSamples:discardRightSamples,...safeInput
   }=input;
   const transcript=String(safeInput.transcript||'').trim();
   const record = {

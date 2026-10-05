@@ -147,6 +147,7 @@ export class RoomAudioCapture {
     this.frames = [];
     this.levels = [];
     this.spatialFrames = [];
+    this.stereoFrames = [];
     this.inputChannelCount = 1;
     this.segmentStartedAt = 0;
     this.lastVoiceAt = 0;
@@ -249,7 +250,9 @@ export class RoomAudioCapture {
           this.processFrame(Float32Array.from(data.samples),performance.now(),{
             channelCount:Number(data.channelCount)||this.inputChannelCount,
             leftRms:Number(data.leftRms),
-            rightRms:data.rightRms==null?null:Number(data.rightRms)
+            rightRms:data.rightRms==null?null:Number(data.rightRms),
+            leftSamples:data.leftSamples?.length?Float32Array.from(data.leftSamples):null,
+            rightSamples:data.rightSamples?.length?Float32Array.from(data.rightSamples):null
           });
         } else if (data?.length) {
           this.processFrame(Float32Array.from(data));
@@ -291,7 +294,9 @@ export class RoomAudioCapture {
       this.processFrame(mono,performance.now(),{
         channelCount:hasRight?2:1,
         leftRms:Math.sqrt(leftSum/Math.max(1,left.length)),
-        rightRms:hasRight?Math.sqrt(rightSum/Math.max(1,left.length)):null
+        rightRms:hasRight?Math.sqrt(rightSum/Math.max(1,left.length)):null,
+        leftSamples:hasRight?Float32Array.from(left):null,
+        rightSamples:hasRight?Float32Array.from(right):null
       });
     };
 
@@ -334,18 +339,29 @@ export class RoomAudioCapture {
         this.frames = [];
         this.levels = [];
         this.spatialFrames = [];
+        this.stereoFrames = [];
         this.segmentStartedAt = now;
       }
 
       this.frames.push(frame);
       this.levels.push(db);
       if(spatialFrame)this.spatialFrames.push(spatialFrame);
+      if(spatialFrame?.channelCount>=2&&spatialFrame.leftSamples?.length&&
+         spatialFrame.rightSamples?.length)
+        this.stereoFrames.push({
+         leftSamples:spatialFrame.leftSamples,rightSamples:spatialFrame.rightSamples
+        });
       this.lastVoiceAt = now;
     } else if (this.speaking) {
       if (now - this.lastVoiceAt <= this.hangoverMs) {
         this.frames.push(frame);
         this.levels.push(db);
         if(spatialFrame)this.spatialFrames.push(spatialFrame);
+        if(spatialFrame?.channelCount>=2&&spatialFrame.leftSamples?.length&&
+           spatialFrame.rightSamples?.length)
+          this.stereoFrames.push({
+           leftSamples:spatialFrame.leftSamples,rightSamples:spatialFrame.rightSamples
+          });
       } else {
         void this.finishSegment(now);
       }
@@ -373,6 +389,7 @@ export class RoomAudioCapture {
     this.frames = [];
     this.levels = [];
     this.spatialFrames = [];
+    this.stereoFrames = [];
     this.segmentStartedAt = 0;
     this.lastVoiceAt = 0;
   }
@@ -388,6 +405,7 @@ export class RoomAudioCapture {
     const frames = this.frames;
     const levels = this.levels;
     const spatialFrames=this.spatialFrames;
+    const stereoFrames=this.stereoFrames;
     const startedAt = this.segmentStartedAt;
     const sourceRate = this.context?.sampleRate || 48000;
 
@@ -403,6 +421,22 @@ export class RoomAudioCapture {
       ? levels.reduce((sum, value) => sum + value, 0) / levels.length
       : -100;
     const audioSource=aggregateAudioSourceEvidence(spatialFrames);
+    let separationInput=null;
+    if(this.inputChannelCount>=2&&stereoFrames.length){
+      const leftFrames=stereoFrames.map(frame=>frame.leftSamples).filter(frame=>frame?.length);
+      const rightFrames=stereoFrames.map(frame=>frame.rightSamples).filter(frame=>frame?.length);
+      if(leftFrames.length===stereoFrames.length&&rightFrames.length===stereoFrames.length){
+        const left=resampleLinear(concatFrames(leftFrames),sourceRate,TARGET_RATE);
+        const right=resampleLinear(concatFrames(rightFrames),sourceRate,TARGET_RATE);
+        const aligned=Math.min(left.length,right.length);
+        if(aligned){
+          separationInput={
+            left:left.slice(0,aligned),right:right.slice(0,aligned),
+            sampleRate:TARGET_RATE,channelCount:2
+          };
+        }
+      }
+    }
 
     const segment = {
       samples,
@@ -413,7 +447,8 @@ export class RoomAudioCapture {
       peakDb,
       avgDb,
       noiseFloorDb: this.noiseFloorDb,
-      audioSource
+      audioSource,
+      separationInput
     };
 
     await this.onSegment(segment);

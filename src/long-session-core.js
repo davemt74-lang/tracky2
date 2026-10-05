@@ -43,6 +43,12 @@ export function reconcileTransientDialogueTurns(
    ?input.continuousFusionClusterLinks.filter(row=>keepId(row?.participantId)):[];
   const windowLinks=Array.isArray(input.continuousFusionWindowLinks)
    ?input.continuousFusionWindowLinks.filter(row=>keepId(row?.participantId)):[];
+  const separationSources=Array.isArray(input.overlapSeparationSources)
+   ?input.overlapSeparationSources.map(source=>({
+     ...source,
+     participantId:keepId(source?.participantId)?source?.participantId||null:null,
+     state:keepId(source?.participantId)?source?.state||'unverified':'unverified'
+    })):[];
   const intervals=Array.isArray(input.multiPersonAttributionIntervals)
    ?input.multiPersonAttributionIntervals.map(row=>({
      ...row,
@@ -68,6 +74,8 @@ export function reconcileTransientDialogueTurns(
    continuousFusionParticipantIds:scrubIds(input.continuousFusionParticipantIds),
    continuousFusionClusterLinks:clusterLinks,
    continuousFusionWindowLinks:windowLinks,
+   overlapSeparationParticipantIds:scrubIds(input.overlapSeparationParticipantIds),
+   overlapSeparationSources:separationSources,
    multiPersonParticipantIds:scrubIds(input.multiPersonParticipantIds),
    multiPersonCandidateParticipantIds:scrubIds(input.multiPersonCandidateParticipantIds),
    multiPersonAttributionIntervals:intervals,
