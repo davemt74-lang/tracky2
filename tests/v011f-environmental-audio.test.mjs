@@ -149,17 +149,20 @@ test('11F consent is explicit, session-only and classification events carry no p
  assert.match(html,/Exact song, movie or TV-title identification is not performed/);
  assert.match(runtime,/environmentalAudioToggle\.checked=false/);
  assert.doesNotMatch(runtime,/localStorage\.setItem\([^\n]*environment/i);
- const envLog=runtime.slice(runtime.indexOf("environmentalClassificationMessage(classification)"),
-  runtime.indexOf("}catch(error)",runtime.indexOf("environmentalClassificationMessage(classification)")));
- assert.match(envLog,/semantic:'environmental-audio-classification'/);
+ const envStart=runtime.indexOf("environmentalV2Message(classification)");
+ const envLog=runtime.slice(envStart,
+  runtime.indexOf("}catch(error)",envStart));
+ assert.ok(envStart>0);
+ assert.match(envLog,/semantic:'environmental-audio-classification-v2'/);
  assert.doesNotMatch(envLog,/participantId/);
 });
 
 test('11F approved classification metadata may use ROOM opt-in persistence but raw PCM never enters ROOM events',()=>{
  const core=fs.readFileSync('src/environmental-audio-core.js','utf8');
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
- assert.match(runtime,/logRoomMessage\('audio',environmentalClassificationMessage\(classification\)/);
- assert.match(runtime,/evidence:\{durationMs:classification\.durationMs\}/);
+ assert.match(runtime,/logRoomMessage\('audio',environmentalV2Message\(classification\)/);
+ assert.match(runtime,/durationMs:classification\.durationMs/);
+ assert.match(runtime,/environmental:\{/);
  assert.doesNotMatch(runtime,/saveRoomObservation\([^\n]*(samples|pcm|audio)/i);
  const messageBlock=core.slice(core.indexOf('export function environmentalClassificationMessage'),
   core.indexOf('export function createEnvironmentalAudioWork'));
