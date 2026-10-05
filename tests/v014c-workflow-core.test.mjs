@@ -48,6 +48,7 @@ test('14C workflow executes dependency-ready read-only steps then pauses for for
 test('14C current authorization and participant existence invalidate stale workflows',()=>{
  const flow=workflowPreset('server-research',serverTarget,{participantId:'p1',now:0});
  assert.equal(workflowDependencyState(flow,{target:serverTarget,participantIds:['p1']}).valid,true);
+ assert.equal(workflowDependencyState(flow,{target:{...serverTarget,enabledSkills:['describe_object','product_search','capture_image']},participantIds:['p1']}).reason,'authorization-snapshot-stale');
  assert.equal(workflowDependencyState(flow,{target:{...serverTarget,enabledSkills:['describe_object']},participantIds:['p1']}).reason,'skill-authorization-revoked');
  assert.equal(workflowDependencyState(flow,{target:null,participantIds:['p1']}).reason,'target-deleted-or-unavailable');
  assert.equal(workflowDependencyState(flow,{target:serverTarget,participantIds:[]}).reason,'participant-deleted-or-unavailable');
