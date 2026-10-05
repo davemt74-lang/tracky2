@@ -117,7 +117,7 @@ test('13D server schema provides room node registry and deduplicated observation
 test('13D runtime integrates remote observations with existing no-teleport handoff tracker',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(runtime,/MultiRoomRuntimeClient/);
- assert.match(runtime,/multiRoomRuntime\.publishObservation/);
+ assert.match(runtime,/multiRoomRuntime\?\.publishObservation/);
  assert.match(runtime,/applyRemoteRoomObservation/);
  assert.match(runtime,/roomHandoffTracker\.observe/);
  assert.match(runtime,/roomHandoffTracker\.declareHandoff/);
