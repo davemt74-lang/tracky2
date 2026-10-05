@@ -1208,6 +1208,7 @@ export function normalizeResourceSyncJournal(input={}){
   id,key:resourceSyncKey(type,resourceId),resourceType:type,resourceId,operation:input.operation,
   baseVersion:Math.max(0,Number(input.baseVersion)||0),
   serverVersion:Math.max(0,Number(input.serverVersion)||0),
+  localFingerprint:String(input.localFingerprint||'').slice(0,160)||null,
   status:input.status==='applied'?'applied':'pending',
   attempts:Math.max(0,Math.min(9,Number(input.attempts)||0)),
   createdAt:Number.isFinite(input.createdAt)?input.createdAt:Date.now(),
