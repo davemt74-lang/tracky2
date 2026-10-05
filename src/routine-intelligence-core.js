@@ -18,8 +18,9 @@ const SAFE_SEMANTICS=new Set([
 
 function localParts(at){
  const d=new Date(at);
- return {date:d.toISOString().slice(0,10),weekday:d.getUTCDay(),
-  minute:d.getUTCHours()*60+d.getUTCMinutes()};
+ const date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),
+  String(d.getDate()).padStart(2,'0')].join('-');
+ return {date,weekday:d.getDay(),minute:d.getHours()*60+d.getMinutes()};
 }
 function circularDistanceMinutes(a,b){
  const raw=Math.abs(a-b);return Math.min(raw,1440-raw);
@@ -32,6 +33,29 @@ function median(values=[]){
 function routineKey(row){
  const subject=short(row.areaId||row.roomId||row.subtype||'general',96);
  return [short(row.participantId,96),short(row.semantic,64),subject].join('|');
+}
+function clusterRoutineRows(rows=[]){
+ const clusters=[];
+ for(const row of [...rows].sort((a,b)=>a.minute-b.minute)){
+  let target=null,best=Infinity;
+  for(const cluster of clusters){
+   const center=Math.round(median(cluster.map(item=>item.minute)));
+   const distance=circularDistanceMinutes(center,row.minute);
+   if(distance<=60&&distance<best){target=cluster;best=distance;}
+  }
+  if(target)target.push(row);else clusters.push([row]);
+ }
+ // Merge first/last clusters when they straddle midnight.
+ if(clusters.length>1){
+  const first=clusters[0],last=clusters[clusters.length-1];
+  const a=Math.round(median(first.map(item=>item.minute)));
+  const b=Math.round(median(last.map(item=>item.minute)));
+  if(circularDistanceMinutes(a,b)<=60){
+   clusters[0]=[...last,...first];
+   clusters.pop();
+  }
+ }
+ return clusters;
 }
 export function normalizeRoutineObservation(input={}){
  const participantId=short(input.participantId,96)||null;
@@ -68,26 +92,31 @@ export function deriveRoutineCandidates(observations=[],feedback=[],now=Date.now
     bucket.push(row);
  }
  const candidates=[];
- for(const [key,group] of groups){
-  if(group.length<ROUTINE_MIN_OCCURRENCES)continue;
-  const minutes=group.map(row=>row.minute),center=Math.round(median(minutes));
-  const distances=minutes.map(min=>circularDistanceMinutes(min,center));
-  const spread=Math.max(ROUTINE_BUCKET_MINUTES,Math.ceil(median(distances)||0));
-  const sample=group[0],routineId='routine:'+key;
-  const review=feedbackById.get(routineId)||null;
-  const status=['confirmed','rejected','revoked'].includes(review?.outcome)
-   ?review.outcome:'candidate';
-  candidates.push(Object.freeze({
-   schema:ROUTINE_SCHEMA,id:routineId,participantId:sample.participantId,
-   semantic:sample.semantic,roomId:sample.roomId,areaId:sample.areaId,
-   subtype:sample.subtype,occurrences:group.length,distinctDays:uniq(group.map(r=>r.date)).length,
-   centerMinute:center,windowMinutes:Math.min(180,Math.max(30,spread+ROUTINE_BUCKET_MINUTES)),
-   confidence:confidenceFor(group,spread),firstObservedAt:Math.min(...group.map(r=>r.at)),
-   lastObservedAt:Math.max(...group.map(r=>r.at)),status,
-   ownerReviewedAt:finite(review?.at)?review.at:null,
-   privacy:'observable-routine-metadata',memoryAuthority:'none',
-   healthInference:'none',protectedTraitInference:'none',emotionInference:'none'
-  }));
+ for(const [key,subjectRows] of groups){
+  for(const group of clusterRoutineRows(subjectRows)){
+   const dates=uniq(group.map(row=>row.date));
+   if(group.length<ROUTINE_MIN_OCCURRENCES||dates.length<ROUTINE_MIN_OCCURRENCES)continue;
+   const minutes=group.map(row=>row.minute),center=Math.round(median(minutes));
+   const distances=minutes.map(min=>circularDistanceMinutes(min,center));
+   const spread=Math.max(ROUTINE_BUCKET_MINUTES,Math.ceil(median(distances)||0));
+   const sample=group[0];
+   const bucket=Math.round(center/ROUTINE_BUCKET_MINUTES)%Math.round(1440/ROUTINE_BUCKET_MINUTES);
+   const routineId='routine:'+key+'|time:'+bucket;
+   const review=feedbackById.get(routineId)||null;
+   const status=['confirmed','rejected','revoked'].includes(review?.outcome)
+    ?review.outcome:'candidate';
+   candidates.push(Object.freeze({
+    schema:ROUTINE_SCHEMA,id:routineId,participantId:sample.participantId,
+    semantic:sample.semantic,roomId:sample.roomId,areaId:sample.areaId,
+    subtype:sample.subtype,occurrences:group.length,distinctDays:dates.length,
+    centerMinute:center,windowMinutes:Math.min(180,Math.max(30,spread+ROUTINE_BUCKET_MINUTES)),
+    confidence:confidenceFor(group,spread),firstObservedAt:Math.min(...group.map(r=>r.at)),
+    lastObservedAt:Math.max(...group.map(r=>r.at)),status,
+    ownerReviewedAt:finite(review?.at)?review.at:null,
+    privacy:'observable-routine-metadata',memoryAuthority:'none',
+    healthInference:'none',protectedTraitInference:'none',emotionInference:'none'
+   }));
+  }
  }
  return Object.freeze(candidates.sort((a,b)=>b.confidence-a.confidence||
   b.lastObservedAt-a.lastObservedAt).slice(0,ROUTINE_MAX_CANDIDATES));
