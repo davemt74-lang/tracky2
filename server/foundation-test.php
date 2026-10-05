@@ -29,6 +29,11 @@ try{
  check(!str_contains($encrypted,'participant-profile-test'),'Generic encrypted data is not plaintext');
  check(tracky_decrypt($encrypted)==='participant-profile-test','Generic encrypted data round-trips');
  check(tracky_schema_version($db)===TRACKY_SCHEMA_VERSION,'Fresh schema version recorded');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Room node registry table exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Room observation relay table exists');
+ check(tracky_permission($db,['role'=>'owner'],'rooms.read')&&tracky_permission($db,['role'=>'owner'],'rooms.write'),'Owner can run multi-room nodes');
+ check(tracky_permission($db,['role'=>'operator'],'rooms.read')&&tracky_permission($db,['role'=>'operator'],'rooms.write'),'Operator can run multi-room nodes');
+ check(!tracky_permission($db,['role'=>'viewer'],'rooms.read'),'Viewer cannot read live room-node presence');
  $failed=false;try{tracky_store_provider($db,$id,'bad-provider','1234567890');}catch(InvalidArgumentException $e){$failed=true;}
  check($failed,'Unknown providers rejected');
  file_put_contents($temp.'/installed.lock','test');
