@@ -22,7 +22,8 @@ const CONCEPTS=Object.freeze([
  ['music',['music','song','songs','album','artist','track']],
  ['project',['project','projects','initiative','pilot','release','launch']],
  ['brevity',['short','concise','brief','compact','succinct']],
- ['response',['reply','replies','response','responses','answer','answers']]
+ ['response',['reply','replies','response','responses','answer','answers']],
+ ['coffee',['coffee','espresso','latte','cappuccino','beans','grinder']]
 ]);
 const CONCEPT_BY_WORD=(()=>{
  const map=new Map();
