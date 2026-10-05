@@ -139,16 +139,17 @@ test('11F runtime sidecar reuses the one room segment and never blocks canonical
  assert.match(runtime,/environmentalAudioQueue\.disable\(\)/);
 });
 
-test('11F consent is explicit, session-only and classification events carry no participant identity',()=>{
+test('11F Basic ROOM classification is local, owner-controllable and carries no participant identity',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(html,/id="roomClassifyEnvironmentalAudio"/);
- assert.match(html,/Disabled by default/);
+ assert.match(html,/Enabled by default as part of Basic ROOM/);
  assert.match(html,/Raw room audio is never saved or uploaded by Tracky2/);
  assert.match(html,/classifications are never assigned to a participant/i);
  assert.match(html,/Exact song, movie or TV-title identification is not performed/);
- assert.match(runtime,/environmentalAudioToggle\.checked=false/);
- assert.doesNotMatch(runtime,/localStorage\.setItem\([^\n]*environment/i);
+ assert.match(runtime,/environmentalAudioToggle\.checked=savedEnvironmental!=='no'/);
+ assert.match(runtime,/tracky2-room-environmental-audio/);
+ assert.match(runtime,/Owner disabled environmental audio classification/);
  const envStart=runtime.indexOf("environmentalV2Message(classification)");
  const envLog=runtime.slice(envStart,
   runtime.indexOf("}catch(error)",envStart));
