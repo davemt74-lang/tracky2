@@ -107,3 +107,12 @@ test('14C restore rejects corrupted duplicate or forward dependency graphs',()=>
   base.steps[0],{...base.steps[1],id:base.steps[0].id}
  ]}),null);
 });
+
+test('14C cancellation requested during a running step stays authoritative on failure',()=>{
+ let flow=confirmWorkflow(workflowPreset('server-research',serverTarget,{now:0}),1);
+ const prepared=prepareWorkflowStep(flow,'describe',{now:2});flow=prepared.workflow;
+ flow=requestWorkflowCancel(flow,3);assert.equal(flow.cancelRequested,true);
+ flow=failWorkflowStep(flow,'describe',Object.assign(new Error('late failure'),{status:503}),4);
+ assert.equal(flow.status,'cancelled');assert.equal(flow.cancelRequested,false);
+ assert.equal(flow.steps[0].status,'cancelled');
+});
