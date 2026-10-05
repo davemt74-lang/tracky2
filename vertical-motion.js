@@ -4609,6 +4609,7 @@ function prepareRuntimeExit(reason='runtime-exit'){
  transcriptLifecycle.clear();
  diarizationSession.reset();
  continuousSpeakerFusionTracker.reset();
+ multiRoomRuntime?.stop();
  roomTrackHistory=[];
  return true;
 }
@@ -4941,4 +4942,5 @@ document.addEventListener('visibilitychange',()=>{
  if(cameraRecoveryPending)void scheduleCameraRecovery('foreground-resume');
  if(microphoneRecoveryPending)void scheduleMicrophoneRecovery('foreground-resume');
  if(!state.running&&!cameraStoppedThisPage&&!cameraRecoveryPending)void maybeStartApprovedCamera();
+ void multiRoomRuntime?.sync?.();
 });
