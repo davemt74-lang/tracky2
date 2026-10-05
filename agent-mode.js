@@ -561,6 +561,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
   getHistory:()=>entries.map(entry=>({...entry})),
+  reconcileParticipants(validIds=[]){
+   const allowed=new Set((validIds||[]).map(String));
+   for(const id of greeted.keys())if(!allowed.has(String(id)))greeted.delete(id);
+   entries=entries.filter(entry=>!entry.participantId||allowed.has(String(entry.participantId)));
+   if(lastSpeakerId&&!allowed.has(String(lastSpeakerId)))lastSpeakerId=null;
+   if(ui.save.checked)saveAgentHistory(localStorage,entries,true);
+   showThread();
+   return {greeted:greeted.size,history:entries.length,lastSpeakerId};
+  },
   isBusy:()=>Boolean(open||responsePending||speech?.speaking),
   proactiveSpeak(text,{participantId=null,scopeId=null}={}){
    if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
