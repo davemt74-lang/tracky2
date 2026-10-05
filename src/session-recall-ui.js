@@ -2,7 +2,8 @@ import {
  listDialogueTurns,listRoomObservations,listAgentTasks,listAgentMemories,listMeetings,
  listRecordings,listSessionIdentities
 } from './participant-store.js';
-import {buildRecallProjection,searchRecall,explainRecallResult} from './session-recall-core.js';
+import {buildRecallProjection} from './session-recall-core.js';
+import {SemanticRecallIndex,searchRecallV2,summarizeRecallResults,explainRecallResultV2} from './semantic-recall-core.js';
 import {
  buildSessionIdentityTimeline,normalizeSessionIdentity,
  sessionIdentityExport,sessionIdentitySummary
@@ -30,16 +31,17 @@ export function createSessionRecallUi({
  const $=id=>document.getElementById(id);
  const ui={
   form:$('agentRecallForm'),query:$('agentRecallQuery'),source:$('agentRecallSource'),
-  participant:$('agentRecallParticipant'),temporal:$('agentRecallTemporal'),
+  participant:$('agentRecallParticipant'),temporal:$('agentRecallTemporal'),mode:$('agentRecallMode'),
   recent:$('agentRecallRecent'),refresh:$('agentRecallRefresh'),
-  status:$('agentRecallStatus'),results:$('agentRecallResults'),
+  status:$('agentRecallStatus'),summary:$('agentRecallSummary'),results:$('agentRecallResults'),
   sessionSelect:$('agentSessionTimelineSelect'),
   sessionRefresh:$('agentSessionTimelineRefresh'),
   sessionExport:$('agentSessionTimelineExport'),
   sessionStatus:$('agentSessionTimelineStatus'),
   sessionTimeline:$('agentSessionTimeline')
  };
- let lastRows=[],lastSearch={query:'',sourceType:'all',participantId:null,temporal:'all'};
+ let lastRows=[],lastSearch={query:'',sourceType:'all',participantId:null,temporal:'all',mode:'semantic'};
+ const semanticIndex=new SemanticRecallIndex();
 
  function setStatus(message){if(ui.status)ui.status.textContent=message;}
  function participantOptions(){
@@ -180,14 +182,24 @@ export function createSessionRecallUi({
  }
 
  function searchOptions(){
-  const temporal=ui.temporal?.value||'all';
+  const temporal=ui.temporal?.value||'all',now=Date.now();
+  const windows={ '24h':86400000,'7d':7*86400000,'30d':30*86400000 };
   return {
    sourceType:ui.source?.value||'all',
    participantId:ui.participant?.value||null,
    includeCurrent:temporal!=='historical',
    includeHistorical:temporal!=='current-session',
-   limit:60
+   fromAt:windows[temporal]?now-windows[temporal]:null,
+   toAt:null,semantic:ui.mode?.value!=='lexical',limit:60
   };
+ }
+ function renderSummary(rows,mode){
+  if(!ui.summary)return;
+  const summary=summarizeRecallResults(rows);
+  const sourceText=summary.sources.map(row=>sourceLabel(row.sourceType)+' '+row.count).join(' · ');
+  ui.summary.textContent=summary.summary+
+   (sourceText?' · '+sourceText:'')+
+   ' · '+(mode==='local-semantic'?'enhanced local ranking':'lexical fallback');
  }
  function render(rows){
   if(!ui.results)return;
@@ -234,12 +246,16 @@ export function createSessionRecallUi({
    lastRows=await projection();
    const query=recent?'':String(ui.query?.value||'').trim();
    const options=searchOptions();
-   const rows=searchRecall(lastRows,query,options);
+   semanticIndex.rebuild(lastRows,Date.now());
+   const search=searchRecallV2(lastRows,query,{...options,semanticIndex});
+   const rows=search.results;
    lastSearch={query,sourceType:options.sourceType,participantId:options.participantId,
-    temporal:ui.temporal?.value||'all'};
-   render(rows);
+    temporal:ui.temporal?.value||'all',mode:ui.mode?.value||'semantic'};
+   render(rows);renderSummary(rows,search.mode);
+   const snapshot=semanticIndex.snapshot();
    setStatus(rows.length+' result'+(rows.length===1?'':'s')+
-    ' · generated live from '+lastRows.length+' current canonical/local references · no search index saved');
+    ' · '+(search.mode==='local-semantic'?'enhanced local ranking':'lexical fallback')+
+    ' · '+snapshot.itemCount+' bounded canonical rows indexed in memory · index not saved');
    return true;
   }catch(error){
    console.error('Recall search failed',error);
@@ -254,18 +270,19 @@ export function createSessionRecallUi({
   ui.recent?.addEventListener('click',()=>void run({recent:true}));
   ui.refresh?.addEventListener('click',()=>{
    if(ui.query)ui.query.value=lastSearch.query||ui.query.value;
+   if(ui.mode)ui.mode.value=lastSearch.mode||ui.mode.value;
    void run({recent:!String(ui.query?.value||'').trim()});
   });
   ui.sessionRefresh?.addEventListener('click',()=>void refreshSessionTimeline());
   ui.sessionSelect?.addEventListener('change',()=>void refreshSessionTimeline());
   ui.sessionExport?.addEventListener('click',()=>void exportSessionTimeline());
-  setStatus('Recall is ready. No persistent search index is created.');
+  setStatus('Recall is ready. Enhanced ranking is local and ephemeral; lexical fallback remains available.');
   void refreshSessionTimeline();
   return true;
  }
  return {
   init,search:run,refreshParticipants:participantOptions,
   refreshTimeline:refreshSessionTimeline,
-  lastProjection:()=>[...lastRows]
+  lastProjection:()=>[...lastRows],semanticIndexState:()=>semanticIndex.snapshot()
  };
 }
