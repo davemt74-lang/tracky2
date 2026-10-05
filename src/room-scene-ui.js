@@ -1,6 +1,6 @@
 import {emptyRoomScene,normalizeRoomScene,upsertRoomArea,removeRoomArea,
  upsertRoomObject,removeRoomObject,mirroredAreaRect,roomSceneGraph,
- setRoomCalibration,clearRoomCalibration} from './room-scene-graph.js';
+ setRoomCalibration,clearRoomCalibration,setRoomIdentity} from './room-scene-graph.js';
 import {FLOOR_POINT_KEYS,listenerRelation} from './spatial-calibration-core.js';
 import {loadRoomScene,saveRoomScene,clearRoomScene} from './participant-store.js';
 
@@ -16,6 +16,8 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
   objectForm:$('roomObjectForm'),objectName:$('roomObjectName'),objectKind:$('roomObjectKind'),
   objectArea:$('roomObjectArea'),objects:$('roomObjectList'),clear:$('roomClearScene'),
   status:$('roomSceneMessage'),
+  roomIdentityForm:$('roomIdentityForm'),roomIdentityId:$('roomIdentityId'),
+  roomIdentityName:$('roomIdentityName'),roomIdentityStatus:$('roomIdentityStatus'),
   calWidth:$('roomCalibrationWidthM'),calDepth:$('roomCalibrationDepthM'),
   calListenerX:$('roomCalibrationListenerX'),calListenerDepth:$('roomCalibrationListenerDepth'),
   calCapture:$('roomCalibrationCapture'),calSave:$('roomCalibrationSave'),
@@ -28,6 +30,12 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
  const asNumber=input=>Number(input.value);
  function resetAreaForm(){els.areaForm.reset();els.areaId.value='';
   els.x.value='.15';els.y.value='.20';els.w.value='.35';els.h.value='.50';}
+ function renderRoomIdentity(){
+  if(els.roomIdentityId)els.roomIdentityId.value=scene.roomIdentityId||'room-local';
+  if(els.roomIdentityName)els.roomIdentityName.value=scene.roomName||'Local room';
+  if(els.roomIdentityStatus)els.roomIdentityStatus.textContent=
+   'Current room · '+(scene.roomName||'Local room')+' · '+(scene.roomIdentityId||'room-local');
+ }
  function storedCalibrationPoints(){
   return scene.calibration?FLOOR_POINT_KEYS.map(key=>scene.calibration.points[key]):[];
  }
@@ -166,7 +174,7 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
  }
  function persist(next,message){
   if(!ready)return;
-  const safe=normalizeRoomScene(next);scene=safe;renderItems();renderTracks();
+  const safe=normalizeRoomScene(next);scene=safe;renderRoomIdentity();renderItems();renderTracks();
   const latest=++epoch;
   inform('Saving local scene map…');
   writeQueue=writeQueue.catch(()=>{}).then(()=>saveRoomScene(safe)).then(()=>{
@@ -193,11 +201,22 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
  }
  async function init(){
   if(!els.editor)return false;
-  try{scene=await loadRoomScene();ready=true;renderItems();renderCalibration();renderTracks();
+  try{scene=await loadRoomScene();ready=true;renderRoomIdentity();renderItems();renderCalibration();renderTracks();
    inform(scene.calibration
     ? 'Local camera map + owner floor-plane calibration ready.'
     : 'Local camera-relative map ready. Draw a rectangle or edit the fields.');
   }catch(error){inform('Room map storage unavailable: '+error.message);return false;}
+  els.roomIdentityForm?.addEventListener('submit',event=>{
+   event.preventDefault();if(!ready)return;
+   try{
+    const next=setRoomIdentity(scene,{
+     roomIdentityId:els.roomIdentityId.value,roomName:els.roomIdentityName.value
+    });
+    persist(next,'Updated physical room identity to '+next.roomName+' · '+next.roomIdentityId);
+   }catch(error){
+    if(els.roomIdentityStatus)els.roomIdentityStatus.textContent=error.message;
+   }
+  });
   els.areaForm.addEventListener('submit',event=>{
    event.preventDefault();if(!ready)return;
    try{
@@ -264,7 +283,7 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    try{
     await writeQueue.catch(()=>{});await clearRoomScene();
     scene=emptyRoomScene();calibrationDraft=[];capturingCalibration=false;
-    ready=true;renderItems();renderCalibration();renderTracks();
+    ready=true;renderRoomIdentity();renderItems();renderCalibration();renderTracks();
     inform('Owner-defined room map and floor calibration cleared');
     onChange('Cleared owner-defined room map and floor calibration');
    }catch(error){ready=true;inform('Clear failed: '+error.message);}
