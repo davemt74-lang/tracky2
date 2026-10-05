@@ -1,3 +1,9 @@
+# Tracky2 V0.14.0 — Provider Runtime & Model Router
+
+V0.14.0 adds governed conversational-provider routing to standalone Tracky2. AGENT can continue using loopback-only Ollama, or an authenticated self-hosted installation can route bounded text-only conversation requests to configured OpenAI or Anthropic credentials without returning those credentials to the browser. Provider models are server-allowlisted, requests are CSRF/session protected, daily and session budgets are enforced, repeated failures open a short circuit breaker, and audit records contain provider/model/outcome/unit metadata rather than prompt or reply text.
+
+Optional ElevenLabs speech uses the same server-side credential boundary and accepts only the bounded AGENT reply text plus an owner-entered voice ID. Browser/system speech remains the fallback. These provider paths do not upload camera frames, raw room audio, face/voice embeddings or recording media, and they do not override canonical participant identity, speaker attribution, transcript corrections, meeting policy, memory authority, deletion/revocation or room handoff rules.
+
 # Tracky2 V0.8.0 — Self-hosted installer, accounts and database
 
 Includes v0.7.4 AGENT camera/orb controls and ZZZ shortcut. New: one-time owner setup with no installation API key, private SQLite data, permission-managed users, encrypted provider settings, and consent-based participant migration. See [self-host instructions](docs/SELFHOST-FOUNDATION.md).
