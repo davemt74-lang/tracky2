@@ -64,14 +64,14 @@ function tracky_provider_messages(mixed $input): array {
         $content=preg_replace('/\s+/u',' ',trim((string)($row['content']??'')))??'';
         if($content==='')continue;
         $remaining=12000-$total;if($remaining<=0)break;
-        $content=mb_substr($content,0,min(2400,$remaining),'UTF-8');
-        $rows[]=['role'=>$role,'content'=>$content];$total+=mb_strlen($content,'UTF-8');
+        $content=substr($content,0,min(2400,$remaining));
+        $rows[]=['role'=>$role,'content'=>$content];$total+=strlen($content);
     }
     if(count($rows)<2)throw new InvalidArgumentException('Conversation messages required.');
     return $rows;
 }
 function tracky_provider_request_units(array $messages,int $maxOutput=180): int {
-    $chars=0;foreach($messages as $row)$chars+=mb_strlen((string)$row['content'],'UTF-8');
+    $chars=0;foreach($messages as $row)$chars+=strlen((string)$row['content']);
     return max(1,(int)ceil($chars/4)+max(1,min(400,$maxOutput)));
 }
 function tracky_provider_session_usage(string $provider): array {
