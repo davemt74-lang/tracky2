@@ -63,7 +63,7 @@ test('CCC is a centralized triple-key shortcut that opens Control Center',()=>{
  assert.match(shortcuts,/\['x','z','c'\]/);
  assert.match(presence,/tracky:control-center-toggle/);
  assert.match(html,/id="agentControlCenter"/);
- assert.match(html,/CCC ◎/);
+ assert.doesNotMatch(html,/CCC ◎|ZZZ ⇄|XXX ⇔|agent-shortcut-hint/);
  assert.match(center,/server\/session\.php/);
  assert.match(html,/Participants/);
  assert.match(html,/Admin/);
@@ -72,12 +72,17 @@ test('CCC is a centralized triple-key shortcut that opens Control Center',()=>{
  assert.match(html,/ROOM settings never grant new sensor permission/i);
 });
 
-test('Control Center is responsive and visible shortcut is desktop-only',()=>{
- const css=read('agent-mode.css');
+test('Control Center is responsive while AGENT header is Camera/Orb only',()=>{
+ const css=read('agent-mode.css'),html=read('vertical-motion.html');
  assert.match(css,/\.control-center-modal/);
  assert.match(css,/\.control-center-grid/);
  assert.match(css,/@media\(max-width:760px\)/);
- assert.match(css,/\.agent-control-center-button\{display:none\}/);
+ const start=html.indexOf('<nav id="agentViewChooser"');
+ const end=html.indexOf('</nav>',start);
+ const chooser=html.slice(start,end);
+ assert.match(chooser,/>Camera<\/button>/);
+ assert.match(chooser,/>Orb<\/button>/);
+ assert.doesNotMatch(chooser,/Control Center|CCC|ZZZ|XXX|Exit/);
 });
 
 
