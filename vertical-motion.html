@@ -537,6 +537,17 @@
           <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
           <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
         </section>
+        <section class="room-temporal-panel" id="roomRoutinePanel" aria-label="Behavioral routine intelligence">
+          <strong>ROUTINES · OWNER-REVIEWED OBSERVATIONS</strong>
+          <div id="roomRoutineStatus" class="room-temporal-summary" role="status">No routine candidates derived yet.</div>
+          <div class="room-spatial-actions">
+            <button type="button" id="roomRoutineRefresh">Refresh routines</button>
+            <button type="button" id="roomRoutineClearFeedback">Clear routine reviews</button>
+          </div>
+          <div id="roomRoutineInsights" class="room-scene-items" aria-live="polite"></div>
+          <small>Routine candidates are rebuilt from canonical ROOM history. At least three recurring observations are required. Confirming a routine stores only owner review metadata; it does not create Agent Memory or a new participant-history store.</small>
+          <small>“Outside baseline” means timing differs from prior observations only. It is not a health, emotion, sleep, protected-trait or intent inference.</small>
+        </section>
         <div class="room-timeline-toolbar">
           <div class="room-timeline-filters" role="group" aria-label="Filter ROOM evidence">
             <button type="button" data-room-filter="all" aria-pressed="true">All</button>
