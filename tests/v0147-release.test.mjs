@@ -17,5 +17,5 @@ test('v0.14.7 release status preserves closed v0.14.6 and points next to 14G',()
  const status=read('docs/DEVELOPMENT-STATUS.md');
  assert.match(status,/V0\.14\.6 final score: 10\/10/);
  assert.match(status,/V0\.14\.7 — ROOM Feed, Control Center & Shared Conversation/);
- assert.match(status,/then begin \*\*14G — Multi-Room Federation V3\*\*/);
+ assert.match(status,/Begin \*\*14G — Multi-Room Federation V3\*\*/i);
 });
