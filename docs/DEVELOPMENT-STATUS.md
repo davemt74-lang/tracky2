@@ -146,5 +146,5 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 
 ## Exact next action
 
-Run the 14C PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.2 ZIP/SHA/direct release, then begin **14D — Agent Memory V2**.
+Run the 14C PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.2 ZIP/SHA/direct release, then begin **14D — Owner-Approved Memory Learning V2**.
 
