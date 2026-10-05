@@ -77,3 +77,19 @@
 
 ## Exact next action
 Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further work begins as a new explicitly planned release from merged `main`. Representative physical-device evidence may continue as separate certification evidence, not as unfinished V0.13 software work.
+
+## V0.14 planning
+
+- **V0.13 remains closed. Do not restart Sections 13A–13J.**
+- V0.14 is defined in `docs/V014-MASTER-PLAN.md` as **Governed Agent Capability & Self-Hosted Intelligence**.
+- Audited starting point: merged `main` `a54a73c15a5846c318f02d808b3ed7807637e962`.
+- Initial V0.14 readiness baseline: **6.5/10**.
+- Section baselines: **14A 5.8**, **14B 4.9**, **14C 6.1**, **14D 6.4**, **14E 7.1**, **14F 5.6**, **14G 7.3**, **14H 7.0**, **14I 7.5**, **14J 6.8**.
+- Priority sequence begins with **14A Provider Runtime & Model Router**, then **14B Governed Skills & Tool Execution**, then **14C Agent Tasks & Workflow Execution V2**.
+- Tracky2 remains standalone. No VP3 Cloud/HomeServer dependency is introduced by the V0.14 plan.
+- Stale PR #76 was closed as superseded by merged PRs #77 and #78.
+
+## Exact next action
+
+Merge the V0.14 planning PR after CI is green. Then start **14A** from the resulting merged `main`. No 14B runtime work starts until 14A is 10/10, green, merged, and post-merge verified.
+
