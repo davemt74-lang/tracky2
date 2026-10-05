@@ -22,7 +22,7 @@ import {
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 14;
+const DB_VERSION = 15;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -32,6 +32,7 @@ const AGENT_TASKS = 'agent-tasks';
 const AGENT_WORKFLOWS = 'agent-workflows';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
+const ACCOUNT_PARTICIPANT_SYNC = 'account-participant-sync-state';
 const RESOURCE_SYNC_CONFIG = 'resource-sync-config';
 const RESOURCE_SYNC_STATE = 'resource-sync-state';
 const RESOURCE_SYNC_JOURNAL = 'resource-sync-journal';
@@ -131,6 +132,11 @@ export async function openParticipantDb() {
       }
       if (!db.objectStoreNames.contains(PARTICIPANT_SYNC)) {
         db.createObjectStore(PARTICIPANT_SYNC,{keyPath:'participantId'});
+      }
+      if (!db.objectStoreNames.contains(ACCOUNT_PARTICIPANT_SYNC)) {
+        const accountSync=db.createObjectStore(ACCOUNT_PARTICIPANT_SYNC,{keyPath:'participantId'});
+        accountSync.createIndex('pending','pending',{unique:false});
+        accountSync.createIndex('updatedAt','updatedAt',{unique:false});
       }
       if (!db.objectStoreNames.contains(RESOURCE_SYNC_CONFIG)) {
         db.createObjectStore(RESOURCE_SYNC_CONFIG,{keyPath:'id'});
@@ -1101,6 +1107,50 @@ export function deleteAgentMemory(id){
 }
 export function clearAgentMemories(){
  return storeAction(AGENT_MEMORIES,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* Account-backed participant sync state. This is separate from the legacy manual
+   biometric participant-sync state so signed-in desktop/mobile persistence can be automatic. */
+export function normalizeAccountParticipantSyncState(input={}){
+ const participantId=String(input.participantId||'').slice(0,96);
+ if(!participantId)throw new Error('participantId required');
+ return {
+  participantId,
+  serverVersion:Math.max(0,Number(input.serverVersion)||0),
+  serverUpdatedAt:Number.isFinite(input.serverUpdatedAt)?input.serverUpdatedAt:null,
+  lastSyncedLocalUpdatedAt:String(input.lastSyncedLocalUpdatedAt||'').slice(0,64)||null,
+  pending:input.pending===true,
+  localDeletedAt:Number.isFinite(input.localDeletedAt)?input.localDeletedAt:null,
+  conflict:input.conflict===true,
+  errorText:String(input.errorText||'').slice(0,240),
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now()
+ };
+}
+export function listAccountParticipantSyncStates(){
+ return storeAction(ACCOUNT_PARTICIPANT_SYNC,'readonly',store=>requestToPromise(store.getAll()));
+}
+export function getAccountParticipantSyncState(participantId){
+ return storeAction(ACCOUNT_PARTICIPANT_SYNC,'readonly',
+  store=>requestToPromise(store.get(String(participantId||''))));
+}
+export async function saveAccountParticipantSyncState(input){
+ const safe=normalizeAccountParticipantSyncState(input);
+ await storeAction(ACCOUNT_PARTICIPANT_SYNC,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function deleteAccountParticipantSyncState(participantId){
+ return storeAction(ACCOUNT_PARTICIPANT_SYNC,'readwrite',async store=>{
+  await requestToPromise(store.delete(String(participantId||'')));return true;
+ });
+}
+export async function markAccountParticipantPending(participantId,{deleted=false,errorText=''}={}){
+ const current=await getAccountParticipantSyncState(participantId);
+ return saveAccountParticipantSyncState({
+  ...(current||{}),participantId,
+  pending:true,localDeletedAt:deleted?Date.now():null,
+  conflict:false,errorText,updatedAt:Date.now()
+ });
 }
 
 
