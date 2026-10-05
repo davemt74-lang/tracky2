@@ -61,6 +61,7 @@ async function serverInventory(config,{snapshot=true}={}){
  if(response.status===401||response.status===403)throw new Error('This browser sync device or server session is no longer authorized.');
  if(!response.ok)throw new Error(data.error||'Metadata sync inventory failed ('+response.status+').');
  const records=[];
+ if(snapshot)serverCache.clear();
  if(Array.isArray(data.records))records.push(...data.records);
  for(const event of Array.isArray(data.events)?data.events:[])if(event?.record)records.push(event.record);
  for(const record of records)serverCache.set(recordKey(record),record);
