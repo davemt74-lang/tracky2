@@ -87,6 +87,9 @@ import {
  summarizeContinuousFusion,visualSnapshotForWindow
 } from './src/continuous-fusion-core.js';
 import {
+ buildTurnAttribution,multiPersonAttributionTurnFields
+} from './src/multi-person-attribution-core.js';
+import {
  TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
@@ -101,6 +104,7 @@ import {
   patchParticipant,
   saveDialogueTurn,
   reviseDialogueTurn,
+  reviseDialogueAttribution,
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations
 } from './src/participant-store.js';
@@ -2766,6 +2770,13 @@ async function processRoomSegment(segment) {
     const fusionFields=multimodalFusionTurnFields(fusion);
     const diarizationFields=diarizationTurnFields(diarization);
     const continuousFields=continuousFusionTurnFields(continuousFusion);
+    const multiPersonAttribution=buildTurnAttribution({
+      diarizationSpans:diarization.spans,
+      continuousFusionWindowLinks:continuousFusion.windowLinks,
+      turnDurationMs:segment.captureDurationMs||
+        Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0))
+    });
+    const multiPersonFields=multiPersonAttributionTurnFields(multiPersonAttribution);
     let turn = {
      ...createSpeakerTurn({
       participantId: association.participantId,
@@ -2793,6 +2804,7 @@ async function processRoomSegment(segment) {
      ...fusionFields,
      ...diarizationFields,
      ...continuousFields,
+     ...multiPersonFields,
      overlapEvidence:diarization.overlapObserved,
      diarizationAttributionSuppressed:diarizationUnsafe,
      diarizationAttributionReason:diarizationUnsafe
@@ -4134,6 +4146,16 @@ if(state.mode==='agent'){
      void meetingUI?.refreshTurns();
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
+     agentRuntime?.refreshConversation();
+     return revised;
+    },
+    editAttribution:async(id,correction)=>{
+     const revised=await reviseDialogueAttribution(id,correction);
+     state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
+     if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
+     void meetingUI?.refreshTurns();
+     logRoomMessage('system','Owner corrected speaker attribution · canonical transcript wording unchanged',
+      'speaker-attribution-correction',{participantId:correction?.participantId||null});
      agentRuntime?.refreshConversation();
      return revised;
     },
