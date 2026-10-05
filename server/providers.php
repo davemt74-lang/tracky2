@@ -146,3 +146,29 @@ function tracky_provider_audit(PDO $db,int $actor,string $action,string $provide
     $subject=substr($provider.'/'.$model.'/'.$state.'/u'.$units,0,180);
     $db->prepare('INSERT INTO audit_log(actor_id,action,subject) VALUES(?,?,?)')->execute([$actor,$action,$subject]);
 }
+
+function tracky_provider_http(string $url,array $headers,string $body,bool $binary=false,string $userAgent='Tracky2/0.14 provider-runtime'): array {
+    if(!extension_loaded('curl'))throw new RuntimeException('Provider transport unavailable; PHP cURL extension required.');
+    if(!str_starts_with($url,'https://'))throw new InvalidArgumentException('HTTPS provider endpoint required.');
+    $lastStatus=0;$lastBody='';$lastError='';
+    for($attempt=0;$attempt<2;$attempt++){
+        $ch=curl_init($url);
+        if($ch===false)throw new RuntimeException('Provider transport initialization failed.');
+        curl_setopt_array($ch,[
+          CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,
+          CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>15,CURLOPT_MAXREDIRS=>0,
+          CURLOPT_HTTPHEADER=>$headers,CURLOPT_POSTFIELDS=>$body,
+          CURLOPT_USERAGENT=>$userAgent
+        ]);
+        if(defined('CURLOPT_PROTOCOLS'))curl_setopt($ch,CURLOPT_PROTOCOLS,CURLPROTO_HTTPS);
+        $result=curl_exec($ch);$errno=curl_errno($ch);$error=curl_error($ch);
+        $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);
+        $lastStatus=$status;$lastBody=is_string($result)?$result:'';$lastError=$error;
+        if($errno===0&&$status>=200&&$status<300)return ['status'=>$status,'body'=>$lastBody,'binary'=>$binary];
+        $retryable=$errno!==0||$status===429||$status>=500;
+        if(!$retryable||$attempt===1)break;
+        usleep(250000);
+    }
+    $suffix=$lastStatus>0?' HTTP '.$lastStatus:($lastError!==''?' transport error':'');
+    throw new RuntimeException('Provider request failed.'.$suffix);
+}
