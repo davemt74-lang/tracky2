@@ -241,9 +241,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Conversation is one chronological shared thread for all canonical participant/user turns plus AGENT responses.
 - Conversation scrolls to the newest message on initial render, every new turn/reply and whenever the Conversation tab is opened.
 - Release target: **v0.14.7**.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #94 merged at `eb3fd11304dbc09c382b7827917337bd2b8f80ce`.
+- PR CI and post-merge Tracky2 CI run #37385044950 passed Node/package/PWA and PHP/security/foundation checks.
+- Direct **v0.14.7** release published against the merged commit with ZIP + SHA-256.
+- Verified deploy ZIP SHA-256: `290d4b9dd21b4874a4b656d65eaa4505a86986ca289af957f671ea77f1ead495`.
+- **V0.14.7 final score: 10/10.**
 
 ## Exact next action
 
-Run the v0.14.7 PR gate. Merge only when Node/package/PWA and PHP/security/foundation are green, verify the direct ZIP/SHA release, then begin **14G — Multi-Room Federation V3**.
+Begin **14G — Multi-Room Federation V3** from current merged `main`. Preserve the v0.14.7 ownership model: Participant/Player owns person-specific tracking, ROOM owns aggregate room activity, Conversation owns all participant + AGENT dialogue, and ROOM configuration stays in Control Center.
 
