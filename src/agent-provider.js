@@ -1,4 +1,8 @@
 import {agentMultimodalPromptLines} from './agent-multimodal-context.js';
+import {
+ REMOTE_CHAT_PROVIDERS,boundedProviderMessages,normalizeProviderStatusPayload,
+ providerModelFor
+} from './provider-router-core.js';
 
 // Optional, explicitly enabled local Ollama bridge. No API keys, photos,
 // face/body embeddings or raw microphone samples are transmitted.
@@ -59,4 +63,68 @@ export async function queryLocalOllama({endpoint='http://127.0.0.1:11434',model=
  const reply=String(data?.message?.content||'').trim();
  if(!reply)throw new Error('Local model returned an empty reply.');
  return reply.slice(0,700);
+}
+
+
+const PROVIDER_API='./server/provider-api.php';
+async function providerJson(response){
+ let data={};try{data=await response.json();}catch{}
+ if(!response.ok)throw new Error(String(data?.error||('Provider runtime returned HTTP '+response.status)).slice(0,240));
+ return data;
+}
+export async function fetchSelfHostedProviderStatus({fetcher=fetch,signal}={}){
+ const response=await fetcher(PROVIDER_API,{method:'GET',credentials:'same-origin',
+  headers:{Accept:'application/json'},signal});
+ return normalizeProviderStatusPayload(await providerJson(response));
+}
+export async function querySelfHostedProvider({provider,model,messages,status=null,fetcher=fetch,signal}={}){
+ const selected=String(provider||'').toLowerCase();
+ if(!REMOTE_CHAT_PROVIDERS.includes(selected))throw new TypeError('Unsupported self-hosted chat provider.');
+ const runtime=status||await fetchSelfHostedProviderStatus({fetcher,signal});
+ if(!runtime?.csrf)throw new Error('Authenticated provider session required.');
+ const row=runtime.providers.find(item=>item.provider===selected);
+ if(!row?.configured)throw new Error(selected+' provider is not configured.');
+ if(row.transportAvailable===false)throw new Error('Server provider transport is unavailable.');
+ const chosen=providerModelFor(selected,model);
+ const safeMessages=boundedProviderMessages(messages);
+ if(safeMessages.length<2)throw new TypeError('Conversation messages are required.');
+ const response=await fetcher(PROVIDER_API,{
+  method:'POST',credentials:'same-origin',
+  headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':runtime.csrf},
+  signal,body:JSON.stringify({action:'chat',provider:selected,model:chosen,messages:safeMessages})
+ });
+ const data=await providerJson(response);
+ const reply=String(data?.reply||'').trim();
+ if(!reply)throw new Error('Provider returned an empty reply.');
+ return Object.freeze({
+  reply:reply.slice(0,700),provider:selected,model:String(data?.model||chosen),
+  budget:data?.budget&&typeof data.budget==='object'?Object.freeze({...data.budget}):null
+ });
+}
+export async function querySelfHostedSpeech({
+ text,voiceId,model='eleven_flash_v2_5',status=null,fetcher=fetch,signal
+}={}){
+ const value=String(text||'').replace(/\s+/g,' ').trim().slice(0,700);
+ if(!value)throw new TypeError('Speech text is required.');
+ if(!/^[A-Za-z0-9_-]{8,64}$/.test(String(voiceId||'')))throw new TypeError('Enter a valid ElevenLabs voice ID.');
+ const runtime=status||await fetchSelfHostedProviderStatus({fetcher,signal});
+ if(!runtime?.csrf)throw new Error('Authenticated provider session required.');
+ const row=runtime.providers.find(item=>item.provider==='elevenlabs');
+ if(!row?.configured)throw new Error('ElevenLabs provider is not configured.');
+ if(row.transportAvailable===false)throw new Error('Server provider transport is unavailable.');
+ const chosen=providerModelFor('elevenlabs',model);
+ const response=await fetcher(PROVIDER_API,{
+  method:'POST',credentials:'same-origin',
+  headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':runtime.csrf},
+  signal,body:JSON.stringify({action:'speech',provider:'elevenlabs',model:chosen,voiceId:String(voiceId),text:value})
+ });
+ const data=await providerJson(response);
+ const audioBase64=String(data?.audioBase64||'');
+ if(!/^[A-Za-z0-9+/=]+$/.test(audioBase64)||audioBase64.length<32)
+  throw new Error('Speech provider returned invalid audio.');
+ return Object.freeze({
+  audioBase64,mimeType:String(data?.mimeType||'audio/mpeg'),
+  provider:'elevenlabs',model:String(data?.model||chosen),
+  budget:data?.budget&&typeof data.budget==='object'?Object.freeze({...data.budget}):null
+ });
 }
