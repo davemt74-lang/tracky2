@@ -7,6 +7,7 @@ import {
  scrubAttributionParticipant
 } from './multi-person-attribution-core.js';
 import {normalizeMemoryRecord,revokeMemoryRecord} from './agent-memory-core.js';
+import {MAX_METADATA_SYNC_JOURNAL,normalizeMetadataJournalEntry,normalizeMetadataSyncState} from './metadata-sync-core.js';
 import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
 import {
  endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity,
@@ -22,7 +23,7 @@ import {
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -32,6 +33,9 @@ const AGENT_TASKS = 'agent-tasks';
 const AGENT_WORKFLOWS = 'agent-workflows';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
+const METADATA_SYNC_STATE = 'metadata-sync-state';
+const METADATA_SYNC_JOURNAL = 'metadata-sync-journal';
+const METADATA_SYNC_CONFIG = 'metadata-sync-config';
 const MEETINGS = 'meetings';
 const SESSION_IDENTITIES = 'session-identities';
 const RECORDINGS = 'recordings';
@@ -127,6 +131,19 @@ export async function openParticipantDb() {
       }
       if (!db.objectStoreNames.contains(PARTICIPANT_SYNC)) {
         db.createObjectStore(PARTICIPANT_SYNC,{keyPath:'participantId'});
+      }
+      if (!db.objectStoreNames.contains(METADATA_SYNC_STATE)) {
+        const metadataSync=db.createObjectStore(METADATA_SYNC_STATE,{keyPath:'key'});
+        metadataSync.createIndex('scope','scope',{unique:false});
+        metadataSync.createIndex('enabled','enabled',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(METADATA_SYNC_JOURNAL)) {
+        const journal=db.createObjectStore(METADATA_SYNC_JOURNAL,{keyPath:'id'});
+        journal.createIndex('key','key',{unique:false});
+        journal.createIndex('updatedAt','updatedAt',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(METADATA_SYNC_CONFIG)) {
+        db.createObjectStore(METADATA_SYNC_CONFIG,{keyPath:'id'});
       }
       if (!db.objectStoreNames.contains(MEETINGS)) {
         const meetings=db.createObjectStore(MEETINGS,{keyPath:'id'});
@@ -1117,6 +1134,72 @@ export function deleteParticipantSyncState(participantId){
  return storeAction(PARTICIPANT_SYNC,'readwrite',async store=>{
   await requestToPromise(store.delete(participantId));return true;
  });
+}
+
+
+/* V0.14F metadata sync state/journal only. Resource payloads remain in their
+   canonical stores; the resumable journal never duplicates memory/task/scene data. */
+export function listMetadataSyncStates(){
+ return storeAction(METADATA_SYNC_STATE,'readonly',store=>requestToPromise(store.getAll()));
+}
+export function getMetadataSyncState(scope,id){
+ return storeAction(METADATA_SYNC_STATE,'readonly',store=>requestToPromise(store.get(scope+':'+id)));
+}
+export async function saveMetadataSyncState(input){
+ const safe=normalizeMetadataSyncState(input);
+ await storeAction(METADATA_SYNC_STATE,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function deleteMetadataSyncState(scope,id){
+ return storeAction(METADATA_SYNC_STATE,'readwrite',async store=>{
+  await requestToPromise(store.delete(scope+':'+id));return true;
+ });
+}
+export function listMetadataSyncJournal(){
+ return storeAction(METADATA_SYNC_JOURNAL,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.sort((a,b)=>Number(a.updatedAt||0)-Number(b.updatedAt||0))
+   .slice(-MAX_METADATA_SYNC_JOURNAL);
+ });
+}
+export async function saveMetadataSyncJournalEntry(input){
+ const safe=normalizeMetadataJournalEntry(input);
+ return storeAction(METADATA_SYNC_JOURNAL,'readwrite',async store=>{
+  const existing=await requestToPromise(store.getAll());
+  for(const row of existing)if(row.key===safe.key&&row.id!==safe.id)store.delete(row.id);
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const row of rows.sort((a,b)=>Number(a.updatedAt||0)-Number(b.updatedAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_METADATA_SYNC_JOURNAL)))store.delete(row.id);
+  return safe;
+ });
+}
+export function deleteMetadataSyncJournalEntry(id){
+ return storeAction(METADATA_SYNC_JOURNAL,'readwrite',async store=>{
+  await requestToPromise(store.delete(id));return true;
+ });
+}
+export function clearMetadataSyncJournal(){
+ return storeAction(METADATA_SYNC_JOURNAL,'readwrite',store=>requestToPromise(store.clear()));
+}
+export async function loadMetadataSyncConfig(){
+ const row=await storeAction(METADATA_SYNC_CONFIG,'readonly',store=>requestToPromise(store.get('default')));
+ return row||{id:'default',deviceId:null,deviceLabel:'',authorizedAt:null,revokedAt:null,
+  scopes:{memory:false,task:false,scene:false},updatedAt:0};
+}
+export async function saveMetadataSyncConfig(input={}){
+ const safe={
+  id:'default',deviceId:String(input.deviceId||'').slice(0,96)||null,
+  deviceLabel:String(input.deviceLabel||'').replace(/\s+/g,' ').trim().slice(0,80),
+  authorizedAt:Number.isFinite(input.authorizedAt)?input.authorizedAt:null,
+  revokedAt:Number.isFinite(input.revokedAt)?input.revokedAt:null,
+  scopes:{
+   memory:input.scopes?.memory===true,task:input.scopes?.task===true,scene:input.scopes?.scene===true
+  },
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now()
+ };
+ await storeAction(METADATA_SYNC_CONFIG,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
 }
 
 
