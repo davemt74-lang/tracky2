@@ -221,9 +221,9 @@ test('11D runtime applies group attention before pending-reply supersession and 
  const replace=agent.indexOf("policy.action==='replace-pending-reply'",group);
  assert.ok(group>0&&replace>group,'group attention must be evaluated before replacing pending reply');
  assert.match(agent,/Pending AGENT reply cancelled · attention moved to room conversation/);
- assert.match(agent,/getMemories\(turn\.participantId\)/);
+ assert.match(agent,/getMemories\(preliminaryReasoning\.speakerParticipantId\)/);
  assert.doesNotMatch(agent,/getMemories\(turn\.addressedParticipantId\)/);
- assert.match(agent,/groupConversationContext\(turn,getDialogueTurns\(\),participants\(\)\)/);
+ assert.match(agent,/groupConversationContext\(turn,getDialogueTurns\(\),people\)/);
  assert.match(agent,/agentHistoryForScope\(entries,turn\)/);
  assert.match(agent,/say\(reply,turn\.participantId\|\|null,turn\.conversationScopeId\|\|null\)/);
 });
