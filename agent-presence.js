@@ -46,10 +46,11 @@ document.addEventListener('keydown',event=>{
      ||target?.closest?.('[contenteditable="true"]'))return;
  if(event.key==='Escape'&&mobilePanel){mobilePanel=null;render();return;}
  const key=event.key?.toLowerCase();
- if(key!=='x'&&key!=='z'){shortcut={key:'',count:0,lastAt:0};return;}
+ if(key!=='x'&&key!=='z'&&key!=='c'){shortcut={key:'',count:0,lastAt:0};return;}
  const next=nextTripleShortcut(shortcut,key,performance.now());shortcut=next.state;
  if(next.trigger==='z')select(mode==='camera'?'orb':'camera');
  if(next.trigger==='x'){panelsHidden=!panelsHidden;mobilePanel=null;render();}
+ if(next.trigger==='c')window.dispatchEvent(new CustomEvent('tracky:control-center-toggle',{detail:{source:'ccc-shortcut'}}));
 });
 window.addEventListener('tracky:agent-room-tracks',event=>{
  // Coordinates come from the shared, stable body/face tracker. No new camera.

@@ -4117,7 +4117,7 @@ async function resolveTrackIdentity(track, excludedParticipantIds = new Set()) {
     await patchParticipant(match.participant.id, {
       latestPhoto: currentPhoto || match.participant.latestPhoto || match.participant.primaryPhoto,
       lastSeenAt: new Date().toISOString()
-    });
+    },{accountSync:false});
     await reloadIdentityParticipants();
   } catch (error) {
     console.error(error);

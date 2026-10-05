@@ -30,7 +30,8 @@ test('14F server schema v6 creates device scopes encrypted records journal and r
 
 test('14F browser storage is metadata-only and journal never persists synchronized payload',()=>{
  const store=read('src/participant-store.js');
- assert.match(store,/const DB_VERSION = 14/);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=14,'14F metadata-sync stores must survive additive browser DB upgrades');
  for(const name of ['resource-sync-config','resource-sync-state','resource-sync-journal'])
   assert.match(store,new RegExp(name));
  assert.match(store,/MAX_PERSISTED_RESOURCE_SYNC_JOURNAL = 200/);
@@ -84,5 +85,7 @@ test('14F legacy biometric participant sync remains separate and consent-bound',
  assert.match(legacy,/participantHasBiometrics/);
  assert.match(legacy,/Confirm this participant permits|confirm this participant permits/i);
  assert.match(api,/Explicit participant consent required for biometric synchronization/);
- assert.match(admin,/Biometric profile synchronization is never enabled by metadata-sync scopes/);
+ assert.match(admin,/Advanced participant reconciliation/);
+ assert.match(admin,/legacy manual reconciliation tool remains available for explicit participant\/biometric recovery and conflict work/i);
+ assert.match(admin,/Do not synchronize biometric records without participant consent/i);
 });

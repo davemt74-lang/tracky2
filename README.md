@@ -1,3 +1,10 @@
+# Tracky2 V0.14.6 — Account-Backed Participants & Control Center
+
+V0.14.6 makes signed-in participant profiles durable across desktop and mobile Tracky2 devices. The self-hosted SQLite participant database is the account-backed source while each browser keeps its existing IndexedDB cache for fast/offline use. Deliberate profile edits and deletes synchronize automatically when the account session has participant write permission.
+
+Ordinary profile data syncs by default. Face photos/embeddings and voice profile data remain local unless the participant explicitly enables encrypted cross-device biometric synchronization in the participant editor. Version conflicts stop for review rather than silently overwriting another device.
+
+AGENT also gains a responsive Control Center account dashboard. On desktop, type **CCC** to open it; ZZZ and XXX remain unchanged. Control Center shows the signed-in account, role, participant/sync state, and links to Participants, Admin and Diagnostics. Opening it does not start camera, microphone, recording, provider calls or background synchronization.
 # Tracky2 V0.14.5 — Encrypted Server Sync V2
 
 V0.14.5 adds a second, explicitly scoped browser ↔ self-hosted-server synchronization lane without changing legacy participant/biometric sync. A browser must register its own device ID, label, and enabled resource types before metadata can move. The only supported metadata resources are owner-authorized durable memories, owner-confirmed terminal task metadata, and the owner-defined local scene configuration.

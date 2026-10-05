@@ -49,6 +49,7 @@ const ui = {
   notes: $('#participantNotes'),
   recognitionEnabled: $('#recognitionEnabled'),
   agentProactiveEnabled: $('#agentProactiveEnabled'),
+  accountBiometricSyncEnabled: $('#accountBiometricSyncEnabled'),
   sampleCount: $('#sampleCount'),
   enrollmentDots: $('#enrollmentDots'),
   faceGallery: $('#faceSampleGallery'),
@@ -208,6 +209,7 @@ function clearForm() {
   ui.notes.value = '';
   ui.recognitionEnabled.checked = true;
   ui.agentProactiveEnabled.checked = true;
+  ui.accountBiometricSyncEnabled.checked = false;
   ui.delete.hidden = true;
 
   updatePhotos();
@@ -303,6 +305,7 @@ async function loadParticipant(id) {
   ui.notes.value = participant.notes || '';
   ui.recognitionEnabled.checked = participant.recognitionEnabled !== false;
   ui.agentProactiveEnabled.checked = participant.agentProactiveEnabled !== false;
+  ui.accountBiometricSyncEnabled.checked = participant.accountBiometricSyncEnabled === true;
   ui.delete.hidden = false;
 
   updatePhotos();
@@ -548,12 +551,14 @@ async function saveForm() {
     return;
   }
 
-  if (!faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked).ready) {
+  const existing = state.editingId ? await getParticipant(state.editingId) : null;
+  const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  const accountOnlyExisting=Boolean(existing)&&!(existing.embeddings?.length||0)&&
+    existing.accountBiometricSyncEnabled!==true;
+  if (!galleryStatus.ready && !accountOnlyExisting) {
     setMessage('Capture at least three face samples, or disable recognition for this participant.', 'error');
     return;
   }
-
-  const existing = state.editingId ? await getParticipant(state.editingId) : null;
   const galleryFields=gallerySaveFields(state.gallery);
   const record = await saveParticipant({
     ...(existing || {}),
@@ -565,7 +570,8 @@ async function saveForm() {
     latestPhoto: state.latestPhoto || state.primaryPhoto,
     ...galleryFields,
     recognitionEnabled: ui.recognitionEnabled.checked,
-    agentProactiveEnabled: ui.agentProactiveEnabled.checked
+    agentProactiveEnabled: ui.agentProactiveEnabled.checked,
+    accountBiometricSyncEnabled: ui.accountBiometricSyncEnabled.checked
   });
 
   state.editingId = record.id;
@@ -583,7 +589,7 @@ async function saveForm() {
   }
 
   await reloadParticipants();
-  setMessage('Participant saved locally.', 'ok');
+  setMessage('Participant saved. Signed-in account sync will update automatically.', 'ok');
 }
 
 async function removeCurrentParticipant() {
@@ -597,7 +603,7 @@ async function removeCurrentParticipant() {
   await deleteParticipant(participant.id);
   clearForm();
   await reloadParticipants();
-  setMessage('Participant identity data and attributed dialogue were deleted from this device.', 'ok');
+  setMessage('Participant deleted. Signed-in account deletion will sync automatically.', 'ok');
 }
 
 async function loadPendingFromUrl() {
@@ -680,4 +686,13 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('tracky:participant-voice-updated', async () => {
   await reloadParticipants();
+});
+
+window.addEventListener('tracky:account-participant-sync',event=>{
+ const detail=event.detail||{};
+ void reloadParticipants();
+ if(detail.status==='conflict')
+  setMessage('This participant changed on another signed-in device. Edit and Save to keep this device copy; otherwise reload the account version from another device first.','error');
+ else if(detail.status==='error')
+  setMessage('Account participant sync is offline: '+(detail.error||'local changes remain queued.'),'error');
 });

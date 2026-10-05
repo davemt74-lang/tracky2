@@ -52,7 +52,7 @@ function consentNeeded(local,server){
 async function applyServerRecord(server,state){
  if(server.deleted){
   const local=await getParticipant(server.id);
-  if(local)await deleteParticipant(server.id,{remoteSyncState:{
+  if(local)await deleteParticipant(server.id,{accountSync:false,remoteSyncState:{
    serverVersion:server.version,serverUpdatedAt:server.serverUpdatedAt,
    consentConfirmedAt:state.consentConfirmedAt
   }});
@@ -62,7 +62,7 @@ async function applyServerRecord(server,state){
   return;
  }
  if(!server.profile||typeof server.profile!=='object')throw new Error('Server profile is unavailable.');
- const saved=await saveParticipant({...server.profile,id:server.id,name:server.name});
+ const saved=await saveParticipant({...server.profile,id:server.id,name:server.name},{accountSync:false});
  await saveParticipantSyncState(syncStateAfterServerRecord(state,server,saved,Date.now()));
 }
 async function acceptApplied(result,state){

@@ -1,25 +1,24 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('14F release package is v0.14.5 with encrypted metadata sync runtime and direct assets',()=>{
+test('14F encrypted sync release evidence remains present under later additive V0.14 releases',()=>{
  const pkg=JSON.parse(read('package.json')),workflow=read('.github/workflows/test.yml');
- const sw=read('sw.js'),audit=read('scripts/audit.mjs'),diagnostics=read('diagnostics.js');
- assert.equal(pkg.version,'0.14.5');
- assert.match(sw,/tracky2-static-v0\.14\.5/);
- assert.match(diagnostics,/version:'0\.14\.5'/);
- assert.match(audit,/packageJson\.version !== '0\.14\.5'/);
- for(const needle of [
-  'src/resource-sync-core.js','server/resource-sync.js','server/resource-sync-api.php',
-  'tracky2-v0.14.5-deploy.zip'
- ])assert.match(workflow,new RegExp(needle.replaceAll('.','\\.')));
- assert.match(workflow,/gh release create v0\.14\.5/);
- assert.match(workflow,/Encrypted Server Sync V2/);
+ const sw=read('sw.js'),status=read('docs/DEVELOPMENT-STATUS.md');
+ const parts=value=>String(value).split('.').map(v=>Number(v)||0);
+ const compare=(a,b)=>{const aa=parts(a),bb=parts(b);for(let i=0;i<3;i++){if(aa[i]!==bb[i])return aa[i]-bb[i];}return 0;};
+ assert.ok(compare(pkg.version,'0.14.5')>=0);
+ for(const needle of ['src/resource-sync-core.js','server/resource-sync.js','server/resource-sync-api.php'])
+  assert.match(workflow,new RegExp(needle.replaceAll('.','\\.')));
+ assert.match(sw,/resource-sync-core\.js/);
+ assert.match(status,/Direct \*\*v0\.14\.5\*\* release published/);
+ assert.match(status,/14F final score: 10\/10/);
 });
 
 test('14F schemas advance additively for server and browser reconciliation metadata',()=>{
  const bootstrap=read('server/bootstrap.php'),store=read('src/participant-store.js');
  assert.match(bootstrap,/TRACKY_SCHEMA_VERSION=6/);
- assert.match(store,/const DB_VERSION = 14/);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=14);
  for(const table of ['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'])
   assert.match(bootstrap,new RegExp(table));
  for(const storeName of ['resource-sync-config','resource-sync-state','resource-sync-journal'])
