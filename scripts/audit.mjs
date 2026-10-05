@@ -70,6 +70,8 @@ const requiredFiles = [
   'src/hardware-certification-core.js',
   'src/overlap-source-separation-core.js',
   'src/participant-continuity-core.js',
+  'src/multi-room-runtime-core.js',
+  'src/multi-room-runtime.js',
   'src/participant-core.js',
   'src/face-gallery.js',
   'src/face-preview.js',
@@ -169,6 +171,8 @@ const runtimeJs = [
   'src/hardware-certification-core.js',
   'src/overlap-source-separation-core.js',
   'src/participant-continuity-core.js',
+  'src/multi-room-runtime-core.js',
+  'src/multi-room-runtime.js',
   'src/participant-core.js',
   'src/face-gallery.js',
   'src/face-preview.js',
@@ -253,8 +257,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.13.2') {
-  fail('package.json version must be 0.13.2');
+if (packageJson.version !== '0.13.3') {
+  fail('package.json version must be 0.13.3');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -377,8 +381,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.13\.2-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.13.2 deploy ZIP');
+if (!/tracky2-v0\.13\.3-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.13.3 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
@@ -398,7 +402,7 @@ if (!/audioWorklet\.addModule/.test(roomAudio) || !/createScriptProcessor/.test(
 }
 
 for(const file of ['server/bootstrap.php','server/install.php','server/admin.php','server/api.php',
-  'server/session.php','server/providers.php','server/sync.js','server/sync-api.php','server/backup.php',
+  'server/session.php','server/providers.php','server/sync.js','server/sync-api.php','server/room-node-api.php','server/backup.php',
   'docs/SELFHOST-FOUNDATION.md']){
  if(!workflow.includes(file))fail('Self-hosted deploy manifest missing: '+file);
  if(!fs.existsSync(path.join(root,file)))fail('Missing self-hosted runtime file: '+file);
