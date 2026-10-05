@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
  MAX_RECORDINGS,createRecordingRecord,failRecordingRecord,finishRecordingRecord,
- normalizeRecordingRecord,recordingIdsToExpire,recordingIdsToPrune,
+ normalizeRecordingRecord,recordingIdsForStoragePressure,recordingIdsToExpire,recordingIdsToPrune,
  recordingMediaState,recordingMetadataExport,recordingPlaybackDescriptor,
  recordingTurnIdsForInterval,recoverInterruptedRecording
 } from '../src/recording-core.js';
@@ -76,6 +76,16 @@ test('13E retention expiry and bounded-recording pruning are deterministic',()=>
  }
  assert.equal(recordingIdsToPrune(rows).length,5);
  assert.equal(recordingIdsToExpire(rows,1000+86400000+1000).length,rows.length);
+});
+
+test('13E storage pressure selects oldest completed recordings only until target ratio',()=>{
+ const rows=[
+  finishRecordingRecord(createRecordingRecord({id:'a',sessionId:'s1'},1000),{chunkCount:1,bytes:20},2000),
+  finishRecordingRecord(createRecordingRecord({id:'b',sessionId:'s1'},3000),{chunkCount:1,bytes:30},4000),
+  normalizeRecordingRecord({...createRecordingRecord({id:'live',sessionId:'s1'},5000),bytes:100})
+ ];
+ assert.deepEqual(recordingIdsForStoragePressure(rows,{usage:90,quota:100,highRatio:.85,targetRatio:.5}),['a','b']);
+ assert.deepEqual(recordingIdsForStoragePressure(rows,{usage:70,quota:100}),[]);
 });
 
 test('13E failed recording is explicit and never becomes playable',()=>{
