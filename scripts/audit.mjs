@@ -25,6 +25,8 @@ const requiredFiles = [
   'room-tabs-controller.js',
   'agent-mode.js',
   'agent-presence.js',
+  'account-participants.js',
+  'control-center.js',
   'participants.js',
   'participants-sidebar.js',
   'participants-stage.js',
@@ -78,6 +80,7 @@ const requiredFiles = [
   'src/face-gallery.js',
   'src/face-preview.js',
   'src/participant-store.js',
+  'src/account-participant-core.js',
   'src/identity-engine.js',
   'src/room-tracking-core.js',
   'src/scene-analysis.js',
@@ -160,6 +163,8 @@ const runtimeJs = [
   'room-tabs-controller.js',
   'agent-mode.js',
   'agent-presence.js',
+  'account-participants.js',
+  'control-center.js',
   'participants.js',
   'participants-sidebar.js',
   'participants-stage.js',
@@ -194,6 +199,7 @@ const runtimeJs = [
   'src/face-gallery.js',
   'src/face-preview.js',
   'src/participant-store.js',
+  'src/account-participant-core.js',
   'src/identity-engine.js',
   'src/room-tracking-core.js',
   'src/scene-analysis.js',
@@ -266,7 +272,9 @@ const htmlContracts = [
   ['index.html', ['launch.js']],
   ['tracker.html', ['app.js']],
   ['games.html', ['games.js']],
-  ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-presence.js', 'agent-mode.css', 'agent-presence.css']],
+  ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-presence.js',
+  'account-participants.js',
+  'control-center.js', 'agent-mode.css', 'agent-presence.css']],
   ['participants.html', ['participants.js', 'participants-sidebar.js', 'participants-stage.js', 'participant-voice.js']],
   ['diagnostics.html', ['diagnostics.js']]
 ];
@@ -287,8 +295,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.14.5') {
-  fail('package.json version must be 0.14.5');
+if (packageJson.version !== '0.14.6') {
+  fail('package.json version must be 0.14.6');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -411,8 +419,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.14\.5-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.14.5 deploy ZIP');
+if (!/tracky2-v0\.14\.6-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.14.6 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
@@ -432,7 +440,7 @@ if (!/audioWorklet\.addModule/.test(roomAudio) || !/createScriptProcessor/.test(
 }
 
 for(const file of ['server/bootstrap.php','server/install.php','server/admin.php','server/api.php',
-  'server/session.php','server/providers.php','server/provider-api.php','server/skill-api.php','server/sync.js','server/sync-api.php','server/resource-sync.js','server/resource-sync-api.php','server/room-node-api.php','server/backup.php',
+  'server/session.php','server/providers.php','server/provider-api.php','server/skill-api.php','server/account-participants-api.php','server/sync.js','server/sync-api.php','server/resource-sync.js','server/resource-sync-api.php','server/room-node-api.php','server/backup.php',
   'docs/SELFHOST-FOUNDATION.md']){
  if(!workflow.includes(file))fail('Self-hosted deploy manifest missing: '+file);
  if(!fs.existsSync(path.join(root,file)))fail('Missing self-hosted runtime file: '+file);
