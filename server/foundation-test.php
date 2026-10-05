@@ -12,7 +12,7 @@ try{
  tracky_schema($db);
  check((int)$db->query('SELECT COUNT(*) FROM roles')->fetchColumn()===4,'Four default roles created');
  $owner=(array)$db->query("SELECT permission FROM role_permissions WHERE role='owner'")->fetchAll(PDO::FETCH_COLUMN);
- check(in_array('providers.manage',$owner,true)&&in_array('providers.use',$owner,true)&&in_array('roles.manage',$owner,true)&&in_array('sync.manage',$owner,true),'Owner gets provider use/manage, role and sync admin');
+ check(in_array('providers.manage',$owner,true)&&in_array('providers.use',$owner,true)&&in_array('skills.execute',$owner,true)&&in_array('roles.manage',$owner,true)&&in_array('sync.manage',$owner,true),'Owner gets provider use/manage, governed skill execution, role and sync admin');
  $stmt=$db->prepare("INSERT INTO users(username,password_hash,role) VALUES(?,?,'owner')");
  $stmt->execute(['first-owner',password_hash('correct horse battery stable',PASSWORD_DEFAULT)]);
  $id=(int)$db->lastInsertId();
@@ -20,6 +20,8 @@ try{
  check(!tracky_permission($db,['role'=>'viewer'],'providers.manage'),'Viewer cannot access keys');
  check(tracky_permission($db,['role'=>'operator'],'providers.use'),'Operator can use configured providers');
  check(!tracky_permission($db,['role'=>'viewer'],'providers.use'),'Viewer cannot consume provider budget by default');
+ check(tracky_permission($db,['role'=>'operator'],'skills.execute'),'Operator can execute approved governed skills');
+ check(!tracky_permission($db,['role'=>'viewer'],'skills.execute'),'Viewer cannot execute governed skills by default');
  $secret='sk-this-is-only-a-test-not-an-api-key';
  tracky_store_provider($db,$id,'openai',$secret);
  check(tracky_provider_secret($db,'openai')===$secret,'Encrypted OpenAI key round-trips server-side');
