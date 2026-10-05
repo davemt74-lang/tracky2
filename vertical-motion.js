@@ -100,6 +100,9 @@ import {
  buildTurnAttribution,multiPersonAttributionTurnFields
 } from './src/multi-person-attribution-core.js';
 import {
+ overlapSeparationTurnFields,resolveSeparatedSpeakerMatches,separateStereoOverlap
+} from './src/overlap-source-separation-core.js';
+import {
  TranscriptLifecycleController,canonicalTranscriptFields,searchTranscriptTurns,
  transcriptExport,transcriptSessionSummaries
 } from './src/transcript-lifecycle-core.js';
@@ -963,6 +966,10 @@ const state = {
     currentDiarizationSpeakerCount: 0,
     currentDiarizationOverlap: false,
     currentDiarizationReason: null,
+    currentOverlapSeparationState: 'unavailable',
+    currentOverlapSeparationQuality: 0,
+    currentOverlapSeparationParticipantIds: [],
+    currentOverlapSeparationReason: null,
     currentContinuousFusionState: 'unresolved',
     currentContinuousFusionParticipantIds: [],
     currentContinuousFusionConflicts: [],
@@ -2788,6 +2795,30 @@ async function processRoomSegment(segment) {
     const rawVoiceMatch = bestVoiceMatch(embedding, state.identity.participants);
     const diarization=await diarizeRoomSegment(segment,embedding);
     if(diarization.state==='cancelled'){outcome='cancelled';return;}
+    let overlapSeparation=separateStereoOverlap(
+      diarization.overlapObserved?(segment.separationInput||{}):{},
+      {expectedSpeakers:diarization.overlapObserved
+        ?Math.max(2,Number(diarization.speakerCount)||2):1}
+    );
+    let separatedMatches=resolveSeparatedSpeakerMatches(overlapSeparation,[]);
+    if(diarization.overlapObserved&&overlapSeparation.state==='separated'){
+      const matches=[];
+      for(const source of overlapSeparation.sources){
+        if(!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+        try{
+          const sourceEmbedding=await state.voice.engine.embedding(source.samples);
+          if(!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+          matches.push(bestVoiceMatch(sourceEmbedding,state.identity.participants));
+        }catch(error){
+          console.warn('Separated overlap source voice match unavailable.',error);
+          matches.push({matched:false,participant:null,similarity:0,margin:0,ambiguous:true});
+        }
+      }
+      separatedMatches=resolveSeparatedSpeakerMatches(overlapSeparation,matches);
+    }
+    const overlapSeparationFields=overlapSeparationTurnFields(
+      overlapSeparation,separatedMatches
+    );
     const continuousFusion=diarization.continuousFusion||summarizeContinuousFusion([]);
     const continuousParticipantIds=Array.from(continuousFusion.participantIds||[]);
     const rawParticipantId=rawVoiceMatch.participant?.id||null;
@@ -2883,6 +2914,11 @@ async function processRoomSegment(segment) {
     state.voice.currentDiarizationSpeakerCount=diarization.speakerCount;
     state.voice.currentDiarizationOverlap=diarization.overlapObserved;
     state.voice.currentDiarizationReason=diarization.reason;
+    state.voice.currentOverlapSeparationState=overlapSeparationFields.overlapSeparationState;
+    state.voice.currentOverlapSeparationQuality=overlapSeparationFields.overlapSeparationQuality;
+    state.voice.currentOverlapSeparationParticipantIds=
+      Array.from(overlapSeparationFields.overlapSeparationParticipantIds||[]);
+    state.voice.currentOverlapSeparationReason=overlapSeparationFields.overlapSeparationReason;
     state.voice.currentContinuousFusionState=continuousFusion.state;
     state.voice.currentContinuousFusionParticipantIds=continuousParticipantIds;
     state.voice.currentContinuousFusionConflicts=[
@@ -3025,6 +3061,7 @@ async function processRoomSegment(segment) {
     const multiPersonAttribution=buildTurnAttribution({
       diarizationSpans:diarization.spans,
       continuousFusionWindowLinks:continuousFusion.windowLinks,
+      overlapSeparation:overlapSeparationFields,
       turnDurationMs:segment.captureDurationMs||
         Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0))
     });
@@ -3061,6 +3098,7 @@ async function processRoomSegment(segment) {
      ...fusionFields,
      ...diarizationFields,
      ...continuousFields,
+     ...overlapSeparationFields,
      ...spatialAudioFields,
      ...multiPersonFields,
      roomId:captureRoom.id,
@@ -3228,7 +3266,8 @@ function roomTrackHistoryForSegment(segment) {
 }
 
 function onRoomAudioSegment(segment) {
-  queueEnvironmentalAudio(segment);
+  const {separationInput,...environmentSegment}=segment;
+  queueEnvironmentalAudio(environmentSegment);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
   const queued=listeningController.enqueue({
     ...segment,...meetingFields,
