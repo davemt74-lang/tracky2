@@ -79,6 +79,8 @@ export function buildRecallProjection({
   const provenance=['canonical-dialogue',transcriptState];
   if(turn.transcriptSource)provenance.push('transcript:'+String(turn.transcriptSource));
   if(turn.associationState)provenance.push('speaker:'+String(turn.associationState));
+  if(turn.roomId)provenance.push('room:'+String(turn.roomId));
+  if(turn.roomPresenceState)provenance.push('room-state:'+String(turn.roomPresenceState));
   rows.push(item({
    id:'conversation:'+turn.id,sourceType:'conversation',sourceId:turn.id,
    subtype:'dialogue-turn',at:createdAt,
