@@ -73,7 +73,7 @@ test('v0.14.7 shared Conversation timeline contains multiple participants and AG
 
 test('v0.14.7 Conversation auto-scrolls on render and when tab becomes visible',()=>{
  const agent=read('agent-mode.js'),tabs=read('room-tabs-controller.js'),html=read('vertical-motion.html');
- assert.match(html,/All participants \+ AGENT/);
+ assert.doesNotMatch(html,/SHARED CONVERSATION|All participants \+ AGENT|SEARCH TRANSCRIPTS|Export session|Export all|No transcript session loaded/);
  assert.match(html,/Chronological conversation for all participants and agents/);
  assert.match(agent,/function scrollConversationToLatest/);
  assert.match(agent,/ui\.thread\.scrollTop=ui\.thread\.scrollHeight/);
@@ -82,10 +82,20 @@ test('v0.14.7 Conversation auto-scrolls on render and when tab becomes visible',
  assert.match(tabs,/tracky:conversation-visible/);
 });
 
-test('v0.14.7 Control Center has Account and ROOM tabs and ROOM shortcut button opens ROOM pane',()=>{
+test('v0.14.7 Control Center has Account and ROOM tabs and can open before participant store loads',()=>{
  const html=read('vertical-motion.html'),controller=read('control-center.js');
  assert.match(html,/id="controlCenterAccountTab"/);
  assert.match(html,/id="controlCenterRoomTab"/);
+ assert.match(controller,/function participantStore\(\)/);
+ assert.match(controller,/import\('\.\/src\/participant-store\.js'\)/);
  assert.match(controller,/ui\.roomOpen\?\.addEventListener\('click',\(\)=>setOpen\(true,'room'\)\)/);
  assert.match(controller,/selectPane\('room'\)/);
+});
+
+test('v0.14.7 AGENT header exposes only Camera and Orb controls',()=>{
+ const html=read('vertical-motion.html');
+ const chooser=section(html,'<nav id="agentViewChooser"','</nav>');
+ assert.match(chooser,/>Camera<\/button>/);
+ assert.match(chooser,/>Orb<\/button>/);
+ assert.doesNotMatch(chooser,/Control Center|ZZZ|XXX|CCC|agent-shortcut-hint|agent-exit/);
 });
