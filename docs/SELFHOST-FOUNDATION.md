@@ -55,6 +55,8 @@ Self-hosted approved objects can explicitly grant `describe_object` and `product
 
 No governed skill can run arbitrary shell commands, arbitrary URLs, raw camera/audio uploads, biometric payloads, participant identity changes, transcript changes, memory writes or hidden recording. Owner/admin can review approved self-hosted objects and enable/revoke server skills in Admin.
 
+V0.14.2 adds local workflow orchestration over those governed skills. Workflows contain bounded dependency metadata and policy snapshots only; they are not uploaded to the server. Before a self-hosted workflow step runs, the browser refreshes the current approved-object/skill inventory, and `server/skill-api.php` revalidates the object and grant again. A revoked object, removed skill, stale authorization snapshot, or deleted dependent participant invalidates the workflow instead of continuing under old authority. Reloaded workflows remain paused until the owner resumes them, and an interrupted external-search step is never silently repeated.
+
 ## Backup, restore and offline recovery
 
 Use the CLI-only recovery tool from the application directory:

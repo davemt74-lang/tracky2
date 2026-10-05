@@ -128,7 +128,23 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Verified deploy ZIP SHA-256: `a6a2c0d5b21bc44d0210c1df901005bb9d5756d669ef4f93d09b5a304627332d`.
 - **14B final score: 10/10.**
 
+## 14C — Agent Tasks & Workflow Execution V2
+
+- Branch: `feat/v014c-workflow-execution-v2`.
+- Release target: **v0.14.2**.
+- Added a bounded workflow model with at most six dependency-ordered steps, immutable policy snapshots, stable per-step idempotency keys, attempt tracking and explicit terminal/recovery states.
+- Added deterministic presets only: local `describe → capture` and self-hosted `describe → product search`. No free-form command/tool-chain editor is introduced.
+- Workflow confirmation may continue read-only steps, but every capture/network step still stops for a fresh foreground owner action. Background workflow execution cannot elevate a 14B skill grant.
+- Current target existence, object approval, skill enablement, authorization fingerprint and optional participant dependency are revalidated before execution. Deletion/revocation/stale authorization invalidates the workflow.
+- Restart recovery never auto-resumes a saved workflow. Interrupted read-only steps become pending; interrupted side-effect steps enter `needs-review` and require explicit owner retry.
+- Cancellation is authoritative between steps and remains authoritative if an in-flight step later fails. Retry classification separates transient, owner-action, authorization and terminal failures.
+- Added visible workflow progress, per-step outcomes/sources, recovery controls and bounded local persistence in IndexedDB schema 13 with an 80-workflow cap.
+- Workflow persistence stores only policy/step/status/result/provenance metadata; no raw media, embeddings, credentials, prompts or arbitrary tool payloads.
+- Repaired the 14B runtime connection so the existing foreground camera capture executor is passed into both single-task and workflow execution.
+- Package/PWA/diagnostics/CI are aligned to **v0.14.2**, including workflow core/UI smoke checks and direct ZIP/SHA publication.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Begin **14C — Agent Tasks & Workflow Execution V2** from current merged `main`. Do not reopen 14B.
+Run the 14C PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.2 ZIP/SHA/direct release, then begin **14D — Owner-Approved Memory Learning V2**.
 

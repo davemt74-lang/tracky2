@@ -88,6 +88,7 @@ import {
  reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
 } from './src/long-session-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
+import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {createSessionRecallUi} from './src/session-recall-ui.js';
 import {createRecordingUi} from './src/recording-ui.js';
@@ -280,7 +281,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null,recordingUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null,workflowUI=null,memoryUI=null,meetingUI=null,recallUI=null,recordingUI=null;
 let multiRoomRuntime=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
@@ -2102,6 +2103,7 @@ async function reloadIdentityParticipants() {
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
     recallUI?.refreshParticipants();
+    workflowUI?.refresh();
     roomHandoffTracker.reconcileParticipants(participantIds);
     reconcileLongSessionParticipantRefs(participantIds);
     renderRoomHandoffUi();
@@ -4859,6 +4861,7 @@ window.addEventListener('beforeunload', () => {
   proactiveTimer=0;
   for(const unwatch of permissionWatchers)unwatch();
   taskUI?.destroy();
+  workflowUI?.destroy();
   meetingUI?.destroy();
   recordingUI?.destroy();
   stopRoomAudio();
@@ -5064,6 +5067,7 @@ if(state.mode==='agent'){
     roomTemporal.sceneChanged();
     renderRoomTemporalSummary();
     taskUI?.refresh();
+    workflowUI?.refresh();
     const current=currentRoomIdentity();
     const identityChanged=Boolean(lastRoomIdentityId&&lastRoomIdentityId!==current.id);
     lastRoomIdentityId=current.id;
@@ -5077,11 +5081,23 @@ if(state.mode==='agent'){
    }
   });
   initRoomHandoffControls();
-  taskUI=createAgentTaskUi({
-   getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
-   recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options)
-  });
-  void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
+   taskUI=createAgentTaskUi({
+    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+    recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
+    captureImage:captureGovernedSceneImage,
+    cameraActive:()=>state.running&&ui.video.readyState>=2,
+    documentVisible:()=>!document.hidden
+   });
+   void taskUI.init().catch(error=>console.warn('Task runtime initialization failed:',error));
+   workflowUI=createAgentWorkflowUi({
+    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
+    getParticipants:()=>state.identity.participants,
+    recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
+    captureImage:captureGovernedSceneImage,
+    cameraActive:()=>state.running&&ui.video.readyState>=2,
+    documentVisible:()=>!document.hidden
+   });
+   void workflowUI.init().catch(error=>console.warn('Workflow runtime initialization failed:',error));
   memoryUI=createAgentMemoryUi({
    participants:()=>state.identity.participants,
    getDialogueTurns:()=>state.voice.turns,

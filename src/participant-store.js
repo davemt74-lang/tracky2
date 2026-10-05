@@ -22,13 +22,14 @@ import {
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 12;
+const DB_VERSION = 13;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
 const ROOM_OBSERVATIONS = 'room-observations';
 const ROOM_SCENE = 'room-scene-map';
 const AGENT_TASKS = 'agent-tasks';
+const AGENT_WORKFLOWS = 'agent-workflows';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
 const MEETINGS = 'meetings';
@@ -44,6 +45,7 @@ export const MAX_PERSISTED_ROUTINE_FEEDBACK=160;
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
 export const MAX_PERSISTED_AGENT_TASKS = 200;
+export const MAX_PERSISTED_AGENT_WORKFLOWS = 80;
 export const MAX_PERSISTED_AGENT_MEMORIES = 200;
 export const MAX_PERSISTED_MEETINGS = 120;
 export const MAX_PERSISTED_SESSION_IDENTITIES = 120;
@@ -111,6 +113,11 @@ export async function openParticipantDb() {
         const tasks=db.createObjectStore(AGENT_TASKS,{keyPath:'id'});
         tasks.createIndex('status','status',{unique:false});
         tasks.createIndex('runAt','runAt',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(AGENT_WORKFLOWS)) {
+        const workflows=db.createObjectStore(AGENT_WORKFLOWS,{keyPath:'id'});
+        workflows.createIndex('status','status',{unique:false});
+        workflows.createIndex('updatedAt','updatedAt',{unique:false});
       }
       if (!db.objectStoreNames.contains(AGENT_MEMORIES)) {
         const memories=db.createObjectStore(AGENT_MEMORIES,{keyPath:'id'});
@@ -909,6 +916,93 @@ export function deleteAgentTask(id){
 }
 export function clearAgentTasks(){
  return storeAction(AGENT_TASKS,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.14C workflow metadata only: bounded policy/step/result metadata.
+   Never persist raw media, arbitrary commands, credentials, prompts or hidden tool payloads. */
+export function listAgentWorkflows(){
+ return storeAction(AGENT_WORKFLOWS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(-MAX_PERSISTED_AGENT_WORKFLOWS);
+ });
+}
+function safeWorkflowSources(input=[]){
+ return (Array.isArray(input)?input:[]).slice(0,5)
+  .map(row=>({title:String(row?.title||'').slice(0,160),url:String(row?.url||'').slice(0,700)}))
+  .filter(row=>/^https:\/\//i.test(row.url));
+}
+function safeWorkflowProvenance(input){
+ if(!input||typeof input!=='object')return null;
+ const allowed=['contract','skillId','skillVersion','sideEffect','targetId','targetSource','outcome',
+  'executedAt','authorization','provider','model','resultCount','mediaBytes','mediaWidth','mediaHeight'];
+ return Object.fromEntries(Object.entries(input).filter(([key,value])=>
+  allowed.includes(key)&&(typeof value==='string'||Number.isFinite(value))));
+}
+export async function saveAgentWorkflow(record){
+ if(!record||record.schema!==1||!record.id||!record.policySnapshot||!Array.isArray(record.steps))
+  throw new Error('Invalid agent workflow');
+ const workflowStatuses=['pending-confirmation','running','awaiting-owner','paused','succeeded','failed','cancelled','invalidated'];
+ const stepStatuses=['pending','running','awaiting-owner','needs-review','succeeded','failed','cancelled','invalidated'];
+ const targetSource=record.targetSource==='server-approved'?'server-approved':'local-owner-defined';
+ const policy=record.policySnapshot;
+ const allowedSkills=[...new Set((Array.isArray(policy.allowedSkills)?policy.allowedSkills:[])
+  .map(value=>String(value||'').slice(0,48))
+  .filter(value=>['describe_object','capture_image','product_search'].includes(value)))].slice(0,3).sort();
+ const safePolicy={
+  contract:String(policy.contract||'').slice(0,32),skillContract:String(policy.skillContract||'').slice(0,32),
+  createdAt:Number.isFinite(policy.createdAt)?policy.createdAt:Date.now(),
+  targetId:String(policy.targetId||record.targetId||'').slice(0,96),
+  targetSource:policy.targetSource==='server-approved'?'server-approved':'local-owner-defined',
+  targetFingerprint:String(policy.targetFingerprint||'').slice(0,500),allowedSkills,
+  participantId:String(policy.participantId||record.participantId||'').slice(0,96)||null
+ };
+ const steps=record.steps.slice(0,6).map((step,index)=>({
+  id:String(step?.id||('step-'+(index+1))).slice(0,64),
+  skillId:['describe_object','capture_image','product_search'].includes(step?.skillId)?step.skillId:'describe_object',
+  dependsOn:[...new Set((Array.isArray(step?.dependsOn)?step.dependsOn:[])
+   .map(value=>String(value||'').slice(0,64)).filter(Boolean))].slice(0,5),
+  idempotencyKey:String(step?.idempotencyKey||'').slice(0,180),
+  status:stepStatuses.includes(step?.status)?step.status:'failed',
+  attempts:Math.max(0,Math.min(3,Number(step?.attempts)||0)),
+  maxAttempts:Math.max(1,Math.min(3,Number(step?.maxAttempts)||2)),
+  startedAt:Number.isFinite(step?.startedAt)?step.startedAt:null,
+  completedAt:Number.isFinite(step?.completedAt)?step.completedAt:null,
+  resultText:String(step?.resultText||'').slice(0,900),resultSources:safeWorkflowSources(step?.resultSources),
+  executionProvenance:safeWorkflowProvenance(step?.executionProvenance),
+  errorText:String(step?.errorText||'').slice(0,240),
+  lastAttemptId:String(step?.lastAttemptId||'').slice(0,96)||null
+ }));
+ if(!safePolicy.targetId||!steps.length)throw new Error('Invalid workflow target or steps');
+ const safe={
+  schema:1,id:String(record.id).slice(0,96),name:String(record.name||'Agent workflow').slice(0,120),
+  targetId:String(record.targetId||safePolicy.targetId).slice(0,96),targetSource,
+  participantId:String(record.participantId||safePolicy.participantId||'').slice(0,96)||null,
+  policySnapshot:safePolicy,status:workflowStatuses.includes(record.status)?record.status:'failed',
+  createdAt:Number.isFinite(record.createdAt)?record.createdAt:Date.now(),
+  updatedAt:Number.isFinite(record.updatedAt)?record.updatedAt:Date.now(),
+  confirmedAt:Number.isFinite(record.confirmedAt)?record.confirmedAt:null,
+  completedAt:Number.isFinite(record.completedAt)?record.completedAt:null,
+  cancelRequested:Boolean(record.cancelRequested),recoveryRequired:Boolean(record.recoveryRequired),
+  currentStepId:String(record.currentStepId||'').slice(0,64)||null,
+  steps,errorText:String(record.errorText||'').slice(0,240)
+ };
+ return storeAction(AGENT_WORKFLOWS,'readwrite',async store=>{
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const item of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_WORKFLOWS)))store.delete(item.id);
+  return safe;
+ });
+}
+export function deleteAgentWorkflow(id){
+ return storeAction(AGENT_WORKFLOWS,'readwrite',async store=>{
+  await requestToPromise(store.delete(id));return true;
+ });
+}
+export function clearAgentWorkflows(){
+ return storeAction(AGENT_WORKFLOWS,'readwrite',store=>requestToPromise(store.clear()));
 }
 
 
