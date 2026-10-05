@@ -239,7 +239,7 @@ export function buildHardwareCertificationReport(input={}){
   schema:'tracky2-hardware-certification-v1',
   schemaVersion:HARDWARE_CERT_SCHEMA,
   product:'Tracky2',
-  version:HARDWARE_CERT_VERSION,
+  version:text(input.version||input.releaseVersion,32)||HARDWARE_CERT_VERSION,
   certificationScope:'representative-device',
   universalHardwareClaim:false,
   measuredAt:text(input.measuredAt,40)||new Date(0).toISOString(),
