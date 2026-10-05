@@ -1152,6 +1152,12 @@ function addRoomObservation(observation){
  roomHistory=roomLedger.entries();renderRoomObservations();
  updateRoomHandoffFromObservation(accepted.event);
  updateRoutineDeviation(accepted.event);
+ if(saveRoomHistory){
+  routineHistoryRows=[
+   ...routineHistoryRows.filter(row=>row?.id!==accepted.event.id),accepted.event
+  ].sort((a,b)=>a.at-b.at).slice(-500);
+ }
+ if(accepted.event.participantId)void refreshRoutineInsights({reloadFeedback:false});
  considerCognitiveObservation(accepted.event);
  if(accepted.event.source!=='multi-room-node'&&
     ['participant-observed','participant-out-of-view'].includes(accepted.event.semantic)){
