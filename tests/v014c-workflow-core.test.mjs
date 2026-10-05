@@ -41,7 +41,8 @@ test('14C workflow executes dependency-ready read-only steps then pauses for for
  prepared=prepareWorkflowStep(flow,'research',{ownerAction:false,now:4});
  assert.equal(prepared.reason,'foreground-owner-action-required');
  assert.equal(prepared.workflow.status,'awaiting-owner');
- prepared=prepareWorkflowStep({...prepared.workflow,status:'running'},'research',{ownerAction:true,now:5});
+ flow=retryInterruptedStep(prepared.workflow,'research',5);
+ prepared=prepareWorkflowStep(flow,'research',{ownerAction:true,now:6});
  assert.equal(prepared.step.status,'running');
 });
 
