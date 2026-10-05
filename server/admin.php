@@ -64,7 +64,7 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=$target['username'];
    }elseif($action==='permission'){
     $role=(string)($_POST['role']??'');$perm=(string)($_POST['permission']??'');
-    $allowed=['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'];
+    $allowed=['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use'];
     if(!in_array($role,['viewer','operator','admin'],true)||!in_array($perm,$allowed,true))
       throw new RuntimeException('Invalid permission.');
     if(($_POST['enabled']??'')==='1')
@@ -119,7 +119,7 @@ if(!$user){
  if(tracky_permission($db,$user,'roles.manage')){
   echo '<section><h2>User types & permissions</h2><p>Changes take effect on the next request. The owner role is immutable.</p><table><tr><th>Role</th><th>Permission</th><th>Grant</th></tr>';
   foreach(['admin','operator','viewer'] as $role)
-   foreach(['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage'] as $perm){
+   foreach(['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use'] as $perm){
     $q=$db->prepare('SELECT 1 FROM role_permissions WHERE role=? AND permission=?');$q->execute([$role,$perm]);
     $enabled=(bool)$q->fetchColumn();
     echo '<tr><td>'.$role.'</td><td>'.$perm.'</td><td><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="permission"><input type="hidden" name="role" value="'.$role.'"><input type="hidden" name="permission" value="'.$perm.'"><input type="hidden" name="enabled" value="'.($enabled?'0':'1').'"><button>'.($enabled?'Revoke':'Grant').'</button></form></td></tr>';
@@ -127,7 +127,7 @@ if(!$user){
   echo '</table></section>';
  }
  if(tracky_permission($db,$user,'providers.manage')){
-  echo '<section><h2>LLM & Voice Providers</h2><p>Encrypted server-side. Saved API keys are never displayed.</p>';
+  echo '<section><h2>LLM & Voice Providers</h2><p>Encrypted server-side. Saved API keys are never displayed. Runtime use is separately governed by the <code>providers.use</code> permission and bounded daily/session budgets.</p>';
   $names=['openai'=>'OpenAI / ChatGPT','anthropic'=>'Anthropic / Claude','elevenlabs'=>'ElevenLabs'];
   foreach(tracky_provider_status($db) as $p){
    $provider=$p['provider'];echo '<h3>'.tracky_html($names[$provider]).' — '.($p['configured']?'Configured':'Not configured').'</h3><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-save"><input type="hidden" name="provider" value="'.$provider.'"><label>API key<input type="password" name="secret" autocomplete="off" maxlength="4096" required></label><button>Save or replace</button></form>';
