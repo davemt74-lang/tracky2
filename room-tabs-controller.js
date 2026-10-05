@@ -34,7 +34,7 @@ function show(tab,focus=false){
   panes[name].style.display=on?'block':'none';
  }
  if(focus)(selected==='dialogue'?dialogue:selected==='activity'?activity:selected==='agent'?agent:selected==='meeting'?meeting:room).focus();
- if(selected==='dialogue'&&typeof window!=='undefined')
+ if(selected==='dialogue'&&typeof window!=='undefined'&&typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')
   window.dispatchEvent(new CustomEvent('tracky:conversation-visible'));
 }
 for(const [name,button] of [['dialogue',dialogue],['activity',activity],...(agent?[['agent',agent]]:[]),...(meeting?[['meeting',meeting]]:[]),...(room?[['room',room]]:[])]){
