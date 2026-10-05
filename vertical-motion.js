@@ -499,11 +499,39 @@ function reportListeningDrops(dropped=[]){
   ' segment'+(dropped.length===1?'':'s')+' · '+reasons,
   'conversation-listening',{semantic:'listening-backpressure'});
 }
+async function refreshEnvironmentalFeedback(){
+ try{environmentalFeedback=await listEnvironmentalFeedback();}
+ catch(error){console.warn('Environmental feedback unavailable',error);environmentalFeedback=[];}
+ renderEnvironmentalAudio();
+ return environmentalFeedback;
+}
+async function recordEnvironmentalOwnerFeedback(event,outcome){
+ const feedback=environmentalFeedbackFromRoomEvent(event,outcome,Date.now());
+ if(!feedback)return false;
+ try{
+  await saveEnvironmentalFeedback(feedback);
+  await refreshEnvironmentalFeedback();
+  logRoomMessage('system',
+   'Owner '+(outcome==='confirmed'?'confirmed':'marked incorrect')+
+   ' environmental classification · '+feedback.subtype.replaceAll('-',' '),
+   'owner-environment-feedback',{
+    semantic:'environmental-feedback',
+    relatedEventId:event.id
+   });
+  return true;
+ }catch(error){
+  console.warn('Environmental feedback save failed',error);return false;
+ }
+}
 function renderEnvironmentalAudio(){
  if(state.mode!=='agent')return;
  const status=document.getElementById('roomEnvironmentalAudioStatus');
  const result=document.getElementById('roomEnvironmentalAudioResult');
+ const current=document.getElementById('roomEnvironmentalCurrent');
+ const feedbackStatus=document.getElementById('roomEnvironmentalFeedbackStatus');
  const snapshot=environmentalAudioQueue.snapshot();
+ const currentGroup=environmentalEventGrouper.current(Date.now());
+ environmentalAudioCurrentGroup=currentGroup;
  if(status){
   const stateLabel=environmentalAudioState==='off'?'OFF':
    environmentalAudioState==='loading'?'LOADING MODEL':
@@ -514,9 +542,20 @@ function renderEnvironmentalAudio(){
  }
  if(result){
   result.textContent=environmentalAudioLast
-   ? environmentalClassificationMessage(environmentalAudioLast)
+   ? environmentalV2Message(environmentalAudioLast)
    : 'No approved environmental classification this session.';
  }
+ if(current){
+  current.textContent=currentGroup
+   ?(currentGroup.current?'Current grouped event: ':'Last grouped event: ')+
+    currentGroup.subtype.replaceAll('-',' ')+' · '+currentGroup.observationCount+
+    ' observation'+(currentGroup.observationCount===1?'':'s')+' · '+
+    Math.round(currentGroup.currentConfidence*100)+'% decayed confidence · source '+
+    currentGroup.sourceDirection
+   :'No current grouped environmental event.';
+ }
+ if(feedbackStatus)feedbackStatus.textContent='Owner calibration feedback: '+
+  environmentalFeedback.length+' record'+(environmentalFeedback.length===1?'':'s')+'.';
 }
 async function ensureEnvironmentalAudioClassifier(){
  if(environmentalAudioClassifier?.ready){
@@ -567,28 +606,46 @@ async function processEnvironmentalAudioWork(work){
   if(!environmentalAudioQueue.current(work,Date.now())){
    outcome='cancelled';return;
   }
-  const normalized=normalizeEnvironmentalPredictions(detail.predictions,{
+  const normalized=normalizeEnvironmentalV2Predictions(detail.predictions,{
    modelId:detail.modelId,modelRevision:detail.modelRevision,
-   at:work.queuedAt,durationMs:work.durationMs
+   at:work.queuedAt,durationMs:work.durationMs,audioSource:work.audioSource
   });
   if(!normalized.accepted){
    environmentalAudioDecision=normalized.reason==='speech-or-sensitive-filtered'
-    ?'Speech / sensitive model label filtered'
+    ?'Speech / unsupported sensitive model label filtered'
     : normalized.reason.replaceAll('-',' ');
    renderEnvironmentalAudio();return;
   }
-  const classification=normalized.classification;
+  const classification=calibrateEnvironmentalClassification(
+   normalized.classification,environmentalFeedback
+  );
   environmentalAudioLast=classification;
-  environmentalAudioDecision='Approved category classified locally';
-  const emission=environmentalAudioTracker.observe(classification,Date.now());
+  environmentalAudioDecision='V2 environmental event classified locally';
+  // Preserve the V0.11 cooldown tracker as a compatibility guard while V2
+  // grouping controls short-burst milestones.
+  const legacyEmission=environmentalAudioTracker.observe(classification,Date.now());
+  const grouped=environmentalEventGrouper.observe(classification,Date.now());
+  environmentalAudioCurrentGroup=grouped.group;
   renderEnvironmentalAudio();
-  if(emission.emit&&state.mode==='agent'){
-   logRoomMessage('audio',environmentalClassificationMessage(classification),
+  const emit=grouped.reason==='new-group'?legacyEmission.emit:grouped.emit;
+  if(emit&&grouped.group&&state.mode==='agent'){
+   logRoomMessage('audio',environmentalV2Message(classification),
     'local-audioset-c38c005',{
-     at:classification.at,semantic:'environmental-audio-classification',
+     at:classification.at,semantic:'environmental-audio-classification-v2',
      confidence:classification.confidence,
-     dedupeKey:'environment:'+classification.category+':'+classification.modelLabel,
-     evidence:{durationMs:classification.durationMs}
+     dedupeKey:'environment-v2:'+grouped.group.id+':'+grouped.group.observationCount,
+     evidence:{
+      durationMs:classification.durationMs,
+      environmental:{
+       category:classification.category,subtype:classification.subtype,
+       modelLabel:classification.modelLabel,groupId:grouped.group.id,
+       observationCount:grouped.group.observationCount,
+       sourceDirection:grouped.group.sourceDirection,
+       rawConfidence:classification.rawConfidence??classification.confidence,
+       calibratedConfidence:classification.confidence,
+       observableOnly:true,healthInference:'none'
+      }
+     }
     });
   }
  }catch(error){
@@ -628,15 +685,18 @@ function setEnvironmentalAudioEnabled(enabled){
  if(enabled){
   environmentalAudioQueue.enable(Date.now());
   environmentalAudioTracker.reset();
-  environmentalAudioLast=null;
+  environmentalEventGrouper.reset();
+  environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
-  environmentalAudioDecision='Owner enabled session-only classification';
+  environmentalAudioDecision='Owner enabled session-only V2 classification';
   renderEnvironmentalAudio();
+  void refreshEnvironmentalFeedback();
   void ensureEnvironmentalAudioClassifier();
  }else{
   environmentalAudioQueue.disable();
   environmentalAudioTracker.reset();
-  environmentalAudioLast=null;
+  environmentalEventGrouper.reset();
+  environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
   environmentalAudioDecision='Disabled by owner';
   renderEnvironmentalAudio();
