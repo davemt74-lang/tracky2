@@ -6,6 +6,9 @@ import {
  rankProactiveOpportunities,routineProactiveOpportunity,semanticOpportunityKey,
  semanticRepeatState
 } from '../src/agent-proactive-intelligence-core.js';
+import {
+ DEFAULT_PROACTIVE_POLICY,ProactiveAgentGovernor,proactiveOpportunity
+} from '../src/agent-proactive-core.js';
 
 test('13H usefulness and urgency rank failed task above generic follow-up',()=>{
  const rows=rankProactiveOpportunities([
@@ -107,6 +110,84 @@ test('13H runtime offers only confirmed routine deviations to proactive governor
  assert.match(runtime,/routineProactiveOpportunity/);
  assert.match(runtime,/proactiveGovernor\.offer/);
  assert.match(runtime,/routine\.status==='confirmed'/);
+});
+
+test('13H governor chooses higher-value eligible task over earlier generic follow-up',()=>{
+ const governor=new ProactiveAgentGovernor({
+  ...DEFAULT_PROACTIVE_POLICY,globalCooldownMs:30000,participantCooldownMs:30000
+ });
+ governor.offer(proactiveOpportunity({
+  id:'follow',type:'conversation-followup',participantId:'p1',scopeId:'scope:p:p1',
+  sourceAt:1000,eligibleAt:1000,text:'Would you like more help?',
+  usefulness:.5,urgency:.1,semanticKey:'follow:p1'
+ },1000,governor.policy));
+ governor.offer(proactiveOpportunity({
+  id:'task',type:'task-status',participantId:'p1',scopeId:'scope:p:p1',
+  sourceAt:1100,eligibleAt:1100,text:'Task failed',
+  usefulness:.95,urgency:.95,semanticKey:'task:failed'
+ },1100,governor.policy));
+ const decision=governor.evaluateNext({
+  now:2000,pageVisible:true,busy:false,meetingActive:false,
+  visibleParticipantIds:['p1'],activeTaskCount:0,lastDialogueAt:1000,
+  participantById:id=>({id,agentProactiveEnabled:true}),
+  quietPolicy:{quietEnabled:false}
+ });
+ assert.equal(decision.action,'speak');
+ assert.equal(decision.opportunity.id,'task');
+ assert.ok(decision.opportunity.priorityScore>0);
+ assert.equal(decision.trace.some(row=>row.stage==='rank'),true);
+});
+
+test('13H governor hard-cancels recent semantic repeats after ordinary cooldown passes',()=>{
+ const governor=new ProactiveAgentGovernor({
+  ...DEFAULT_PROACTIVE_POLICY,globalCooldownMs:30000,participantCooldownMs:30000,
+  semanticRepeatMs:5*60*1000
+ });
+ const make=at=>proactiveOpportunity({
+  type:'task-status',participantId:'p1',scopeId:'scope:p:p1',
+  sourceAt:at,eligibleAt:at,text:'Approved task completed',
+  semanticKey:'task-status:completed',usefulness:.8,urgency:.4
+ },at,governor.policy);
+ governor.offer(make(1000));
+ const context=now=>({
+  now,pageVisible:true,busy:false,meetingActive:false,visibleParticipantIds:['p1'],
+  activeTaskCount:0,lastDialogueAt:0,participantById:id=>({id,agentProactiveEnabled:true}),
+  quietPolicy:{quietEnabled:false}
+ });
+ const first=governor.evaluateNext(context(1000));
+ governor.recordOutcome(first,{executed:true,at:1000});
+ governor.offer(make(40000));
+ const repeat=governor.evaluateNext(context(40000));
+ assert.equal(repeat.action,'cancel');
+ assert.equal(repeat.reason,'semantic repeat cooldown');
+ assert.equal(governor.snapshot(40000).pending,0);
+});
+
+test('13H long verified conversation changes follow-up style without storing transcript',()=>{
+ const governor=new ProactiveAgentGovernor({...DEFAULT_PROACTIVE_POLICY,followupDelayMs:15000});
+ for(let i=0;i<6;i++)governor.noteDialogue({
+  id:'t'+i,participantId:'p1',attribution:'voice-profile',
+  multimodalDecision:'verified',multimodalState:'verified-multimodal',
+  conversationScopeId:'scope:p:p1',transcript:'private words '+i,at:1000+i
+ },1000+i);
+ assert.equal(governor.snapshot(2000).sessionPlans,1);
+ assert.equal(governor.pending.length,1);
+ assert.match(governor.pending[0].text,/keep helping/i);
+ assert.equal(JSON.stringify(governor.planner.snapshot(2000)).includes('private words'),false);
+});
+
+test('13H identity conflict does not create a proactive session plan',()=>{
+ const governor=new ProactiveAgentGovernor();
+ const result=governor.noteDialogue({
+  id:'conflict',participantId:'p1',attribution:'voice-profile',
+  multimodalDecision:'verified-with-conflict',
+  multimodalState:'verified-voice-visual-conflict',
+  multimodalConflicts:['visual-identity-conflict'],
+  conversationScopeId:'scope:p:p1',transcript:'hello',at:1000
+ },1000);
+ assert.equal(result,null);
+ assert.equal(governor.snapshot(1000).sessionPlans,0);
+ assert.equal(governor.snapshot(1000).pending,0);
 });
 
 test('13H no new identity authority or proactive persistence is introduced',()=>{
