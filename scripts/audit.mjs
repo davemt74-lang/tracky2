@@ -94,6 +94,7 @@ const requiredFiles = [
   'src/transcript-correction.js',
   'src/agent-cognitive-core.js',
   'src/agent-proactive-core.js',
+  'src/agent-proactive-intelligence-core.js',
   'src/session-recall-core.js',
   'src/session-recall-ui.js',
   'src/recording-core.js',
@@ -199,6 +200,7 @@ const runtimeJs = [
   'src/transcript-correction.js',
   'src/agent-cognitive-core.js',
   'src/agent-proactive-core.js',
+  'src/agent-proactive-intelligence-core.js',
   'src/session-recall-core.js',
   'src/session-recall-ui.js',
   'src/recording-core.js',
@@ -265,8 +267,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.13.6') {
-  fail('package.json version must be 0.13.6');
+if (packageJson.version !== '0.13.7') {
+  fail('package.json version must be 0.13.7');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -390,7 +392,7 @@ if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
 if (!/tracky2-v0\.13\.6-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.13.6 deploy ZIP');
+  fail('CI must build Tracky2 V0.13.7 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
