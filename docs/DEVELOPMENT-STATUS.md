@@ -42,24 +42,27 @@
 - **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
 - Representative hardware PASS/PARTIAL/FAIL evidence remains specific to the actual tested device/browser/environment and is not universal hardware certification.
 
-## Active section: 13B — Overlapping-Speaker Source Separation V2
-- **Branch:** `feat/v013b-overlap-source-separation`.
-- **Audited baseline:** **5.8/10**.
-- Added pure `src/overlap-source-separation-core.js` with a conservative maximum of **two sources**, stereo channel-diversity analysis, bilateral dominance checks, correlation/side-ratio quality thresholds, bounded transient source estimates and explicit unavailable/weak/refused states.
-- **One microphone remains authoritative.** The existing `RoomAudioCapture` still contains exactly one live `getUserMedia` path and continues to produce the same mono PCM for VAD, transcription, environmental audio, whole-turn voice matching and canonical diarization.
-- AudioWorklet and ScriptProcessor fallback now expose left/right PCM only as transient frames while an accepted speech segment is active. That stereo PCM is resampled into a bounded `separationInput` carried only by the existing listening segment queue.
-- Environmental audio receives the mono segment with `separationInput` stripped, preventing duplicate raw-channel retention in its queue.
-- Separation runs **only after canonical diarization reports overlap**. Mono input, missing stereo PCM, correlated/weak stereo, silence, too-short/too-long material, and more-than-two-speaker requests remain unavailable/weak/refused instead of inventing separated speakers.
-- Accepted two-source estimates are embedded through the existing speaker engine under the same listening generation/deadline cancellation checks.
-- Distinct verified voice matches become bounded **candidate participant IDs** for overlap intervals; canonical turn ownership remains `overlap`. If both source estimates match the same participant, the result becomes `ambiguous-same-participant` and no participant IDs are emitted.
-- The canonical turn stores only separation state, quality, source count, bounded source direction/voice-match metadata, participant candidates, reason and provenance. **Separated PCM never enters the canonical dialogue record or transcript export.**
-- `saveDialogueTurn` explicitly strips `separationInput`, left/right samples and other PCM fields as a defense-in-depth persistence boundary.
-- Participant deletion/revocation propagation scrubs separated-source participant IDs from persisted dialogue and current in-memory turns and downgrades a formerly fully verified separated result when necessary.
-- ROOM and AGENT views expose overlap-separation state/quality/candidate count. AGENT receives the separation state only as evidence labels; unresolved overlap still blocks participant-specific memory/proactivity.
-- Existing multi-person attribution accepts separated participant IDs only as candidates on an overlap interval; it never turns them into a single owner.
-- Release target: **V0.13.1** with package/PWA/runtime-audit/deploy/direct-release wiring.
-- Deterministic fixtures cover clean synthetic two-source stereo, identical-channel refusal, mono fallback, three-speaker refusal, silence, distinct verified source matches, same-participant ambiguity, overlap candidate projection, one-mic/transient-PCM runtime wiring, generation cancellation, environmental queue stripping, persistence/export privacy, deletion scrubbing and visible provenance.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.1 artifact/release validation.
+## Completed V0.13 sections
+- **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
+- **13B — Overlapping-Speaker Source Separation V2** — PR #68 merged at `79bd3443c7f7cd3907646034ebf59204a51248f3`. Post-merge Node/package/PWA + PHP green; direct **v0.13.1** ZIP + SHA-256 release published. **10/10**.
+- Representative hardware evidence remains specific to the tested device/browser/environment and is not universal certification.
+
+## Active section: 13C — Advanced Participant Continuity
+- **Branch:** `feat/v013c-advanced-participant-continuity`.
+- **Audited baseline:** **7.6/10**.
+- Added pure `src/participant-continuity-core.js` with bounded session-local verified-participant continuity.
+- Continuity accepts only existing **face**, **voice**, or explicit **owner-correction** identity authority; it never creates a participant identity from proximity, clothing, body shape, orientation or AGENT inference.
+- Short track fragmentation can recover an already verified participant for up to **12 seconds** when geometry, confidence and uniqueness remain strong.
+- Longer same-room re-entry is tracked for up to **120 seconds** only as a **verification-required candidate**; face or verified voice must re-establish identity before participant assignment.
+- Continuity scoring uses coarse current camera geometry plus decayed prior verified state. Appearance/color features are intentionally excluded so normal clothing/orientation changes do not become identity evidence.
+- Duplicate-visible protection blocks continuity transfer when that participant is already assigned to another current track, and duplicate fragmented candidates are downgraded to ambiguous instead of assigning the same person twice.
+- Verified voice + body association can recover a specific current track without stealing a participant already visible elsewhere.
+- Participant cards expose owner **Correct identity…** controls to assign or clear the current track. Owner-cleared/rejected participant IDs are blocked from being immediately reattached by continuity.
+- Participant deletion/revocation reconciles the continuity ledger and clears removed participant references from current tracks.
+- Confidence/event history is bounded to **36 metadata-only rows per participant** and stores no photos, embeddings, raw audio or transcripts.
+- Release target: **V0.13.2** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover short fragmentation, long-gap verification requirement, expiry, clothing/orientation independence, duplicate-visible protection, duplicate fragments, voice recovery, owner correction/clear, rejected-match blocking, deletion/revocation, bounded privacy history and runtime integration.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.2 artifact/release validation.
 
 ## Exact next action
-Open the 13B PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.1 ZIP/SHA-256/direct release, score **13B 10/10**, then start **13C — Advanced Participant Continuity** from merged main.
+Open the 13C PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.2 ZIP/SHA-256/direct release, score **13C 10/10**, then start **13D — Multi-Room Runtime V2** from merged main.
