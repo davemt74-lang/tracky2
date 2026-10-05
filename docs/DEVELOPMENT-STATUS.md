@@ -122,9 +122,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Search results retain bounded summary text plus at most five HTTPS source references. Camera capture downloads the crop locally and task history stores only bounded byte/dimension provenance, never image bytes.
 - Every successful execution records bounded skill contract/version, side-effect class, target source, authorization state and result metadata. Revoking a server object disables its skill grants.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.1**, including governed runtime/server endpoint smoke checks and direct ZIP/SHA publication.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #82 merged at `61cdf6c3998dab77e680eeda832064be39fc3914`.
+- Post-merge Tracky2 CI run #37351484130 passed Node/package/PWA and PHP/security/installer checks.
+- Direct **v0.14.1** release published against the merged commit with `tracky2-v0.14.1-deploy.zip` and `tracky2-v0.14.1-deploy.zip.sha256`.
+- Verified deploy ZIP SHA-256: `a6a2c0d5b21bc44d0210c1df901005bb9d5756d669ef4f93d09b5a304627332d`.
+- **14B final score: 10/10.**
 
 ## Exact next action
 
-Run the 14B PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.1 ZIP/SHA/direct release, then begin **14C — Agent Tasks & Workflow Execution V2**.
+Begin **14C — Agent Tasks & Workflow Execution V2** from current merged `main`. Do not reopen 14B.
 
