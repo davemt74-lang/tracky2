@@ -59,6 +59,8 @@ V0.14.2 adds local workflow orchestration over those governed skills. Workflows 
 
 V0.14.3 adds owner-approved memory learning entirely in the browser. Proposal generation reads current canonical dialogue, ROOM decisions and meeting metadata into a bounded in-memory review queue; it does not add a server memory endpoint or sync proposals. Participant-scoped proposals require resolved single-speaker attribution or an owner correction. Source IDs/fingerprints are revalidated before approval, sensitive inferred categories are suppressed, and only the owner's explicit Approve & save action can write a schema-2 durable memory. Approved memories retain bounded provenance metadata only; canonical source excerpts, transcripts, raw media, biometrics, provider prompts and credentials are not copied into the memory store.
 
+V0.14.4 adds recall/search intelligence only in the browser. Each search rebuilds a bounded in-memory semantic index from the current canonical projection; there is no server semantic-index endpoint, no background embedding job, and no persistent search-index table/store. The index contains canonical text/metadata rows only and never recording blobs or raw audio. Source/participant/time filtering is applied before ranking, lexical fallback remains available, and result explanations preserve exact canonical IDs plus stale/changed citation state. Reloading or rebuilding the projection discards the prior index.
+
 ## Backup, restore and offline recovery
 
 Use the CLI-only recovery tool from the application directory:
