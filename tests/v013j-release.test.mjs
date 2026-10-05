@@ -143,21 +143,26 @@ test('13J PWA shell contains every V0.13 runtime and release core required offli
  ])assert.match(sw,new RegExp(file.replaceAll('.','\\.')));
 });
 
-test('13J acceptance documentation and release workflow are final-version consistent',()=>{
+test('13J acceptance evidence remains intact under later additive releases',()=>{
  const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
  const audit=fs.readFileSync('scripts/audit.mjs','utf8');
  const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
  const docs=fs.readFileSync('docs/V013-RELEASE-ACCEPTANCE.md','utf8');
- assert.equal(pkg.version,V013_RELEASE_VERSION);
+ const status=fs.readFileSync('docs/DEVELOPMENT-STATUS.md','utf8');
+ const numeric=value=>String(value).split('.').map(v=>Number(v)||0);
+ const compare=(a,b)=>{const aa=numeric(a),bb=numeric(b);for(let i=0;i<3;i++){if(aa[i]!==bb[i])return aa[i]-bb[i];}return 0;};
+ assert.ok(compare(pkg.version,V013_RELEASE_VERSION)>=0,'later releases may advance package version without reopening V0.13');
+ assert.equal(V013_RELEASE_VERSION,'0.13.9');
  assert.match(pkg.scripts.test,/v013-release-core\.js/);
  assert.match(audit,/V013-RELEASE-ACCEPTANCE\.md/);
  assert.match(audit,/v013-release-core\.js/);
- assert.match(workflow,/tracky2-v0\.13\.9-deploy\.zip/);
- assert.match(workflow,/sha256sum tracky2-v0\.13\.9-deploy\.zip/);
  assert.match(workflow,/V013-RELEASE-ACCEPTANCE\.md/);
- assert.match(workflow,/gh release create v0\.13\.9/);
+ assert.match(workflow,/v013-release-core\.js/);
+ assert.match(docs,/0\.13\.9/);
  assert.match(docs,/representative-device/i);
  assert.match(docs,/not universal hardware certification/i);
+ assert.match(status,/V0\.13\.9 is complete/);
+ assert.match(status,/Do \*\*not\*\* restart V0\.13 Sections 13A–13J/);
 });
 
 test('13J digest input contains release evidence statuses only',()=>{
