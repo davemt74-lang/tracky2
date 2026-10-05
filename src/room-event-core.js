@@ -46,6 +46,7 @@ export function roomObservation(input={},now=Date.now()){
   kind,category:input.category,semantic,message:short(input.message,240),
   source:short(input.source||'local',40),deviceId:short(input.deviceId||'browser',40),
   sessionId:short(input.sessionId||'room-session',64),
+  roomId:short(input.roomId,96)||null,
   participantId:input.participantId?short(input.participantId,96):null,
   relatedEventId:input.relatedEventId?short(input.relatedEventId,96):null,
   confidence:finite(input.confidence)?Math.max(0,Math.min(1,input.confidence)):null,
