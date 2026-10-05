@@ -186,7 +186,8 @@ export class ParticipantContinuityTracker{
   const candidates=[];
   const rows=(tracks||[]).map(track=>{
    if(track.participantId)return {...track};
-   const scored=records.map(record=>({
+   const blocked=new Set((track.blockedParticipantIds||[]).map(String));
+   const scored=records.filter(record=>!blocked.has(record.participantId)).map(record=>({
     record,result:continuityCandidateState({record,track,now,currentParticipantIds:currentIds})
    })).filter(row=>row.result.score>0).sort((a,b)=>b.result.score-a.result.score);
    const best=scored[0]||null,second=scored[1]||null;
