@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {buildHardwareCertificationReport} from '../src/hardware-certification-core.js';
 import {
  DEVICE_PERFORMANCE_MAX_SAMPLES,DevicePerformanceGovernor,
  adaptivePerformancePolicy,coarseDevicePerformanceCapabilities,
@@ -110,6 +111,25 @@ test('13I runtime uses governor only for optional workload degradation',()=>{
  assert.match(runtime,/environmentalAudioAllowed/);
  assert.match(runtime,/IDENTITY_SCAN_INTERVAL\s*\*/);
  assert.doesNotMatch(runtime,/performance.*stopCamera|performance.*stopRoomAudio/i);
+});
+
+test('13I certification export contains only bounded aggregate performance trend fields',()=>{
+ const report=buildHardwareCertificationReport({
+  releaseVersion:'0.13.8',
+  performance:{
+   state:'measured',samples:120,durationMs:7200000,
+   p95FrameGapMs:40,p95ScanMs:900,medianScanMs:420,maxAudioQueue:2,
+   maxHeapRatio:.68,minBatteryLevel:.55,maxStorageRatio:.42,
+   worstLevel:'reduced',degradationCount:2,outcome:'pass',
+   outcomeReason:'multi-hour-performance-within-bounds',
+   rawTrace:[1,2,3],cpuModel:'forbidden'
+  }
+ });
+ assert.equal(report.metrics.performance.samples,120);
+ assert.equal(report.metrics.performance.outcome,'pass');
+ const json=JSON.stringify(report);
+ assert.equal(json.includes('rawTrace'),false);
+ assert.equal(json.includes('cpuModel'),false);
 });
 
 test('13I diagnostics exposes performance trend and certification export integration',()=>{
