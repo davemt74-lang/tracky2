@@ -526,7 +526,9 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     // Explicit participant memories have the same local deletion boundary.
     const memoryRows = await requestToPromise(memories.getAll());
     for (const memory of memoryRows) {
-      if (memory.participantId === id) memories.delete(memory.id);
+      if (memory.participantId === id) { memories.delete(memory.id); continue; }
+      if ((Array.isArray(memory.sourceRefs)?memory.sourceRefs:[])
+          .some(ref=>ref?.participantId===id)) memories.delete(memory.id);
     }
 
     // Meeting metadata references participant IDs only; scrub them without deleting
@@ -1006,8 +1008,8 @@ export function clearAgentWorkflows(){
 }
 
 
-/* V0.10G durable memory is owner-authored only. Canonical transcripts and ROOM
-   events stay in their existing stores and are referenced at retrieval time. */
+/* V0.14D durable memory remains owner-authorized only. Owner-authored rows and
+   explicitly owner-approved proposal rows may persist; proposal queues never do. */
 export function listAgentMemories(){
  return storeAction(AGENT_MEMORIES,'readonly',async store=>{
   const rows=await requestToPromise(store.getAll());
@@ -1017,11 +1019,20 @@ export function listAgentMemories(){
 }
 export async function saveAgentMemory(input){
  const memory=normalizeMemoryRecord({...input,persistent:true});
- if(memory.authority!=='owner'||memory.provenance!=='owner-authored')
-  throw new Error('Only owner-authored memory can be persisted.');
+ if(memory.authority!=='owner'||!['owner-authored','owner-approved-proposal'].includes(memory.provenance))
+  throw new Error('Only owner-authorized memory can be persisted.');
+ const sourceRefs=memory.provenance==='owner-approved-proposal'
+  ?memory.sourceRefs.slice(0,5).map(ref=>({
+    kind:String(ref.kind||'').slice(0,32),sourceId:String(ref.sourceId||'').slice(0,96),
+    meetingId:String(ref.meetingId||'').slice(0,96)||null,
+    participantId:String(ref.participantId||'').slice(0,96)||null,
+    at:Number.isFinite(ref.at)?ref.at:null,fingerprint:String(ref.fingerprint||'').slice(0,96)||null
+   })):[];
  const safe={
-  schema:1,id:memory.id,type:memory.type,participantId:memory.participantId,
-  text:memory.text,authority:'owner',provenance:'owner-authored',
+  schema:2,id:memory.id,type:memory.type,participantId:memory.participantId,
+  text:memory.text,authority:'owner',provenance:memory.provenance,
+  sourceRefs,approvedAt:Number.isFinite(memory.approvedAt)?memory.approvedAt:null,
+  proposalMethod:String(memory.proposalMethod||'').slice(0,64)||null,
   createdAt:memory.createdAt,updatedAt:memory.updatedAt,expiresAt:memory.expiresAt,
   status:memory.status,revokedAt:memory.revokedAt,revokeReason:memory.revokeReason,
   revisions:memory.revisions.map(r=>({text:r.text,at:r.at})),persistent:true
