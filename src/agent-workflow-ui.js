@@ -1,5 +1,5 @@
 import {executeRegisteredTask} from './agent-task-core.js';
-import {localSkillTarget} from './governed-skill-core.js';
+import {localSkillTarget,skillDefinition as governedSkillDefinition} from './governed-skill-core.js';
 import {executeServerProductSearch,loadServerSkillTargets} from './governed-skill-client.js';
 import {
  MAX_WORKFLOWS,workflowPreset,restoreAgentWorkflow,workflowDependencyState,workflowProgress,
@@ -148,7 +148,10 @@ export function createAgentWorkflowUi({
     actions.append(button('Cancel',()=>void cancelWorkflow(workflow.id),'Cancel '+workflow.name));
    }else if(['running','awaiting-owner','paused'].includes(workflow.status)){
     const needsReview=workflow.steps.some(step=>step.status==='needs-review');
-    const foreground=workflow.status==='awaiting-owner'||needsReview;
+    const waitingOwner=workflow.steps.some(step=>step.status==='awaiting-owner');
+    const nextReady=readyWorkflowSteps(workflow)[0];
+    const foreground=workflow.status==='awaiting-owner'||needsReview||waitingOwner||
+     governedSkillDefinition(nextReady?.skillId)?.foregroundOwnerAction===true;
     actions.append(button(foreground?'Run next step · owner action':'Resume',
      ()=>void runNext(workflow.id,{ownerAction:foreground}),
      (foreground?'Run next workflow step for ':'Resume ')+workflow.name));
@@ -235,9 +238,10 @@ export function createAgentWorkflowUi({
   workflow=checked.workflow;
   if(workflow.status==='paused'){
    const review=workflow.steps.find(step=>step.status==='needs-review');
-   if(review){
-    if(!ownerAction){setStatus('Interrupted side-effect step requires explicit owner review.');return;}
-    workflow=retryInterruptedStep(workflow,review.id,Date.now());
+   const waiting=workflow.steps.find(step=>step.status==='awaiting-owner');
+   if(review||waiting){
+    if(!ownerAction){setStatus('Interrupted or owner-gated side-effect step requires explicit owner review.');return;}
+    workflow=retryInterruptedStep(workflow,(review||waiting).id,Date.now());
    }
    workflow=resumeWorkflow(workflow,Date.now());
    await persist(workflow);
