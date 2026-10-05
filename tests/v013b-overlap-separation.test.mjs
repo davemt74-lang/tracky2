@@ -149,9 +149,32 @@ test('13B canonical transcript persistence/export excludes transient source PCM'
  const saveStart=runtime.indexOf('savedTurn = await saveDialogueTurn');
  const saveBlock=runtime.slice(Math.max(0,saveStart-8500),saveStart+1000);
  assert.doesNotMatch(saveBlock,/separationInput\.left|separationInput\.right/);
- assert.doesNotMatch(store,/separationInput/);
+ assert.match(store,/separationInput:discardSeparationInput/);
  const exportStart=transcript.indexOf('export function transcriptExport');
  assert.doesNotMatch(transcript.slice(exportStart),/separationInput|source\.samples/);
+});
+
+test('13B participant deletion and transient reconciliation scrub separated-source identity refs',()=>{
+ const store=fs.readFileSync('src/participant-store.js','utf8');
+ const long=fs.readFileSync('src/long-session-core.js','utf8');
+ const deleteStart=store.indexOf('export async function deleteParticipant');
+ const deleteEnd=store.indexOf('export async function prunePendingCaptures',deleteStart);
+ const deletion=store.slice(deleteStart,deleteEnd);
+ assert.match(deletion,/overlapSeparationParticipantIds/);
+ assert.match(deletion,/overlapSeparationSources/);
+ assert.match(deletion,/separated-partial/);
+ assert.match(long,/overlapSeparationParticipantIds:scrubIds/);
+ assert.match(long,/overlapSeparationSources:separationSources/);
+});
+
+test('13B ROOM and AGENT expose bounded separation state without changing canonical overlap ownership',()=>{
+ const html=fs.readFileSync('vertical-motion.html','utf8');
+ const runtime=fs.readFileSync('vertical-motion.js','utf8');
+ const agent=fs.readFileSync('agent-mode.js','utf8');
+ assert.match(html,/id="roomOverlapSeparation"/);
+ assert.match(runtime,/Overlap separation ·/);
+ assert.match(agent,/Overlap separation ·/);
+ assert.match(runtime,/overlapSeparation:overlapSeparationFields/);
 });
 
 test('13B pure separation core opens no sensor, storage, model, transcript or network authority',()=>{
