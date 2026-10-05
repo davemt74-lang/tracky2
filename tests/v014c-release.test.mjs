@@ -17,7 +17,8 @@ test('14C workflow release artifacts remain present under later additive V0.14 r
 
 test('14C workflow persistence migration and package shell are aligned',()=>{
  const store=read('src/participant-store.js'),sw=read('sw.js');
- const version=Number(store.match(/const DB_VERSION = (\\d+)/)?.[1]||0);\n assert.ok(version>=13);
+ const version=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(version>=13);
  assert.match(store,/agent-workflows/);
  assert.match(store,/MAX_PERSISTED_AGENT_WORKFLOWS = 80/);
  assert.match(sw,/agent-workflow-core\.js/);assert.match(sw,/agent-workflow-ui\.js/);
