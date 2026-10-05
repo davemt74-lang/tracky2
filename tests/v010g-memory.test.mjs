@@ -109,11 +109,12 @@ test('10G persistence is additive v6 owner-only memory metadata and participant 
  assert.ok(version>=6);
  assert.match(store,/const AGENT_MEMORIES = 'agent-memories'/);
  assert.match(store,/createObjectStore\(AGENT_MEMORIES,\{keyPath:'id'\}\)/);
- assert.match(store,/Only owner-authored memory can be persisted/);
+ assert.match(store,/Only owner-authorized memory can be persisted/);
  const del=store.slice(store.indexOf('export async function deleteParticipant('),
   store.indexOf('export async function prunePendingCaptures('));
  assert.match(del,/AGENT_MEMORIES/);
- assert.match(del,/memory.participantId === id\) memories.delete\(memory.id\)/);
+ assert.match(del,/memory\.participantId === id/);
+ assert.match(del,/sourceRefs/);
  const saveStart=store.indexOf('export async function saveAgentMemory');
  const syncStart=store.indexOf('/* V0.10H explicit manual participant sync state.',saveStart);
  const save=store.slice(saveStart,syncStart>saveStart?syncStart:undefined);
@@ -126,7 +127,7 @@ test('10G UI requires explicit save choice and supports revision, revocation, de
  const controller=fs.readFileSync('vertical-motion.js','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  assert.match(html,/id="agentMemoryPersist"/);
- assert.match(html,/Not copied into durable memory automatically/);
+ assert.match(html,/Not copied into durable memory without owner approval/);
  assert.match(ui,/ledger\.revise\(/);
  assert.match(ui,/ledger\.revoke\(/);
  assert.match(ui,/deleteAgentMemory/);
