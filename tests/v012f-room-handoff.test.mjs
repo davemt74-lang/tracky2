@@ -123,6 +123,16 @@ test('12F canonical ROOM observations carry room id and runtime feeds stable pre
  assert.match(runtime,/roomId:currentRoomIdentity\(\)\.id/);
 });
 
+test('12F canonical ROOM dedupe keeps same participant observations from different rooms',async()=>{
+ const {RoomEventLedger}=await import('../src/room-event-core.js');
+ const ledger=new RoomEventLedger({dedupeWindowMs:5000});
+ const base={category:'presence',semantic:'participant-observed',message:'Pat observed in room',
+  participantId:'p1',source:'stable-camera-track',sessionId:'s1',dedupeKey:'participant:p1:observed'};
+ assert.equal(ledger.append({...base,id:'a',roomId:'kitchen',at:1000}).added,true);
+ assert.equal(ledger.append({...base,id:'b',roomId:'office',at:1500}).added,true);
+ assert.equal(ledger.entries().length,2);
+});
+
 test('12F pure handoff layer opens no media, persistence or network path',()=>{
  const core=fs.readFileSync('src/room-handoff-core.js','utf8');
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|indexedDB|localStorage|fetch\(|WebSocket/);
