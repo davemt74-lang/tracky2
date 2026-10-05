@@ -26,7 +26,7 @@ export class MultiRoomRuntimeClient{
   this.csrf='';this.permissions=new Set();this.authenticated=false;
   this.node=null;this.pending=[];this.timer=0;this.lastCursor=0;
   this.running=false;this.syncing=false;this.failures=0;this.lastError=null;
-  this.primaryState='unavailable';
+  this.serverOffsetMs=0;this.primaryState='unavailable';
  }
  state(){
   const now=Date.now();
@@ -41,6 +41,7 @@ export class MultiRoomRuntimeClient{
    nodeCount:nodes.length,nodes,primaryNodeId:primary.primaryNodeId,
    isPrimary:Boolean(this.node&&primary.primaryNodeId===this.node.id),
    primaryState:primary.state,pending:this.pending.length,
+   serverOffsetMs:this.serverOffsetMs,
    failures:this.failures,lastError:this.lastError
   });
  }
@@ -111,7 +112,9 @@ export class MultiRoomRuntimeClient{
   void this.sync();this.emit();return true;
  }
  ingestPayload(data={}){
-  const now=Number(data.serverNow)||Date.now();
+  const localNow=Date.now();
+  const now=Number(data.serverNow)||localNow;
+  this.serverOffsetMs=Math.max(-30000,Math.min(30000,now-localNow));
   for(const node of Array.isArray(data.nodes)?data.nodes:[])this.nodeRegistry.update(node,now);
   this.nodeRegistry.prune(now);
   let cursor=this.lastCursor;
@@ -119,7 +122,10 @@ export class MultiRoomRuntimeClient{
    cursor=Math.max(cursor,Number(input.serverReceivedAt)||0);
    if(input.nodeId===this.node?.id)continue;
    const result=this.eventLedger.ingest(input,null,now);
-   if(result.added)this.onRemoteObservation(result.event);
+   if(result.added)this.onRemoteObservation(Object.freeze({
+    ...result.event,
+    localNormalizedAt:result.event.normalizedAt-this.serverOffsetMs
+   }));
   }
   this.lastCursor=cursor;
   this.eventLedger.prune(now);
