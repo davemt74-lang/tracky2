@@ -70,7 +70,8 @@
 - `docs/hardware-acceptance.md` now documents the V0.13I two-hour device-performance exercise and the narrow graceful-degradation contract.
 - Release target: **V0.13.8** with package/PWA/runtime-audit/deploy/direct-release wiring.
 - Deterministic fixtures cover risk thresholds, canonical-sensor preservation, delta sampling, hysteretic recovery, hard sample bounds, trend summaries, two-hour certification, runtime optional-work degradation, diagnostics integration and pure-core safety.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.8 ZIP/SHA-256/direct-release validation.
+- PR #75 merged at `f5548fb20555447c975c28bb19ac2f4b6a12b73b` after the current PR head passed Node/package/PWA + PHP/security and deploy-ZIP verification.
+- **Merge checkpoint score: 9.9/10.** Runtime code is merged; the remaining 0.1 is latest-`main` CI plus direct V0.13.8 ZIP/SHA-256 publication.
 
 ## Exact next action
-Open the 13I PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.8 ZIP/SHA-256/direct release, score **13I 10/10**, then start **13J — V0.13 Release Certification** from merged main.
+Verify latest `main` with V0.13.8 Node/package/PWA + PHP green and direct ZIP/SHA-256 publication. Then score **13I 10/10** and begin **13J — V0.13 Release Certification**.
