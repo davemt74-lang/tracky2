@@ -182,9 +182,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Recording projection continues to index metadata and canonical transcript references only; raw recording media/chunks are never indexed.
 - No IndexedDB/localStorage/server semantic index, background embedding job, external provider call or new synchronization authority was added.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.4**, including semantic-recall syntax/smoke/package checks and direct ZIP/SHA publication.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #88 merged at `002289cdd739c40b7c06883f6a2bac68a7f29bad`.
+- Post-merge Tracky2 CI run #37359100553 passed Node/package/PWA and PHP/security/installer checks.
+- Direct **v0.14.4** release published against the merged commit with `tracky2-v0.14.4-deploy.zip` and `tracky2-v0.14.4-deploy.zip.sha256`.
+- Verified deploy ZIP SHA-256: `29c71b9ab29170f3501bac2b58a0a452154890986c9eb63f558d094f69a24ad1`.
+- **14E final score: 10/10.**
 
 ## Exact next action
 
-Run the 14E PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.4 ZIP/SHA/direct release, then begin **14F — Encrypted Server Sync V2**.
+Begin **14F — Encrypted Server Sync V2** from current merged `main`. Do not reopen 14E.
 
