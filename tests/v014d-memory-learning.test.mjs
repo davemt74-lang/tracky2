@@ -73,7 +73,7 @@ test('14D source fingerprint invalidates corrected or deleted canonical evidence
  assert.equal(validateMemoryProposalSources(proposal,{dialogueTurns:[turn]}).valid,true);
  assert.equal(validateMemoryProposalSources(proposal,{dialogueTurns:[{...turn,transcript:'I prefer tea.'}]}).reason,'proposal-source-changed');
  assert.equal(validateMemoryProposalSources(proposal,{dialogueTurns:[]}).reason,'proposal-source-deleted');
- assert.equal(validateMemoryProposalSources(proposal,{dialogueTurns:[{...turn,multiPersonTurnOwnership:'overlap'}]}).reason,'proposal-source-changed');
+ assert.equal(validateMemoryProposalSources(proposal,{dialogueTurns:[{...turn,multiPersonTurnOwnership:'overlap'}]}).reason,'proposal-speaker-no-longer-eligible');
 });
 
 test('14D duplicate and contradiction review is participant-scoped and deterministic',()=>{
