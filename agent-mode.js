@@ -213,8 +213,19 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      (entry.multiPersonAttributionCorrections||[]).length?'owner corrected':''
     ].filter(Boolean);
     attributionMeta.textContent='Turn attribution · '+attributionBits.join(' · ');
+    const spatialAudioMeta=document.createElement('small');
+    spatialAudioMeta.className='agent-conversation-provenance';
+    const spatialAudioBits=[
+     entry.spatialAudioSourceState||'source-unavailable',
+     entry.spatialAudioDirection||'unavailable',
+     Number.isFinite(entry.spatialAudioDirectionConfidence)
+      ?Math.round(entry.spatialAudioDirectionConfidence*100)+'%':'',
+     entry.spatialAudioMetric?'metric floor context':'non-metric context',
+     entry.spatialAudioConflict?'conflict:'+entry.spatialAudioConflict:''
+    ].filter(Boolean);
+    spatialAudioMeta.textContent='Spatial audio · '+spatialAudioBits.join(' · ');
     bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta,
-     continuousMeta,attributionMeta);
+     continuousMeta,attributionMeta,spatialAudioMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

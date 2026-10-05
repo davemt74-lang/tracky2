@@ -73,6 +73,21 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    roomHandoffReason:t.roomHandoffReason||null,
    roomHandoffProvenance:Array.isArray(t.roomHandoffProvenance)
     ?t.roomHandoffProvenance.slice(0,12):[],
+   spatialAudioSourceState:t.spatialAudioSourceState||null,
+   spatialAudioDirection:t.spatialAudioDirection||null,
+   spatialAudioDirectionConfidence:Number.isFinite(t.spatialAudioDirectionConfidence)
+    ?t.spatialAudioDirectionConfidence:null,
+   spatialAudioAudioDirection:t.spatialAudioAudioDirection||null,
+   spatialAudioVisualDirection:t.spatialAudioVisualDirection||null,
+   spatialAudioAgreement:t.spatialAudioAgreement===true?true:
+    t.spatialAudioAgreement===false?false:null,
+   spatialAudioMetric:t.spatialAudioMetric===true,
+   spatialAudioDistanceM:Number.isFinite(t.spatialAudioDistanceM)?t.spatialAudioDistanceM:null,
+   spatialAudioBearingDeg:Number.isFinite(t.spatialAudioBearingDeg)?t.spatialAudioBearingDeg:null,
+   spatialAudioConflict:t.spatialAudioConflict||null,
+   spatialAudioReason:t.spatialAudioReason||null,
+   spatialAudioProvenance:Array.isArray(t.spatialAudioProvenance)
+    ?t.spatialAudioProvenance.slice(0,12):[],
    transcriptState:String(t.transcriptState||(t.transcriptEditedAt?'corrected':'final')),
    transcriptSource:String(t.transcriptSource||'local-whisper'),
    transcriptModelId:t.transcriptModelId||null,

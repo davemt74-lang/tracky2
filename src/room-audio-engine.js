@@ -4,6 +4,7 @@ import {
   speakingThreshold,
   updateNoiseFloor
 } from './voice-core.js';
+import { aggregateAudioSourceEvidence } from './spatial-audio-source-core.js';
 import {
   TRANSCRIPTION_MODEL_ID,
   TRANSCRIPTION_MODEL_REVISION,
@@ -145,6 +146,8 @@ export class RoomAudioCapture {
     this.speaking = false;
     this.frames = [];
     this.levels = [];
+    this.spatialFrames = [];
+    this.inputChannelCount = 1;
     this.segmentStartedAt = 0;
     this.lastVoiceAt = 0;
     this.running = false;
@@ -165,7 +168,7 @@ export class RoomAudioCapture {
 
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        channelCount: 1,
+        channelCount: { ideal: 2 },
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: false
@@ -176,6 +179,9 @@ export class RoomAudioCapture {
     // The browser may revoke the microphone or the physical device may disconnect.
     // Neither event proves room silence, nor is it a participant departure.
     const captured=this.stream;
+    const primaryTrack=captured.getAudioTracks()[0]||null;
+    const reportedChannels=Number(primaryTrack?.getSettings?.().channelCount);
+    this.inputChannelCount=Number.isFinite(reportedChannels)&&reportedChannels>=2?2:1;
     for(const track of captured.getAudioTracks()){
       track.addEventListener('ended',()=>{
         if(this.stream===captured&&this.running){
@@ -233,12 +239,20 @@ export class RoomAudioCapture {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [1],
-        channelCount: 1
+        channelCount: this.inputChannelCount,
+        channelCountMode: 'explicit'
       });
 
       this.worklet.port.onmessage = (event) => {
-        if (event.data?.length) {
-          this.processFrame(Float32Array.from(event.data));
+        const data=event.data;
+        if (data?.samples?.length) {
+          this.processFrame(Float32Array.from(data.samples),performance.now(),{
+            channelCount:Number(data.channelCount)||this.inputChannelCount,
+            leftRms:Number(data.leftRms),
+            rightRms:data.rightRms==null?null:Number(data.rightRms)
+          });
+        } else if (data?.length) {
+          this.processFrame(Float32Array.from(data));
         }
       };
 
@@ -259,10 +273,26 @@ export class RoomAudioCapture {
       throw new Error('No supported PCM audio capture path is available.');
     }
 
-    this.processor = this.context.createScriptProcessor(4096, 1, 1);
+    this.processor = this.context.createScriptProcessor(
+      4096,this.inputChannelCount>=2?2:1,1
+    );
     this.processor.onaudioprocess = (event) => {
-      const input = event.inputBuffer.getChannelData(0);
-      this.processFrame(Float32Array.from(input));
+      const left=event.inputBuffer.getChannelData(0);
+      const hasRight=event.inputBuffer.numberOfChannels>=2;
+      const right=hasRight?event.inputBuffer.getChannelData(1):null;
+      const mono=new Float32Array(left.length);
+      let leftSum=0,rightSum=0;
+      for(let i=0;i<left.length;i+=1){
+        const l=left[i]||0,r=right?.[i]??l;
+        mono[i]=right?(l+r)*.5:l;
+        leftSum+=l*l;
+        if(right)rightSum+=r*r;
+      }
+      this.processFrame(mono,performance.now(),{
+        channelCount:hasRight?2:1,
+        leftRms:Math.sqrt(leftSum/Math.max(1,left.length)),
+        rightRms:hasRight?Math.sqrt(rightSum/Math.max(1,left.length)):null
+      });
     };
 
     this.lowpass.connect(this.processor);
@@ -271,7 +301,7 @@ export class RoomAudioCapture {
     this.captureMode = 'script-processor-fallback';
   }
 
-  processFrame(frame, now = performance.now()) {
+  processFrame(frame, now = performance.now(), spatialFrame = null) {
     if (!this.running || !frame?.length) return;
 
     const db = dbFromRms(rmsLevel(frame));
@@ -286,7 +316,8 @@ export class RoomAudioCapture {
         speaking: false,
         elapsedSeconds: 0,
         suppressed: true,
-        captureMode: this.captureMode
+        captureMode: this.captureMode,
+        inputChannelCount:this.inputChannelCount
       });
       return;
     }
@@ -302,16 +333,19 @@ export class RoomAudioCapture {
         this.speaking = true;
         this.frames = [];
         this.levels = [];
+        this.spatialFrames = [];
         this.segmentStartedAt = now;
       }
 
       this.frames.push(frame);
       this.levels.push(db);
+      if(spatialFrame)this.spatialFrames.push(spatialFrame);
       this.lastVoiceAt = now;
     } else if (this.speaking) {
       if (now - this.lastVoiceAt <= this.hangoverMs) {
         this.frames.push(frame);
         this.levels.push(db);
+        if(spatialFrame)this.spatialFrames.push(spatialFrame);
       } else {
         void this.finishSegment(now);
       }
@@ -329,7 +363,8 @@ export class RoomAudioCapture {
       speaking: this.speaking,
       elapsedSeconds,
       suppressed: false,
-      captureMode: this.captureMode
+      captureMode: this.captureMode,
+      inputChannelCount:this.inputChannelCount
     });
   }
 
@@ -337,6 +372,7 @@ export class RoomAudioCapture {
     this.speaking = false;
     this.frames = [];
     this.levels = [];
+    this.spatialFrames = [];
     this.segmentStartedAt = 0;
     this.lastVoiceAt = 0;
   }
@@ -351,6 +387,7 @@ export class RoomAudioCapture {
 
     const frames = this.frames;
     const levels = this.levels;
+    const spatialFrames=this.spatialFrames;
     const startedAt = this.segmentStartedAt;
     const sourceRate = this.context?.sampleRate || 48000;
 
@@ -365,6 +402,7 @@ export class RoomAudioCapture {
     const avgDb = levels.length
       ? levels.reduce((sum, value) => sum + value, 0) / levels.length
       : -100;
+    const audioSource=aggregateAudioSourceEvidence(spatialFrames);
 
     const segment = {
       samples,
@@ -374,7 +412,8 @@ export class RoomAudioCapture {
       durationSeconds,
       peakDb,
       avgDb,
-      noiseFloorDb: this.noiseFloorDb
+      noiseFloorDb: this.noiseFloorDb,
+      audioSource
     };
 
     await this.onSegment(segment);
@@ -413,6 +452,7 @@ export class RoomAudioCapture {
     this.processor = null;
     this.mute = null;
     this.suppressed = false;
+    this.inputChannelCount = 1;
     this.captureMode = 'offline';
   }
 }

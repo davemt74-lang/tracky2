@@ -91,6 +91,9 @@ import {
  summarizeContinuousFusion,visualSnapshotForWindow
 } from './src/continuous-fusion-core.js';
 import {
+ fuseSpatialAudioSource,spatialAudioSourceTurnFields,visualSpatialSourceEvidence
+} from './src/spatial-audio-source-core.js';
+import {
  buildTurnAttribution,multiPersonAttributionTurnFields
 } from './src/multi-person-attribution-core.js';
 import {
@@ -190,6 +193,7 @@ const ui = {
   roomVadState: $('#roomVadState'),
   roomVoiceModel: $('#roomVoiceModel'),
   roomAudioPath: $('#roomAudioPath'),
+  roomAudioSource: $('#roomAudioSource'),
   roomSpeaker: $('#roomSpeaker'),
   roomVoiceConfidence: $('#roomVoiceConfidence'),
   roomBodyLock: $('#roomBodyLock'),
@@ -960,6 +964,12 @@ const state = {
     currentContinuousFusionParticipantIds: [],
     currentContinuousFusionConflicts: [],
     currentContinuousFusionUnresolvedWindows: 0,
+    currentSpatialAudioState: 'source-unavailable',
+    currentSpatialAudioDirection: 'unavailable',
+    currentSpatialAudioConfidence: 0,
+    currentSpatialAudioConflict: null,
+    currentSpatialAudioMetric: false,
+    inputChannelCount: 1,
     currentConversationAttention: 'unknown',
     currentConversationGroupSize: 1,
     currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
@@ -1776,6 +1786,11 @@ async function reloadIdentityParticipants() {
     state.voice.currentContinuousFusionParticipantIds=[];
     state.voice.currentContinuousFusionConflicts=[];
     state.voice.currentContinuousFusionUnresolvedWindows=0;
+    state.voice.currentSpatialAudioState='source-unavailable';
+    state.voice.currentSpatialAudioDirection='unavailable';
+    state.voice.currentSpatialAudioConfidence=0;
+    state.voice.currentSpatialAudioConflict=null;
+    state.voice.currentSpatialAudioMetric=false;
     state.voice.currentConversationAttention='unknown';
     state.voice.currentConversationGroupSize=1;
     state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -2329,10 +2344,20 @@ function renderVoiceHud() {
       ? 'Loading…'
       : 'Standby';
   ui.roomAudioPath.textContent = state.voice.captureMode === 'audio-worklet'
-    ? 'AudioWorklet'
+    ? 'AudioWorklet · '+state.voice.inputChannelCount+'ch'
     : state.voice.captureMode === 'script-processor-fallback'
-      ? 'Compatibility'
+      ? 'Compatibility · '+state.voice.inputChannelCount+'ch'
       : 'Offline';
+  if(ui.roomAudioSource){
+    const sourceLabel=String(state.voice.currentSpatialAudioState||'source-unavailable')
+      .replaceAll('-',' ').toUpperCase();
+    const direction=String(state.voice.currentSpatialAudioDirection||'unavailable').toUpperCase();
+    ui.roomAudioSource.textContent=sourceLabel+' · '+direction+
+      (state.voice.currentSpatialAudioConfidence
+       ?' · '+Math.round(state.voice.currentSpatialAudioConfidence*100)+'%':'')+
+      (state.voice.currentSpatialAudioMetric?' · METRIC':' · NON-METRIC')+
+      (state.voice.currentSpatialAudioConflict?' · CONFLICT':'');
+  }
   ui.roomSpeaker.textContent = state.voice.currentSpeakerName || '—';
   ui.roomVoiceConfidence.textContent = state.voice.currentVoiceConfidence
     ? Math.round(state.voice.currentVoiceConfidence * 100) + '%'
@@ -2512,9 +2537,19 @@ function renderDialogueTurns() {
       (turn.multiPersonAttributionCorrections||[]).length?'owner corrected':''
     ].filter(Boolean);
     attributionMeta.textContent='Turn attribution · '+attributionBits.join(' · ');
+    const spatialAudioMeta=document.createElement('small');
+    const spatialAudioBits=[
+      turn.spatialAudioSourceState||'source-unavailable',
+      turn.spatialAudioDirection||'unavailable',
+      Number.isFinite(turn.spatialAudioDirectionConfidence)
+       ?Math.round(turn.spatialAudioDirectionConfidence*100)+'%':'',
+      turn.spatialAudioMetric?'metric floor context':'non-metric context',
+      turn.spatialAudioConflict?'conflict:'+turn.spatialAudioConflict:''
+    ].filter(Boolean);
+    spatialAudioMeta.textContent='Spatial audio · '+spatialAudioBits.join(' · ');
 
     card.append(top, transcript, context,transcriptMeta,conversationMeta,
-      fusionMeta,diarizationMeta,continuousMeta,attributionMeta);
+      fusionMeta,diarizationMeta,continuousMeta,attributionMeta,spatialAudioMeta);
     ui.dialogueTurns.append(card);
   }
 }
@@ -2572,6 +2607,7 @@ function onRoomAudioLevel(level) {
   state.voice.noiseFloorDb = level.noiseFloorDb;
   state.voice.vad = level.speaking;
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
+  state.voice.inputChannelCount=Math.max(1,Number(level.inputChannelCount)||state.voice.inputChannelCount||1);
   listeningController.setVad(Boolean(level.speaking));
   const captureSuppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
    agentSpeechActive||state.voice.ttsPending>0);
@@ -2941,6 +2977,20 @@ async function processRoomSegment(segment) {
     const fusionFields=multimodalFusionTurnFields(fusion);
     const diarizationFields=diarizationTurnFields(diarization);
     const continuousFields=continuousFusionTurnFields(continuousFusion);
+    const spatialVisual=visualSpatialSourceEvidence({
+      calibration:sceneUI?.getScene?.()?.calibration||null,
+      track:track||null
+    });
+    const spatialAudio=fuseSpatialAudioSource({
+      audioEvidence:segment.audioSource||null,
+      visualEvidence:spatialVisual
+    });
+    const spatialAudioFields=spatialAudioSourceTurnFields(spatialAudio);
+    state.voice.currentSpatialAudioState=spatialAudio.state;
+    state.voice.currentSpatialAudioDirection=spatialAudio.direction;
+    state.voice.currentSpatialAudioConfidence=spatialAudio.confidence;
+    state.voice.currentSpatialAudioConflict=spatialAudio.conflict;
+    state.voice.currentSpatialAudioMetric=spatialAudio.metric===true;
     const multiPersonAttribution=buildTurnAttribution({
       diarizationSpans:diarization.spans,
       continuousFusionWindowLinks:continuousFusion.windowLinks,
@@ -2980,6 +3030,7 @@ async function processRoomSegment(segment) {
      ...fusionFields,
      ...diarizationFields,
      ...continuousFields,
+     ...spatialAudioFields,
      ...multiPersonFields,
      roomId:captureRoom.id,
      roomName:captureRoom.name,
@@ -3311,6 +3362,7 @@ async function startRoomAudio() {
     state.voice.audio=capture;
     await capture.start();
     state.voice.captureMode = state.voice.audio.captureMode;
+    state.voice.inputChannelCount=state.voice.audio.inputChannelCount||1;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
     speakerAssociationTracker.reset();
@@ -3411,6 +3463,11 @@ function stopRoomAudio() {
   state.voice.currentContinuousFusionParticipantIds=[];
   state.voice.currentContinuousFusionConflicts=[];
   state.voice.currentContinuousFusionUnresolvedWindows=0;
+  state.voice.currentSpatialAudioState='source-unavailable';
+  state.voice.currentSpatialAudioDirection='unavailable';
+  state.voice.currentSpatialAudioConfidence=0;
+  state.voice.currentSpatialAudioConflict=null;
+  state.voice.currentSpatialAudioMetric=false;
   state.voice.currentConversationAttention='unknown';
   state.voice.currentConversationGroupSize=1;
   state.voice.currentConversationLabel='UNVERIFIED SPEAKER · SOLO';
@@ -3423,6 +3480,7 @@ function stopRoomAudio() {
   state.voice.currentTranscriptSegmentId=null;
   state.voice.currentTranscriptModelRevision=null;
   state.voice.captureMode = 'offline';
+  state.voice.inputChannelCount = 1;
   for(const track of state.identity.tracks){
    track.verifiedVoiceSegment=false;track.lastVoiceAt=0;track.voiceLevelDb=-100;
   }
