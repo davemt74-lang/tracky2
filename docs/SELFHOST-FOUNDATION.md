@@ -17,13 +17,17 @@ Owner is the only default user allowed to change role permission grants and cann
 
 ## Participant storage and browser/server synchronization
 
-Browser IndexedDB remains authoritative for ordinary standalone use and is never uploaded in the background. In Admin, **Review participant sync** compares only participant profiles from the current browser with the server. Each participant must be enabled separately. Face/voice embeddings or saved photographs require explicit participant consent before browser/server synchronization is enabled.
+Browser IndexedDB remains authoritative for ordinary standalone use and is never uploaded in the background.
 
-Synchronization is manual and participant-only in V0.10.7. Current conversation transcripts, ROOM events, AGENT memories, tasks, game history and scene data are not uploaded by this sync path. The browser stores only reconciliation metadata: enabled state, last acknowledged server version, local deletion tombstone and consent-confirmation time.
+**Participant sync remains a separate legacy lane.** In Admin, **Review participant sync** compares only participant profiles from the current browser with the server. Each participant must be enabled separately. Face/voice embeddings or saved photographs require explicit participant consent before browser/server participant synchronization is enabled. Participant changes use optimistic versions and deletion tombstones; conflicts require an explicit owner choice.
 
-The server stores participant profile JSON encrypted at rest with the private instance `secret.key`. Each record has an optimistic version number and deletion tombstone. If both browser and server changed, Tracky2 does not merge silently: Admin shows a conflict and requires **Keep browser copy** or **Keep server copy**. Even a conflict resolution is tied to the server version the owner reviewed; a newer unseen server change re-opens the conflict.
+**V0.14.5 encrypted metadata sync is independently scoped.** A browser registers its own device ID, label, and any selected subset of `memory`, `task`, and `scene`. Eligible memory must already be durable and owner-authorized. Eligible task metadata must be terminal and owner-confirmed. Scene sync contains only the owner-defined `local-room` configuration. Device scopes can be changed explicitly and the device ID can be revoked from the browser or Admin.
 
-Offline or failed sync attempts leave browser and server records unchanged except for already-saved local reconciliation metadata. Refreshing the manual sync screen later recomputes the correct action from current browser data, server version and deletion state.
+Metadata payloads are encrypted with the private instance key before they are stored in SQLite. Writes use optimistic resource versions and tombstones, stable change IDs make a lost acknowledgement replay-safe, and a bounded server cursor supports explicit incremental resume. The browser persists only device/scope/version state and an ID/fingerprint-only journal capped at 200 entries; synchronized payloads are not copied into that journal. A pending push is rejected when its canonical local fingerprint changed before resume.
+
+Per-item and per-resource quotas are enforced. The metadata lane cannot select transcripts, ROOM events, meetings as resources, recordings or recording media, workflows, raw camera/audio, biometric profiles, embeddings, provider prompts/credentials, or arbitrary resource types. Scene tombstones are rejected; save an empty owner-defined scene configuration instead. There is no periodic/background sync timer or service-worker synchronization.
+
+Participant sync and metadata sync both require an authenticated server session plus `sync.manage`; they do not grant one another consent or scope. Offline or failed attempts leave canonical local records intact. Conflict resolution is always explicit, and revoking a metadata-sync device stops future access for that device ID.
 
 ## Multi-room node runtime
 
