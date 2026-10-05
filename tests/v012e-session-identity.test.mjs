@@ -122,7 +122,10 @@ test('12E participant store persists session lifecycle metadata without source c
  assert.match(store,/export function saveSessionIdentity/);
  assert.match(store,/export function listSessionIdentities/);
  assert.match(store,/DB_VERSION = 9/);
- const section=store.slice(store.indexOf('export function saveSessionIdentity'));
+ const start=store.indexOf('export function saveSessionIdentity');
+ const end=store.indexOf('export function getSessionIdentity',start);
+ const section=store.slice(start,end);
+ assert.ok(start>0&&end>start);
  assert.doesNotMatch(section,/transcript|rawAudio|samples|embedding|primaryPhoto|message/);
 });
 
