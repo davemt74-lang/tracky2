@@ -726,8 +726,27 @@ export async function saveRoomObservation(record){
   message:String(record.message||'').slice(0,240),participantId:record.participantId||null,
   confidence:record.confidence??null,source:record.source||'local',
   relatedEventId:record.relatedEventId?String(record.relatedEventId).slice(0,96):null,
-  evidence:Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null?
-   {durationMs:record.evidence.durationMs}:null,
+  evidence:(Number.isFinite(record.evidence?.durationMs)||record.evidence?.durationMs===null||
+    record.evidence?.environmental)?{
+   durationMs:Number.isFinite(record.evidence?.durationMs)?record.evidence.durationMs:null,
+   environmental:record.evidence?.environmental?{
+    category:String(record.evidence.environmental.category||'').slice(0,64)||null,
+    subtype:String(record.evidence.environmental.subtype||'').slice(0,64)||null,
+    modelLabel:String(record.evidence.environmental.modelLabel||'').slice(0,96)||null,
+    groupId:String(record.evidence.environmental.groupId||'').slice(0,96)||null,
+    observationCount:Number.isFinite(record.evidence.environmental.observationCount)?
+     Math.max(1,Math.floor(record.evidence.environmental.observationCount)):null,
+    sourceDirection:['left','right','center','unavailable'].includes(
+     record.evidence.environmental.sourceDirection)?
+     record.evidence.environmental.sourceDirection:'unavailable',
+    rawConfidence:Number.isFinite(record.evidence.environmental.rawConfidence)?
+     Math.max(0,Math.min(1,record.evidence.environmental.rawConfidence)):null,
+    calibratedConfidence:Number.isFinite(record.evidence.environmental.calibratedConfidence)?
+     Math.max(0,Math.min(1,record.evidence.environmental.calibratedConfidence)):null,
+    observableOnly:record.evidence.environmental.observableOnly===true,
+    healthInference:'none'
+   }:null
+  }:null,
   version:record.version===1?1:null,kind:record.kind||'observation',
   semantic:String(record.semantic||'').slice(0,48),
   deviceId:String(record.deviceId||'browser').slice(0,40),
