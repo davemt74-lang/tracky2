@@ -37,14 +37,15 @@ test('10I ROOM overview stays factual and count-based',()=>{
  assert.equal(empty.evidence,0);
 });
 
-test('10I ROOM tab exposes compact overview and keyboard-native filter controls',()=>{
+test('10I ROOM keeps factual overview in Control Center and keyboard-native unified-feed filters',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
+ assert.match(html,/id="controlCenterRoomPanel"/);
  assert.match(html,/id="roomUiOverview"/);
  assert.match(html,/id="roomOverviewParticipants"/);
  assert.match(html,/id="roomOverviewSensors"/);
  assert.match(html,/id="roomOverviewEvidence"/);
  assert.match(html,/id="roomOverviewDecisions"/);
- assert.match(html,/role="group" aria-label="Filter ROOM evidence"/);
+ assert.match(html,/role="group" aria-label="Filter unified ROOM feed"/);
  for(const key of ['all','presence','audio','decision','activity','system'])
   assert.match(html,new RegExp('data-room-filter="'+key+'"'));
  assert.match(html,/id="roomTimelineCount" aria-live="polite"/);
@@ -75,10 +76,11 @@ test('10I responsive presentation preserves existing mobile rails and keyboard t
  assert.match(css,/@media\(max-width:520px\)/);
 });
 
-test('10I evidence view keeps privacy and diagnostic disclaimers visible',()=>{
+test('10I ROOM/Control Center keep privacy and diagnostic boundaries visible',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
- assert.match(html,/not diagnostic assessments/i);
+ assert.match(html,/overall environment/i);
+ assert.match(html,/Person-specific identity, movement, dwell and voice-profile activity stays in Player \/ Participant views/i);
  assert.match(html,/not a measured floor plan/i);
- assert.match(html,/not music, TV, coughing, voices or any identifiable sound source/i);
- assert.match(html,/does not diagnose health, infer sleep from stillness/i);
+ assert.match(html,/They do not identify a sound source/i);
+ assert.match(html,/does not create Agent Memory or infer health, emotion, sleep, protected traits, or intent/i);
 });
