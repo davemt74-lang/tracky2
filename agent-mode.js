@@ -69,13 +69,20 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     'Refresh server provider status to view budget.';
   }
  }
+  function scrollConversationToLatest(){
+   requestAnimationFrame(()=>{
+    ui.thread.scrollTop=ui.thread.scrollHeight;
+    const panel=ui.thread.closest('.room-left-tabpanel');
+    if(panel&&!panel.hidden)panel.scrollTop=panel.scrollHeight;
+   });
+  }
  function showThread(){
   ui.thread.replaceChildren();
   const items=conversationTimeline(getDialogueTurns(),entries,participants()).slice(-75);
   if(!items.length){
    const empty=document.createElement('p');empty.className='dialogue-empty';
    empty.textContent='Start room audio to begin your conversation with AGENT.';
-   ui.thread.append(empty);return;
+   ui.thread.append(empty);scrollConversationToLatest();return;
   }
   for(const entry of items){
    const row=document.createElement('article');row.className='agent-chat-message '+entry.role;
@@ -278,7 +285,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }
-  ui.thread.scrollTop=ui.thread.scrollHeight;
+   scrollConversationToLatest();
  }
  function append(role,text,participantId=null,scopeId=null){
   entries=appendAgentHistory(entries,{role,text,participantId,scopeId,at:Date.now()});
@@ -663,6 +670,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   });
   window.addEventListener('tracky:participant-voice-updated',()=>refreshModalName(document.body.dataset.participantId));
+   window.addEventListener('tracky:conversation-visible',scrollConversationToLatest);
   showThread();
   window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
