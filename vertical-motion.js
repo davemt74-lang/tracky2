@@ -2568,6 +2568,17 @@ function renderDialogueTurns() {
       turn.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
     ].filter(Boolean);
     diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
+    const separationMeta=document.createElement('small');
+    const separationBits=[
+      turn.overlapSeparationState||'unavailable',
+      Number.isFinite(turn.overlapSeparationQuality)
+       ?Math.round(turn.overlapSeparationQuality*100)+'% quality':'',
+      (turn.overlapSeparationParticipantIds||[]).length
+       ?(turn.overlapSeparationParticipantIds||[]).length+' verified source candidate'+
+        ((turn.overlapSeparationParticipantIds||[]).length===1?'':'s'):'',
+      turn.overlapSeparationReason||''
+    ].filter(Boolean);
+    separationMeta.textContent='Overlap separation · '+separationBits.join(' · ');
     const continuousMeta=document.createElement('small');
     const continuousBits=[
       turn.continuousFusionState||'not-recorded',
