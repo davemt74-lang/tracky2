@@ -16,7 +16,25 @@ function eventId(){
 }
 function boundedEvidence(input){
  const e=input&&typeof input==='object'?input:{};
- return Object.freeze({durationMs:finite(e.durationMs)?Math.max(0,e.durationMs):null});
+ const env=e.environmental&&typeof e.environmental==='object'?e.environmental:null;
+ const environmental=env?Object.freeze({
+  category:short(env.category,64)||null,
+  subtype:short(env.subtype,64)||null,
+  modelLabel:short(env.modelLabel,96)||null,
+  groupId:short(env.groupId,96)||null,
+  observationCount:finite(env.observationCount)?Math.max(1,Math.floor(env.observationCount)):null,
+  sourceDirection:['left','right','center','unavailable'].includes(env.sourceDirection)
+   ?env.sourceDirection:'unavailable',
+  rawConfidence:finite(env.rawConfidence)?Math.max(0,Math.min(1,env.rawConfidence)):null,
+  calibratedConfidence:finite(env.calibratedConfidence)?
+   Math.max(0,Math.min(1,env.calibratedConfidence)):null,
+  observableOnly:env.observableOnly===true,
+  healthInference:'none'
+ }):null;
+ return Object.freeze({
+  durationMs:finite(e.durationMs)?Math.max(0,e.durationMs):null,
+  environmental
+ });
 }
 export function roomObservation(input={},now=Date.now()){
  if(!input||typeof input!=='object'||!CATEGORIES.has(input.category))return null;
