@@ -75,7 +75,7 @@ function cosine(a,b){
 function rowText(row){
  return [row.title,row.text,row.sourceType,row.subtype,row.status,...(row.provenance||[])].filter(Boolean).join(' ');
 }
-function staleCount(row){return (row.references||[]).filter(ref=>ref.state==='stale').length;}
+function evidenceIssueCount(row){return (row.references||[]).filter(ref=>ref.state!=='available').length;}
 function lexicalCoverage(row,query){
  const q=[...new Set(clean(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(stem).filter(Boolean))];
  if(!q.length)return 0;
@@ -107,8 +107,8 @@ export class SemanticRecallIndex{
    const row=entry.row;if(!recallRowAllowed(row,options))continue;
    const semantic=Math.max(0,cosine(queryVector,entry.vector));
    const lexical=lexicalCoverage(row,q);
-   const stalePenalty=staleCount(row)>.0?.035:0;
-   const score=semantic*semanticWeight+lexical*(1-semanticWeight)-stalePenalty;
+   const evidencePenalty=evidenceIssueCount(row)>0?.035:0;
+   const score=semantic*semanticWeight+lexical*(1-semanticWeight)-evidencePenalty;
    if(score<.08&&lexical===0)continue;
    candidates.push(Object.freeze({...row,
     matchTerms:Object.freeze([]),score:Number(score.toFixed(6)),
@@ -135,20 +135,24 @@ export function searchRecallV2(rows=[],query='',options={}){
 }
 
 export function summarizeRecallResults(results=[],{maxSources=4}={}){
- const rows=Array.isArray(results)?results:[],counts=new Map(),stale=new Set();
+ const rows=Array.isArray(results)?results:[],counts=new Map(),stale=new Set(),changed=new Set();
  for(const row of rows){
   counts.set(row.sourceType,(counts.get(row.sourceType)||0)+1);
-  for(const ref of row.references||[])if(ref.state==='stale')stale.add(ref.type+':'+ref.id);
+  for(const ref of row.references||[]){
+   if(ref.state==='stale')stale.add(ref.type+':'+ref.id);
+   else if(ref.state==='changed')changed.add(ref.type+':'+ref.id);
+  }
  }
  const sources=[...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,Math.max(1,Math.min(8,maxSources)));
  const top=rows.slice(0,3).map(row=>({id:row.id,title:row.title,sourceType:row.sourceType,at:row.at}));
  return Object.freeze({
-  resultCount:rows.length,staleReferenceCount:stale.size,
+  resultCount:rows.length,staleReferenceCount:stale.size,changedReferenceCount:changed.size,
   sources:Object.freeze(sources.map(([sourceType,count])=>Object.freeze({sourceType,count}))),
   top:Object.freeze(top.map(Object.freeze)),
   summary:rows.length
    ?rows.length+' ranked result'+(rows.length===1?'':'s')+' across '+sources.length+' source type'+(sources.length===1?'':'s')+
-    (stale.size?' · '+stale.size+' stale reference'+(stale.size===1?'':'s')+' preserved':'')
+    (stale.size?' · '+stale.size+' stale reference'+(stale.size===1?'':'s')+' preserved':'')+
+    (changed.size?' · '+changed.size+' changed reference'+(changed.size===1?'':'s')+' flagged':'')
    :'No recall results to summarize.'
  });
 }
