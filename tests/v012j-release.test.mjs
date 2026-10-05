@@ -65,7 +65,7 @@ test('12J software readiness never claims physical hardware certification',()=>{
 test('12J release regression inventory contains Sections 12A through 12I',()=>{
  const expected=[
   'v012a-multimodal-identity.test.mjs',
-  'v012b-diarization.test.mjs',
+  'v012b-speaker-diarization.test.mjs',
   'v012c-continuous-fusion.test.mjs',
   'v012d-multi-person-attribution.test.mjs',
   'v012e-session-identity.test.mjs',
