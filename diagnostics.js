@@ -9,6 +9,7 @@ import {
  compareHardwareCertificationReports,normalizeCapabilityMatrix
 } from './src/hardware-certification-core.js';
 
+const DIAGNOSTICS_RELEASE={version:'0.13.0'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
@@ -135,6 +136,7 @@ function exerciseInputs(){
 function buildCurrentReport(measuredAt=new Date().toISOString()){
  return buildHardwareCertificationReport({
   measuredAt,
+  releaseVersion:DIAGNOSTICS_RELEASE.version,
   runtimeProfile:{
    userAgent:navigator.userAgent,
    platform:navigator.platform,
