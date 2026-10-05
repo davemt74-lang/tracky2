@@ -258,6 +258,31 @@ export function transcriptExport(turns=[],participants=[],options={}){
    spatialAudioProvenance:Object.freeze(
     Array.from(turn.spatialAudioProvenance||[]).map(value=>String(value).slice(0,96)).slice(0,12)
    ),
+   overlapSeparationState:String(turn.overlapSeparationState||'').slice(0,64)||null,
+   overlapSeparationQuality:cleanConfidence(turn.overlapSeparationQuality),
+   overlapSeparationSourceCount:Math.max(0,Number(turn.overlapSeparationSourceCount)||0),
+   overlapSeparationParticipantIds:Object.freeze(
+    Array.from(turn.overlapSeparationParticipantIds||[]).slice(0,2)
+   ),
+   overlapSeparationSources:Object.freeze(
+    Array.from(turn.overlapSeparationSources||[]).slice(0,2).map(source=>Object.freeze({
+     sourceId:String(source?.sourceId||'').slice(0,96),
+     direction:String(source?.direction||'').slice(0,24),
+     state:String(source?.state||'unverified').slice(0,48),
+     participantId:source?.participantId||null,
+     voiceConfidence:cleanConfidence(source?.voiceConfidence),
+     voiceMargin:finite(source?.voiceMargin)?source.voiceMargin:null
+    }))
+   ),
+   overlapSeparationReason:String(turn.overlapSeparationReason||'').slice(0,160)||null,
+   overlapSeparationCorrelation:finite(turn.overlapSeparationCorrelation)
+    ?turn.overlapSeparationCorrelation:null,
+   overlapSeparationSideRatio:finite(turn.overlapSeparationSideRatio)
+    ?turn.overlapSeparationSideRatio:null,
+   overlapSeparationProvenance:Object.freeze(
+    Array.from(turn.overlapSeparationProvenance||[])
+     .map(value=>String(value).slice(0,96)).slice(0,12)
+   ),
    multiPersonAttributionState:String(turn.multiPersonAttributionState||'').slice(0,48)||null,
    multiPersonTurnOwnership:String(turn.multiPersonTurnOwnership||'').slice(0,48)||null,
    multiPersonParticipantIds:Object.freeze(
