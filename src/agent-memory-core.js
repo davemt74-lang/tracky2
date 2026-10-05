@@ -1,6 +1,7 @@
 // V0.10G controlled memory: durable rows are owner-authored only.
 // Canonical dialogue/ROOM events are referenced at retrieval time and never copied here.
-export const AGENT_MEMORY_SCHEMA=1;
+export const AGENT_MEMORY_SCHEMA=2;
+export const MAX_MEMORY_SOURCE_REFS=5;
 export const MAX_AGENT_MEMORIES=200;
 export const MEMORY_TYPES=Object.freeze(['preference','relationship','note']);
 export const MAX_MEMORY_REVISIONS=10;
@@ -8,6 +9,22 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const short=(v,n)=>String(v??'').trim().slice(0,n);
 const id=()=>globalThis.crypto?.randomUUID?.()||
  'memory-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+const SOURCE_KINDS=new Set(['dialogue','room-event','meeting-note','meeting-decision']);
+export function normalizeMemorySourceRefs(input=[]){
+ const rows=[];
+ for(const ref of Array.isArray(input)?input:[]){
+  if(rows.length>=MAX_MEMORY_SOURCE_REFS)break;
+  const kind=short(ref?.kind,32),sourceId=short(ref?.sourceId,96);
+  if(!SOURCE_KINDS.has(kind)||!sourceId)continue;
+  rows.push(Object.freeze({
+   kind,sourceId,meetingId:short(ref?.meetingId,96)||null,
+   participantId:short(ref?.participantId,96)||null,
+   at:finite(ref?.at)?ref.at:null,
+   fingerprint:short(ref?.fingerprint,96)||null
+  }));
+ }
+ return Object.freeze(rows);
+}
 
 export function normalizeMemoryRecord(input={},now=Date.now()){
  const text=short(input.text,500);
@@ -17,13 +34,18 @@ export function normalizeMemoryRecord(input={},now=Date.now()){
  const createdAt=finite(input.createdAt)?input.createdAt:now;
  const expiresAt=finite(input.expiresAt)&&input.expiresAt>createdAt?input.expiresAt:null;
  const status=input.status==='revoked'?'revoked':'active';
+ const provenance=input.provenance==='owner-approved-proposal'?'owner-approved-proposal':'owner-authored';
+ const sourceRefs=provenance==='owner-approved-proposal'?normalizeMemorySourceRefs(input.sourceRefs):Object.freeze([]);
+ const approvedAt=provenance==='owner-approved-proposal'&&finite(input.approvedAt)?input.approvedAt:null;
+ const proposalMethod=provenance==='owner-approved-proposal'
+  ?short(input.proposalMethod,64)||'owner-reviewed-canonical-evidence':null;
  const revisions=(Array.isArray(input.revisions)?input.revisions:[])
   .filter(r=>r&&typeof r.text==='string'&&r.text.trim()&&finite(r.at))
   .slice(-MAX_MEMORY_REVISIONS)
   .map(r=>Object.freeze({text:short(r.text,500),at:r.at}));
  return Object.freeze({
   schema:AGENT_MEMORY_SCHEMA,id:short(input.id,96)||id(),type,participantId,text,
-  authority:'owner',provenance:'owner-authored',
+  authority:'owner',provenance,sourceRefs,approvedAt,proposalMethod,
   createdAt,updatedAt:finite(input.updatedAt)?input.updatedAt:createdAt,
   expiresAt,status,revokedAt:status==='revoked'&&finite(input.revokedAt)?input.revokedAt:null,
   revokeReason:status==='revoked'?short(input.revokeReason,160):'',
