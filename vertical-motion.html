@@ -233,6 +233,25 @@
           <div id="agentTaskStatus" class="agent-task-status" role="status">No local tasks loaded yet.</div>
           <div id="agentTaskList" class="agent-task-list" aria-live="polite"></div>
           <small>Governed skills: describe approved objects; capture explicitly granted local camera areas; search products only for approved self-hosted objects with product_search enabled. Capture and search require a fresh foreground owner action and never run from the background scheduler.</small>
+          <section class="agent-workflow-panel" aria-label="Governed workflows">
+            <strong>WORKFLOWS · BOUNDED PRESETS</strong>
+            <small>Workflows compose only pre-approved skills. Read-only steps may continue after workflow confirmation; camera capture and network search pause for a fresh owner action. Restarts never silently repeat an interrupted side-effect step.</small>
+            <form id="agentWorkflowForm" class="agent-task-form">
+              <label>Workflow<select id="agentWorkflowPreset">
+                <option value="local-inspect">Local inspect · describe → capture</option>
+                <option value="server-research">Server research · describe → product search</option>
+              </select></label>
+              <label>Approved target<select id="agentWorkflowTarget"><option value="">Choose approved target</option></select></label>
+              <label>Participant dependency (optional)<select id="agentWorkflowParticipant"><option value="">No participant dependency</option></select></label>
+              <button type="submit">Create workflow</button>
+            </form>
+            <div class="agent-task-tools">
+              <button type="button" id="agentWorkflowRefresh">Refresh dependencies</button>
+              <button type="button" id="agentWorkflowClearDone">Clear finished workflows</button>
+            </div>
+            <div id="agentWorkflowStatus" class="agent-task-status" role="status">No governed workflows loaded yet.</div>
+            <div id="agentWorkflowList" class="agent-task-list" aria-live="polite"></div>
+          </section>
         </details>
         <details class="agent-memory-settings" id="agentMemorySettings">
           <summary>Memory &amp; participant context</summary>
