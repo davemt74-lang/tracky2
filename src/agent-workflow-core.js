@@ -269,6 +269,10 @@ export function classifyWorkflowError(error={}){
 }
 export function failWorkflowStep(workflow,stepId,error,now=Date.now()){
  const step=workflow.steps.find(row=>row.id===stepId);if(!step||step.status!=='running')return workflow;
+ if(workflow.cancelRequested){
+  return replaceStep(workflow,stepId,{status:'cancelled',completedAt:now,errorText:''},
+   {status:'cancelled',cancelRequested:false,currentStepId:null,completedAt:now,updatedAt:now,errorText:''});
+ }
  const classification=classifyWorkflowError(error);
  if(classification.invalidates)return invalidateWorkflow(workflow,classification.message||classification.class,now);
  if(classification.class==='owner-action'){
