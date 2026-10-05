@@ -217,9 +217,9 @@ SQL);
     $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
-      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
-      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','rooms.read','rooms.write'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
+      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
+      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','providers.use','rooms.read','rooms.write'],
       'viewer'=>['participants.read','scene.read']
     ];
     $db->beginTransaction();
