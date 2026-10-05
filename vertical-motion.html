@@ -407,6 +407,19 @@
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
           <small>Area dwell and relative stillness are observations, not calibrated physical movement, sitting or sleeping assessments. Camera interruption suspends estimates.</small>
         </section>
+        <section class="room-temporal-panel" id="roomHandoffPanel" aria-label="Explicit multi-room handoff controls">
+          <strong>MULTI-ROOM HANDOFF · EXPLICIT ONLY</strong>
+          <div id="roomHandoffCurrent" class="room-temporal-summary">Current room · Local room · room-local</div>
+          <form id="roomHandoffForm" class="room-scene-form">
+            <label>Participant<select id="roomHandoffParticipant"><option value="">Choose enrolled participant</option></select></label>
+            <label>Destination room ID<input id="roomHandoffTargetRoom" maxlength="96" placeholder="office"></label>
+            <button type="submit">Declare handoff</button>
+            <button type="button" id="roomHandoffDeparture">Confirm departure from this room</button>
+          </form>
+          <div id="roomHandoffStatus" class="room-temporal-summary" role="status">No explicit room handoff is active.</div>
+          <div id="roomHandoffList" class="room-temporal-summary" aria-live="polite"></div>
+          <small>Camera loss means only “out of view.” A room transition is never inferred from disappearance, area movement, or a later observation elsewhere. Handoffs require an explicit declaration and a target-room observation before they are confirmed.</small>
+        </section>
         <details class="room-scene-editor" id="roomSceneEditor">
           <summary>ROOM MAP · Configure camera-relative areas</summary>
           <small>Draw a rectangle below or enter x/y/width/height between 0 and 1. This is a camera-view map, not a measured floor plan. Saved locally only when you choose Save.</small>
