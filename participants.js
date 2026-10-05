@@ -685,3 +685,12 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('tracky:participant-voice-updated', async () => {
   await reloadParticipants();
 });
+
+window.addEventListener('tracky:account-participant-sync',event=>{
+ const detail=event.detail||{};
+ void reloadParticipants();
+ if(detail.status==='conflict')
+  setMessage('This participant changed on another signed-in device. Edit and Save to keep this device copy; otherwise reload the account version from another device first.','error');
+ else if(detail.status==='error')
+  setMessage('Account participant sync is offline: '+(detail.error||'local changes remain queued.'),'error');
+});
