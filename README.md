@@ -1,3 +1,10 @@
+# Tracky2 V0.14.7 — ROOM Feed, Control Center & Shared Conversation
+
+V0.14.7 clarifies the live AGENT UI before Multi-Room Federation V3. **ROOM** is now one chronological room-level feed for aggregate occupancy, environmental/hearing observations, background ROOM/AGENT actions, decisions and system events. Person-specific identity, movement, dwell and biometric activity stays in Player / Participant surfaces.
+
+ROOM configuration now lives in **Control Center → ROOM**. Basic ROOM behavior is enabled by default while prior explicit off settings remain respected. Advanced Room Mapping—zones, calibration, listener anchor, objects and spatial map editing—is opt-in for new installs; existing saved maps migrate as an existing opt-in.
+
+**Conversation** is one shared chronological thread containing all canonical participant/user turns plus AGENT replies. It automatically scrolls to the newest message on load, on every new turn/reply and whenever the Conversation tab is opened.
 # Tracky2 V0.14.6 — Account-Backed Participants & Control Center
 
 V0.14.6 makes signed-in participant profiles durable across desktop and mobile Tracky2 devices. The self-hosted SQLite participant database is the account-backed source while each browser keeps its existing IndexedDB cache for fast/offline use. Deliberate profile edits and deletes synchronize automatically when the account session has participant write permission.
