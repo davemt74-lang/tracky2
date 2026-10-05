@@ -79,6 +79,11 @@ export function createAgentMemoryUi({
    'meeting-note':'Owner meeting note','meeting-decision':'Owner-marked meeting decision'})[ref.kind]||ref.kind;
  }
  async function approveProposal(proposal,{text,type,expiry}){
+  if(proposal.participantId&&!(participants()||[]).some(person=>person?.id===proposal.participantId)){
+   proposalLedger.remove(proposal.id);renderProposals();
+   setStatus('Proposal participant was deleted or is unavailable. It was not saved.');
+   return;
+  }
   const valid=validateMemoryProposalSources(proposal,evidence());
   if(!valid.valid){
    proposalLedger.remove(proposal.id);renderProposals();
