@@ -68,7 +68,10 @@ export class RoomHandoffTracker{
   const competing=[...record.roomObservations.entries()]
    .filter(([candidate,seenAt])=>candidate!==room&&at-seenAt<=this.simultaneousWindowMs)
    .map(([candidate])=>candidate);
-  const pending=record.pendingHandoff;
+  let pending=record.pendingHandoff;
+  if(pending&&at-pending.at>this.handoffConfirmMs){
+   record.pendingHandoff=null;pending=null;
+  }
   if(pending&&pending.toRoomId===room&&at-pending.at<=this.handoffConfirmMs){
    record.state='handoff-confirmed';
    record.currentRoomId=room;record.lastKnownRoomId=room;
@@ -158,6 +161,7 @@ export class RoomHandoffTracker{
   const record=this.record(id);
   record.state='departed';record.currentRoomId=null;record.lastKnownRoomId=room;
   record.candidateRoomIds=[];record.lastOutOfViewAt=at;record.pendingHandoff=null;
+  record.roomObservations.delete(room);
   record.transition={type:'explicit-room-departure',roomId:room,at,authority:short(authority,48)};
   record.reason='explicit-room-departure';
   record.provenance=['explicit-departure',short(authority,48)];
