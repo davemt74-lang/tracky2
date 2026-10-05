@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
  LONG_SESSION_MAX_PARTICIPANT_REFS,boundedParticipantIds,longSessionHealth,
- reconcileParticipantMap,reconcileParticipantSet,restartIntegritySnapshot
+ reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns,
+ restartIntegritySnapshot
 } from '../src/long-session-core.js';
 import {
  ConversationListeningController
@@ -95,6 +96,43 @@ test('12I participant churn prunes stale runtime refs and enforces hard cap',()=
  assert.deepEqual([...reconcileParticipantMap(many.map((id,i)=>[id,i]),valid)],
   [['p997',997],['p998',998],['p999',999]]);
  assert.equal(boundedParticipantIds(many).length,LONG_SESSION_MAX_PARTICIPANT_REFS);
+});
+
+test('12I transient canonical dialogue projection scrubs deleted participant references',()=>{
+ const turns=[{
+  id:'direct',participantId:'gone',transcript:'delete me',
+  nearbyParticipantIds:['gone','keep']
+ },{
+  id:'context',participantId:'keep',transcript:'keep me',
+  nearbyParticipantIds:['gone','keep'],
+  conversationParticipantIds:['gone','keep'],
+  addressedParticipantId:'gone',addressedParticipantIds:['gone','keep'],
+  multimodalContextParticipantIds:['gone','keep'],
+  multimodalEvidence:[{participantId:'gone'},{participantId:'keep'}],
+  continuousFusionParticipantIds:['gone','keep'],
+  continuousFusionClusterLinks:[{participantId:'gone'},{participantId:'keep'}],
+  continuousFusionWindowLinks:[{participantId:'gone'},{participantId:'keep'}],
+  multiPersonParticipantIds:['gone','keep'],
+  multiPersonCandidateParticipantIds:['gone','keep'],
+  multiPersonAttributionIntervals:[{
+   participantId:'gone',candidateParticipantIds:['gone','keep']
+  }],
+  multiPersonAttributionCorrections:[{
+   participantId:'gone',previousParticipantId:'keep'
+  }]
+ }];
+ const rows=reconcileTransientDialogueTurns(turns,['keep']);
+ assert.equal(rows.length,1);
+ const row=rows[0];
+ assert.equal(row.id,'context');
+ assert.deepEqual(row.nearbyParticipantIds,['keep']);
+ assert.deepEqual(row.conversationParticipantIds,['keep']);
+ assert.equal(row.addressedParticipantId,null);
+ assert.deepEqual(row.addressedParticipantIds,['keep']);
+ assert.deepEqual(row.multimodalEvidence.map(x=>x.participantId),['keep']);
+ assert.deepEqual(row.continuousFusionClusterLinks.map(x=>x.participantId),['keep']);
+ assert.equal(row.multiPersonAttributionIntervals[0].participantId,null);
+ assert.deepEqual(row.multiPersonAttributionIntervals[0].candidateParticipantIds,['keep']);
 });
 
 test('12I recovery budget remains bounded and storage pressure disables optional persistence',()=>{
