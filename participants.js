@@ -49,6 +49,7 @@ const ui = {
   notes: $('#participantNotes'),
   recognitionEnabled: $('#recognitionEnabled'),
   agentProactiveEnabled: $('#agentProactiveEnabled'),
+  accountBiometricSyncEnabled: $('#accountBiometricSyncEnabled'),
   sampleCount: $('#sampleCount'),
   enrollmentDots: $('#enrollmentDots'),
   faceGallery: $('#faceSampleGallery'),
@@ -208,6 +209,7 @@ function clearForm() {
   ui.notes.value = '';
   ui.recognitionEnabled.checked = true;
   ui.agentProactiveEnabled.checked = true;
+  ui.accountBiometricSyncEnabled.checked = false;
   ui.delete.hidden = true;
 
   updatePhotos();
@@ -303,6 +305,7 @@ async function loadParticipant(id) {
   ui.notes.value = participant.notes || '';
   ui.recognitionEnabled.checked = participant.recognitionEnabled !== false;
   ui.agentProactiveEnabled.checked = participant.agentProactiveEnabled !== false;
+  ui.accountBiometricSyncEnabled.checked = participant.accountBiometricSyncEnabled === true;
   ui.delete.hidden = false;
 
   updatePhotos();
@@ -565,7 +568,8 @@ async function saveForm() {
     latestPhoto: state.latestPhoto || state.primaryPhoto,
     ...galleryFields,
     recognitionEnabled: ui.recognitionEnabled.checked,
-    agentProactiveEnabled: ui.agentProactiveEnabled.checked
+    agentProactiveEnabled: ui.agentProactiveEnabled.checked,
+    accountBiometricSyncEnabled: ui.accountBiometricSyncEnabled.checked
   });
 
   state.editingId = record.id;
@@ -583,7 +587,7 @@ async function saveForm() {
   }
 
   await reloadParticipants();
-  setMessage('Participant saved locally.', 'ok');
+  setMessage('Participant saved. Signed-in account sync will update automatically.', 'ok');
 }
 
 async function removeCurrentParticipant() {
@@ -597,7 +601,7 @@ async function removeCurrentParticipant() {
   await deleteParticipant(participant.id);
   clearForm();
   await reloadParticipants();
-  setMessage('Participant identity data and attributed dialogue were deleted from this device.', 'ok');
+  setMessage('Participant deleted. Signed-in account deletion will sync automatically.', 'ok');
 }
 
 async function loadPendingFromUrl() {
