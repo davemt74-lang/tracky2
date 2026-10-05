@@ -9,7 +9,8 @@ import {
 import {normalizeMemoryRecord} from './agent-memory-core.js';
 import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
 import {
- endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity
+ endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity,
+ recoverPriorSessionIdentities
 } from './session-identity-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
@@ -142,6 +143,17 @@ async function storeAction(storeName, mode, action) {
   } finally {
     db.close();
   }
+}
+
+export function startSessionIdentity(input) {
+  const record=normalizeSessionIdentity(input);
+  return storeAction(SESSION_IDENTITIES,'readwrite',async store=>{
+    const rows=await requestToPromise(store.getAll());
+    const recovered=recoverPriorSessionIdentities(rows,record,record.startedAt);
+    for(const prior of recovered)await requestToPromise(store.put(prior));
+    await requestToPromise(store.put(record));
+    return record;
+  });
 }
 
 export function saveSessionIdentity(input) {
