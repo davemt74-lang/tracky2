@@ -66,6 +66,12 @@ export function buildRecallProjection({
  const roomProjection=projectRoomState(Array.isArray(roomEvents)?roomEvents:[]);
  const effectiveRoom=roomProjection.events||[];
  const roomIds=new Set(effectiveRoom.map(event=>String(event.id)));
+ const meetingRows=Array.isArray(meetings)?meetings:[];
+ const meetingNoteIds=new Set(),meetingDecisionIds=new Set();
+ for(const meeting of meetingRows){
+  for(const note of meeting?.notes||[])if(note?.id)meetingNoteIds.add(String(note.id));
+  for(const decision of meeting?.decisions||[])if(decision?.id)meetingDecisionIds.add(String(decision.id));
+ }
  const rows=[];
 
  for(const turn of dialogue){
@@ -132,7 +138,7 @@ export function buildRecallProjection({
   }));
  }
 
- for(const raw of Array.isArray(meetings)?meetings:[]){
+ for(const raw of meetingRows){
   if(!raw?.id)continue;
   const roster=[...(raw.rosterParticipantIds||[])].filter(Boolean);
   const start=Number(raw.startedAt)||0;
@@ -245,6 +251,16 @@ export function buildRecallProjection({
   .sort((a,b)=>b.updatedAt-a.updatedAt||b.createdAt-a.createdAt)
   .slice(0,200);
  for(const memory of activeMemoryRows){
+  const approved=memory.provenance==='owner-approved-proposal';
+  const memoryRefs=approved?(memory.sourceRefs||[]).slice(0,5).map(source=>{
+   let type='memory-source',state='stale';
+   if(source.kind==='dialogue'){type='dialogue-turn';state=dialogueIds.has(String(source.sourceId))?'available':'stale';}
+   else if(source.kind==='room-event'){type='room-event';state=roomIds.has(String(source.sourceId))?'available':'stale';}
+   else if(source.kind==='meeting-note'){type='meeting-note';state=meetingNoteIds.has(String(source.sourceId))?'available':'stale';}
+   else if(source.kind==='meeting-decision'){type='meeting-decision';state=meetingDecisionIds.has(String(source.sourceId))?'available':'stale';}
+   return ref(type,source.sourceId,state);
+  }):[];
+  const staleCount=memoryRefs.filter(reference=>reference.state==='stale').length;
   rows.push(item({
    id:'memory:'+memory.id,sourceType:'memory',sourceId:memory.id,subtype:memory.type,
    at:Number(memory.updatedAt||memory.createdAt)||0,
@@ -252,8 +268,13 @@ export function buildRecallProjection({
    participantId:memory.participantId||null,
    participantIds:memory.participantId?[memory.participantId]:[],
    temporal:memory.persistent?'historical':'current-session',
-   provenance:['owner-authored-memory',memory.persistent?'saved-on-device':'session-only'],
-   status:'active'
+   provenance:[
+    approved?'owner-approved-evidence-memory':'owner-authored-memory',
+    memory.persistent?'saved-on-device':'session-only',
+    ...(approved?[String(memory.proposalMethod||'canonical-evidence-approval')]:[])
+   ],
+   references:memoryRefs,
+   status:'active'+(staleCount?' · '+staleCount+' source reference'+(staleCount===1?'':'s')+' stale':'')
   }));
  }
 
@@ -270,18 +291,26 @@ function searchable(row){
   ...(row.provenance||[])
  ].join(' ').toLocaleLowerCase();
 }
-export function searchRecall(rows=[],query='',options={}){
- const tokens=tokenize(query);
+export function recallRowAllowed(row,options={}){
  const source=RECALL_SOURCE_TYPES.includes(options.sourceType)?options.sourceType:'all';
  const participantId=options.participantId||null;
- const limit=Math.max(1,Math.min(MAX_RECALL_RESULTS,Number(options.limit)||50));
  const includeCurrent=options.includeCurrent!==false;
  const includeHistorical=options.includeHistorical!==false;
+ const fromAt=finite(Number(options.fromAt))?Number(options.fromAt):null;
+ const toAt=finite(Number(options.toAt))?Number(options.toAt):null;
+ if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))return false;
+ if(row.temporal==='current-session'&&!includeCurrent)return false;
+ if(row.temporal!=='current-session'&&!includeHistorical)return false;
+ if(fromAt!==null&&Number(row.at||0)<fromAt)return false;
+ if(toAt!==null&&Number(row.at||0)>toAt)return false;
+ return true;
+}
+export function searchRecall(rows=[],query='',options={}){
+ const tokens=tokenize(query);
+ const limit=Math.max(1,Math.min(MAX_RECALL_RESULTS,Number(options.limit)||50));
  const matched=[];
  for(const row of Array.isArray(rows)?rows:[]){
-  if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))continue;
-  if(row.temporal==='current-session'&&!includeCurrent)continue;
-  if(row.temporal!=='current-session'&&!includeHistorical)continue;
+  if(!recallRowAllowed(row,options))continue;
   const hay=searchable(row);
   if(tokens.length&&!tokens.every(token=>hay.includes(token)))continue;
   let score=0;
@@ -302,7 +331,7 @@ export function explainRecallResult(result){
  const sourceLabels={
   conversation:'canonical dialogue turn',room:'effective canonical ROOM event',
   meeting:'meeting metadata',recording:'saved recording metadata',
-  task:'agent task metadata',memory:'active owner-authored memory'
+  task:'agent task metadata',memory:'active owner-authorized memory'
  };
  const temporal=result.temporal==='current-session'?'current session':'historical';
  const summary=(sourceLabels[result.sourceType]||result.sourceType)+' · '+temporal+
