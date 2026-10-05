@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=5;
+const TRACKY_SCHEMA_VERSION=6;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -201,6 +201,38 @@ CREATE TABLE IF NOT EXISTS room_node_observations(
 );
 CREATE INDEX IF NOT EXISTS idx_room_observations_received ON room_node_observations(server_received_at);
 CREATE INDEX IF NOT EXISTS idx_room_observations_participant ON room_node_observations(participant_id,server_received_at);
+CREATE TABLE IF NOT EXISTS sync_devices(
+ id TEXT PRIMARY KEY, label TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+ created_by INTEGER REFERENCES users(id), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ revoked_at INTEGER, last_seen_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS sync_device_scopes(
+ device_id TEXT NOT NULL REFERENCES sync_devices(id) ON DELETE CASCADE,
+ resource_type TEXT NOT NULL CHECK(resource_type IN ('memory','task','scene')),
+ enabled INTEGER NOT NULL DEFAULT 0, quota_bytes INTEGER NOT NULL,
+ updated_at INTEGER NOT NULL,
+ PRIMARY KEY(device_id,resource_type)
+);
+CREATE TABLE IF NOT EXISTS sync_resources(
+ resource_type TEXT NOT NULL CHECK(resource_type IN ('memory','task','scene')),
+ resource_id TEXT NOT NULL, payload_ciphertext TEXT, payload_bytes INTEGER NOT NULL DEFAULT 0,
+ version INTEGER NOT NULL DEFAULT 1, client_updated_at INTEGER, server_updated_at INTEGER NOT NULL,
+ deleted_at INTEGER, updated_by INTEGER REFERENCES users(id),
+ PRIMARY KEY(resource_type,resource_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sync_resources_type_updated ON sync_resources(resource_type,server_updated_at);
+CREATE TABLE IF NOT EXISTS sync_resource_changes(
+ seq INTEGER PRIMARY KEY AUTOINCREMENT,
+ resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, version INTEGER NOT NULL,
+ deleted INTEGER NOT NULL DEFAULT 0, server_updated_at INTEGER NOT NULL,
+ device_id TEXT, change_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sync_resource_changes_seq ON sync_resource_changes(seq);
+CREATE TABLE IF NOT EXISTS sync_change_receipts(
+ change_id TEXT PRIMARY KEY, device_id TEXT NOT NULL, resource_type TEXT NOT NULL,
+ resource_id TEXT NOT NULL, result_version INTEGER NOT NULL, created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sync_receipts_created ON sync_change_receipts(created_at);
 CREATE TABLE IF NOT EXISTS audit_log(
  id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

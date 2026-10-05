@@ -28,6 +28,7 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     'create-user','update-user'=>'users.manage',
     'permission'=>'roles.manage',
     'provider-save','provider-delete'=>'providers.manage',
+     'sync-device-toggle'=>'sync.manage',
      'object-approval'=>'objects.review',
      'skill-toggle'=>'skills.approve',
     default=>'invalid'
@@ -81,6 +82,14 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=(string)($_POST['provider']??'');
     if(!in_array($subject,TRACKY_PROVIDERS,true))throw new RuntimeException('Invalid provider.');
     $db->prepare('DELETE FROM provider_credentials WHERE provider=?')->execute([$subject]);
+    }elseif($action==='sync-device-toggle'){
+     $subject=(string)($_POST['device_id']??'');$enabled=($_POST['enabled']??'')==='1';
+     if(!preg_match('/^[A-Za-z0-9_-]{8,96}$/D',$subject))throw new RuntimeException('Invalid sync device.');
+     $q=$db->prepare('SELECT id FROM sync_devices WHERE id=?');$q->execute([$subject]);
+     if(!$q->fetchColumn())throw new RuntimeException('Sync device not found.');
+     $now=(int)floor(microtime(true)*1000);
+     $db->prepare('UPDATE sync_devices SET enabled=?,revoked_at=? WHERE id=?')
+       ->execute([$enabled?1:0,$enabled?null:$now,$subject]);
     }elseif($action==='object-approval'){
      $subject=(string)($_POST['object_id']??'');$approved=($_POST['approved']??'')==='1';
      if(!preg_match('/^[A-Za-z0-9_-]{8,80}$/D',$subject))throw new RuntimeException('Invalid object.');
@@ -179,8 +188,21 @@ if(!$user){
    }
    echo '</section>';
   }
- if(tracky_permission($db,$user,'sync.manage'))
-  echo '<section><h2>Browser ↔ server participant sync</h2><p>Manual and opt-in only. Review each participant, confirm biometric synchronization consent where required, and resolve conflicts explicitly. Tracky2 does not background-upload conversations, ROOM events, tasks, memories, or scene data.</p><button type="button" id="loadLocalParticipants">Review participant sync</button><div id="migrationArea" role="status"></div></section><script type="module" src="./sync.js"></script>';
+ if(tracky_permission($db,$user,'sync.manage')){
+   echo '<section><h2>Browser ↔ server participant sync</h2><p>Legacy participant sync remains manual and separately consented. Biometric profile synchronization is never enabled by metadata-sync scopes.</p><button type="button" id="loadLocalParticipants">Review participant sync</button><div id="migrationArea" role="status"></div></section>';
+   echo '<section><h2>Encrypted metadata sync v2</h2><p>Manual, device-scoped synchronization for owner-authorized memory, terminal task metadata, and the owner-defined scene configuration only. Transcripts, ROOM events, recordings/media, workflows and biometrics are excluded.</p><form id="resourceSyncDeviceForm"><label>Browser label<input id="resourceSyncDeviceLabel" maxlength="80" value="This browser"></label><label><input type="checkbox" name="resourceScope" value="memory"> Memory</label><label><input type="checkbox" name="resourceScope" value="task"> Terminal tasks</label><label><input type="checkbox" name="resourceScope" value="scene"> Scene configuration</label><button type="submit">Register / update scopes</button></form><p><button type="button" id="resourceSyncRefresh">Review metadata sync</button><button type="button" id="resourceSyncResume">Resume pending journal</button><button type="button" id="resourceSyncRevoke">Revoke this browser</button></p><div id="resourceSyncStatus" role="status">Metadata sync is not running.</div><div id="resourceSyncList"></div>';
+   $devices=$db->query('SELECT id,label,enabled,revoked_at,last_seen_at FROM sync_devices ORDER BY label,id')->fetchAll();
+   if($devices){
+    echo '<h3>Registered sync devices</h3><table><tr><th>Device</th><th>Scopes</th><th>Status</th><th>Manage</th></tr>';
+    foreach($devices as $device){
+     $q=$db->prepare('SELECT resource_type FROM sync_device_scopes WHERE device_id=? AND enabled=1 ORDER BY resource_type');$q->execute([$device['id']]);
+     $scopes=implode(', ',$q->fetchAll(PDO::FETCH_COLUMN));$active=(bool)$device['enabled']&&$device['revoked_at']===null;
+     echo '<tr><td>'.tracky_html((string)$device['label']).'<br><small>'.tracky_html((string)$device['id']).'</small></td><td>'.tracky_html($scopes?:'none').'</td><td>'.($active?'active':'revoked').'</td><td><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="sync-device-toggle"><input type="hidden" name="device_id" value="'.tracky_html((string)$device['id']).'"><input type="hidden" name="enabled" value="'.($active?'0':'1').'"><button>'.($active?'Revoke':'Restore').'</button></form></td></tr>';
+    }
+    echo '</table>';
+   }
+   echo '<small>Revocation stops future metadata sync for that device ID. A revoked ID cannot silently re-register itself. Metadata payloads are encrypted with the instance key and subject to per-resource quotas.</small></section><script type="module" src="./sync.js"></script><script type="module" src="./resource-sync.js"></script>';
+  }
  echo '<section><h2>Storage & privacy</h2><p>Participant profile JSON is encrypted at rest with the same private instance key used for provider credentials. Back up both the SQLite database and secret.key together. Manual CLI backup/verification/recovery is available through <code>php server/backup.php</code>. Do not synchronize biometric records without participant consent.</p></section>';
 }
 echo '</main></html>';

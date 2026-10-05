@@ -3,7 +3,8 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('14C workflow persistence is additive bounded metadata only',()=>{
  const store=read('src/participant-store.js');
- assert.match(store,/const DB_VERSION = 13/);
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=13,'14C workflow store must survive additive browser schema upgrades');
  assert.match(store,/const AGENT_WORKFLOWS = 'agent-workflows'/);
  assert.match(store,/MAX_PERSISTED_AGENT_WORKFLOWS = 80/);
  assert.match(store,/createObjectStore\(AGENT_WORKFLOWS,\{keyPath:'id'\}\)/);

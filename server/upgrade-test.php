@@ -41,6 +41,11 @@ try{
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'")->fetchColumn(),'Upgrade creates provider usage budget table');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Upgrade creates room node registry');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Upgrade creates room observation relay');
+ foreach(['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'] as $table)
+  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='".$table."'")->fetchColumn(),'Upgrade creates '.$table);
+ $resourceCols=tracky_table_columns($db,'sync_resources');
+ foreach(['resource_type','resource_id','payload_ciphertext','payload_bytes','version','client_updated_at','server_updated_at','deleted_at'] as $col)
+  check(in_array($col,$resourceCols,true),'Metadata sync resource column '.$col.' exists');
  check(tracky_permission($db,['role'=>'owner'],'rooms.write'),'Upgrade grants owner room runtime permission');
  check(tracky_permission($db,['role'=>'operator'],'rooms.read'),'Upgrade grants operator room read permission');
  $before=$row['profile_ciphertext'];tracky_schema($db);
