@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=2;
+const TRACKY_SCHEMA_VERSION=3;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -179,6 +179,21 @@ CREATE TABLE IF NOT EXISTS provider_credentials(
  provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),
  ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS room_nodes(
+ id TEXT PRIMARY KEY, room_id TEXT NOT NULL, room_name TEXT NOT NULL,
+ runtime_instance_id TEXT, preferred_primary INTEGER NOT NULL DEFAULT 0,
+ client_at INTEGER, server_seen_at INTEGER NOT NULL,
+ connected_at INTEGER NOT NULL, updated_by INTEGER REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_room_nodes_room_seen ON room_nodes(room_id,server_seen_at);
+CREATE TABLE IF NOT EXISTS room_node_observations(
+ id TEXT PRIMARY KEY, node_id TEXT NOT NULL, room_id TEXT NOT NULL,
+ participant_id TEXT NOT NULL, semantic TEXT NOT NULL,
+ from_room_id TEXT, to_room_id TEXT, authority TEXT,
+ client_observed_at INTEGER, server_received_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_room_observations_received ON room_node_observations(server_received_at);
+CREATE INDEX IF NOT EXISTS idx_room_observations_participant ON room_node_observations(participant_id,server_received_at);
 CREATE TABLE IF NOT EXISTS audit_log(
  id INTEGER PRIMARY KEY, actor_id INTEGER, action TEXT NOT NULL,
  subject TEXT NOT NULL, at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -195,9 +210,9 @@ SQL);
     $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
-      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage'],
-      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
+      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','rooms.read','rooms.write'],
+      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','rooms.read','rooms.write'],
       'viewer'=>['participants.read','scene.read']
     ];
     $db->beginTransaction();

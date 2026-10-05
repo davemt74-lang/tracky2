@@ -25,6 +25,16 @@ The server stores participant profile JSON encrypted at rest with the private in
 
 Offline or failed sync attempts leave browser and server records unchanged except for already-saved local reconciliation metadata. Refreshing the manual sync screen later recomputes the correct action from current browser data, server version and deletion state.
 
+## Multi-room node runtime
+
+V0.13.3 adds an optional same-origin room-node relay for self-hosted Tracky2. A signed-in owner, admin or operator with `rooms.read` and `rooms.write` can run separate browser/camera nodes in distinct physical rooms against the same Tracky2 installation.
+
+Each live node sends a bounded heartbeat containing only node ID, owner-defined room ID/name, runtime instance ID, primary preference and timestamps. The relay accepts only four bounded event types: participant observed, participant out of view, explicit handoff declared and explicit departure confirmed. It does **not** upload camera frames, audio, transcripts, embeddings, room screenshots or AGENT memory.
+
+The server timestamps every accepted observation, deduplicates event IDs, expires stale nodes/events and returns only recent runtime metadata. Clients normalize remote event time against server receipt time so large clock skew cannot manufacture a room transition. If two current rooms report the same participant without an explicit handoff, Tracky2 records a conflict and does not infer a route. If more than one camera node serves the same room, deterministic primary-node arbitration prevents every node from publishing duplicate presence observations.
+
+The relay is optional. If the server session, permission or endpoint is unavailable, the browser stays **local-only** and the existing single-room runtime continues normally. No third-party cloud service is used.
+
 ## LLM and voice providers
 
 Admin can securely save/replace/remove encrypted OpenAI (ChatGPT API), Anthropic (Claude), and ElevenLabs API keys. Credentials never appear in the browser after saving or enter a release ZIP. Configuring credentials does not yet enable live provider routing: the existing local AGENT/Ollama path remains available, while provider calls, spending limits and voice synthesis integration are separate work.
@@ -47,4 +57,4 @@ A backup contains `tracky.sqlite`, `secret.key`, `installed.lock` and a SHA-256 
 
 ## Verification and deployment
 
-CI validates PHP syntax/extensions, fresh install, legacy-schema upgrade, one-time installer lock, SQLite permissions, CSRF, encrypted participant sync, conflict detection, provider encryption/recovery, backup verify/restore, JavaScript reconciliation tests, PWA tests, and ZIP package integrity. Personal camera, microphone and participant consent still require device-level acceptance. The deployment archive includes recovery tooling and server runtime code, **never** the live private database, passwords, provider credentials or encryption key.
+CI validates PHP syntax/extensions, fresh install, legacy-schema upgrade, one-time installer lock, SQLite permissions, CSRF, encrypted participant sync, multi-room node tables/permissions, conflict detection, provider encryption/recovery, backup verify/restore, JavaScript reconciliation tests, PWA tests, and ZIP package integrity. Personal camera, microphone and participant consent still require device-level acceptance. The deployment archive includes recovery tooling and server runtime code, **never** the live private database, passwords, provider credentials or encryption key.

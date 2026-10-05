@@ -33,6 +33,10 @@ try{
  check(json_decode(tracky_decrypt($row['profile_ciphertext']),true,32,JSON_THROW_ON_ERROR)['notes']==='legacy','Encrypted legacy profile decrypts');
  check((int)$row['version']===1&&(int)$row['server_updated_at']>0,'Version and server timestamp initialized');
  check(tracky_permission($db,['role'=>'owner'],'sync.manage'),'Owner receives sync permission after upgrade');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Upgrade creates room node registry');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Upgrade creates room observation relay');
+ check(tracky_permission($db,['role'=>'owner'],'rooms.write'),'Upgrade grants owner room runtime permission');
+ check(tracky_permission($db,['role'=>'operator'],'rooms.read'),'Upgrade grants operator room read permission');
  $before=$row['profile_ciphertext'];tracky_schema($db);
  $after=$db->query("SELECT profile_ciphertext FROM participants WHERE id='participant01'")->fetchColumn();
  check($before===$after,'Repeated migration is idempotent');
