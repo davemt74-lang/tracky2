@@ -30,6 +30,17 @@ function median(values=[]){
  const s=[...values].sort((a,b)=>a-b),m=Math.floor(s.length/2);
  return s.length%2?s[m]:(s[m-1]+s[m])/2;
 }
+function circularCenterMinute(values=[]){
+ if(!values.length)return 0;
+ let sin=0,cos=0;
+ for(const minute of values){
+  const angle=2*Math.PI*(Number(minute)||0)/1440;
+  sin+=Math.sin(angle);cos+=Math.cos(angle);
+ }
+ let angle=Math.atan2(sin,cos);
+ if(angle<0)angle+=2*Math.PI;
+ return Math.round(angle*1440/(2*Math.PI))%1440;
+}
 function routineKey(row){
  const subject=short(row.areaId||row.roomId||row.subtype||'general',96);
  return [short(row.participantId,96),short(row.semantic,64),subject].join('|');
@@ -39,7 +50,7 @@ function clusterRoutineRows(rows=[]){
  for(const row of [...rows].sort((a,b)=>a.minute-b.minute)){
   let target=null,best=Infinity;
   for(const cluster of clusters){
-   const center=Math.round(median(cluster.map(item=>item.minute)));
+   const center=circularCenterMinute(cluster.map(item=>item.minute));
    const distance=circularDistanceMinutes(center,row.minute);
    if(distance<=60&&distance<best){target=cluster;best=distance;}
   }
@@ -48,8 +59,8 @@ function clusterRoutineRows(rows=[]){
  // Merge first/last clusters when they straddle midnight.
  if(clusters.length>1){
   const first=clusters[0],last=clusters[clusters.length-1];
-  const a=Math.round(median(first.map(item=>item.minute)));
-  const b=Math.round(median(last.map(item=>item.minute)));
+  const a=circularCenterMinute(first.map(item=>item.minute));
+  const b=circularCenterMinute(last.map(item=>item.minute));
   if(circularDistanceMinutes(a,b)<=60){
    clusters[0]=[...last,...first];
    clusters.pop();
@@ -96,7 +107,7 @@ export function deriveRoutineCandidates(observations=[],feedback=[],now=Date.now
   for(const group of clusterRoutineRows(subjectRows)){
    const dates=uniq(group.map(row=>row.date));
    if(group.length<ROUTINE_MIN_OCCURRENCES||dates.length<ROUTINE_MIN_OCCURRENCES)continue;
-   const minutes=group.map(row=>row.minute),center=Math.round(median(minutes));
+   const minutes=group.map(row=>row.minute),center=circularCenterMinute(minutes);
    const distances=minutes.map(min=>circularDistanceMinutes(min,center));
    const spread=Math.max(ROUTINE_BUCKET_MINUTES,Math.ceil(median(distances)||0));
    const sample=group[0];
