@@ -13,8 +13,8 @@ import {
  recoverPriorSessionIdentities
 } from './session-identity-core.js';
 import {
- MAX_RECORDINGS,normalizeRecordingRecord,recordingIdsToExpire,recordingIdsToPrune,
- recordingMediaState,recoverInterruptedRecording
+ MAX_RECORDINGS,normalizeRecordingRecord,recordingIdsForStoragePressure,
+ recordingIdsToExpire,recordingIdsToPrune,recordingMediaState,recoverInterruptedRecording
 } from './recording-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
@@ -331,6 +331,10 @@ export async function pruneExpiredRecordings(now=Date.now()){
 export async function pruneRecordingLimit(maxRows=MAX_RECORDINGS){
  const rows=await listRecordings();
  return deleteRecordingIds(recordingIdsToPrune(rows,maxRows));
+}
+export async function pruneRecordingStoragePressure(estimate={}){
+ const rows=await listRecordings();
+ return deleteRecordingIds(recordingIdsForStoragePressure(rows,estimate));
 }
 export async function recoverInterruptedRecordings(now=Date.now()){
  const rows=await listRecordings();
