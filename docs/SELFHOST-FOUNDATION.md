@@ -17,6 +17,10 @@ Owner is the only default user allowed to change role permission grants and cann
 
 ## Participant storage and browser/server synchronization
 
+V0.14.6 makes the self-hosted participant table the durable signed-in account source for ordinary participant profiles across desktop and mobile. When a Tracky2 page has an authenticated session with participant permissions, deliberate profile saves/deletes synchronize automatically; IndexedDB remains the local/offline cache and pending/conflict state is stored separately in browser schema 15. Passive camera recognition freshness does not generate server writes.
+
+Face photos/embeddings and voice profile data are excluded from automatic cross-device projection unless that participant explicitly enables **Sync encrypted face/voice identity data across my signed-in Tracky2 devices** in the participant editor. The profile is encrypted at rest with the instance key. A mobile/desktop device without biometric consent can still edit normal participant fields without enrolling a local face profile. Optimistic version conflicts stop for review rather than silently overwriting another device.
+
 Browser IndexedDB remains authoritative for ordinary standalone use and is never uploaded in the background.
 
 **Participant sync remains a separate legacy lane.** In Admin, **Review participant sync** compares only participant profiles from the current browser with the server. Each participant must be enabled separately. Face/voice embeddings or saved photographs require explicit participant consent before browser/server participant synchronization is enabled. Participant changes use optimistic versions and deletion tombstones; conflicts require an explicit owner choice.
