@@ -90,7 +90,7 @@ function summarize(intervals=[],corrections=[]){
 }
 
 export function buildTurnAttribution({
- diarizationSpans=[],continuousFusionWindowLinks=[],turnDurationMs=0
+ diarizationSpans=[],continuousFusionWindowLinks=[],overlapSeparation=null,turnDurationMs=0
 }={}){
  const links=Array.from(continuousFusionWindowLinks||[]).map(normalizeLink);
  const duration=Math.max(0,Math.round(Number(turnDurationMs)||0));
@@ -108,13 +108,19 @@ export function buildTurnAttribution({
    overlaps(start,end,link.startOffsetMs,link.endOffsetMs)&&
    (!clusterSet.size||clusterSet.has(link.clusterId))
   );
-  const participantIds=uniq(related.map(link=>link.participantId));
+  const separatedParticipantIds=span.state==='overlap-unresolved'
+   ?uniq(overlapSeparation?.overlapSeparationParticipantIds).slice(0,2):[];
+  const participantIds=uniq([
+   ...related.map(link=>link.participantId),...separatedParticipantIds
+  ]);
   const conflicts=uniq(related.flatMap(link=>link.conflicts||[]));
   const unresolvedLinks=related.filter(link=>!link.participantId||
    ['identity-conflict','visual-conflict','unknown','expired'].includes(link.state));
   const provenance=uniq([
    'diarization:'+String(span.state||'unknown'),
-   ...related.flatMap(link=>link.provenance||[])
+   ...related.flatMap(link=>link.provenance||[]),
+   ...(separatedParticipantIds.length
+    ?['overlap-separation:'+String(overlapSeparation?.overlapSeparationState||'candidate')]:[])
   ]);
 
   let state='unknown',participantId=null,authority='derived';
@@ -139,7 +145,8 @@ export function buildTurnAttribution({
    participantId,candidateParticipantIds:participantIds,
    confidence:span.confidence,authority,provenance,conflicts,
    reason:span.reason||(
-    state==='overlap'?'overlap-unresolved':
+    state==='overlap'?(separatedParticipantIds.length
+     ?'overlap-separated-participant-candidates':'overlap-unresolved'):
     state==='candidate'?'multiple-participant-candidates':
     state==='conflict'?'continuous-fusion-conflict':
     state==='partial'?'partial-window-attribution':
