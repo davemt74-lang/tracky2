@@ -104,7 +104,8 @@ test('13F room-event feedback derives only bounded environmental metadata',()=>{
 
 test('13F participant store preserves bounded calibration feedback after later schema upgrades',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
- const dbVersion=Number(store.match(/const DB_VERSION = (\\d+)/)?.[1]||0);\n assert.ok(dbVersion>=12,'V0.13 persistence stores must remain present after additive browser schema upgrades');
+ const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=12,'V0.13 persistence stores must remain present after additive browser schema upgrades');
  assert.match(store,/const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback'/);
  assert.match(store,/export async function saveEnvironmentalFeedback/);
  assert.match(store,/export function listEnvironmentalFeedback/);
