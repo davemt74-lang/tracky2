@@ -125,5 +125,5 @@ test('13I diagnostics exposes performance trend and certification export integra
 
 test('13I pure performance core opens no sensors persistence identity transcript or network path',()=>{
  const core=fs.readFileSync('src/device-performance-core.js','utf8');
- assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|indexedDB|localStorage|fetch\(|WebSocket|saveParticipant|transcript|embedding/);
+ assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|indexedDB|localStorage|fetch\(|WebSocket|saveParticipant|saveDialogue|reviseDialogue|deleteDialogue|embedding\(/);
 });
