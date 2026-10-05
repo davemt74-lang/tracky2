@@ -76,6 +76,7 @@ import {
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {createSessionRecallUi} from './src/session-recall-ui.js';
+import {createRecordingUi} from './src/recording-ui.js';
 import {createSessionIdentity} from './src/session-identity-core.js';
 import {createMeetingUi} from './src/meeting-ui.js';
 import {ConversationListeningController} from './src/conversation-listening-core.js';
@@ -263,7 +264,7 @@ platform.register(reactionChallengeGame);
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
 const traceCtx = ui.trace.getContext('2d');
 
-let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null;
+let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null,recordingUI=null;
 let multiRoomRuntime=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
@@ -3709,6 +3710,7 @@ async function startRoomAudio() {
 }
 
 function stopRoomAudio() {
+  void recordingUI?.stopIfActive?.('room-audio-stopped');
   if(state.mode==='agent'&&state.voice.active)
    roomSensorState('microphone','offline','Room microphone stopped · silence not inferred');
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
@@ -4637,6 +4639,7 @@ window.addEventListener('beforeunload', () => {
   for(const unwatch of permissionWatchers)unwatch();
   taskUI?.destroy();
   meetingUI?.destroy();
+  recordingUI?.destroy();
   stopRoomAudio();
   stopCamera();
 });
@@ -4850,6 +4853,25 @@ if(state.mode==='agent'){
    currentSessionStartedAt:()=>roomSessionStartedAt
   });
   void recallUI.init().catch(error=>console.warn('Recall runtime initialization failed:',error));
+  recordingUI=createRecordingUi({
+   getStream:()=>state.voice.audio?.stream||null,
+   getSessionId:()=>canonicalSessionId,
+   getStorageHealth:()=>storageHealth,
+   getStorageEstimate:()=>navigator.storage?.estimate?.()||Promise.resolve(null),
+   onChanged:()=>{
+    void recallUI?.refreshTimeline?.();
+    if(String(document.getElementById('agentRecallQuery')?.value||'').trim())
+     void recallUI?.search?.();
+   },
+   onAudit:(message,recording)=>logRoomMessage(
+    'system',message,'owner-recording',{
+     kind:'decision',semantic:'recording-lifecycle',
+     relatedEventId:null,
+     evidence:{durationMs:recording?.durationMs??null}
+    }
+   )
+  });
+  void recordingUI.init().catch(error=>console.warn('Recording runtime initialization failed:',error));
   void sceneUI.init().then(ok=>{
    if(ok){
     roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();
