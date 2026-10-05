@@ -139,7 +139,7 @@ test('13I diagnostics exposes performance trend and certification export integra
  assert.match(html,/id="certPerformanceTrend"/);
  assert.match(js,/DevicePerformanceGovernor/);
  assert.match(js,/navigator\.getBattery/);
- assert.match(js,/performance\.memory/);
+ assert.match(js,/(?:globalThis\.)?performance\?*\.memory/);
  assert.match(cert,/performance:/);
 });
 
