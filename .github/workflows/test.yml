@@ -87,10 +87,12 @@ jobs:
           node --input-type=module -e "import('./src/multimodal-identity-core.js').then(m=>{if(!m.deriveMultimodalEvidence||!m.fuseMultimodalIdentity||!m.MultimodalFusionTracker)process.exit(1)})"
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/session-recall-core.js'
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/session-recall-ui.js'
+          unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/semantic-recall-core.js'
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/recording-core.js'
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/recording-ui.js'
           node --input-type=module -e "import('./src/recording-core.js').then(m=>{if(!m.createRecordingRecord||!m.finishRecordingRecord||!m.recordingTurnIdsForInterval||!m.recordingMetadataExport||!m.recordingIdsForStoragePressure)process.exit(1)})"
-          node --input-type=module -e "import('./src/session-recall-core.js').then(m=>{if(!m.buildRecallProjection||!m.searchRecall||!m.explainRecallResult)process.exit(1)})"
+          node --input-type=module -e "import('./src/session-recall-core.js').then(m=>{if(!m.buildRecallProjection||!m.searchRecall||!m.explainRecallResult||!m.recallRowAllowed)process.exit(1)})"
+          node --input-type=module -e "import('./src/semantic-recall-core.js').then(m=>{if(!m.SemanticRecallIndex||!m.searchRecallV2||!m.summarizeRecallResults||!m.explainRecallResultV2)process.exit(1)})"
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/agent-proactive-core.js'
           unzip -l tracky2-v0.14.4-deploy.zip | grep -F 'tracky2-v0.14.4/src/agent-proactive-intelligence-core.js'
           node --input-type=module -e "import('./src/agent-proactive-intelligence-core.js').then(m=>{if(!m.ProactiveSessionPlanner||!m.proactiveOpportunityScore||!m.rankProactiveOpportunities||!m.routineProactiveOpportunity||!m.semanticRepeatState)process.exit(1)})"
