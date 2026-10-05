@@ -152,6 +152,10 @@ export function startSessionIdentity(input) {
     const recovered=recoverPriorSessionIdentities(rows,record,record.startedAt);
     for(const prior of recovered)await requestToPromise(store.put(prior));
     await requestToPromise(store.put(record));
+    const all=[...recovered.filter(row=>row.id!==record.id),record]
+      .sort((a,b)=>(Number(a.startedAt)||0)-(Number(b.startedAt)||0));
+    for(const stale of all.slice(0,Math.max(0,all.length-MAX_PERSISTED_SESSION_IDENTITIES)))
+      store.delete(stale.id);
     return record;
   });
 }
