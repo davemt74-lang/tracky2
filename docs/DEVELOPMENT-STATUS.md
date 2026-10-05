@@ -39,33 +39,34 @@
 - V0.12 remains closed. V0.13 extends the existing canonical runtime and does not create parallel microphone, transcript, participant, memory or hidden-recording authorities.
 
 ## Completed V0.13 sections
-- **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge Node/package/PWA + PHP green; direct **v0.13.0** ZIP + SHA-256 release published. **10/10**.
-- **13B — Overlapping-Speaker Source Separation V2** — PR #68 merged at `79bd3443c7f7cd3907646034ebf59204a51248f3`. Post-merge Node/package/PWA + PHP green; direct **v0.13.1** ZIP + SHA-256 release published. **10/10**.
-- **13C — Advanced Participant Continuity** — PR #69 merged at `d65b27a6403ffcb049d14ed38eddbc89277f7ddd`. Post-merge Node/package/PWA + PHP green; direct **v0.13.2** ZIP + SHA-256 release published. **10/10**.
-- **13D — Multi-Room Runtime V2** — PR #70 merged at `d257ae9013ad9cb1b722fa9821d2a861fc0fc58e`. Post-merge Node/package/PWA + PHP green; direct **v0.13.3** ZIP + SHA-256 release published. **10/10**.
-- **13E — Recording & Recall Runtime** — PR #71 merged at `55582f5689d3def80b7e84995936a31155289492`. Post-merge Node/package/PWA + PHP green; direct **v0.13.4** ZIP + SHA-256 release published. **10/10**.
-- **13F — Environmental Intelligence V2** — PR #72 merged at `8b6f303351c4a08eb57d7909b52ea8ddf5506af0`. Post-merge Node/package/PWA + PHP green; direct **v0.13.5** ZIP + SHA-256 release published. **10/10**.
+- **13A — Representative Hardware Certification** — PR #67 merged at `27916ab492d8c6b9e1f8e9d4c5550754ea3b3660`. Post-merge green; direct **v0.13.0** ZIP + SHA-256 published. **10/10**.
+- **13B — Overlapping-Speaker Source Separation V2** — PR #68 merged at `79bd3443c7f7cd3907646034ebf59204a51248f3`. Post-merge green; direct **v0.13.1** ZIP + SHA-256 published. **10/10**.
+- **13C — Advanced Participant Continuity** — PR #69 merged at `d65b27a6403ffcb049d14ed38eddbc89277f7ddd`. Post-merge green; direct **v0.13.2** ZIP + SHA-256 published. **10/10**.
+- **13D — Multi-Room Runtime V2** — PR #70 merged at `d257ae9013ad9cb1b722fa9821d2a861fc0fc58e`. Post-merge green; direct **v0.13.3** ZIP + SHA-256 published. **10/10**.
+- **13E — Recording & Recall Runtime** — PR #71 merged at `55582f5689d3def80b7e84995936a31155289492`. Post-merge green; direct **v0.13.4** ZIP + SHA-256 published. **10/10**.
+- **13F — Environmental Intelligence V2** — PR #72 merged at `8b6f303351c4a08eb57d7909b52ea8ddf5506af0`. Post-merge green; direct **v0.13.5** ZIP + SHA-256 published. **10/10**.
+- **13G — Behavioral & Routine Intelligence** — PR #73 merged at `75c23d76982a7ad385c1cea70c492aca2225d75e`. Post-merge Node/package/PWA + PHP green; direct **v0.13.6** ZIP + SHA-256 published. **10/10**.
 - Representative hardware evidence remains specific to the tested device/browser/environment and is not universal certification.
 
-## Active section: 13G — Behavioral & Routine Intelligence
-- **Branch:** `feat/v013g-behavioral-routine-intelligence`.
-- **Audited baseline:** **5.9/10**.
-- Added pure `src/routine-intelligence-core.js` for sparse-data abstention, distinct-day recurrence, local-time clustering, bounded routine confidence, timing-baseline deviation, expiry, owner review and privacy labels.
-- Routine candidates are **derived at read time from canonical effective ROOM observations**. They are not copied into a second behavioral history and are never promoted automatically into Agent Memory.
-- A candidate requires at least **three observations on three distinct local dates** inside a recurring time cluster. Morning/evening patterns remain separate; midnight-spanning patterns use circular clock math.
-- Candidate evidence expires after 45 days without supporting observations. Old evidence therefore cannot remain an active routine indefinitely.
-- Timing deviations are labeled only as `outside-baseline-window`; they carry explicit `healthInference:none`, `emotionInference:none`, and no protected-trait inference.
-- Owner controls support **Confirm / Reject / Revoke**. Only review metadata is persisted, with `authority:owner`, `provenance:owner-reviewed`, and `memoryAuthority:none`.
-- Participant IndexedDB advances to **schema v12** with a bounded `routine-feedback` store capped at 160 records.
-- Participant deletion removes matching routine review metadata in the same local deletion transaction as dialogue/ROOM/memory cleanup.
-- Cross-session routine learning reuses the existing opt-in ROOM history store (maximum 500 rows) and applies `projectRoomState`, so owner retractions/replacements remain authoritative.
-- If ROOM history saving is disabled, routine learning is session-only and no new persistence is created.
-- The ROOM panel shows derived candidates, occurrence/day count, confidence, review state and owner controls. Clearing routine reviews does not delete canonical ROOM evidence.
-- The runtime compares a new matching observation against the **nearest confirmed time window**, avoiding false deviation alerts when multiple routines exist for the same activity.
-- Unsafe/participant-less events, environmental classifications, raw media, transcripts, biometrics and model outputs outside the allowlisted observable semantics cannot create routine candidates.
-- Release target: **V0.13.6** with package/PWA/runtime-audit/deploy/direct-release wiring.
-- Deterministic fixtures cover sparse abstention, distinct-day recurrence, morning/evening separation, midnight recurrence, baseline deviation, owner confirm/reject/revoke, participant deletion, expiry, feedback bounds, owner retractions, DB v12 persistence, UI/runtime integration and pure-core safety.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.6 ZIP/SHA-256/direct-release validation.
+## Active section: 13H — Proactive Agent Intelligence V3
+- **Branch:** `feat/v013h-proactive-agent-intelligence-v3`.
+- **Audited baseline:** **7.3/10**.
+- Added pure `src/agent-proactive-intelligence-core.js` for explicit usefulness/urgency/confidence scoring, freshness, semantic opportunity fingerprints, semantic-repeat suppression, ranking and bounded session follow-up planning.
+- The existing `ProactiveAgentGovernor` remains authoritative for actual interruption decisions. It now ranks eligible opportunities rather than taking FIFO order.
+- Existing gates remain unchanged and authoritative: global owner enable, follow-up/status toggles, quiet hours, active meeting, conversation/AGENT busy state, verified visible attention, participant proactive opt-out, active task dependency, newer-dialogue supersession, global cooldown, participant cooldown and hourly interruption budget.
+- Failed approved tasks rank above generic follow-ups; ordinary completions and meeting follow-ups remain moderate priority; owner-confirmed routine timing deviations are deliberately low urgency.
+- Semantic repeat suppression records only bounded session outcome metadata and hard-cancels an equivalent message recently emitted inside the policy window.
+- The bounded `ProactiveSessionPlanner` stores only scope ID, participant ID, first/last dialogue timestamps, turn count and proactive-outcome count. It never copies transcript text.
+- Longer verified conversations receive a continuity-style follow-up; repeated proactive follow-ups in the same scope receive a usefulness penalty.
+- Unknown, revoked, overlapping/partial or identity-conflicted dialogue cannot create or advance a proactive session plan because 12H multimodal eligibility remains the gate.
+- Owner-confirmed 13G routine deviations may create participant-targeted `routine-status` opportunities only when the current canonical observation is outside the nearest confirmed routine window. Candidate/rejected/revoked routines cannot.
+- Routine-status opportunities still require the participant to be visibly present and pass the same quiet-hours/meeting/busy/opt-out/task/cooldown/hourly-budget gates.
+- Participant deletion removes pending/history/planner state through the existing governor reconciliation path.
+- AGENT cognitive status now exposes the top ranked opportunity score and bounded session-plan count.
+- No new proactive persistence, Agent Memory, identity authority, background activation or hidden sensor path is introduced.
+- Release target: **V0.13.7** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover useful-vs-noisy ranking, semantic equivalence/repeat suppression, bounded plans, long-session follow-up style, identity-conflict abstention, routine opportunity eligibility, score bounds, runtime integration and no identity/storage authority.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.7 ZIP/SHA-256/direct-release validation.
 
 ## Exact next action
-Open the 13G PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.6 ZIP/SHA-256/direct release, score **13G 10/10**, then start **13H — Proactive Agent Intelligence V3** from merged main.
+Open the 13H PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.7 ZIP/SHA-256/direct release, score **13H 10/10**, then start **13I — Performance / Long-Run Device Hardening V2** from merged main.
