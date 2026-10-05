@@ -24,6 +24,7 @@ import {
 import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
+import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-core.js';
 import {LocalEnvironmentalAudioClassifier} from './src/environmental-audio-engine.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
@@ -74,7 +75,7 @@ import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
 import {AgentCognitiveLoop,DEFAULT_COGNITIVE_POLICY} from './src/agent-cognitive-core.js';
 import {
- ProactiveAgentGovernor,DEFAULT_PROACTIVE_POLICY,normalizeProactivePolicy
+ ProactiveAgentGovernor,DEFAULT_PROACTIVE_POLICY,normalizeProactivePolicy,proactiveOpportunity
 } from './src/agent-proactive-core.js';
 import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from './src/room-ui-core.js';
 import {
@@ -356,7 +357,10 @@ function renderCognitiveStatus(){
   ? proactive.lastDecision : cognitive.lastDecision;
  label.textContent=last?
   last.reason+' · '+proactive.pending+' proactive pending · '+
-   proactive.interruptionsThisHour+'/'+proactive.maxInterruptionsPerHour+' interruptions this hour':
+   proactive.interruptionsThisHour+'/'+proactive.maxInterruptionsPerHour+' interruptions this hour'+
+   (proactive.topCandidate
+    ?' · top '+proactive.topCandidate.type+' '+Math.round(proactive.topCandidate.score*100)+'%':'')+
+   ' · '+proactive.sessionPlans+' session plan'+(proactive.sessionPlans===1?'':'s'):
   'Waiting for stable room evidence · no engagement decisions yet';
 }
 function recordProactiveSourceEvent(category,message,source,options={}){
@@ -587,10 +591,24 @@ function updateRoutineDeviation(event){
  const results=matches.map(routine=>({routine,result:routineDeviation(routine,event,Date.now())}))
   .filter(row=>Number.isFinite(row.result.distanceMinutes))
   .sort((a,b)=>a.result.distanceMinutes-b.result.distanceMinutes);
- const nearest=results[0]?.result;
+ const nearestRow=results[0]||null;
+ const nearest=nearestRow?.result;
  routineLastDeviation=nearest?.state==='outside-baseline-window'
   ?'latest matching observation outside prior timing baseline'
   :null;
+ if(nearestRow?.routine?.status==='confirmed'&&nearest?.state==='outside-baseline-window'){
+  const now=Date.now();
+  const signal=routineProactiveOpportunity({
+   routine:nearestRow.routine,deviation:nearest,event,now
+  });
+  if(signal){
+   const opportunity=proactiveOpportunity({
+    ...signal,eligibleAt:now+30000,expiresAt:now+10*60*1000
+   },now,proactiveGovernor.policy);
+   proactiveGovernor.offer(opportunity);
+   renderCognitiveStatus();
+  }
+ }
  renderRoutineInsights();
 }
 async function recordEnvironmentalOwnerFeedback(event,outcome){

@@ -1,5 +1,10 @@
 import {agentTurnProactivityEligibility} from './agent-multimodal-context.js';
 import {inQuietHours} from './agent-cognitive-core.js';
+import {
+ PROACTIVE_MAX_HISTORY,PROACTIVE_SEMANTIC_REPEAT_MS,ProactiveSessionPlanner,
+ proactiveOpportunityScore,rankProactiveOpportunities,semanticOpportunityKey,
+ semanticRepeatState
+} from './agent-proactive-intelligence-core.js';
 
 export const DEFAULT_PROACTIVE_POLICY=Object.freeze({
  enabled:true,
@@ -10,6 +15,7 @@ export const DEFAULT_PROACTIVE_POLICY=Object.freeze({
  globalCooldownMs:120000,
  participantCooldownMs:180000,
  maxInterruptionsPerHour:3,
+ semanticRepeatMs:PROACTIVE_SEMANTIC_REPEAT_MS,
  requireVisibleAttention:true
 });
 
@@ -35,6 +41,8 @@ export function normalizeProactivePolicy(input={}){
   maxInterruptionsPerHour:Math.max(1,Math.min(10,
    finite(p.maxInterruptionsPerHour)?Math.floor(p.maxInterruptionsPerHour):
     DEFAULT_PROACTIVE_POLICY.maxInterruptionsPerHour)),
+  semanticRepeatMs:Math.max(5*60*1000,Math.min(4*60*60*1000,
+   finite(p.semanticRepeatMs)?p.semanticRepeatMs:DEFAULT_PROACTIVE_POLICY.semanticRepeatMs)),
   requireVisibleAttention:p.requireVisibleAttention!==false
  });
 }
@@ -42,7 +50,7 @@ export function normalizeProactivePolicy(input={}){
 export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
  const p=normalizeProactivePolicy(policy);
  const type=String(input.type||'').trim();
- if(!['conversation-followup','task-status','meeting-followup'].includes(type))
+ if(!['conversation-followup','task-status','meeting-followup','routine-status'].includes(type))
   throw new Error('Unsupported proactive opportunity type.');
  const sourceAt=finite(input.sourceAt)?input.sourceAt:now;
  const eligibleAt=finite(input.eligibleAt)?Math.max(sourceAt,input.eligibleAt):
@@ -55,16 +63,24 @@ export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROA
  if(!text)throw new Error('Proactive opportunity text required.');
  const dedupeKey=short(input.dedupeKey,220)||
   [type,participantId||'general',scopeId||'room'].join(':');
+ const semanticKey=semanticOpportunityKey({...input,type,text,participantId,scopeId});
+ const scoring=proactiveOpportunityScore({
+  ...input,type,sourceAt,ttlMs:expiresAt-eligibleAt
+ },now);
  return Object.freeze({
   id:short(input.id,96)||id(),type,text,participantId,scopeId,
-  sourceAt,eligibleAt,expiresAt,dedupeKey,
+  sourceAt,eligibleAt,expiresAt,dedupeKey,semanticKey,
+  usefulness:scoring.usefulness,urgency:scoring.urgency,
+  confidence:scoring.confidence,priorityScore:scoring.score,
   relatedEventId:short(input.relatedEventId,96)||null,
   requiresNoActiveTasks:input.requiresNoActiveTasks===true,
   source:String(input.source||'agent-proactive').slice(0,80)
  });
 }
 
-export function followupOpportunity(turn,now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
+export function followupOpportunity(
+ turn,now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY,planning={}
+){
  if(!turn?.id)return null;
  const eligibility=agentTurnProactivityEligibility(turn);
  if(!eligibility.allow)return null;
@@ -77,8 +93,13 @@ export function followupOpportunity(turn,now=Date.now(),policy=DEFAULT_PROACTIVE
   scopeId:turn.conversationScopeId||('scope:p:'+turn.participantId),
   sourceAt,
   eligibleAt:sourceAt+p.followupDelayMs,
-  text:'Would you like me to help with anything else?',
+  text:planning.followupStyle==='continuity'
+   ?'If you would like, I can keep helping with what we have been working on.'
+   :'Would you like me to help with anything else?',
   dedupeKey:'followup:'+(turn.conversationScopeId||turn.participantId),
+  semanticKey:'conversation-followup:'+(turn.conversationScopeId||turn.participantId),
+  usefulness:.58+(Number(planning.usefulnessAdjustment)||0),
+  urgency:.22,confidence:1,
   source:'canonical-dialogue',
   requiresNoActiveTasks:true
  },now,p);
@@ -97,6 +118,10 @@ export function statusOpportunity(event,now=Date.now(),policy=DEFAULT_PROACTIVE_
     ?'An approved task finished with an error. The result is available in Tasks.'
     :'An approved task completed. The result is available in Tasks.',
    dedupeKey:'task-status:'+(event.relatedEventId||event.id||now),
+   semanticKey:String(event.message||'').toLowerCase().includes('failed')
+    ?'task-status:failed':'task-status:completed',
+   usefulness:String(event.message||'').toLowerCase().includes('failed')?.92:.78,
+   urgency:String(event.message||'').toLowerCase().includes('failed')?.9:.42,
    relatedEventId:event.id||null,
    source:'agent-task-runtime'
   },now,p);
@@ -107,6 +132,8 @@ export function statusOpportunity(event,now=Date.now(),policy=DEFAULT_PROACTIVE_
    sourceAt:finite(event.at)?event.at:now,
    text:'The meeting has ended. Its summary and action items are ready in the Meeting tab.',
    dedupeKey:'meeting-ended:'+(event.relatedEventId||event.id||now),
+   semanticKey:'meeting-followup:summary-ready',
+   usefulness:.72,urgency:.34,
    relatedEventId:event.id||null,
    source:'meeting-runtime'
   },now,p);
@@ -119,10 +146,13 @@ function visibleIds(context){
 }
 
 export class ProactiveAgentGovernor{
- constructor(policy=DEFAULT_PROACTIVE_POLICY,{maxPending=20}={}){
+ constructor(policy=DEFAULT_PROACTIVE_POLICY,{maxPending=20,maxHistory=PROACTIVE_MAX_HISTORY}={}){
   this.policy=normalizeProactivePolicy(policy);
   this.maxPending=Math.max(1,Math.min(60,Math.floor(maxPending)));
+  this.maxHistory=Math.max(10,Math.min(120,Math.floor(maxHistory)));
   this.pending=[];
+  this.history=[];
+  this.planner=new ProactiveSessionPlanner();
   this.interruptions=[];
   this.participantLast=new Map();
   this.lastInterruptionAt=null;
@@ -141,13 +171,21 @@ export class ProactiveAgentGovernor{
  }
  offer(opportunity){
   if(!opportunity)return Object.freeze({accepted:false,reason:'missing-opportunity',opportunity:null});
-  const i=this.pending.findIndex(item=>item.dedupeKey===opportunity.dedupeKey);
+  const i=this.pending.findIndex(item=>item.dedupeKey===opportunity.dedupeKey||
+   (item.semanticKey&&item.semanticKey===opportunity.semanticKey&&
+    item.participantId===opportunity.participantId&&item.scopeId===opportunity.scopeId));
   if(i>=0){
+   const exact=this.pending[i].dedupeKey===opportunity.dedupeKey;
    this.pending=[...this.pending.slice(0,i),opportunity,...this.pending.slice(i+1)];
-   return Object.freeze({accepted:true,reason:'replaced-duplicate',opportunity});
+   return Object.freeze({accepted:true,reason:
+    exact?'replaced-duplicate':'replaced-semantic-duplicate',opportunity});
   }
-  this.pending=[...this.pending,opportunity].sort((a,b)=>a.eligibleAt-b.eligibleAt)
-   .slice(-this.maxPending);
+  this.pending=[...this.pending,opportunity];
+  if(this.pending.length>this.maxPending){
+   const ranked=rankProactiveOpportunities(this.pending,
+    Math.max(...this.pending.map(item=>item.sourceAt||0)));
+   this.pending=ranked.slice(0,this.maxPending);
+  }
   return Object.freeze({accepted:true,reason:'queued',opportunity});
  }
  cancelByParticipant(participantId){
@@ -162,6 +200,9 @@ export class ProactiveAgentGovernor{
   this.pending=this.pending.filter(item=>!item.participantId||allowed.has(String(item.participantId)));
   this.interruptions=this.interruptions.filter(item=>
    !item.participantId||allowed.has(String(item.participantId)));
+  this.history=this.history.filter(item=>
+   !item.participantId||allowed.has(String(item.participantId)));
+  this.planner.forgetRemovedParticipants(validIds);
   for(const id of this.participantLast.keys())if(!allowed.has(String(id)))this.participantLast.delete(id);
   if(this.lastDecision?.participantId&&!allowed.has(String(this.lastDecision.participantId)))
    this.lastDecision=null;
@@ -173,7 +214,11 @@ export class ProactiveAgentGovernor{
   const scope=turn.conversationScopeId|| (turn.participantId?'scope:p:'+turn.participantId:null);
   if(scope)this.pending=this.pending.filter(item=>
    !(item.type==='conversation-followup'&&item.scopeId===scope));
-  const followup=followupOpportunity(turn,now,this.policy);
+  const eligibility=agentTurnProactivityEligibility(turn);
+  if(!eligibility.allow)return null;
+  this.planner.noteDialogue(turn,now);
+  const planning=this.planner.followupContext(turn,now);
+  const followup=followupOpportunity(turn,now,this.policy,planning);
   return followup?this.offer(followup):null;
  }
  noteStatusEvent(event,now=Date.now()){
@@ -216,6 +261,10 @@ export class ProactiveAgentGovernor{
   if(opportunity?.type==='conversation-followup'&&
      finite(lastDialogueAt)&&lastDialogueAt>opportunity.sourceAt)
    return Object.freeze({allow:false,reason:'newer conversation superseded follow-up'});
+  if(opportunity){
+   const repeat=semanticRepeatState(opportunity,this.history,now,policy.semanticRepeatMs);
+   if(!repeat.allow)return Object.freeze({allow:false,reason:'semantic repeat cooldown'});
+  }
   if(this.lastInterruptionAt!==null&&now-this.lastInterruptionAt<policy.globalCooldownMs)
    return Object.freeze({allow:false,reason:'global interruption cooldown'});
   if(participantId){
@@ -230,7 +279,8 @@ export class ProactiveAgentGovernor{
  evaluateNext(context={}){
   const now=finite(context.now)?context.now:Date.now();
   const expired=this.prune(now);
-  const opportunity=this.pending.find(item=>now>=item.eligibleAt)||null;
+  const eligible=this.pending.filter(item=>now>=item.eligibleAt);
+  const opportunity=rankProactiveOpportunities(eligible,now)[0]||null;
   if(!opportunity){
    this.lastDecision=Object.freeze({
     action:null,reason:expired.length?'expired opportunities pruned':'no eligible proactive opportunity',
@@ -250,8 +300,18 @@ export class ProactiveAgentGovernor{
   ]);
   const hardCancel=!gate.allow&&!waitReasons.has(gate.reason);
   if(hardCancel)this.pending=this.pending.filter(item=>item.id!==opportunity.id);
+  const rescored=proactiveOpportunityScore({
+   ...opportunity,ttlMs:opportunity.expiresAt-opportunity.eligibleAt
+  },now);
+  const rankedOpportunity=Object.freeze({...opportunity,
+   usefulness:rescored.usefulness,urgency:rescored.urgency,
+   confidence:rescored.confidence,priorityScore:rescored.score});
   const trace=Object.freeze([
    Object.freeze({stage:'observe',ok:true,detail:opportunity.type+' opportunity'}),
+   Object.freeze({stage:'rank',ok:true,detail:
+    'score '+rankedOpportunity.priorityScore.toFixed(3)+' · usefulness '+
+    rankedOpportunity.usefulness.toFixed(3)+' · urgency '+
+    rankedOpportunity.urgency.toFixed(3)}),
    Object.freeze({stage:'attention',ok:gate.allow,detail:gate.reason}),
    Object.freeze({stage:'dependencies',ok:gate.allow,detail:opportunity.requiresNoActiveTasks?
     'requires no active tasks':'no task dependency'}),
@@ -260,13 +320,21 @@ export class ProactiveAgentGovernor{
   this.lastDecision=Object.freeze({
    action:gate.allow?'speak':hardCancel?'cancel':null,
    reason:gate.reason,opportunityId:opportunity.id,
-   participantId:participantId||null,at:now,opportunity,trace
+   participantId:participantId||null,at:now,opportunity:rankedOpportunity,trace
   });
   return this.lastDecision;
  }
  recordOutcome(decision,{executed=false,at=Date.now()}={}){
   if(!decision?.opportunityId)return null;
   this.pending=this.pending.filter(item=>item.id!==decision.opportunityId);
+  this.history.push(Object.freeze({
+   at,participantId:decision.participantId||null,
+   type:decision.opportunity?.type||'proactive',
+   semanticKey:decision.opportunity?.semanticKey||null,
+   scopeId:decision.opportunity?.scopeId||null,executed:Boolean(executed)
+  }));
+  this.history=this.history.slice(-this.maxHistory);
+  this.planner.recordOutcome(decision.opportunity,Boolean(executed),at);
   if(executed){
    this.lastInterruptionAt=at;
    this.interruptions.push({at,participantId:decision.participantId||null,
@@ -292,6 +360,11 @@ export class ProactiveAgentGovernor{
    pending:this.pending.length,
    interruptionsThisHour:this.interruptions.length,
    maxInterruptionsPerHour:this.policy.maxInterruptionsPerHour,
+   recentOutcomes:this.history.length,
+   sessionPlans:this.planner.snapshot(now).length,
+   topCandidate:rankProactiveOpportunities(
+    this.pending.filter(item=>now>=item.eligibleAt),now
+   )[0]||null,
    lastDecision:this.lastDecision
   });
  }
