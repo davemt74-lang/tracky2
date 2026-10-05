@@ -75,6 +75,18 @@ test('12D owner speaker correction changes interval authority without pretending
  assert.equal(corrected.corrections[0].source,'local-owner');
 });
 
+test('12D owner correction does not erase originally observed overlap/interruption',()=>{
+ let attribution=buildTurnAttribution({
+  diarizationSpans:[{state:'overlap-unresolved',candidateClusterIds:['D1','D2'],
+   startOffsetMs:0,endOffsetMs:1000}],
+  continuousFusionWindowLinks:[link('D1','p1',0,1000),link('D2','p2',0,1000)]
+ });
+ attribution=applyAttributionCorrection(attribution,{intervalId:'attr-01',participantId:'p1',at:1500});
+ assert.equal(attribution.intervals[0].state,'owner-corrected');
+ assert.equal(attribution.intervals[0].observedState,'overlap');
+ assert.equal(attribution.interruptionCount,1);
+});
+
 test('12D owner can clear an incorrect interval assignment and original correction remains bounded',()=>{
  let attribution=buildTurnAttribution({
   diarizationSpans:[{state:'speaker',speakerClusterId:'D1',startOffsetMs:0,endOffsetMs:1200}],
