@@ -131,7 +131,8 @@ test('11F runtime sidecar reuses the one room segment and never blocks canonical
  const start=runtime.indexOf('function onRoomAudioSegment(segment)');
  const end=runtime.indexOf('function transcriptParticipantName',start);
  const block=runtime.slice(start,end);
- assert.match(block,/queueEnvironmentalAudio\(segment\)/);
+ assert.match(block,/queueEnvironmentalAudio\((?:segment|environmentSegment)\)/);
+ assert.match(block,/const \{separationInput,\.\.\.environmentSegment\}=segment/);
  assert.match(block,/listeningController\.enqueue/);
  assert.doesNotMatch(block,/await queueEnvironmentalAudio/);
  assert.match(runtime,/environmentalAudioState!=='ready'\|\|document\.hidden/);
