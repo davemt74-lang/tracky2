@@ -57,6 +57,8 @@ No governed skill can run arbitrary shell commands, arbitrary URLs, raw camera/a
 
 V0.14.2 adds local workflow orchestration over those governed skills. Workflows contain bounded dependency metadata and policy snapshots only; they are not uploaded to the server. Before a self-hosted workflow step runs, the browser refreshes the current approved-object/skill inventory, and `server/skill-api.php` revalidates the object and grant again. A revoked object, removed skill, stale authorization snapshot, or deleted dependent participant invalidates the workflow instead of continuing under old authority. Reloaded workflows remain paused until the owner resumes them, and an interrupted external-search step is never silently repeated.
 
+V0.14.3 adds owner-approved memory learning entirely in the browser. Proposal generation reads current canonical dialogue, ROOM decisions and meeting metadata into a bounded in-memory review queue; it does not add a server memory endpoint or sync proposals. Participant-scoped proposals require resolved single-speaker attribution or an owner correction. Source IDs/fingerprints are revalidated before approval, sensitive inferred categories are suppressed, and only the owner's explicit Approve & save action can write a schema-2 durable memory. Approved memories retain bounded provenance metadata only; canonical source excerpts, transcripts, raw media, biometrics, provider prompts and credentials are not copied into the memory store.
+
 ## Backup, restore and offline recovery
 
 Use the CLI-only recovery tool from the application directory:
