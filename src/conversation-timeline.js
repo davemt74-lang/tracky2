@@ -37,6 +37,17 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    diarizationAttributionSuppressed:t.diarizationAttributionSuppressed===true,
    diarizationAttributionReason:t.diarizationAttributionReason||null,
    diarizationSpans:Array.isArray(t.diarizationSpans)?t.diarizationSpans.slice(0,12):[],
+   continuousFusionSchema:Number(t.continuousFusionSchema)||null,
+   continuousFusionState:t.continuousFusionState||null,
+   continuousFusionParticipantIds:Array.isArray(t.continuousFusionParticipantIds)
+    ?t.continuousFusionParticipantIds.slice(0,12):[],
+   continuousFusionUnresolvedWindows:Math.max(0,Number(t.continuousFusionUnresolvedWindows)||0),
+   continuousFusionConflicts:Array.isArray(t.continuousFusionConflicts)
+    ?t.continuousFusionConflicts.slice(0,8):[],
+   continuousFusionClusterLinks:Array.isArray(t.continuousFusionClusterLinks)
+    ?t.continuousFusionClusterLinks.slice(0,8):[],
+   continuousFusionWindowLinks:Array.isArray(t.continuousFusionWindowLinks)
+    ?t.continuousFusionWindowLinks.slice(0,12):[],
    transcriptState:String(t.transcriptState||(t.transcriptEditedAt?'corrected':'final')),
    transcriptSource:String(t.transcriptSource||'local-whisper'),
    transcriptModelId:t.transcriptModelId||null,

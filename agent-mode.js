@@ -123,7 +123,21 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      entry.diarizationAttributionSuppressed?'whole-turn identity suppressed':''
     ].filter(Boolean);
     diarizationMeta.textContent='Diarization · '+diarizationBits.join(' · ');
-    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta);
+    const continuousMeta=document.createElement('small');
+    continuousMeta.className='agent-conversation-provenance';
+    const continuousBits=[
+     entry.continuousFusionState||'not-recorded',
+     (entry.continuousFusionParticipantIds||[]).length
+      ?(entry.continuousFusionParticipantIds||[]).length+' participant link'+
+       ((entry.continuousFusionParticipantIds||[]).length===1?'':'s')
+      :'no participant link',
+     entry.continuousFusionUnresolvedWindows
+      ?entry.continuousFusionUnresolvedWindows+' unresolved window'+
+       (entry.continuousFusionUnresolvedWindows===1?'':'s'):'',
+     ...(entry.continuousFusionConflicts||[]).map(value=>'conflict:'+value)
+    ].filter(Boolean);
+    continuousMeta.textContent='Continuous fusion · '+continuousBits.join(' · ');
+    bubble.append(note,transcriptMeta,conversationMeta,fusionMeta,diarizationMeta,continuousMeta);
    }
    row.append(avatar,bubble);ui.thread.append(row);
   }

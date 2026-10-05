@@ -172,7 +172,12 @@ test('11E UI reloads active meeting, derives source text from canonical turns an
 test('11E runtime stamps meeting ID before queueing, refreshes after corrections, and reuses existing media/transcription path',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(runtime,/const meetingFields=meetingUI\?\.turnFields\?\.\(\)/);
- assert.match(runtime,/listeningController\.enqueue\(\{\.\.\.segment,\.\.\.meetingFields\}/);
+ const enqueueStart=runtime.indexOf('listeningController.enqueue({');
+ const enqueueEnd=runtime.indexOf('},{',enqueueStart);
+ const enqueueBlock=runtime.slice(enqueueStart,enqueueEnd);
+ assert.ok(enqueueStart>0&&enqueueEnd>enqueueStart);
+ assert.match(enqueueBlock,/\.\.\.segment/);
+ assert.match(enqueueBlock,/\.\.\.meetingFields/);
  assert.match(runtime,/meetingId:segment\.meetingId\|\|null/);
  assert.match(runtime,/meetingUI\?\.refreshTurns\(\)/);
  assert.match(runtime,/createMeetingUi\(/);

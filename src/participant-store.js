@@ -187,15 +187,23 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
       const addressedIds=Array.from(row.addressedParticipantIds||[]);
       const multimodalContextParticipantIds=Array.from(row.multimodalContextParticipantIds||[]);
       const multimodalEvidence=Array.isArray(row.multimodalEvidence)?row.multimodalEvidence:[];
+      const continuousFusionParticipantIds=Array.from(row.continuousFusionParticipantIds||[]);
+      const continuousFusionClusterLinks=Array.isArray(row.continuousFusionClusterLinks)
+        ?row.continuousFusionClusterLinks:[];
+      const continuousFusionWindowLinks=Array.isArray(row.continuousFusionWindowLinks)
+        ?row.continuousFusionWindowLinks:[];
       const hasNearbyReference = nearbyIds.includes(id);
       const hasNameReference = participant?.name && nearbyNames.includes(participant.name);
       const hasConversationReference=conversationIds.includes(id);
       const hasAddressReference=addressedIds.includes(id)||row.addressedParticipantId===id;
       const hasMultimodalReference=multimodalContextParticipantIds.includes(id)||
         multimodalEvidence.some(evidence=>evidence?.participantId===id);
+      const hasContinuousFusionReference=continuousFusionParticipantIds.includes(id)||
+        continuousFusionClusterLinks.some(link=>link?.participantId===id)||
+        continuousFusionWindowLinks.some(link=>link?.participantId===id);
 
       if (hasNearbyReference || hasNameReference || hasConversationReference ||
-          hasAddressReference || hasMultimodalReference) {
+          hasAddressReference || hasMultimodalReference || hasContinuousFusionReference) {
         const nextAddressed=addressedIds.filter(participantId=>participantId!==id);
         dialogue.put({
           ...row,
@@ -211,7 +219,13 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
             ? (row.addressedAgent?'agent':'unspecified'):(row.addressKind||'unspecified'),
           multimodalContextParticipantIds:multimodalContextParticipantIds
             .filter(participantId=>participantId!==id),
-          multimodalEvidence:multimodalEvidence.filter(evidence=>evidence?.participantId !== id)
+          multimodalEvidence:multimodalEvidence.filter(evidence=>evidence?.participantId !== id),
+          continuousFusionParticipantIds:continuousFusionParticipantIds
+            .filter(participantId=>participantId!==id),
+          continuousFusionClusterLinks:continuousFusionClusterLinks
+            .filter(link=>link?.participantId!==id),
+          continuousFusionWindowLinks:continuousFusionWindowLinks
+            .filter(link=>link?.participantId!==id)
         });
       }
     }
