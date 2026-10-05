@@ -93,7 +93,7 @@ function meetingRefs(turn,meetingIds){
  return id?[{type:'meeting',id,state:meetingIds.has(id)?'available':'stale'}]:[];
 }
 
-function recordingItem(recording,sessionId){
+function recordingItem(recording,sessionId,dialogueIds=new Set()){
  const id=short(recording?.id||recording?.recordingId,96);
  if(!id)return null;
  const startedAt=atOf(recording?.startedAt||recording?.createdAt||recording?.at);
@@ -104,13 +104,20 @@ function recordingItem(recording,sessionId){
  return timelineItem({
   id:'recording:'+id,sessionId,sourceType:'recording',sourceId:id,
   subtype:'recording-reference',at:startedAt,endAt:endedAt||null,
-  title:'Recording reference',
-  text:durationMs===null?'Recording metadata reference':
-   'Recording metadata reference · '+Math.round(durationMs/1000)+'s',
+  title:'Saved recording',
+  text:[
+   durationMs===null?'Recording metadata reference':
+    'Recording metadata reference · '+Math.round(durationMs/1000)+'s',
+   String(recording?.mediaState||recording?.status||'unknown'),
+   (recording?.transcriptTurnIds||[]).length+' transcript refs'
+  ].join(' · '),
   participantIds:recording?.participantIds||[],
   status:short(recording?.status||'available',64)||'available',
-  provenance:['canonical-recording-reference','metadata-only'],
-  references:[]
+  provenance:['canonical-recording-reference','metadata-only','media-not-exported'],
+  references:(recording?.transcriptTurnIds||[]).slice(0,12).map(id=>({
+   type:'dialogue-turn',id:String(id).slice(0,96),
+   state:dialogueIds.has(String(id))?'available':'stale'
+  }))
  });
 }
 
@@ -122,6 +129,7 @@ export function buildSessionIdentityTimeline({
  const people=new Map((participants||[]).filter(Boolean).map(person=>[person.id,person]));
  const meetingRows=(meetings||[]).filter(row=>row?.id);
  const meetingIds=new Set(meetingRows.map(row=>String(row.id)));
+ const dialogueIds=new Set((dialogueTurns||[]).filter(row=>row?.id).map(row=>String(row.id)));
  const items=[
   timelineItem({
    id:'session:'+sessionId+':start',sessionId,sourceType:'session',sourceId:sessionId,
@@ -196,7 +204,7 @@ export function buildSessionIdentityTimeline({
 
  for(const recording of Array.isArray(recordings)?recordings:[]){
   if(String(recording?.sessionId||'')!==sessionId)continue;
-  const item=recordingItem(recording,sessionId);
+  const item=recordingItem(recording,sessionId,dialogueIds);
   if(item)items.push(item);
  }
 

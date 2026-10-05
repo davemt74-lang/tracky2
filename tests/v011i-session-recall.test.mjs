@@ -184,7 +184,7 @@ test('11I recall UI reads canonical stores live and creates no persistent search
 
 test('11I supported source filters and explainability stay bounded and explicit',()=>{
  assert.deepEqual(RECALL_SOURCE_TYPES,
-  ['conversation','room','meeting','decision','task','memory']);
+  ['conversation','room','meeting','recording','decision','task','memory']);
  const rows=buildRecallProjection({dialogueTurns:[turn('t1','Alpha beta gamma')],participants});
  const results=searchRecall(rows,'alpha beta',{limit:999});
  assert.equal(results.length,1);

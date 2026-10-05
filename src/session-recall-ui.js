@@ -1,6 +1,6 @@
 import {
  listDialogueTurns,listRoomObservations,listAgentTasks,listAgentMemories,listMeetings,
- listSessionIdentities
+ listRecordings,listSessionIdentities
 } from './participant-store.js';
 import {buildRecallProjection,searchRecall,explainRecallResult} from './session-recall-core.js';
 import {
@@ -55,14 +55,15 @@ export function createSessionRecallUi({
   return [...new Set(ids.filter(Boolean))].map(id=>people.get(id)||'Deleted participant');
  }
  async function projection(){
-  const [dialogue,persistedRoom,tasks,persistedMemories,meetings]=await Promise.all([
-   listDialogueTurns(),listRoomObservations(),listAgentTasks(),listAgentMemories(),listMeetings()
+  const [dialogue,persistedRoom,tasks,persistedMemories,meetings,recordings]=await Promise.all([
+   listDialogueTurns(),listRoomObservations(),listAgentTasks(),listAgentMemories(),listMeetings(),
+   listRecordings()
   ]);
   const room=byId([...(persistedRoom||[]),...(getCurrentRoomEvents()||[])]);
   const memories=byId([...(persistedMemories||[]),...(getSessionMemories()||[])]);
   return buildRecallProjection({
    dialogueTurns:dialogue,agentHistory:getAgentHistory()||[],roomEvents:room,
-   meetings,tasks,memories,participants:participants()||[],
+   meetings,recordings,tasks,memories,participants:participants()||[],
    currentSessionIds:currentSessionIds()||[],
    currentSessionStartedAt:Number(currentSessionStartedAt())||0,
    now:Date.now()
@@ -115,8 +116,9 @@ export function createSessionRecallUi({
   if(!ui.sessionTimeline)return false;
   setSessionStatus('Reading canonical session sources…');
   try{
-   const [dialogue,persistedRoom,meetings,sessions]=await Promise.all([
-    listDialogueTurns(),listRoomObservations(),listMeetings(),listSessionIdentities()
+   const [dialogue,persistedRoom,meetings,recordings,sessions]=await Promise.all([
+    listDialogueTurns(),listRoomObservations(),listMeetings(),listRecordings(),
+    listSessionIdentities()
    ]);
    const currentId=sessionIdNow();
    const prior=ui.sessionSelect?.value||currentId;
@@ -148,7 +150,7 @@ export function createSessionRecallUi({
    const room=byId([...(persistedRoom||[]),...currentRoom]);
    const rows=buildSessionIdentityTimeline({
     session,dialogueTurns:dialogue,roomEvents:room,meetings,
-    recordings:[],participants:participants()||[]
+    recordings,participants:participants()||[]
    });
    const summary=sessionIdentitySummary(rows);
    renderSessionTimeline(rows,summary);

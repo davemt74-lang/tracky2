@@ -2,7 +2,7 @@ import {projectRoomState} from './room-event-core.js';
 import {normalizeMemoryRecord,memoryExpired} from './agent-memory-core.js';
 
 export const RECALL_SOURCE_TYPES=Object.freeze([
- 'conversation','room','meeting','decision','task','memory'
+ 'conversation','room','meeting','recording','decision','task','memory'
 ]);
 export const MAX_RECALL_RESULTS=100;
 
@@ -56,7 +56,7 @@ function currentSession(sessionId,currentSessionId,currentSessionIds=[]){
 }
 
 export function buildRecallProjection({
- dialogueTurns=[],agentHistory=[],roomEvents=[],meetings=[],tasks=[],memories=[],
+ dialogueTurns=[],agentHistory=[],roomEvents=[],meetings=[],recordings=[],tasks=[],memories=[],
  participants=[],currentSessionId=null,currentSessionIds=[],currentSessionStartedAt=0,now=Date.now()
 }={}){
  const people=new Map((participants||[]).filter(Boolean).map(person=>[person.id,person]));
@@ -192,6 +192,33 @@ export function buildRecallProjection({
   }
  }
 
+ for(const recording of Array.isArray(recordings)?recordings:[]){
+  if(!recording?.id)continue;
+  const start=Number(recording.startedAt)||0;
+  const turnIds=Array.from(recording.transcriptTurnIds||[]).filter(Boolean).slice(0,500);
+  const stale=turnIds.filter(id=>!dialogueIds.has(String(id)));
+  const participantIds=[...new Set(turnIds.map(id=>dialogueById.get(String(id))?.participantId)
+   .filter(Boolean))];
+  const durationMs=Number.isFinite(recording.durationMs)?Math.max(0,recording.durationMs):null;
+  rows.push(item({
+   id:'recording:'+recording.id,sourceType:'recording',sourceId:recording.id,
+   subtype:'saved-recording',at:start,title:'Saved room recording',
+   text:[
+    durationMs===null?'duration unavailable':Math.round(durationMs/1000)+' seconds',
+    turnIds.length+' canonical transcript reference'+(turnIds.length===1?'':'s'),
+    'media '+String(recording.mediaState||recording.status||'unknown')
+   ].join(' · '),
+   temporal:currentSession(recording.sessionId,currentSessionId,currentSessionIds)
+    ?'current-session':'historical',
+   participantIds,
+   provenance:['canonical-recording-metadata','media-not-indexed','participant-scope-derived-from-canonical-turns'],
+   references:turnIds.slice(0,12).map(id=>ref('dialogue-turn',id,
+    dialogueIds.has(String(id))?'available':'stale')),
+   status:String(recording.status||'unknown')+
+    (stale.length?' · '+stale.length+' transcript reference'+(stale.length===1?'':'s')+' stale':'')
+  }));
+ }
+
  for(const task of Array.isArray(tasks)?tasks:[]){
   if(!task?.id)continue;
   const related=task.relatedEventId||null;
@@ -274,7 +301,8 @@ export function explainRecallResult(result){
  const stale=(result.references||[]).filter(reference=>reference.state==='stale');
  const sourceLabels={
   conversation:'canonical dialogue turn',room:'effective canonical ROOM event',
-  meeting:'meeting metadata',task:'agent task metadata',memory:'active owner-authored memory'
+  meeting:'meeting metadata',recording:'saved recording metadata',
+  task:'agent task metadata',memory:'active owner-authored memory'
  };
  const temporal=result.temporal==='current-session'?'current session':'historical';
  const summary=(sourceLabels[result.sourceType]||result.sourceType)+' · '+temporal+

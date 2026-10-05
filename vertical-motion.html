@@ -264,6 +264,7 @@
               <option value="conversation">Conversation</option>
               <option value="room">ROOM</option>
               <option value="meeting">Meetings</option>
+              <option value="recording">Recordings</option>
               <option value="decision">Decisions</option>
               <option value="task">Tasks</option>
               <option value="memory">Owner memory</option>
@@ -283,6 +284,25 @@
           <div id="agentRecallStatus" class="agent-recall-status" role="status">Recall is ready. No persistent search index is created.</div>
           <div id="agentRecallResults" class="agent-recall-results" aria-live="polite"></div>
           <small>“Why this result” shows source, temporal scope, provenance and reference availability. Stale references are reported, never silently reconstructed.</small>
+          <div class="agent-session-context-head">
+            <strong>Saved room recordings</strong>
+            <small>Explicit owner-controlled audio only. Reuses the live ROOM microphone; no second microphone or background recording path.</small>
+          </div>
+          <label class="agent-check"><input type="checkbox" id="recordingConsent"> I am starting this recording intentionally and have appropriate consent.</label>
+          <div class="agent-recall-tools">
+            <label>Retention<select id="recordingRetention">
+              <option value="1">1 day</option>
+              <option value="7" selected>7 days</option>
+              <option value="30">30 days</option>
+            </select></label>
+            <button type="button" id="recordingStart" disabled>Start recording</button>
+            <button type="button" id="recordingStop" disabled>Stop recording</button>
+            <button type="button" id="recordingRefresh">Refresh recordings</button>
+          </div>
+          <div id="recordingStatus" class="agent-recall-status" role="status">Saved recording is off.</div>
+          <audio id="recordingPlayer" controls hidden preload="metadata"></audio>
+          <div id="recordingList" class="agent-recall-results" aria-live="polite">No saved recordings on this device.</div>
+          <small>Saved media stays local in IndexedDB, expires by the selected retention period, and is never included in transcript/session JSON exports unless media is explicitly played here.</small>
           <div class="agent-session-context-head">
             <strong>Canonical session identity timeline</strong>
             <small>ROOM, transcripts, meetings and recording references share one session ID; media is never copied here.</small>
