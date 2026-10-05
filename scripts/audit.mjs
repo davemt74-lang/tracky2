@@ -102,6 +102,7 @@ const requiredFiles = [
   'src/multi-person-attribution-core.js',
   'src/session-identity-core.js',
   'src/room-handoff-core.js',
+  'src/spatial-audio-source-core.js',
   'src/conversation-listening-core.js',
   'src/speaker-participant-core.js',
   'src/transcript-lifecycle-core.js',
@@ -193,6 +194,7 @@ const runtimeJs = [
   'src/multi-person-attribution-core.js',
   'src/session-identity-core.js',
   'src/room-handoff-core.js',
+  'src/spatial-audio-source-core.js',
   'src/conversation-listening-core.js',
   'src/speaker-participant-core.js',
   'src/transcript-lifecycle-core.js',
@@ -236,8 +238,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.12.5') {
-  fail('package.json version must be 0.12.5');
+if (packageJson.version !== '0.12.6') {
+  fail('package.json version must be 0.12.6');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -360,8 +362,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.12\.5-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.12.5 deploy ZIP');
+if (!/tracky2-v0\.12\.6-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.12.6 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
