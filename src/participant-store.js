@@ -866,9 +866,19 @@ export async function saveAgentTask(record){
  if(!record||!record.id||!['describe_object','capture_image','product_search'].includes(record.skillId))
   throw new Error('Invalid agent task');
  const statuses=['pending-confirmation','scheduled','running','succeeded','failed','cancelled'];
+ const sources=(Array.isArray(record.resultSources)?record.resultSources:[]).slice(0,5)
+  .map(row=>({title:String(row?.title||'').slice(0,160),url:String(row?.url||'').slice(0,700)}))
+  .filter(row=>/^https:\/\//i.test(row.url));
+ const provenance=record.executionProvenance&&typeof record.executionProvenance==='object'
+  ?Object.fromEntries(Object.entries(record.executionProvenance).filter(([key,value])=>
+    ['contract','skillId','skillVersion','sideEffect','targetId','targetSource','outcome','executedAt',
+     'authorization','provider','model','resultCount','mediaBytes','mediaWidth','mediaHeight'].includes(key)&&
+    (typeof value==='string'||Number.isFinite(value))))
+  :null;
  const safe={
-  schema:record.schema===1?1:null,id:String(record.id).slice(0,96),
+  schema:record.schema===2?2:record.schema===1?1:null,id:String(record.id).slice(0,96),
   skillId:record.skillId,targetId:String(record.targetId||'').slice(0,96),
+  targetSource:record.targetSource==='server-approved'?'server-approved':'local-owner-defined',
   idempotencyKey:String(record.idempotencyKey||'').slice(0,180),
   status:statuses.includes(record.status)?record.status:'failed',
   runAt:Number.isFinite(record.runAt)?record.runAt:Date.now(),
@@ -879,7 +889,8 @@ export async function saveAgentTask(record){
   completedAt:Number.isFinite(record.completedAt)?record.completedAt:null,
   attempts:Math.max(0,Math.min(5,Number(record.attempts)||0)),
   maxAttempts:Math.max(1,Math.min(5,Number(record.maxAttempts)||2)),
-  resultText:String(record.resultText||'').slice(0,500),
+  resultText:String(record.resultText||'').slice(0,900),resultSources:sources,
+  executionProvenance:provenance,
   errorText:String(record.errorText||'').slice(0,240),
   relatedEventId:String(record.relatedEventId||'').slice(0,96)||null
  };
