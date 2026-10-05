@@ -5,13 +5,24 @@ const ui={
  modal:$('agentControlCenter'),backdrop:$('agentControlCenterBackdrop'),close:$('agentControlCenterClose'),
  open:$('agentControlCenterButton'),refresh:$('agentControlCenterRefresh'),
  status:$('agentControlCenterStatus'),username:$('agentAccountUsername'),role:$('agentAccountRole'),
- participants:$('agentAccountParticipants'),sync:$('agentAccountSyncState'),syncDetail:$('agentAccountSyncDetail')
+ participants:$('agentAccountParticipants'),sync:$('agentAccountSyncState'),syncDetail:$('agentAccountSyncDetail'),
+ accountTab:$('controlCenterAccountTab'),roomTab:$('controlCenterRoomTab'),
+ accountPanel:$('controlCenterAccountPanel'),roomPanel:$('controlCenterRoomPanel'),
+ roomOpen:$('roomOpenControlCenter')
 };
-let lastFocus=null,open=false;
+let lastFocus=null,open=false,activePane='account';
 
 function setStatus(text){if(ui.status)ui.status.textContent=text;}
-function setOpen(value){
+function selectPane(name='account'){
+ activePane=name==='room'?'room':'account';
+ if(ui.accountPanel)ui.accountPanel.hidden=activePane!=='account';
+ if(ui.roomPanel)ui.roomPanel.hidden=activePane!=='room';
+ if(ui.accountTab){ui.accountTab.setAttribute('aria-selected',String(activePane==='account'));ui.accountTab.tabIndex=activePane==='account'?0:-1;}
+ if(ui.roomTab){ui.roomTab.setAttribute('aria-selected',String(activePane==='room'));ui.roomTab.tabIndex=activePane==='room'?0:-1;}
+}
+function setOpen(value,pane=activePane){
  open=value===true;if(!ui.modal)return;
+ selectPane(pane);
  if(open){lastFocus=document.activeElement;ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
   document.body.classList.add('control-center-open');void refresh();requestAnimationFrame(()=>ui.close?.focus());}
  else{ui.modal.hidden=true;ui.modal.setAttribute('aria-hidden','true');document.body.classList.remove('control-center-open');
@@ -57,11 +68,17 @@ async function refresh(){
   setStatus('Signed in as '+(account.user?.username||'account')+' · '+(account.user?.role||'user')+'.');
  }catch(error){setStatus('Control Center could not refresh: '+error.message);}
 }
-ui.open?.addEventListener('click',()=>setOpen(true));
+ui.open?.addEventListener('click',()=>setOpen(true,'account'));
+ui.roomOpen?.addEventListener('click',()=>setOpen(true,'room'));
+ui.accountTab?.addEventListener('click',()=>selectPane('account'));
+ui.roomTab?.addEventListener('click',()=>selectPane('room'));
 ui.close?.addEventListener('click',()=>setOpen(false));
 ui.backdrop?.addEventListener('click',()=>setOpen(false));
 ui.refresh?.addEventListener('click',()=>void (async()=>{await window.trackyAccountParticipants?.syncNow?.();await refresh();})());
-window.addEventListener('tracky:control-center-toggle',()=>setOpen(!open));
+window.addEventListener('tracky:control-center-toggle',event=>{
+ const pane=event.detail?.pane||activePane;
+ setOpen(!open,pane);
+});
 window.addEventListener('tracky:account-participant-sync',()=>{if(open)void refresh();});
 document.addEventListener('keydown',event=>{
  if(!open)return;
