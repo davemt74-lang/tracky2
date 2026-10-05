@@ -22,7 +22,7 @@ import {
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -32,6 +32,9 @@ const AGENT_TASKS = 'agent-tasks';
 const AGENT_WORKFLOWS = 'agent-workflows';
 const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
+const RESOURCE_SYNC_CONFIG = 'resource-sync-config';
+const RESOURCE_SYNC_STATE = 'resource-sync-state';
+const RESOURCE_SYNC_JOURNAL = 'resource-sync-journal';
 const MEETINGS = 'meetings';
 const SESSION_IDENTITIES = 'session-identities';
 const RECORDINGS = 'recordings';
@@ -47,6 +50,7 @@ export const MAX_DIALOGUE_TURNS = 500;
 export const MAX_PERSISTED_AGENT_TASKS = 200;
 export const MAX_PERSISTED_AGENT_WORKFLOWS = 80;
 export const MAX_PERSISTED_AGENT_MEMORIES = 200;
+export const MAX_PERSISTED_RESOURCE_SYNC_JOURNAL = 200;
 export const MAX_PERSISTED_MEETINGS = 120;
 export const MAX_PERSISTED_SESSION_IDENTITIES = 120;
 
@@ -127,6 +131,19 @@ export async function openParticipantDb() {
       }
       if (!db.objectStoreNames.contains(PARTICIPANT_SYNC)) {
         db.createObjectStore(PARTICIPANT_SYNC,{keyPath:'participantId'});
+      }
+      if (!db.objectStoreNames.contains(RESOURCE_SYNC_CONFIG)) {
+        db.createObjectStore(RESOURCE_SYNC_CONFIG,{keyPath:'id'});
+      }
+      if (!db.objectStoreNames.contains(RESOURCE_SYNC_STATE)) {
+        const resourceSync=db.createObjectStore(RESOURCE_SYNC_STATE,{keyPath:'key'});
+        resourceSync.createIndex('resourceType','resourceType',{unique:false});
+        resourceSync.createIndex('updatedAt','updatedAt',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(RESOURCE_SYNC_JOURNAL)) {
+        const journal=db.createObjectStore(RESOURCE_SYNC_JOURNAL,{keyPath:'id'});
+        journal.createIndex('status','status',{unique:false});
+        journal.createIndex('updatedAt','updatedAt',{unique:false});
       }
       if (!db.objectStoreNames.contains(MEETINGS)) {
         const meetings=db.createObjectStore(MEETINGS,{keyPath:'id'});
@@ -1116,6 +1133,115 @@ export async function saveParticipantSyncState(input){
 export function deleteParticipantSyncState(participantId){
  return storeAction(PARTICIPANT_SYNC,'readwrite',async store=>{
   await requestToPromise(store.delete(participantId));return true;
+ });
+}
+
+
+/* V0.14F generalized metadata sync state. These stores contain device/scope,
+   version and journal metadata only; synchronized resource payloads remain canonical. */
+function resourceSyncType(value){
+ const type=String(value||'');if(!['memory','task','scene'].includes(type))
+  throw new Error('Invalid resource sync type.');return type;
+}
+function resourceSyncKey(type,id){
+ const t=resourceSyncType(type),rid=String(id||'').slice(0,96);
+ if(!rid)throw new Error('Resource sync ID required.');return t+':'+rid;
+}
+export function normalizeResourceSyncConfig(input={}){
+ const deviceId=String(input.deviceId||'').slice(0,96);
+ const scopes=[...new Set((Array.isArray(input.scopes)?input.scopes:[])
+  .filter(value=>['memory','task','scene'].includes(value)))];
+ return {
+  id:'server-sync-v2',deviceId,label:String(input.label||'This browser').slice(0,80),
+  scopes,cursor:Math.max(0,Number(input.cursor)||0),
+  registered:input.registered===true,revokedAt:Number.isFinite(input.revokedAt)?input.revokedAt:null,
+  lastSyncAt:Number.isFinite(input.lastSyncAt)?input.lastSyncAt:null,
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now()
+ };
+}
+export function getResourceSyncConfig(){
+ return storeAction(RESOURCE_SYNC_CONFIG,'readonly',async store=>{
+  const row=await requestToPromise(store.get('server-sync-v2'));return row?normalizeResourceSyncConfig(row):null;
+ });
+}
+export async function saveResourceSyncConfig(input){
+ const safe=normalizeResourceSyncConfig(input);
+ await storeAction(RESOURCE_SYNC_CONFIG,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function clearResourceSyncConfig(){
+ return storeAction(RESOURCE_SYNC_CONFIG,'readwrite',store=>requestToPromise(store.clear()));
+}
+export function normalizeResourceSyncState(input={}){
+ const type=resourceSyncType(input.resourceType),resourceId=String(input.resourceId||'').slice(0,96);
+ if(!resourceId)throw new Error('Resource sync ID required.');
+ return {
+  key:resourceSyncKey(type,resourceId),resourceType:type,resourceId,
+  serverVersion:Math.max(0,Number(input.serverVersion)||0),
+  lastSyncedFingerprint:String(input.lastSyncedFingerprint||'').slice(0,160)||null,
+  serverUpdatedAt:Number.isFinite(input.serverUpdatedAt)?input.serverUpdatedAt:null,
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now()
+ };
+}
+export function listResourceSyncStates(){
+ return storeAction(RESOURCE_SYNC_STATE,'readonly',store=>requestToPromise(store.getAll()));
+}
+export function getResourceSyncState(type,id){
+ return storeAction(RESOURCE_SYNC_STATE,'readonly',store=>requestToPromise(store.get(resourceSyncKey(type,id))));
+}
+export async function saveResourceSyncState(input){
+ const safe=normalizeResourceSyncState(input);
+ await storeAction(RESOURCE_SYNC_STATE,'readwrite',store=>requestToPromise(store.put(safe)));
+ return safe;
+}
+export function deleteResourceSyncState(type,id){
+ return storeAction(RESOURCE_SYNC_STATE,'readwrite',async store=>{
+  await requestToPromise(store.delete(resourceSyncKey(type,id)));return true;
+ });
+}
+export function normalizeResourceSyncJournal(input={}){
+ const type=resourceSyncType(input.resourceType),resourceId=String(input.resourceId||'').slice(0,96);
+ const id=String(input.id||'').slice(0,96);
+ if(!id||!resourceId||!['push-upsert','push-delete','pull-upsert','pull-delete'].includes(input.operation))
+  throw new Error('Invalid resource sync journal entry.');
+ return {
+  id,key:resourceSyncKey(type,resourceId),resourceType:type,resourceId,operation:input.operation,
+  baseVersion:Math.max(0,Number(input.baseVersion)||0),
+  serverVersion:Math.max(0,Number(input.serverVersion)||0),
+  status:input.status==='applied'?'applied':'pending',
+  attempts:Math.max(0,Math.min(9,Number(input.attempts)||0)),
+  createdAt:Number.isFinite(input.createdAt)?input.createdAt:Date.now(),
+  updatedAt:Number.isFinite(input.updatedAt)?input.updatedAt:Date.now(),
+  errorText:String(input.errorText||'').slice(0,240)
+ };
+}
+export function listResourceSyncJournal(){
+ return storeAction(RESOURCE_SYNC_JOURNAL,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.map(normalizeResourceSyncJournal).sort((a,b)=>a.createdAt-b.createdAt)
+   .slice(-MAX_PERSISTED_RESOURCE_SYNC_JOURNAL);
+ });
+}
+export async function saveResourceSyncJournal(input){
+ const safe=normalizeResourceSyncJournal(input);
+ return storeAction(RESOURCE_SYNC_JOURNAL,'readwrite',async store=>{
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const row of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_RESOURCE_SYNC_JOURNAL)))store.delete(row.id);
+  return safe;
+ });
+}
+export function deleteResourceSyncJournal(id){
+ return storeAction(RESOURCE_SYNC_JOURNAL,'readwrite',async store=>{
+  await requestToPromise(store.delete(String(id||'')));return true;
+ });
+}
+export async function clearAppliedResourceSyncJournal(){
+ return storeAction(RESOURCE_SYNC_JOURNAL,'readwrite',async store=>{
+  const rows=await requestToPromise(store.getAll());let removed=0;
+  for(const row of rows)if(row.status==='applied'){store.delete(row.id);removed++;}
+  return removed;
  });
 }
 
