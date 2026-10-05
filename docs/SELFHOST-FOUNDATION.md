@@ -47,7 +47,13 @@ ElevenLabs is optional speech output only. Tracky sends at most the bounded repl
 
 ## Scene and object foundation
 
-Authorized `server/api.php?resource=scenes|objects|skills` requests store scenes, proposed/approved objects with normalized bounding boxes, and per-object allowlisted skills (`capture_image`, `product_search`, `describe_object`). A proposed object must be approved before any skill can be enabled. These records are data and permissions, not unrestricted commands. The live object-detection model, scene snapshots, governed tool execution, external searches and retention policies need dedicated integration before scene intelligence is usable end-to-end.
+Authorized `server/api.php?resource=scenes|objects|skills` requests store scenes, proposed/approved objects with normalized bounding boxes, and per-object allowlisted skills. V0.14.1 connects those permissions to the AGENT task runtime through an explicit governed-skill registry.
+
+Local owner-defined objects can explicitly grant `describe_object` and `capture_image`. Capture requires a mapped camera area, visible active camera and a fresh foreground owner action; it cannot execute from the background scheduler. The captured crop is downloaded locally as a one-time JPEG and Tracky stores only bounded dimensions/byte-count provenance, not image bytes.
+
+Self-hosted approved objects can explicitly grant `describe_object` and `product_search`. Product search requires `skills.execute` plus `providers.use`, rechecks current object approval and current enabled-skill state at execution time, and uses only the configured server-side OpenAI credential through a fixed endpoint. The browser sends only the object ID and fixed skill name. Revoking object approval disables all server skill grants immediately. Search results retain only bounded summary text and up to five unique HTTPS source references.
+
+No governed skill can run arbitrary shell commands, arbitrary URLs, raw camera/audio uploads, biometric payloads, participant identity changes, transcript changes, memory writes or hidden recording. Owner/admin can review approved self-hosted objects and enable/revoke server skills in Admin.
 
 ## Backup, restore and offline recovery
 
@@ -63,4 +69,4 @@ A backup contains `tracky.sqlite`, `secret.key`, `installed.lock` and a SHA-256 
 
 ## Verification and deployment
 
-CI validates PHP syntax/extensions, fresh install, legacy-schema upgrade, one-time installer lock, SQLite permissions, CSRF, encrypted participant sync, multi-room node tables/permissions, conflict detection, provider encryption/recovery, backup verify/restore, JavaScript reconciliation tests, PWA tests, and ZIP package integrity. Personal camera, microphone and participant consent still require device-level acceptance. The deployment archive includes recovery tooling and server runtime code, **never** the live private database, passwords, provider credentials or encryption key.
+CI validates PHP syntax/extensions, fresh install, legacy-schema upgrade, one-time installer lock, SQLite permissions, CSRF, encrypted participant sync, multi-room node tables/permissions, conflict detection, provider encryption/recovery, governed skill permissions/revocation contracts, backup verify/restore, JavaScript reconciliation tests, PWA tests, and ZIP package integrity. Personal camera, microphone and participant consent still require device-level acceptance. The deployment archive includes recovery tooling and server runtime code, **never** the live private database, passwords, provider credentials or encryption key.
