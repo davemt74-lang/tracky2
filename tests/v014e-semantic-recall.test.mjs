@@ -77,3 +77,24 @@ test('14E explanation includes retrieval reason plus canonical provenance',()=>{
  assert.match(explain.summary,/retrieval: local semantic match/);
  assert.match(explain.summary,/provenance:/);
 });
+
+test('14E rebuilding from canonical projection drops deleted participant references immediately',()=>{
+ const first=[
+  row('p1','Bought coffee grinder',{participantId:'p1',participantIds:Object.freeze(['p1'])}),
+  row('p2','Bought tea kettle',{participantId:'p2',participantIds:Object.freeze(['p2'])})
+ ];
+ const index=new SemanticRecallIndex();index.rebuild(first,1);
+ assert.equal(index.search('purchase coffee',{participantId:'p1'}).length,1);
+ index.rebuild([first[1]],2);
+ assert.equal(index.search('purchase coffee',{participantId:'p1'}).length,0);
+ assert.equal(index.snapshot().itemCount,1);
+});
+
+test('14E semantic result retains exact canonical row and source identifiers',()=>{
+ const canonical=row('canon-1','Scheduled the product launch');
+ const index=new SemanticRecallIndex();index.rebuild([canonical]);
+ const result=index.search('calendar release',{limit:1})[0];
+ assert.equal(result.id,canonical.id);
+ assert.equal(result.sourceId,canonical.sourceId);
+ assert.equal(result.sourceType,canonical.sourceType);
+});
