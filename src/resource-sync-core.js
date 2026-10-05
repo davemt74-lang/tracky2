@@ -134,6 +134,7 @@ export function planResourceSync({type,local=null,server=null,state=null}={}){
 }
 export function changeForResourceServer(action,{type,local=null,server=null,state=null,changeId,resolution=''}={}){
  if(!['push-upsert','push-delete'].includes(action))throw new Error('No server change for '+action);
+ if(type==='scene'&&action==='push-delete')throw new Error('Scene configuration cannot be deleted through metadata sync.');
  const id=local?.id||server?.id||state?.resourceId;
  const baseVersion=Math.max(0,Number(server?.version??state?.serverVersion)||0);
  const cid=short(changeId,96);if(!cid)throw new Error('Stable sync change ID required.');
