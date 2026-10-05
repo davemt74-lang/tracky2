@@ -1,5 +1,6 @@
 import {projectRoomState} from './room-event-core.js';
 import {normalizeMemoryRecord,memoryExpired} from './agent-memory-core.js';
+import {memoryEvidenceFingerprint} from './agent-memory-learning-core.js';
 
 export const RECALL_SOURCE_TYPES=Object.freeze([
  'conversation','room','meeting','recording','decision','task','memory'
@@ -65,7 +66,15 @@ export function buildRecallProjection({
  const dialogueIds=new Set(dialogueById.keys());
  const roomProjection=projectRoomState(Array.isArray(roomEvents)?roomEvents:[]);
  const effectiveRoom=roomProjection.events||[];
- const roomIds=new Set(effectiveRoom.map(event=>String(event.id)));
+ const roomById=new Map(effectiveRoom.filter(event=>event?.id).map(event=>[String(event.id),event]));
+ const roomIds=new Set(roomById.keys());
+ const meetingRows=Array.isArray(meetings)?meetings:[];
+ const meetingNoteById=new Map(),meetingDecisionById=new Map();
+ for(const meeting of meetingRows){
+  for(const note of meeting?.notes||[])if(note?.id)meetingNoteById.set(String(note.id),{...note,meetingId:meeting.id});
+  for(const decision of meeting?.decisions||[])if(decision?.id)meetingDecisionById.set(String(decision.id),{...decision,meetingId:meeting.id});
+ }
+ const meetingNoteIds=new Set(meetingNoteById.keys()),meetingDecisionIds=new Set(meetingDecisionById.keys());
  const rows=[];
 
  for(const turn of dialogue){
@@ -132,7 +141,7 @@ export function buildRecallProjection({
   }));
  }
 
- for(const raw of Array.isArray(meetings)?meetings:[]){
+ for(const raw of meetingRows){
   if(!raw?.id)continue;
   const roster=[...(raw.rosterParticipantIds||[])].filter(Boolean);
   const start=Number(raw.startedAt)||0;
@@ -238,6 +247,33 @@ export function buildRecallProjection({
   }));
  }
 
+ const memorySourceRef=source=>{
+  const id=String(source?.sourceId||'');if(!id)return ref('memory-source','missing','stale');
+  let type='memory-source',current=null,text='',participantId=null,meetingId=source?.meetingId||null,at=null;
+  if(source.kind==='dialogue'){
+   type='dialogue-turn';current=dialogueById.get(id)||null;
+   text=current?.transcript||'';participantId=current?.participantId||null;
+   at=current?(atOf(current.createdAt)||Number(current.at)||0):null;
+  }else if(source.kind==='room-event'){
+   type='room-event';current=roomById.get(id)||null;
+   text=current?.message||'';participantId=current?.participantId||null;
+   at=current?Number(current.at)||0:null;
+  }else if(source.kind==='meeting-note'){
+   type='meeting-note';current=meetingNoteById.get(id)||null;
+   text=current?.text||'';meetingId=current?.meetingId||meetingId;
+   at=current?Number(current.at)||0:null;
+  }else if(source.kind==='meeting-decision'){
+   type='meeting-decision';current=meetingDecisionById.get(id)||null;
+   text=current?.note||'';meetingId=current?.meetingId||meetingId;
+   at=current?Number(current.at)||0:null;
+  }
+  if(!current)return ref(type,id,'stale');
+  const fingerprint=memoryEvidenceFingerprint({
+   kind:source.kind,sourceId:id,participantId,meetingId,at,text
+  });
+  const state=source.fingerprint&&fingerprint!==source.fingerprint?'changed':'available';
+  return ref(type,id,state);
+ };
  const activeMemoryRows=(Array.isArray(memories)?memories:[])
   .map(row=>{try{return normalizeMemoryRecord(row,now);}catch{return null;}})
   .filter(Boolean)
@@ -245,6 +281,10 @@ export function buildRecallProjection({
   .sort((a,b)=>b.updatedAt-a.updatedAt||b.createdAt-a.createdAt)
   .slice(0,200);
  for(const memory of activeMemoryRows){
+  const approved=memory.provenance==='owner-approved-proposal';
+  const memoryRefs=approved?(memory.sourceRefs||[]).slice(0,5).map(memorySourceRef):[];
+  const staleCount=memoryRefs.filter(reference=>reference.state==='stale').length;
+  const changedCount=memoryRefs.filter(reference=>reference.state==='changed').length;
   rows.push(item({
    id:'memory:'+memory.id,sourceType:'memory',sourceId:memory.id,subtype:memory.type,
    at:Number(memory.updatedAt||memory.createdAt)||0,
@@ -252,8 +292,14 @@ export function buildRecallProjection({
    participantId:memory.participantId||null,
    participantIds:memory.participantId?[memory.participantId]:[],
    temporal:memory.persistent?'historical':'current-session',
-   provenance:['owner-authored-memory',memory.persistent?'saved-on-device':'session-only'],
-   status:'active'
+   provenance:[
+    approved?'owner-approved-evidence-memory':'owner-authored-memory',
+    memory.persistent?'saved-on-device':'session-only',
+    ...(approved?[String(memory.proposalMethod||'canonical-evidence-approval')]:[])
+   ],
+   references:memoryRefs,
+   status:'active'+(staleCount?' · '+staleCount+' source reference'+(staleCount===1?'':'s')+' stale':'')+
+    (changedCount?' · '+changedCount+' source reference'+(changedCount===1?'':'s')+' changed':'')
   }));
  }
 
@@ -270,18 +316,26 @@ function searchable(row){
   ...(row.provenance||[])
  ].join(' ').toLocaleLowerCase();
 }
-export function searchRecall(rows=[],query='',options={}){
- const tokens=tokenize(query);
+export function recallRowAllowed(row,options={}){
  const source=RECALL_SOURCE_TYPES.includes(options.sourceType)?options.sourceType:'all';
  const participantId=options.participantId||null;
- const limit=Math.max(1,Math.min(MAX_RECALL_RESULTS,Number(options.limit)||50));
  const includeCurrent=options.includeCurrent!==false;
  const includeHistorical=options.includeHistorical!==false;
+ const fromAt=options.fromAt!==null&&options.fromAt!==undefined&&finite(Number(options.fromAt))?Number(options.fromAt):null;
+ const toAt=options.toAt!==null&&options.toAt!==undefined&&finite(Number(options.toAt))?Number(options.toAt):null;
+ if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))return false;
+ if(row.temporal==='current-session'&&!includeCurrent)return false;
+ if(row.temporal!=='current-session'&&!includeHistorical)return false;
+ if(fromAt!==null&&Number(row.at||0)<fromAt)return false;
+ if(toAt!==null&&Number(row.at||0)>toAt)return false;
+ return true;
+}
+export function searchRecall(rows=[],query='',options={}){
+ const tokens=tokenize(query);
+ const limit=Math.max(1,Math.min(MAX_RECALL_RESULTS,Number(options.limit)||50));
  const matched=[];
  for(const row of Array.isArray(rows)?rows:[]){
-  if(!sourceAllowed(row,source)||!participantAllowed(row,participantId))continue;
-  if(row.temporal==='current-session'&&!includeCurrent)continue;
-  if(row.temporal!=='current-session'&&!includeHistorical)continue;
+  if(!recallRowAllowed(row,options))continue;
   const hay=searchable(row);
   if(tokens.length&&!tokens.every(token=>hay.includes(token)))continue;
   let score=0;
@@ -299,14 +353,16 @@ export function searchRecall(rows=[],query='',options={}){
 export function explainRecallResult(result){
  if(!result)return Object.freeze({summary:'Unavailable recall result.',references:Object.freeze([])});
  const stale=(result.references||[]).filter(reference=>reference.state==='stale');
+ const changed=(result.references||[]).filter(reference=>reference.state==='changed');
  const sourceLabels={
   conversation:'canonical dialogue turn',room:'effective canonical ROOM event',
   meeting:'meeting metadata',recording:'saved recording metadata',
-  task:'agent task metadata',memory:'active owner-authored memory'
+  task:'agent task metadata',memory:'active owner-authorized memory'
  };
  const temporal=result.temporal==='current-session'?'current session':'historical';
  const summary=(sourceLabels[result.sourceType]||result.sourceType)+' · '+temporal+
   ' · provenance: '+(result.provenance.join(', ')||'unspecified')+
-  (stale.length?' · '+stale.length+' referenced source'+(stale.length===1?' is':'s are')+' unavailable':'');
+  (stale.length?' · '+stale.length+' referenced source'+(stale.length===1?' is':'s are')+' unavailable':'')+
+  (changed.length?' · '+changed.length+' referenced source'+(changed.length===1?' has':'s have')+' changed since approval':'');
  return Object.freeze({summary,references:Object.freeze([...(result.references||[])])});
 }
