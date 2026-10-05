@@ -1,3 +1,8 @@
+# Tracky2 V0.14.1 — Governed Skills & Tool Execution
+
+V0.14.1 turns the existing approved-object/task framework into a governed execution layer. `describe_object` remains metadata-only; `capture_image` is available only for an owner-defined local object with an explicit capture grant, mapped camera area, active visible camera and fresh foreground owner action; `product_search` is available only for a self-hosted object that is currently approved with `product_search` enabled and a signed-in account with `skills.execute`.
+
+External product search uses the existing encrypted OpenAI credential through a fixed same-origin server endpoint. The browser submits only the approved object ID and fixed skill name—no arbitrary command, query URL, endpoint or API key. Execution rechecks object approval and skill enablement at run time, uses the existing provider budget/circuit controls, keeps at most bounded HTTPS source metadata, and records privacy-safe skill/version/target/outcome provenance. Local camera capture downloads a one-time JPEG to the owner and stores only dimensions/byte count in task history, never image bytes.
 # Tracky2 V0.14.0 — Provider Runtime & Model Router
 
 V0.14.0 adds governed conversational-provider routing to standalone Tracky2. AGENT can continue using loopback-only Ollama, or an authenticated self-hosted installation can route bounded text-only conversation requests to configured OpenAI or Anthropic credentials without returning those credentials to the browser. Provider models are server-allowlisted, requests are CSRF/session protected, daily and session budgets are enforced, repeated failures open a short circuit breaker, and audit records contain provider/model/outcome/unit metadata rather than prompt or reply text.

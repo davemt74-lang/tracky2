@@ -87,6 +87,8 @@ const requiredFiles = [
   'src/agent-conversation.js',
   'src/agent-provider.js',
   'src/provider-router-core.js',
+  'src/governed-skill-core.js',
+  'src/governed-skill-client.js',
   'src/agent-presentation.js',
   'src/conversation-timeline.js',
   'src/room-event-core.js',
@@ -196,6 +198,8 @@ const runtimeJs = [
   'src/agent-conversation.js',
   'src/agent-provider.js',
   'src/provider-router-core.js',
+  'src/governed-skill-core.js',
+  'src/governed-skill-client.js',
   'src/agent-presentation.js',
   'src/conversation-timeline.js',
   'src/room-event-core.js',
@@ -273,8 +277,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.14.0') {
-  fail('package.json version must be 0.14.0');
+if (packageJson.version !== '0.14.1') {
+  fail('package.json version must be 0.14.1');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -397,8 +401,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.14\.0-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.14.0 deploy ZIP');
+if (!/tracky2-v0\.14\.1-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.14.1 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
@@ -418,7 +422,7 @@ if (!/audioWorklet\.addModule/.test(roomAudio) || !/createScriptProcessor/.test(
 }
 
 for(const file of ['server/bootstrap.php','server/install.php','server/admin.php','server/api.php',
-  'server/session.php','server/providers.php','server/provider-api.php','server/sync.js','server/sync-api.php','server/room-node-api.php','server/backup.php',
+  'server/session.php','server/providers.php','server/provider-api.php','server/skill-api.php','server/sync.js','server/sync-api.php','server/room-node-api.php','server/backup.php',
   'docs/SELFHOST-FOUNDATION.md']){
  if(!workflow.includes(file))fail('Self-hosted deploy manifest missing: '+file);
  if(!fs.existsSync(path.join(root,file)))fail('Missing self-hosted runtime file: '+file);

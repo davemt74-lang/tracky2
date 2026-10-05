@@ -1,7 +1,8 @@
 // Owner-defined scene metadata. V0.11G optionally adds an explicit floor-plane
 // calibration; no images, biometrics, participants or sensor frames are stored.
 import {normalizeFloorCalibration,calibratedTrackPosition} from './spatial-calibration-core.js';
-export const ROOM_SCENE_SCHEMA=3;
+import {normalizeEnabledSkills} from './governed-skill-core.js';
+export const ROOM_SCENE_SCHEMA=4;
 export const MAX_ROOM_AREAS=16;
 export const MAX_ROOM_OBJECTS=32;
 export const AREA_KINDS=Object.freeze(['zone','entrance','desk','seat','other']);
@@ -40,7 +41,8 @@ export function normalizeRoomScene(input={}){
   if(!objectId||!name||objectIds.has(objectId))continue;
   objectIds.add(objectId);
   objects.push(Object.freeze({id:objectId,name,kind:OBJECT_KINDS.includes(row.kind)?row.kind:'other',
-   areaId:ids.has(row.areaId)?row.areaId:null,provenance:'owner-defined'}));
+   areaId:ids.has(row.areaId)?row.areaId:null,skills:normalizeEnabledSkills(row.skills,true),
+   provenance:'owner-defined'}));
  }
  const calibration=normalizeFloorCalibration(input.calibration);
  const roomIdentityId=label(input.roomIdentityId,96)||'room-local';
@@ -80,8 +82,10 @@ export function upsertRoomObject(scene,input){
   throw Error('Choose an existing camera-relative area.');
  const at=base.objects.findIndex(o=>o.id===objectId);
  if(at<0&&base.objects.length>=MAX_ROOM_OBJECTS)throw Error('Maximum '+MAX_ROOM_OBJECTS+' objects.');
+ const prior=at>=0?base.objects[at]:null;
+ const skills=input?.skills===undefined?(prior?.skills||['describe_object']):normalizeEnabledSkills(input.skills,true);
  const obj={id:objectId,name,kind:OBJECT_KINDS.includes(input?.kind)?input.kind:'other',
-  areaId:input?.areaId||null,provenance:'owner-defined'};
+  areaId:input?.areaId||null,skills,provenance:'owner-defined'};
  const objects=[...base.objects];if(at<0)objects.push(obj);else objects[at]=obj;
  return normalizeRoomScene({...base,objects});
 }

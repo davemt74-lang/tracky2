@@ -110,7 +110,21 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Verified deploy ZIP SHA-256: `be5a0794bd64f0d0cd47141931954fbf9bb86d8c74edd733dee39e0ce69929d0`.
 - **14A final score: 10/10.**
 
+## 14B — Governed Skills & Tool Execution
+
+- Branch: `feat/v014b-governed-skills`.
+- Release target: **v0.14.1**.
+- Added explicit governed skill capability classes for read-only metadata, foreground media capture and external network search.
+- Local owner-defined objects now carry per-object grants. `capture_image` requires an explicitly granted mapped camera area, visible active camera and a fresh owner action; it cannot run from the background scheduler.
+- Self-hosted approved objects are combined with enabled `object_skills`. `product_search` is server-approved-only and revalidates current object approval + current skill enablement immediately before execution.
+- Added independent `skills.execute` permission in schema v5; owner/admin/operator receive it by default while viewer remains denied unless deliberately granted.
+- Product search uses the existing encrypted OpenAI key through a fixed same-origin `server/skill-api.php` adapter. Browser requests contain only `{skill, objectId}`; arbitrary commands, search text, URLs, endpoints and credentials are not accepted.
+- Search results retain bounded summary text plus at most five HTTPS source references. Camera capture downloads the crop locally and task history stores only bounded byte/dimension provenance, never image bytes.
+- Every successful execution records bounded skill contract/version, side-effect class, target source, authorization state and result metadata. Revoking a server object disables its skill grants.
+- Package/PWA/diagnostics/CI are aligned to **v0.14.1**, including governed runtime/server endpoint smoke checks and direct ZIP/SHA publication.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Begin **14B — Governed Skills & Tool Execution** from current merged `main`. Do not reopen 14A.
+Run the 14B PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.1 ZIP/SHA/direct release, then begin **14C — Agent Tasks & Workflow Execution V2**.
 

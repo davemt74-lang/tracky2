@@ -15,7 +15,8 @@ test('14A server provider runtime uses fixed upstreams and server-side secrets',
 
 test('14A schema and UI expose provider use without exposing credentials',()=>{
  const bootstrap=read('server/bootstrap.php'),html=read('vertical-motion.html'),mode=read('agent-mode.js');
- assert.match(bootstrap,/TRACKY_SCHEMA_VERSION=4/);
+ const schemaVersion=Number(bootstrap.match(/TRACKY_SCHEMA_VERSION=(\d+)/)?.[1]||0);
+ assert.ok(schemaVersion>=4,'14A provider schema must remain present in later additive schemas');
  assert.match(bootstrap,/provider_usage_daily/);
  assert.match(bootstrap,/providers\.use/);
  assert.match(html,/id="agentModelProvider"/);
@@ -25,11 +26,12 @@ test('14A schema and UI expose provider use without exposing credentials',()=>{
  assert.match(mode,/querySelfHostedSpeech/);
 });
 
-test('14A release package includes provider router and same-origin API',()=>{
+test('14A provider release artifacts remain included under later V0.14 additive releases',()=>{
  const workflow=read('.github/workflows/test.yml'),audit=read('scripts/audit.mjs'),sw=read('sw.js');
- for(const needle of ['src/provider-router-core.js','server/provider-api.php','tracky2-v0.14.0-deploy.zip']){
+ for(const needle of ['src/provider-router-core.js','server/provider-api.php']){
   assert.match(workflow,new RegExp(needle.replaceAll('.','\\.')));
  }
+ assert.match(workflow,/tracky2-v0\.14\.\d+-deploy\.zip/);
  assert.match(audit,/provider-router-core\.js/);assert.match(audit,/provider-api\.php/);
- assert.match(sw,/provider-router-core\.js/);assert.match(sw,/tracky2-static-v0\.14\.0/);
+ assert.match(sw,/provider-router-core\.js/);assert.match(sw,/tracky2-static-v0\.14\.\d+/);
 });

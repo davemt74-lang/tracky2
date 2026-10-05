@@ -4865,6 +4865,33 @@ window.addEventListener('beforeunload', () => {
   stopCamera();
 });
 
+async function captureGovernedSceneImage({target}={}){
+ if(!target?.area?.rect)throw Object.assign(new Error('Mapped camera area required for capture.'),{retryable:false});
+ if(!state.running||document.hidden||ui.video.readyState<2)
+  throw Object.assign(new Error('Camera must be visibly active for capture.'),{retryable:false});
+ const sourceWidth=ui.video.videoWidth||0,sourceHeight=ui.video.videoHeight||0;
+ if(sourceWidth<2||sourceHeight<2)throw Object.assign(new Error('Live camera frame unavailable.'),{retryable:true});
+ const rect=target.area.rect;
+ const sx=Math.max(0,Math.floor(rect.x*sourceWidth)),sy=Math.max(0,Math.floor(rect.y*sourceHeight));
+ const sw=Math.max(1,Math.min(sourceWidth-sx,Math.round(rect.width*sourceWidth)));
+ const sh=Math.max(1,Math.min(sourceHeight-sy,Math.round(rect.height*sourceHeight)));
+ const canvas=document.createElement('canvas');canvas.width=sw;canvas.height=sh;
+ const context=canvas.getContext('2d',{alpha:false});
+ if(!context)throw Object.assign(new Error('Camera capture canvas unavailable.'),{retryable:false});
+ context.drawImage(ui.video,sx,sy,sw,sh,0,0,sw,sh);
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>
+  value?resolve(value):reject(new Error('Camera capture encoding failed.')),'image/jpeg',.9));
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ const safeName=String(target.name||'object').toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48)||'object';
+ link.href=url;link.download='tracky2-'+safeName+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.jpg';
+ link.hidden=true;document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),0);
+ return Object.freeze({
+  summary:'Captured the current mapped camera area for '+target.name+' and downloaded it locally.',
+  mediaBytes:blob.size,width:sw,height:sh
+ });
+}
+
 restoreCalibration();
 await reloadIdentityParticipants();
 ui.cameraAutostart.checked=loadCameraPreference(window.localStorage);

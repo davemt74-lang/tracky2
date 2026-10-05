@@ -7,30 +7,32 @@ import {
 } from '../src/agent-task-core.js';
 
 const scene={
- version:1,id:'local-room',
+ version:4,id:'local-room',
  areas:[{id:'desk',name:'Desk',kind:'desk',rect:{x:.1,y:.1,width:.4,height:.5},provenance:'owner-defined'}],
- objects:[{id:'monitor',name:'Monitor',kind:'device',areaId:'desk',provenance:'owner-defined'}]
+ objects:[{id:'monitor',name:'Monitor',kind:'device',areaId:'desk',
+  skills:['describe_object','capture_image'],provenance:'owner-defined'}]
 };
 
-test('10F reuses existing standalone skill IDs and exposes only implemented executor',()=>{
+test('10F task registry IDs and confirmation boundary remain intact under later governed executors',()=>{
  assert.deepEqual(Object.keys(AGENT_SKILLS).sort(),['capture_image','describe_object','product_search']);
- assert.deepEqual(availableSkills().map(s=>s.id),['describe_object']);
- assert.equal(AGENT_SKILLS.capture_image.available,false);
- assert.equal(AGENT_SKILLS.product_search.available,false);
+ assert.deepEqual(availableSkills().map(s=>s.id).sort(),['capture_image','describe_object','product_search']);
  assert.equal(AGENT_SKILLS.describe_object.confirmation,'required');
+ assert.equal(AGENT_SKILLS.capture_image.sideEffect,'media-capture');
+ assert.equal(AGENT_SKILLS.product_search.sideEffect,'external-network');
  const api=fs.readFileSync('server/api.php','utf8');
  for(const id of Object.keys(AGENT_SKILLS))assert.match(api,new RegExp("'"+id+"'"));
 });
 
-test('10F task creation is pending confirmation and rejects unavailable or incomplete skills',()=>{
+test('10F task creation remains pending confirmation and rejects incomplete or unknown skills',()=>{
  const now=100000;
- const task=normalizedTaskRecord({skillId:'describe_object',targetId:'monitor',runAt:now+60000},now);
- assert.equal(task.status,'pending-confirmation');
- assert.equal(task.attempts,0);
- assert.ok(Object.isFrozen(task));
- assert.throws(()=>normalizedTaskRecord({skillId:'capture_image',targetId:'monitor'},now),/not enabled|unavailable/i);
- assert.throws(()=>normalizedTaskRecord({skillId:'product_search',targetId:'monitor'},now),/not enabled|unavailable/i);
+ for(const skillId of ['describe_object','capture_image','product_search']){
+  const task=normalizedTaskRecord({skillId,targetId:'monitor',runAt:now+60000},now);
+  assert.equal(task.status,'pending-confirmation');
+  assert.equal(task.attempts,0);
+  assert.ok(Object.isFrozen(task));
+ }
  assert.throws(()=>normalizedTaskRecord({skillId:'describe_object'},now),/Choose/);
+ assert.throws(()=>normalizedTaskRecord({skillId:'arbitrary_shell',targetId:'monitor'},now),/Unknown skill/);
 });
 
 test('10F queue prevents equivalent active duplicates, requires confirmation and supports cancellation',()=>{
@@ -51,7 +53,7 @@ test('10F queue prevents equivalent active duplicates, requires confirmation and
  assert.equal(q.confirm(a.task.id,120000),null);
 });
 
-test('10F task execution state has bounded retry and immutable terminal outcome',()=>{
+test('10F task execution state retains bounded retry and immutable terminal outcome',()=>{
  const q=new AgentTaskQueue({retryDelayMs:5000});
  const made=q.create({skillId:'describe_object',targetId:'monitor',runAt:0,maxAttempts:2},0).task;
  q.confirm(made.id,0);
@@ -71,37 +73,39 @@ test('10F task execution state has bounded retry and immutable terminal outcome'
  assert.equal(q.succeed(made.id,'impossible',9000),null);
 });
 
-test('10F successful describe-object executor returns owner metadata only and links no visual claims',async()=>{
+test('10F describe-object executor remains metadata-only with no visual identity claim',async()=>{
  const q=new AgentTaskQueue();
  const task=q.create({skillId:'describe_object',targetId:'monitor',runAt:0},0).task;
  q.confirm(task.id,0);
  const running=q.start(task.id,0);
- const text=await executeRegisteredTask(running,{scene});
- assert.match(text,/Monitor/);
- assert.match(text,/owner-defined device/);
- assert.match(text,/Desk camera area/);
- assert.match(text,/not visual recognition/);
- const done=q.succeed(task.id,text,10,'action-event-1');
+ const result=await executeRegisteredTask(running,{scene});
+ assert.match(result.summary,/Monitor/);
+ assert.match(result.summary,/owner-defined device/);
+ assert.match(result.summary,/Desk camera area/);
+ assert.match(result.summary,/not visual recognition/);
+ assert.equal(result.provenance.sideEffect,'read-only');
+ const done=q.succeed(task.id,result,10,'action-event-1');
  assert.equal(done.status,'succeeded');
  assert.equal(done.relatedEventId,'action-event-1');
  assert.match(done.resultText,/owner-entered scene metadata/);
  assert.throws(()=>describeOwnerDefinedObject(scene,'missing'),/no longer exists/);
 });
 
-test('10F restore converts interrupted running state back to scheduled and drops unavailable executors',()=>{
+test('10F restore converts interrupted running state back to scheduled and migrates legacy target source',()=>{
  const valid=normalizedTaskRecord({id:'t1',skillId:'describe_object',targetId:'monitor',runAt:50,createdAt:10},10);
  const interrupted={...valid,status:'running',attempts:1,startedAt:40};
  const restored=restoreTaskRecord(interrupted);
  assert.equal(restored.status,'scheduled');
  assert.equal(restored.startedAt,null);
- assert.equal(restoreTaskRecord({...valid,skillId:'capture_image'}),null);
- const q=new AgentTaskQueue();
- q.restore([interrupted,interrupted]);
- assert.equal(q.entries().length,1);
- assert.equal(q.entries()[0].status,'scheduled');
+ const legacy=restoreTaskRecord({...valid,schema:1,targetSource:undefined});
+ assert.equal(legacy.targetSource,'local-owner-defined');
+ const governed=restoreTaskRecord({...valid,skillId:'capture_image'});
+ assert.equal(governed.skillId,'capture_image');
+ const q=new AgentTaskQueue();q.restore([interrupted,interrupted]);
+ assert.equal(q.entries().length,1);assert.equal(q.entries()[0].status,'scheduled');
 });
 
-test('10F persistence is bounded local metadata and IndexedDB migration is additive',()=>{
+test('10F persistence remains bounded task metadata with no raw media credential or biometric payload',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
  const dbVersion=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]);
  assert.ok(dbVersion>=5,'agent tasks require IndexedDB schema v5 or later');
@@ -109,11 +113,12 @@ test('10F persistence is bounded local metadata and IndexedDB migration is addit
  assert.match(store,/createObjectStore\(AGENT_TASKS,\{keyPath:'id'\}\)/);
  assert.match(store,/MAX_PERSISTED_AGENT_TASKS = 200/);
  assert.match(store,/resultText:String\(record\.resultText/);
+ assert.match(store,/executionProvenance/);
  assert.doesNotMatch(store.slice(store.indexOf('export async function saveAgentTask')),
-  /rawAudio|embedding|primaryPhoto|ciphertext/);
+  /rawAudio|embedding|primaryPhoto|ciphertext|audioBase64|imageBase64/);
 });
 
-test('10F UI has explicit confirmation, cancellation and canonical action/outcome audit with no arbitrary command path',()=>{
+test('10F UI still requires explicit confirmation/cancellation and exposes no arbitrary command runtime',()=>{
  const ui=fs.readFileSync('src/agent-task-ui.js','utf8');
  const controller=fs.readFileSync('vertical-motion.js','utf8');
  const html=fs.readFileSync('vertical-motion.html','utf8');
@@ -122,12 +127,13 @@ test('10F UI has explicit confirmation, cancellation and canonical action/outcom
  assert.match(ui,/queue\.cancel\(/);
  assert.match(ui,/semantic:'agent-task-action'/);
  assert.match(ui,/semantic:'agent-task-outcome'/);
- assert.match(ui,/Scheduled tasks run only while this AGENT page is open|timer=setInterval/);
+ assert.match(ui,/timer=setInterval/);
+ assert.match(ui,/sideEffect==='read-only'/);
  assert.match(controller,/createAgentTaskUi/);
  assert.match(controller,/taskUI\?\.refresh/);
  assert.match(html,/id="agentTaskForm"/);
  assert.match(html,/id="agentTaskList"/);
  assert.match(html,/Every executable task requires owner confirmation/);
  assert.doesNotMatch(core,/\b(?:eval|Function|exec|spawn|shell|child_process)\s*\(/i);
- assert.doesNotMatch(ui,/getUserMedia|MediaRecorder|fetch\(/);
+ assert.doesNotMatch(ui,/getUserMedia|MediaRecorder|new Function|eval\(/);
 });

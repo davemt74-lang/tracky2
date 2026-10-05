@@ -232,7 +232,7 @@
           </div>
           <div id="agentTaskStatus" class="agent-task-status" role="status">No local tasks loaded yet.</div>
           <div id="agentTaskList" class="agent-task-list" aria-live="polite"></div>
-          <small>Available now: read-only description of owner-defined scene objects. Image capture and product search stay registered but unavailable until separate approved executors exist.</small>
+          <small>Governed skills: describe approved objects; capture explicitly granted local camera areas; search products only for approved self-hosted objects with product_search enabled. Capture and search require a fresh foreground owner action and never run from the background scheduler.</small>
         </details>
         <details class="agent-memory-settings" id="agentMemorySettings">
           <summary>Memory &amp; participant context</summary>
@@ -511,6 +511,11 @@
             <label>Object name<input id="roomObjectName" maxlength="64" required placeholder="Monitor / Chair / Lamp"></label>
             <label>Kind<select id="roomObjectKind"><option value="furniture">Furniture</option><option value="device">Device</option><option value="other">Other</option></select></label>
             <label>Located in<select id="roomObjectArea"><option value="">Unassigned</option></select></label>
+            <fieldset class="room-object-skills"><legend>Approved local skills</legend>
+              <label><input type="checkbox" id="roomObjectSkillDescribe" checked> Describe object</label>
+              <label><input type="checkbox" id="roomObjectSkillCapture"> Capture current mapped camera area</label>
+            </fieldset>
+            <small>These grants apply only to this owner-defined local object. Camera capture still requires a fresh foreground owner action.</small>
             <button type="submit">Add owner-defined object</button>
           </form>
           <div id="roomObjectList" class="room-scene-items" aria-label="Owner-defined objects"></div>

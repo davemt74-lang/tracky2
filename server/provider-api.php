@@ -4,30 +4,6 @@ require_once __DIR__.'/providers.php';
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-function tracky_provider_http(string $url,array $headers,string $body,bool $binary=false): array {
-    if(!extension_loaded('curl'))throw new RuntimeException('Provider transport unavailable; PHP cURL extension required.');
-    $lastStatus=0;$lastBody='';$lastError='';
-    for($attempt=0;$attempt<2;$attempt++){
-        $ch=curl_init($url);
-        if($ch===false)throw new RuntimeException('Provider transport initialization failed.');
-        curl_setopt_array($ch,[
-          CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,
-          CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>15,CURLOPT_MAXREDIRS=>0,
-          CURLOPT_HTTPHEADER=>$headers,CURLOPT_POSTFIELDS=>$body,
-          CURLOPT_USERAGENT=>'Tracky2/0.14.0 provider-runtime'
-        ]);
-        if(defined('CURLOPT_PROTOCOLS'))curl_setopt($ch,CURLOPT_PROTOCOLS,CURLPROTO_HTTPS);
-        $result=curl_exec($ch);$errno=curl_errno($ch);$error=curl_error($ch);
-        $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);
-        $lastStatus=$status;$lastBody=is_string($result)?$result:'';$lastError=$error;
-        if($errno===0&&$status>=200&&$status<300)return ['status'=>$status,'body'=>$lastBody,'binary'=>$binary];
-        $retryable=$errno!==0||$status===429||$status>=500;
-        if(!$retryable||$attempt===1)break;
-        usleep(250000);
-    }
-    $suffix=$lastStatus>0?' HTTP '.$lastStatus:($lastError!==''?' transport error':'');
-    throw new RuntimeException('Provider request failed.'.$suffix);
-}
 function tracky_provider_openai(string $secret,string $model,array $messages): string {
     $system=[];$input=[];
     foreach($messages as $row){
@@ -38,7 +14,7 @@ function tracky_provider_openai(string $secret,string $model,array $messages): s
     if($system)$payload['instructions']=implode("\n",$system);
     $res=tracky_provider_http('https://api.openai.com/v1/responses',[
       'Authorization: Bearer '.$secret,'Content-Type: application/json','Accept: application/json'
-    ],json_encode($payload,JSON_THROW_ON_ERROR));
+    ],json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14 provider-runtime');
     $data=json_decode($res['body'],true,64,JSON_THROW_ON_ERROR);
     $reply=trim((string)($data['output_text']??''));
     if($reply===''){
@@ -61,7 +37,7 @@ function tracky_provider_anthropic(string $secret,string $model,array $messages)
     $res=tracky_provider_http('https://api.anthropic.com/v1/messages',[
       'x-api-key: '.$secret,'anthropic-version: 2023-06-01',
       'Content-Type: application/json','Accept: application/json'
-    ],json_encode($payload,JSON_THROW_ON_ERROR));
+    ],json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14 provider-runtime');
     $data=json_decode($res['body'],true,64,JSON_THROW_ON_ERROR);$reply='';
     foreach((array)($data['content']??[]) as $part)
       if(($part['type']??'')==='text'&&is_string($part['text']??null))$reply.=' '.$part['text'];
@@ -76,7 +52,7 @@ function tracky_provider_elevenlabs(string $secret,string $model,string $voiceId
     $url='https://api.elevenlabs.io/v1/text-to-speech/'.rawurlencode($voiceId).'?output_format=mp3_44100_128';
     $res=tracky_provider_http($url,[
       'xi-api-key: '.$secret,'Content-Type: application/json','Accept: audio/mpeg'
-    ],json_encode(['text'=>$text,'model_id'=>$model],JSON_THROW_ON_ERROR),true);
+    ],json_encode(['text'=>$text,'model_id'=>$model],JSON_THROW_ON_ERROR),true,'Tracky2/0.14 provider-runtime');
     if(strlen($res['body'])<32||strlen($res['body'])>2*1024*1024)
       throw new RuntimeException('Speech provider returned an invalid audio payload.');
     return ['audioBase64'=>base64_encode($res['body']),'mimeType'=>'audio/mpeg'];

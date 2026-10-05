@@ -35,6 +35,9 @@ try{
  check(tracky_permission($db,['role'=>'owner'],'sync.manage'),'Owner receives sync permission after upgrade');
  check(tracky_permission($db,['role'=>'owner'],'providers.use'),'Owner receives provider use permission after upgrade');
  check(tracky_permission($db,['role'=>'operator'],'providers.use'),'Operator receives provider use permission after upgrade');
+ check(tracky_permission($db,['role'=>'owner'],'skills.execute'),'Owner receives governed skill execution permission after upgrade');
+ check(tracky_permission($db,['role'=>'operator'],'skills.execute'),'Operator receives governed skill execution permission after upgrade');
+ check(!tracky_permission($db,['role'=>'viewer'],'skills.execute'),'Viewer remains unable to execute governed skills after upgrade');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'")->fetchColumn(),'Upgrade creates provider usage budget table');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Upgrade creates room node registry');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Upgrade creates room observation relay');
