@@ -44,6 +44,22 @@ try{
  check(tracky_schema_version($db)===TRACKY_SCHEMA_VERSION,'Fresh schema version recorded');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Room node registry table exists');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Room observation relay table exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_devices'")->fetchColumn(),'Metadata sync device table exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_device_scopes'")->fetchColumn(),'Metadata sync scope table exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_resources'")->fetchColumn(),'Encrypted metadata sync resource table exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_resource_changes'")->fetchColumn(),'Metadata sync change journal exists');
+ check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sync_change_receipts'")->fetchColumn(),'Metadata sync idempotency receipt table exists');
+ $db->prepare("INSERT INTO sync_devices(id,label,enabled,created_by,last_seen_at) VALUES(?,?,1,?,?)")
+   ->execute(['device-test01','Foundation browser',$id,1000]);
+ foreach(['memory','task','scene'] as $type)
+  $db->prepare("INSERT INTO sync_device_scopes(device_id,resource_type,enabled,quota_bytes,updated_at) VALUES(?,?,1,?,?)")
+    ->execute(['device-test01',$type,$type==='scene'?65536:262144,1000]);
+ $syncCipher=tracky_encrypt(json_encode(['id'=>'memory01','authority'=>'owner','persistent'=>true,'text'=>'test'],JSON_THROW_ON_ERROR));
+ $db->prepare("INSERT INTO sync_resources(resource_type,resource_id,payload_ciphertext,payload_bytes,version,server_updated_at) VALUES('memory','memory01',?,?,1,?)")
+   ->execute([$syncCipher,strlen($syncCipher),1000]);
+ $storedSync=(string)$db->query("SELECT payload_ciphertext FROM sync_resources WHERE resource_type='memory' AND resource_id='memory01'")->fetchColumn();
+ check(!str_contains($storedSync,'"text"'),'Metadata sync payload is encrypted at rest');
+ check(json_decode(tracky_decrypt($storedSync),true,32,JSON_THROW_ON_ERROR)['id']==='memory01','Encrypted metadata sync payload round-trips server-side');
  check(tracky_permission($db,['role'=>'owner'],'rooms.read')&&tracky_permission($db,['role'=>'owner'],'rooms.write'),'Owner can run multi-room nodes');
  check(tracky_permission($db,['role'=>'operator'],'rooms.read')&&tracky_permission($db,['role'=>'operator'],'rooms.write'),'Operator can run multi-room nodes');
  check(!tracky_permission($db,['role'=>'viewer'],'rooms.read'),'Viewer cannot read live room-node presence');
