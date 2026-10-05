@@ -108,7 +108,7 @@ import {
   reviseDialogueAttribution,
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations,
-  saveSessionIdentity,endStoredSessionIdentity
+  startSessionIdentity,endStoredSessionIdentity
 } from './src/participant-store.js';
 
 const $ = (s) => document.querySelector(s);
@@ -260,6 +260,17 @@ const diarizationSession=new SpeakerDiarizationSession();
 const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
+let canonicalRuntimeInstanceId='';
+try{
+ canonicalRuntimeInstanceId=window.sessionStorage.getItem('tracky2-runtime-instance-id')||'';
+ if(!canonicalRuntimeInstanceId){
+  canonicalRuntimeInstanceId=(typeof crypto!=='undefined'&&crypto.randomUUID)
+   ?crypto.randomUUID():'tab-'+Math.random().toString(36).slice(2,12);
+  window.sessionStorage.setItem('tracky2-runtime-instance-id',canonicalRuntimeInstanceId);
+ }
+}catch{
+ canonicalRuntimeInstanceId='tab-'+Math.random().toString(36).slice(2,12);
+}
 const canonicalSessionId=(typeof crypto!=='undefined'&&crypto.randomUUID)
  ? crypto.randomUUID()
  : 'room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -4135,8 +4146,9 @@ for(const button of document.querySelectorAll('[data-room-filter]')){
  });
 }
 if(state.mode==='agent'){
-  void saveSessionIdentity(createSessionIdentity({
-   id:canonicalSessionId,runtimeScope:'agent-room'
+  void startSessionIdentity(createSessionIdentity({
+   id:canonicalSessionId,runtimeScope:'agent-room',
+   runtimeInstanceId:canonicalRuntimeInstanceId
   },roomSessionStartedAt)).catch(error=>
    console.warn('Session identity metadata unavailable:',error));
   void watchMediaPermission('camera');
