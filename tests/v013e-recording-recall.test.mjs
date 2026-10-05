@@ -112,7 +112,7 @@ test('13E participant store owns recording metadata/media stores and DB migratio
  assert.match(store,/export async function saveRecording/);
  assert.match(store,/export async function saveRecordingChunk/);
  assert.match(store,/export function listRecordings/);
- assert.match(store,/export function getRecordingMedia/);
+ assert.match(store,/export async function getRecordingMedia/);
  assert.match(store,/export async function deleteRecording/);
  assert.match(store,/export async function pruneExpiredRecordings/);
 });
