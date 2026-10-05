@@ -44,10 +44,15 @@ export function v013RuntimeBounds({
  visualHistory=0,visualHistoryLimit=72,
  activityEvents=0,activityEventLimit=36,
  certificationEvents=0,certificationEventLimit=160,
- routineRows=0,routineRowLimit=64,
+ continuityHistory=0,continuityHistoryLimit=36,
+ multiRoomEvents=0,multiRoomEventLimit=512,
+ environmentalGroups=0,environmentalGroupLimit=80,
+ environmentalFeedback=0,environmentalFeedbackLimit=200,
+ routineRows=0,routineRowLimit=60,
+ routineFeedback=0,routineFeedbackLimit=160,
  proactivePending=0,proactivePendingLimit=24,
- performanceSamples=0,performanceSampleLimit=720,
- recordingIndexRows=0,recordingIndexLimit=250
+ performanceSamples=0,performanceSampleLimit=360,
+ recordingIndexRows=0,recordingIndexLimit=120
 }={}){
  const values={
   listeningQueueDepth:Math.max(0,Number(listeningQueueDepth)||0),
@@ -64,14 +69,24 @@ export function v013RuntimeBounds({
   activityEventLimit:Math.max(1,Number(activityEventLimit)||36),
   certificationEvents:Math.max(0,Number(certificationEvents)||0),
   certificationEventLimit:Math.max(1,Number(certificationEventLimit)||160),
+  continuityHistory:Math.max(0,Number(continuityHistory)||0),
+  continuityHistoryLimit:Math.max(1,Number(continuityHistoryLimit)||36),
+  multiRoomEvents:Math.max(0,Number(multiRoomEvents)||0),
+  multiRoomEventLimit:Math.max(1,Number(multiRoomEventLimit)||512),
+  environmentalGroups:Math.max(0,Number(environmentalGroups)||0),
+  environmentalGroupLimit:Math.max(1,Number(environmentalGroupLimit)||80),
+  environmentalFeedback:Math.max(0,Number(environmentalFeedback)||0),
+  environmentalFeedbackLimit:Math.max(1,Number(environmentalFeedbackLimit)||200),
   routineRows:Math.max(0,Number(routineRows)||0),
-  routineRowLimit:Math.max(1,Number(routineRowLimit)||64),
+  routineRowLimit:Math.max(1,Number(routineRowLimit)||60),
+  routineFeedback:Math.max(0,Number(routineFeedback)||0),
+  routineFeedbackLimit:Math.max(1,Number(routineFeedbackLimit)||160),
   proactivePending:Math.max(0,Number(proactivePending)||0),
   proactivePendingLimit:Math.max(1,Number(proactivePendingLimit)||24),
   performanceSamples:Math.max(0,Number(performanceSamples)||0),
-  performanceSampleLimit:Math.max(1,Number(performanceSampleLimit)||720),
+  performanceSampleLimit:Math.max(1,Number(performanceSampleLimit)||360),
   recordingIndexRows:Math.max(0,Number(recordingIndexRows)||0),
-  recordingIndexLimit:Math.max(1,Number(recordingIndexLimit)||250)
+  recordingIndexLimit:Math.max(1,Number(recordingIndexLimit)||120)
  };
  const checks=[
   ['listeningQueueDepth','listeningQueueLimit','listening-queue'],
@@ -81,7 +96,12 @@ export function v013RuntimeBounds({
   ['visualHistory','visualHistoryLimit','visual-history'],
   ['activityEvents','activityEventLimit','activity-events'],
   ['certificationEvents','certificationEventLimit','certification-events'],
+  ['continuityHistory','continuityHistoryLimit','continuity-history'],
+  ['multiRoomEvents','multiRoomEventLimit','multi-room-events'],
+  ['environmentalGroups','environmentalGroupLimit','environmental-groups'],
+  ['environmentalFeedback','environmentalFeedbackLimit','environmental-feedback'],
   ['routineRows','routineRowLimit','routine-history'],
+  ['routineFeedback','routineFeedbackLimit','routine-feedback'],
   ['proactivePending','proactivePendingLimit','proactive-pending'],
   ['performanceSamples','performanceSampleLimit','performance-samples'],
   ['recordingIndexRows','recordingIndexLimit','recording-index']
