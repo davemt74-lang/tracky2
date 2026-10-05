@@ -3888,6 +3888,7 @@ async function scanRoom(now) {
       }
     }
 
+    const continuityNow=Date.now();
     for(const track of resolved){
       if(track.participantId&&track.status==='matched'&&track.face){
         participantContinuity.observeVerified({
@@ -3895,16 +3896,16 @@ async function scanRoom(now) {
           trackId:track.id,authority:track.identitySource==='owner-correction'
            ?'owner-correction':'face',
           confidence:track.identitySource==='owner-correction'?1:track.similarity,
-          at:now,track
+          at:continuityNow,track
         });
       }else if(track.participantId){
-        participantContinuity.observeVisibleTrack(track,now);
+        participantContinuity.observeVisibleTrack(track,continuityNow);
       }
     }
-    const continuityPass=participantContinuity.annotateTracks(resolved,now);
+    const continuityPass=participantContinuity.annotateTracks(resolved,continuityNow);
     const continuityResolved=Array.from(continuityPass.tracks);
     for(const track of continuityResolved)
-      if(track.participantId)participantContinuity.observeVisibleTrack(track,now);
+      if(track.participantId)participantContinuity.observeVisibleTrack(track,continuityNow);
 
     const liveParticipantIds = new Set(
       continuityResolved
