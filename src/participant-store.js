@@ -12,9 +12,13 @@ import {
  endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity,
  recoverPriorSessionIdentities
 } from './session-identity-core.js';
+import {
+ MAX_RECORDINGS,normalizeRecordingRecord,recordingIdsToExpire,recordingIdsToPrune,
+ recordingMediaState,recoverInterruptedRecording
+} from './recording-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -25,6 +29,8 @@ const AGENT_MEMORIES = 'agent-memories';
 const PARTICIPANT_SYNC = 'participant-sync-state';
 const MEETINGS = 'meetings';
 const SESSION_IDENTITIES = 'session-identities';
+const RECORDINGS = 'recordings';
+const RECORDING_MEDIA = 'recording-media';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -117,6 +123,18 @@ export async function openParticipantDb() {
         sessions.createIndex('status','status',{unique:false});
         sessions.createIndex('startedAt','startedAt',{unique:false});
       }
+      if (!db.objectStoreNames.contains(RECORDINGS)) {
+        const recordings=db.createObjectStore(RECORDINGS,{keyPath:'id'});
+        recordings.createIndex('sessionId','sessionId',{unique:false});
+        recordings.createIndex('startedAt','startedAt',{unique:false});
+        recordings.createIndex('expiresAt','expiresAt',{unique:false});
+        recordings.createIndex('status','status',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(RECORDING_MEDIA)) {
+        const media=db.createObjectStore(RECORDING_MEDIA,{keyPath:'key'});
+        media.createIndex('recordingId','recordingId',{unique:false});
+        media.createIndex('seq','seq',{unique:false});
+      }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
         dialogue.createIndex('sessionId', 'sessionId', { unique: false });
@@ -196,6 +214,131 @@ export function endStoredSessionIdentity(id,reason='ended',at=Date.now()) {
   });
 }
 
+
+/* V0.13E explicit owner recording metadata + incremental media chunks.
+   Canonical transcript text stays in DIALOGUE; recordings keep turn IDs only. */
+export async function saveRecording(input){
+ const record=normalizeRecordingRecord(input);
+ await storeAction(RECORDINGS,'readwrite',store=>requestToPromise(store.put(record)));
+ await pruneRecordingLimit().catch(()=>{});
+ return record;
+}
+export function getRecording(id){
+ return storeAction(RECORDINGS,'readonly',async store=>{
+  const row=await requestToPromise(store.get(id));
+  return row?normalizeRecordingRecord(row):null;
+ });
+}
+export function listRecordings(sessionId=null){
+ return storeAction(RECORDINGS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.map(normalizeRecordingRecord)
+   .filter(row=>!sessionId||row.sessionId===sessionId)
+   .sort((a,b)=>b.startedAt-a.startedAt);
+ });
+}
+export async function saveRecordingChunk(recordingId,seq,blob){
+ if(typeof recordingId!=='string'||!recordingId)throw new TypeError('Recording id required.');
+ const index=Math.max(0,Math.floor(Number(seq)||0));
+ if(!(blob instanceof Blob)||blob.size<=0)throw new TypeError('Non-empty recording Blob required.');
+ const db=await openParticipantDb();
+ try{
+  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readwrite');
+  const done=transactionToPromise(tx);
+  const recordings=tx.objectStore(RECORDINGS);
+  const media=tx.objectStore(RECORDING_MEDIA);
+  const currentRaw=await requestToPromise(recordings.get(recordingId));
+  if(!currentRaw)throw new Error('Recording metadata no longer exists.');
+  const current=normalizeRecordingRecord(currentRaw);
+  if(current.status!=='recording')throw new Error('Recording is not active.');
+  const key=recordingId+':'+String(index).padStart(8,'0');
+  const prior=await requestToPromise(media.get(key));
+  const size=blob.size;
+  await requestToPromise(media.put({
+   key,recordingId,seq:index,blob,size,type:String(blob.type||'').slice(0,120),
+   createdAt:Date.now()
+  }));
+  const updated=normalizeRecordingRecord({
+   ...current,
+   chunkCount:Math.max(current.chunkCount,index+1),
+   bytes:Math.max(0,current.bytes-(Number(prior?.size)||0)+size),
+   mimeType:current.mimeType||String(blob.type||'').slice(0,120)||null,
+   updatedAt:Date.now()
+  });
+  await requestToPromise(recordings.put(updated));
+  await done;
+  return updated;
+ }finally{db.close();}
+}
+export function listRecordingChunks(recordingId){
+ return storeAction(RECORDING_MEDIA,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll());
+  return rows.filter(row=>row.recordingId===recordingId)
+   .sort((a,b)=>Number(a.seq)-Number(b.seq));
+ });
+}
+export async function getRecordingMedia(recordingId){
+ const db=await openParticipantDb();
+ try{
+  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readonly');
+  const done=transactionToPromise(tx);
+  const recordingRaw=await requestToPromise(tx.objectStore(RECORDINGS).get(recordingId));
+  if(!recordingRaw){await done;return {recording:null,state:'missing',reason:'recording-metadata-missing',blob:null};}
+  const recording=normalizeRecordingRecord(recordingRaw);
+  const rows=(await requestToPromise(tx.objectStore(RECORDING_MEDIA).getAll()))
+   .filter(row=>row.recordingId===recordingId)
+   .sort((a,b)=>Number(a.seq)-Number(b.seq));
+  await done;
+  const mediaState=recordingMediaState(recording,rows);
+  if(mediaState.state!=='available')
+   return {recording,state:mediaState.state,reason:mediaState.reason,blob:null};
+  return {
+   recording,state:'available',reason:'media-complete',
+   blob:new Blob(rows.map(row=>row.blob),{type:recording.mimeType||rows[0]?.type||'audio/webm'})
+  };
+ }finally{db.close();}
+}
+export async function deleteRecording(id){
+ const db=await openParticipantDb();
+ try{
+  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readwrite');
+  const done=transactionToPromise(tx);
+  await requestToPromise(tx.objectStore(RECORDINGS).delete(id));
+  const media=tx.objectStore(RECORDING_MEDIA);
+  const rows=await requestToPromise(media.getAll());
+  for(const row of rows)if(row.recordingId===id)media.delete(row.key);
+  await done;return true;
+ }finally{db.close();}
+}
+async function deleteRecordingIds(ids=[]){
+ const remove=new Set(ids||[]);
+ if(!remove.size)return 0;
+ const db=await openParticipantDb();
+ try{
+  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readwrite');
+  const done=transactionToPromise(tx);
+  const recordings=tx.objectStore(RECORDINGS),media=tx.objectStore(RECORDING_MEDIA);
+  for(const id of remove)recordings.delete(id);
+  const chunks=await requestToPromise(media.getAll());
+  for(const row of chunks)if(remove.has(row.recordingId))media.delete(row.key);
+  await done;return remove.size;
+ }finally{db.close();}
+}
+export async function pruneExpiredRecordings(now=Date.now()){
+ const rows=await listRecordings();
+ return deleteRecordingIds(recordingIdsToExpire(rows,now));
+}
+export async function pruneRecordingLimit(maxRows=MAX_RECORDINGS){
+ const rows=await listRecordings();
+ return deleteRecordingIds(recordingIdsToPrune(rows,maxRows));
+}
+export async function recoverInterruptedRecordings(now=Date.now()){
+ const rows=await listRecordings();
+ const active=rows.filter(row=>row.status==='recording');
+ for(const row of active)await saveRecording(recoverInterruptedRecording(row,now));
+ return active.length;
+}
+
 export function listParticipants() {
   return storeAction(PARTICIPANTS, 'readonly', async (store) => {
     const rows = await requestToPromise(store.getAll());
@@ -228,7 +371,7 @@ export async function patchParticipant(id, patch) {
 export async function deleteParticipant(id,{remoteSyncState=null}={}) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS, RECORDINGS], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
@@ -236,6 +379,8 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     const memories = tx.objectStore(AGENT_MEMORIES);
     const sync = tx.objectStore(PARTICIPANT_SYNC);
     const meetings = tx.objectStore(MEETINGS);
+    const recordings = tx.objectStore(RECORDINGS);
+    const deletedTurnIds=new Set();
 
     const participant = await requestToPromise(participants.get(id));
     await requestToPromise(participants.delete(id));
@@ -243,6 +388,7 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     const rows = await requestToPromise(dialogue.getAll());
     for (const row of rows) {
       if (row.participantId === id) {
+        deletedTurnIds.add(String(row.id));
         dialogue.delete(row.id);
         continue;
       }
@@ -347,6 +493,20 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     for(const meeting of meetingRows){
       const scrubbed=scrubMeetingParticipant(normalizeMeetingRecord(meeting),id,Date.now());
       if(JSON.stringify(scrubbed)!==JSON.stringify(meeting))meetings.put(scrubbed);
+    }
+
+    // Recording media is not participant-owned, but transcript reference IDs must
+    // follow the same deletion boundary as canonical DIALOGUE.
+    if(deletedTurnIds.size){
+      const recordingRows=await requestToPromise(recordings.getAll());
+      for(const recording of recordingRows){
+        const current=normalizeRecordingRecord(recording);
+        const nextIds=current.transcriptTurnIds.filter(turnId=>!deletedTurnIds.has(turnId));
+        if(nextIds.length!==current.transcriptTurnIds.length)
+          recordings.put(normalizeRecordingRecord({
+            ...current,transcriptTurnIds:nextIds,updatedAt:Date.now()
+          }));
+      }
     }
 
     const priorSync=await requestToPromise(sync.get(id));
