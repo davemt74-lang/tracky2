@@ -13,7 +13,7 @@ import {
  performanceCertificationOutcome,performanceSampleDelta
 } from './src/device-performance-core.js';
 
-const DIAGNOSTICS_RELEASE={version:'0.13.8'};
+const DIAGNOSTICS_RELEASE={version:'0.13.9'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
