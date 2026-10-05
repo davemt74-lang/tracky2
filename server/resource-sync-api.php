@@ -241,6 +241,7 @@ try{
             }
             $operation=(string)($change['operation']??'');
             if(!in_array($operation,['upsert','delete'],true))throw new InvalidArgumentException('Invalid sync operation.');
+            if($type==='scene'&&$operation==='delete')throw new InvalidArgumentException('Scene configuration cannot be deleted through metadata sync.');
             $baseVersion=filter_var($change['baseVersion']??null,FILTER_VALIDATE_INT);
             if($baseVersion===false||$baseVersion<0)throw new InvalidArgumentException('Invalid base version.');
             $resolution=(string)($change['resolution']??'');
