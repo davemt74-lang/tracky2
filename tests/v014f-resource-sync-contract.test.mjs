@@ -85,5 +85,7 @@ test('14F legacy biometric participant sync remains separate and consent-bound',
  assert.match(legacy,/participantHasBiometrics/);
  assert.match(legacy,/Confirm this participant permits|confirm this participant permits/i);
  assert.match(api,/Explicit participant consent required for biometric synchronization/);
- assert.match(admin,/Biometric profile synchronization is never enabled by metadata-sync scopes/);
+ assert.match(admin,/Advanced participant reconciliation/);
+ assert.match(admin,/legacy manual reconciliation tool remains available for explicit participant\/biometric recovery and conflict work/i);
+ assert.match(admin,/Do not synchronize biometric records without participant consent/i);
 });
