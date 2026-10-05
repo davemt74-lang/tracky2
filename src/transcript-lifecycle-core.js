@@ -243,6 +243,21 @@ export function transcriptExport(turns=[],participants=[],options={}){
    roomHandoffProvenance:Object.freeze(
     Array.from(turn.roomHandoffProvenance||[]).map(value=>String(value).slice(0,96)).slice(0,12)
    ),
+   spatialAudioSourceState:String(turn.spatialAudioSourceState||'').slice(0,64)||null,
+   spatialAudioDirection:String(turn.spatialAudioDirection||'').slice(0,32)||null,
+   spatialAudioDirectionConfidence:cleanConfidence(turn.spatialAudioDirectionConfidence),
+   spatialAudioAudioDirection:String(turn.spatialAudioAudioDirection||'').slice(0,32)||null,
+   spatialAudioVisualDirection:String(turn.spatialAudioVisualDirection||'').slice(0,32)||null,
+   spatialAudioAgreement:turn.spatialAudioAgreement===true?true:
+    turn.spatialAudioAgreement===false?false:null,
+   spatialAudioMetric:turn.spatialAudioMetric===true,
+   spatialAudioDistanceM:finite(turn.spatialAudioDistanceM)?turn.spatialAudioDistanceM:null,
+   spatialAudioBearingDeg:finite(turn.spatialAudioBearingDeg)?turn.spatialAudioBearingDeg:null,
+   spatialAudioConflict:String(turn.spatialAudioConflict||'').slice(0,96)||null,
+   spatialAudioReason:String(turn.spatialAudioReason||'').slice(0,160)||null,
+   spatialAudioProvenance:Object.freeze(
+    Array.from(turn.spatialAudioProvenance||[]).map(value=>String(value).slice(0,96)).slice(0,12)
+   ),
    multiPersonAttributionState:String(turn.multiPersonAttributionState||'').slice(0,48)||null,
    multiPersonTurnOwnership:String(turn.multiPersonTurnOwnership||'').slice(0,48)||null,
    multiPersonParticipantIds:Object.freeze(
