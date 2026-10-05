@@ -50,7 +50,7 @@ TRACKY2_DATA_DIR="$temp/private" php -r '$db=new PDO("sqlite:".getenv("TRACKY2_D
 # Backup is CLI-only, checksum/integrity verified, and contains DB + instance key together.
 TRACKY2_DATA_DIR="$temp/private" php server/backup.php create "$temp/backup" >"$temp/backup-create.log"
 TRACKY2_DATA_DIR="$temp/private" php server/backup.php verify "$temp/backup" >"$temp/backup-verify.log"
-grep -F 'VERIFY OK schema 2' "$temp/backup-verify.log" >/dev/null
+grep -F 'VERIFY OK schema 3' "$temp/backup-verify.log" >/dev/null
 TRACKY2_DATA_DIR="$temp/private" php -r '$db=new PDO("sqlite:".getenv("TRACKY2_DATA_DIR")."/tracky.sqlite");$s=$db->prepare("UPDATE participants SET name=? WHERE id=?");$s->execute(["Changed after backup","participant01"]);'
 TRACKY2_DATA_DIR="$temp/private" php server/backup.php restore "$temp/backup" --yes >"$temp/backup-restore.log"
 grep -F 'RESTORED.' "$temp/backup-restore.log" >/dev/null
