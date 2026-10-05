@@ -23,13 +23,16 @@ test('13J release gates cover every V0.13 section plus cross-cutting invariants'
 test('13J runtime bounds include V0.13 certification, routine, proactive, performance and recording growth',()=>{
  assert.equal(v013RuntimeBounds().status,'healthy');
  const bad=v013RuntimeBounds({
-  certificationEvents:161,routineRows:65,proactivePending:25,
-  performanceSamples:721,recordingIndexRows:251
+  certificationEvents:161,continuityHistory:37,multiRoomEvents:513,
+  environmentalGroups:81,environmentalFeedback:201,
+  routineRows:61,routineFeedback:161,proactivePending:25,
+  performanceSamples:361,recordingIndexRows:121
  });
  assert.equal(bad.status,'degraded');
  assert.deepEqual(bad.reasons,[
-  'certification-events','routine-history','proactive-pending',
-  'performance-samples','recording-index'
+  'certification-events','continuity-history','multi-room-events',
+  'environmental-groups','environmental-feedback','routine-history',
+  'routine-feedback','proactive-pending','performance-samples','recording-index'
  ]);
 });
 
