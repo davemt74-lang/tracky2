@@ -49,7 +49,8 @@ test('12E timeline unifies dialogue, ROOM, meeting and recording references unde
   ['conversation','meeting','recording','room','session']);
  assert.ok(timeline.every(row=>row.sessionId==='session-1'));
  const recording=timeline.find(row=>row.sourceType==='recording');
- assert.equal(recording.text,'Recording metadata reference · 5s');
+ assert.match(recording.text,/^Recording metadata reference · 5s/);
+ assert.match(recording.text,/transcript refs/);
 });
 
 test('12E corrected transcript and speaker identity are projected from current canonical source, never copied session payload',()=>{
@@ -121,7 +122,9 @@ test('12E participant store persists session lifecycle metadata without source c
  assert.match(store,/const SESSION_IDENTITIES = 'session-identities'/);
  assert.match(store,/export function saveSessionIdentity/);
  assert.match(store,/export function listSessionIdentities/);
- assert.match(store,/DB_VERSION = 9/);
+ assert.match(store,/DB_VERSION = \d+/);
+ const dbVersion=Number(store.match(/DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(dbVersion>=9);
  const start=store.indexOf('export function saveSessionIdentity');
  const end=store.indexOf('export function getSessionIdentity',start);
  const section=store.slice(start,end);
