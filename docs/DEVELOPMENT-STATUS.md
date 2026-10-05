@@ -48,25 +48,29 @@
 - **13G — Behavioral & Routine Intelligence** — PR #73 merged at `75c23d76982a7ad385c1cea70c492aca2225d75e`. Post-merge Node/package/PWA + PHP green; direct **v0.13.6** ZIP + SHA-256 published. **10/10**.
 - Representative hardware evidence remains specific to the tested device/browser/environment and is not universal certification.
 
-## Active section: 13H — Proactive Agent Intelligence V3
-- **Branch:** `feat/v013h-proactive-agent-intelligence-v3`.
-- **Audited baseline:** **7.3/10**.
-- Added pure `src/agent-proactive-intelligence-core.js` for explicit usefulness/urgency/confidence scoring, freshness, semantic opportunity fingerprints, semantic-repeat suppression, ranking and bounded session follow-up planning.
-- The existing `ProactiveAgentGovernor` remains authoritative for actual interruption decisions. It now ranks eligible opportunities rather than taking FIFO order.
-- Existing gates remain unchanged and authoritative: global owner enable, follow-up/status toggles, quiet hours, active meeting, conversation/AGENT busy state, verified visible attention, participant proactive opt-out, active task dependency, newer-dialogue supersession, global cooldown, participant cooldown and hourly interruption budget.
-- Failed approved tasks rank above generic follow-ups; ordinary completions and meeting follow-ups remain moderate priority; owner-confirmed routine timing deviations are deliberately low urgency.
-- Semantic repeat suppression records only bounded session outcome metadata and hard-cancels an equivalent message recently emitted inside the policy window.
-- The bounded `ProactiveSessionPlanner` stores only scope ID, participant ID, first/last dialogue timestamps, turn count and proactive-outcome count. It never copies transcript text.
-- Longer verified conversations receive a continuity-style follow-up; repeated proactive follow-ups in the same scope receive a usefulness penalty.
-- Unknown, revoked, overlapping/partial or identity-conflicted dialogue cannot create or advance a proactive session plan because 12H multimodal eligibility remains the gate.
-- Owner-confirmed 13G routine deviations may create participant-targeted `routine-status` opportunities only when the current canonical observation is outside the nearest confirmed routine window. Candidate/rejected/revoked routines cannot.
-- Routine-status opportunities still require the participant to be visibly present and pass the same quiet-hours/meeting/busy/opt-out/task/cooldown/hourly-budget gates.
-- Participant deletion removes pending/history/planner state through the existing governor reconciliation path.
-- AGENT cognitive status now exposes the top ranked opportunity score and bounded session-plan count.
-- No new proactive persistence, Agent Memory, identity authority, background activation or hidden sensor path is introduced.
-- Release target: **V0.13.7** with package/PWA/runtime-audit/deploy/direct-release wiring.
-- Deterministic fixtures cover useful-vs-noisy ranking, semantic equivalence/repeat suppression, bounded plans, long-session follow-up style, identity-conflict abstention, routine opportunity eligibility, score bounds, runtime integration and no identity/storage authority.
-- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.7 ZIP/SHA-256/direct-release validation.
+## Completed V0.13 section: 13H — Proactive Agent Intelligence V3
+- PR #74 merged at `e5994ebc3544fdb70a5bbdd3d5e1df845aed3adb`.
+- Post-merge Node/package/PWA + PHP green; direct **v0.13.7** ZIP + SHA-256 published.
+- Explicit usefulness/urgency/confidence ranking, semantic-repeat suppression, bounded session follow-up planning, routine opportunities and all prior interruption/identity/privacy gates are verified.
+- **Final score: 10/10.**
+
+## Active section: 13I — Performance / Long-Run Device Hardening V2
+- **Branch:** `feat/v013i-performance-long-run-device-hardening`.
+- **Audited baseline:** **7.9/10**.
+- Added pure `src/device-performance-core.js` with bounded performance samples, coarse non-fingerprinting device capability classes, risk scoring, adaptive workload policy, hysteretic recovery, trend summaries and representative two-hour certification outcome.
+- The governor can enter **normal / reduced / critical** states from recent frame stalls/gaps, room-scan latency, listening queue depth, optional browser heap ratio, optional battery level and existing storage pressure.
+- Camera, microphone, transcription, recording, consent and identity authority are never disabled by performance policy.
+- **Reduced** state slows optional room identity scans to 1.5× interval.
+- **Critical** state slows room scans to 2.5× and pauses optional environmental classification; conversation/listening audio continues normally.
+- Recovery requires multiple healthy samples so the runtime does not flap repeatedly between degradation levels.
+- The runtime health HUD shows the current device-performance level and scan multiplier.
+- Diagnostics now records a bounded performance trend alongside representative-device certification. Browser heap and Battery Status evidence are included only when those APIs exist; unsupported metrics remain unavailable.
+- Certification export includes only aggregate trend fields (duration, p95 frame/scan latency, max queue, optional heap/battery/storage ratios, degradation count and outcome). No raw performance trace, media, transcript, biometric sample, exact CPU model or exact memory size is stored.
+- A performance **Pass** requires at least two hours of representative evidence, no critical degradation and no repeated sustained degraded periods. Short or degraded evidence is **Partial**; no evidence is **Not run**.
+- `docs/hardware-acceptance.md` now documents the V0.13I two-hour device-performance exercise and the narrow graceful-degradation contract.
+- Release target: **V0.13.8** with package/PWA/runtime-audit/deploy/direct-release wiring.
+- Deterministic fixtures cover risk thresholds, canonical-sensor preservation, delta sampling, hysteretic recovery, hard sample bounds, trend summaries, two-hour certification, runtime optional-work degradation, diagnostics integration and pure-core safety.
+- **Pre-CI score: 9.7/10.** Remaining 0.3 is full Node/package/PWA + PHP proof, PR merge, post-merge verification and V0.13.8 ZIP/SHA-256/direct-release validation.
 
 ## Exact next action
-Open the 13H PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.7 ZIP/SHA-256/direct release, score **13H 10/10**, then start **13I — Performance / Long-Run Device Hardening V2** from merged main.
+Open the 13I PR, repair only demonstrated failures, merge when all required checks are green, verify post-merge V0.13.8 ZIP/SHA-256/direct release, score **13I 10/10**, then start **13J — V0.13 Release Certification** from merged main.
