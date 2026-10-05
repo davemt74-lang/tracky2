@@ -151,7 +151,10 @@ test('11G AGENT uses calibrated distance only through canonical scene closure an
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const controller=fs.readFileSync('vertical-motion.js','utf8');
  const html=fs.readFileSync('vertical-motion.html','utf8');
- assert.match(controller,/getScene:\(\)=>sceneUI\?\.getScene\(\)\|\|emptyRoomScene\(\)/);
+ assert.match(controller,/function effectiveRoomScene/);
+ assert.match(controller,/if\(advancedRoomMappingEnabled\)return scene/);
+ assert.match(controller,/getScene:\(\)=>effectiveRoomScene\(\)/);
+ assert.match(controller,/tracky2-advanced-room-mapping/);
  assert.match(agent,/getScene=\(\)=>null/);
  assert.match(agent,/orbSpatialTarget\([^;]+calibration\)/s);
  assert.match(agent,/Owner-calibrated floor plane/);
