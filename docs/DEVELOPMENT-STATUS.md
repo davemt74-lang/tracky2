@@ -148,7 +148,23 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Verified deploy ZIP SHA-256: `604226053d6f36164f84e03cd49faab280aa78b85413c6f84200d7ea9eb88ed2`.
 - **14C final score: 10/10.**
 
+## 14D — Owner-Approved Memory Learning V2
+
+- Branch: `feat/v014d-owner-approved-memory-v2`.
+- Release target: **v0.14.3**.
+- Added a bounded session-only memory proposal engine; proposals are never persisted and only explicit owner approval can create durable memory.
+- Proposal sources are limited to canonical dialogue, owner ROOM decisions, owner meeting notes and owner-marked meeting decisions. Each proposal carries bounded source IDs, excerpts for review and source fingerprints.
+- Participant-scoped dialogue proposals require canonical resolved single-speaker attribution with no unresolved/partial ownership; explicit owner speaker corrections may restore eligibility.
+- Automatic proposal generation recognizes only narrow explicit preference/remember statements and suppresses health/medical, emotion/mood, protected-trait, criminal-history, financial-sensitive and precise-location content.
+- Added duplicate/related/contradiction review against active owner memory. Duplicates are blocked; contradictory approval requires owner confirmation and atomically saves the new memory while revoking the conflicting records.
+- Owner can edit proposal text/type and choose expiry before saving. Proposal-derived relationship inference is not allowed.
+- Durable memory schema advances to 2 only to preserve `owner-approved-proposal` provenance, approval time, proposal method and up to five canonical source IDs/fingerprints. Source excerpts/transcripts are not copied into durable memory.
+- Canonical source deletion/correction or speaker-eligibility changes invalidate a pending proposal before approval. Participant deletion removes directly scoped memories and proposal-derived memories referencing that participant.
+- Runtime proposal refresh follows new/corrected dialogue and meeting changes without writing memory. Meeting metadata is exposed read-only to the memory review UI.
+- Package/PWA/diagnostics/CI are aligned to **v0.14.3**, including memory-learning syntax/smoke/package checks and direct ZIP/SHA publication.
+- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+
 ## Exact next action
 
-Begin **14D — Owner-Approved Memory Learning V2** from current merged `main`. Do not reopen 14C.
+Run the 14D PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.3 ZIP/SHA/direct release, then begin **14E — Recall & Search Intelligence V2**.
 
