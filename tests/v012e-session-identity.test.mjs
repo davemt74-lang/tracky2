@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
  buildSessionIdentityTimeline,createSessionIdentity,endSessionIdentity,
- normalizeSessionIdentity,sessionIdentityExport,sessionIdentitySummary
+ normalizeSessionIdentity,recoverPriorSessionIdentities,
+ sessionIdentityExport,sessionIdentitySummary
 } from '../src/session-identity-core.js';
 
 const session=createSessionIdentity({id:'session-1'},1000);
@@ -18,6 +19,16 @@ test('12E canonical session lifecycle is metadata only and stable across normali
  const json=JSON.stringify(ended);
  for(const forbidden of ['transcript','message','rawAudio','pcm','embedding','photo'])
   assert.equal(json.includes(forbidden),false,forbidden);
+});
+
+test('12E reload recovery closes only a prior active session from the same runtime tab',()=>{
+ const previous=createSessionIdentity({id:'old',runtimeInstanceId:'tab-1'},1000);
+ const other=createSessionIdentity({id:'other',runtimeInstanceId:'tab-2'},1100);
+ const current=createSessionIdentity({id:'new',runtimeInstanceId:'tab-1'},2000);
+ const recovered=recoverPriorSessionIdentities([previous,other],current,2000);
+ assert.equal(recovered.find(row=>row.id==='old').status,'ended');
+ assert.equal(recovered.find(row=>row.id==='old').endedReason,'reload-recovered');
+ assert.equal(recovered.find(row=>row.id==='other').status,'active');
 });
 
 test('12E timeline unifies dialogue, ROOM, meeting and recording references under one session id',()=>{
