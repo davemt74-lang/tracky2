@@ -102,9 +102,9 @@ test('13F room-event feedback derives only bounded environmental metadata',()=>{
  assert.equal(environmentalFeedbackFromRoomEvent({evidence:{}},'confirmed'),null);
 });
 
-test('13F participant store persists bounded calibration feedback in DB v11',()=>{
+test('13F participant store preserves bounded calibration feedback after later schema upgrades',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
- assert.match(store,/const DB_VERSION = 11/);
+ assert.match(store,/const DB_VERSION = 12/);
  assert.match(store,/const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback'/);
  assert.match(store,/export async function saveEnvironmentalFeedback/);
  assert.match(store,/export function listEnvironmentalFeedback/);
