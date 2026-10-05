@@ -699,7 +699,8 @@ function renderRoomObservations(){
   const corrected=projection.corrections[e.id];
   if(corrected?.correction.operation==='retract')item.classList.add('room-retracted');
   meta.textContent=(e.kind||'observation').toUpperCase()+' / '+e.category.toUpperCase()+
-    ' · '+e.source+(Number.isFinite(e.confidence)?' · '+Math.round(e.confidence*100)+'% confidence':'')+
+    ' · '+e.source+(e.roomId?' · room '+e.roomId:'')+
+    (Number.isFinite(e.confidence)?' · '+Math.round(e.confidence*100)+'% confidence':'')+
     (Number.isFinite(duration)?' · '+Math.round(duration/1000)+'s measured':'')+
     (corrected?' · CORRECTED':'');
   item.append(time,heading,meta);
