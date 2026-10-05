@@ -202,9 +202,29 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Transcripts, ROOM events, meetings as resources, recordings/media, workflows, raw camera/audio, biometrics, embeddings, provider prompts/credentials, arbitrary resource types and blanket database mirroring are excluded.
 - Metadata sync is manual from Admin. No timer, service-worker Background Sync, periodic sync, or hidden automatic upload path was added.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.5**, including sync-v2 core/API/controller, fresh-install/upgrade, package-smoke and direct ZIP/SHA checks.
+- PR #91 merged at `9f9b069c5d42881ffea8222268eb23eb05d90423`.
+- Post-merge Tracky2 CI run #37373750936 passed Node/package/PWA and PHP/security/foundation checks.
+- Direct **v0.14.5** release published against the merged commit with ZIP + SHA-256.
+- Verified deploy ZIP SHA-256: `2c2ac7684d85a8cb122385fd05a529b36027892c6e742388801df0cde5238d7b`.
+- **14F final score: 10/10.**
+
+## V0.14.6 — Account-Backed Participants & Control Center
+
+- Branch: `feat/v0146-account-participants`.
+- User-requested cross-device requirement before 14G.
+- Signed-in Tracky2 participants become server-durable by default for desktop/mobile continuity; IndexedDB remains the local/offline cache.
+- Ordinary participant fields (name, nickname, notes, recognition/policy settings) sync automatically through the authenticated account participant API.
+- Face photos/embeddings and voice profile data remain device-local unless the participant explicitly enables encrypted cross-device biometric sync in the participant editor.
+- Browser IndexedDB advances to 15 with a separate account-participant sync state lane for offline edits, deletes, optimistic versions and conflicts.
+- Passive recognition freshness (`lastSeenAt` / latest matched photo) does not churn the account database; deliberate profile edits, voice enrollment, policy edits and deletions do.
+- Mobile/basic participant editing works even when biometric data is intentionally absent on that device.
+- Added the responsive **Control Center** account dashboard to AGENT with signed-in user/role, participant/sync status and Participants/Admin/Diagnostics links.
+- Desktop quick key **CCC** opens/closes Control Center through the same centralized triple-key controller as ZZZ/XXX.
+- Control Center is account/presentation-only and does not start camera, microphone, recording, provider calls or background sync.
+- Release target: **v0.14.6**.
 - Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
 
 ## Exact next action
 
-Run the 14F PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.5 ZIP/SHA/direct release, then begin **14G — Multi-Room Federation V3**.
+Run the v0.14.6 PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge ZIP/SHA/direct release, then begin **14G — Multi-Room Federation V3**.
 
