@@ -62,7 +62,9 @@ import {
 } from './src/voice-core.js';
 import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
-import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-event-core.js';
+import {
+ RoomPresenceLedger,RoomEventLedger,roomObservation,projectRoomState
+} from './src/room-event-core.js';
 import {
  RoomHandoffTracker,roomHandoffMessage,roomHandoffTurnFields
 } from './src/room-handoff-core.js';
@@ -447,7 +449,7 @@ const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
 let environmentalFeedback=[];
-let routineFeedback=[],routineCandidates=[],routineLastDeviation=null;
+let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
 let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
 let environmentalAudioDecision='Disabled by owner';
@@ -512,7 +514,12 @@ async function refreshEnvironmentalFeedback(){
 }
 
 function effectiveRoutineEvents(){
- return roomLedger.project().events.filter(event=>event?.participantId);
+ if(!saveRoomHistory)return roomLedger.project().events.filter(event=>event?.participantId);
+ const byId=new Map();
+ for(const event of [...routineHistoryRows,...roomHistory]){
+  if(event?.id)byId.set(event.id,event);
+ }
+ return projectRoomState([...byId.values()]).events.filter(event=>event?.participantId);
 }
 function renderRoutineInsights(){
  const mount=document.getElementById('roomRoutineInsights');
@@ -574,11 +581,14 @@ async function recordRoutineOwnerFeedback(routineId,outcome){
 }
 function updateRoutineDeviation(event){
  if(!event?.participantId||!routineCandidates.length)return;
- const routine=routineCandidates.find(row=>row.status==='confirmed'&&
+ const matches=routineCandidates.filter(row=>row.status==='confirmed'&&
   row.participantId===event.participantId&&row.semantic===event.semantic);
- if(!routine)return;
- const result=routineDeviation(routine,event,Date.now());
- routineLastDeviation=result.state==='outside-baseline-window'
+ if(!matches.length)return;
+ const results=matches.map(routine=>({routine,result:routineDeviation(routine,event,Date.now())}))
+  .filter(row=>Number.isFinite(row.result.distanceMinutes))
+  .sort((a,b)=>a.result.distanceMinutes-b.result.distanceMinutes);
+ const nearest=results[0]?.result;
+ routineLastDeviation=nearest?.state==='outside-baseline-window'
   ?'latest matching observation outside prior timing baseline'
   :null;
  renderRoutineInsights();
@@ -5099,6 +5109,7 @@ if(state.mode==='agent'){
    const epoch=roomPrivacyEpoch;
    void listRoomObservations().then(rows=>{
     if(epoch!==roomPrivacyEpoch)return;
+    routineHistoryRows=[...rows];
     roomHistory=roomLedger.restore([...rows,...roomHistory]);
     renderRoomObservations();
     void refreshRoutineInsights({reloadFeedback:true});
@@ -5118,7 +5129,8 @@ if(state.mode==='agent'){
   roomClear.addEventListener('click',async()=>{
    if(!window.confirm('Clear ROOM observations saved on this device?'))return;
    roomPrivacyEpoch++;
-   roomLedger.clear();roomHistory=[];routineCandidates=[];routineLastDeviation=null;
+   roomLedger.clear();roomHistory=[];routineHistoryRows=[];
+   routineCandidates=[];routineLastDeviation=null;
    renderRoomObservations();renderRoutineInsights();
    try{
     await roomWrites.catch(()=>{});
