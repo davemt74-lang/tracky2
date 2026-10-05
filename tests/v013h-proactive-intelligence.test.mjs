@@ -109,7 +109,7 @@ test('13H runtime offers only confirmed routine deviations to proactive governor
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(runtime,/routineProactiveOpportunity/);
  assert.match(runtime,/proactiveGovernor\.offer/);
- assert.match(runtime,/routine\.status==='confirmed'/);
+ assert.match(runtime,/routine\?\.status==='confirmed'|routine\.status==='confirmed'/);
 });
 
 test('13H governor chooses higher-value eligible task over earlier generic follow-up',()=>{
