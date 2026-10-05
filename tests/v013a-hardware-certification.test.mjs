@@ -166,5 +166,5 @@ test('13A hardware acceptance documentation separates software completion from d
 
 test('13A pure certification core opens no sensors, storage or network path',()=>{
  const core=fs.readFileSync('src/hardware-certification-core.js','utf8');
- assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|indexedDB|localStorage|fetch\(|WebSocket|crypto\.subtle/);
+ assert.doesNotMatch(core,/navigator\.mediaDevices|\.getUserMedia\(|MediaRecorder|AudioContext|indexedDB|localStorage|fetch\(|WebSocket|crypto\.subtle/);
 });
