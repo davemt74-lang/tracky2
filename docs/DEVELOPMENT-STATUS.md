@@ -162,9 +162,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Canonical source deletion/correction or speaker-eligibility changes invalidate a pending proposal before approval. Participant deletion removes directly scoped memories and proposal-derived memories referencing that participant.
 - Runtime proposal refresh follows new/corrected dialogue and meeting changes without writing memory. Meeting metadata is exposed read-only to the memory review UI.
 - Package/PWA/diagnostics/CI are aligned to **v0.14.3**, including memory-learning syntax/smoke/package checks and direct ZIP/SHA publication.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #86 merged at `590005d8da3252f00275c4c47f77958b14361deb`.
+- Post-merge Tracky2 CI run #37356747284 passed Node/package/PWA and PHP/security/installer checks.
+- Direct **v0.14.3** release published against the merged commit with `tracky2-v0.14.3-deploy.zip` and `tracky2-v0.14.3-deploy.zip.sha256`.
+- Verified deploy ZIP SHA-256: `6f2d500e89cff540e9183863587dd06be2f1cfac00612395cbdbe2b1a997f38c`.
+- **14D final score: 10/10.**
 
 ## Exact next action
 
-Run the 14D PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge v0.14.3 ZIP/SHA/direct release, then begin **14E — Recall & Search Intelligence V2**.
+Begin **14E — Recall & Search Intelligence V2** from current merged `main`. Do not reopen 14D.
 
