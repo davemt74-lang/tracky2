@@ -152,7 +152,7 @@ export function resourceSyncStateAfterRecord(type,state,server,local=null,now=Da
   serverUpdatedAt:Number(server?.serverUpdatedAt)||now,updatedAt:now
  });
 }
-export function journalEntry({type,id,operation,baseVersion=0,serverVersion=0,changeId=null,now=Date.now()}={}){
+export function journalEntry({type,id,operation,baseVersion=0,serverVersion=0,localFingerprint=null,changeId=null,now=Date.now()}={}){
  if(!RESOURCE_SYNC_TYPES.includes(type))throw new Error('Unsupported sync resource type.');
  if(!['push-upsert','push-delete','pull-upsert','pull-delete'].includes(operation))
   throw new Error('Invalid sync journal operation.');
@@ -162,6 +162,7 @@ export function journalEntry({type,id,operation,baseVersion=0,serverVersion=0,ch
   id:cid,key:resourceSyncKey(type,resourceId),resourceType:type,resourceId,
   operation,baseVersion:Math.max(0,Number(baseVersion)||0),
   serverVersion:Math.max(0,Number(serverVersion)||0),
+  localFingerprint:short(localFingerprint,160)||null,
   status:'pending',attempts:0,createdAt:now,updatedAt:now,errorText:''
  });
 }
