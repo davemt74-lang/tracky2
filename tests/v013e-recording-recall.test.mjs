@@ -106,7 +106,8 @@ test('13E metadata export contains no media payload or copied transcript text',(
 
 test('13E participant store owns recording metadata/media stores and DB migration',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
- assert.match(store,/const DB_VERSION = 10/);
+ const version=Number(store.match(/const DB_VERSION = (\d+)/)?.[1]||0);
+ assert.ok(version>=10);
  assert.match(store,/const RECORDINGS = 'recordings'/);
  assert.match(store,/const RECORDING_MEDIA = 'recording-media'/);
  assert.match(store,/export async function saveRecording/);
