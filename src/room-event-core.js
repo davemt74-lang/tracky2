@@ -79,7 +79,8 @@ export class RoomEventLedger{
   }
   if(event.dedupeKey&&event.kind!=='correction'&&this.events.some(old=>
    old.dedupeKey===event.dedupeKey&&old.source===event.source&&
-   old.sessionId===event.sessionId&&old.participantId===event.participantId&&
+   old.sessionId===event.sessionId&&old.roomId===event.roomId&&
+   old.participantId===event.participantId&&
    old.category===event.category&&old.kind===event.kind&&
    Math.abs(event.at-old.at)<=this.dedupeWindowMs)){
    return Object.freeze({added:false,reason:'duplicate-observation',event:null});
