@@ -21,6 +21,9 @@ import {
  environmentalFeedbackFromRoomEvent,environmentalV2Message,
  normalizeEnvironmentalV2Predictions
 } from './src/environmental-intelligence-core.js';
+import {
+ deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
+} from './src/routine-intelligence-core.js';
 import {LocalEnvironmentalAudioClassifier} from './src/environmental-audio-engine.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
@@ -129,6 +132,7 @@ import {
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations,
   listEnvironmentalFeedback,saveEnvironmentalFeedback,clearEnvironmentalFeedback,
+  listRoutineFeedback,saveRoutineFeedback,clearRoutineFeedback,
   startSessionIdentity,endStoredSessionIdentity
 } from './src/participant-store.js';
 
@@ -443,6 +447,7 @@ const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
 let environmentalFeedback=[];
+let routineFeedback=[],routineCandidates=[],routineLastDeviation=null;
 let environmentalAudioClassifier=null;
 let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
 let environmentalAudioDecision='Disabled by owner';
@@ -504,6 +509,79 @@ async function refreshEnvironmentalFeedback(){
  catch(error){console.warn('Environmental feedback unavailable',error);environmentalFeedback=[];}
  renderEnvironmentalAudio();
  return environmentalFeedback;
+}
+
+function effectiveRoutineEvents(){
+ return roomLedger.project().events.filter(event=>event?.participantId);
+}
+function renderRoutineInsights(){
+ const mount=document.getElementById('roomRoutineInsights');
+ const status=document.getElementById('roomRoutineStatus');
+ if(!mount||!status)return;
+ mount.replaceChildren();
+ if(!routineCandidates.length){
+  status.textContent=saveRoomHistory
+   ?'No recurring routine candidate has enough canonical evidence yet.'
+   :'No recurring routine candidate this session. Enable ROOM history saving to learn across sessions.';
+  return;
+ }
+ const confirmed=routineCandidates.filter(row=>row.status==='confirmed').length;
+ status.textContent=routineCandidates.length+' candidate'+
+  (routineCandidates.length===1?'':'s')+' · '+confirmed+' confirmed'+
+  (routineLastDeviation?' · '+routineLastDeviation:'');
+ for(const routine of routineCandidates){
+  const card=document.createElement('article');card.className='room-temporal-entry';
+  const title=document.createElement('strong');title.textContent=routineLabel(routine);
+  const meta=document.createElement('span');
+  meta.textContent=routine.status.toUpperCase()+' · '+routine.occurrences+
+   ' observations across '+routine.distinctDays+' days · review metadata only · no Agent Memory';
+  const actions=document.createElement('div');actions.className='room-spatial-actions';
+  for(const [label,outcome] of [['Confirm','confirmed'],['Reject','rejected'],['Revoke','revoked']]){
+   const button=document.createElement('button');button.type='button';button.textContent=label;
+   button.disabled=routine.status===outcome;
+   button.addEventListener('click',()=>void recordRoutineOwnerFeedback(routine.id,outcome));
+   actions.append(button);
+  }
+  card.append(title,meta,actions);mount.append(card);
+ }
+}
+async function refreshRoutineInsights({reloadFeedback=true}={}){
+ try{
+  if(reloadFeedback)routineFeedback=await listRoutineFeedback();
+  routineCandidates=Array.from(deriveRoutineCandidates(
+   effectiveRoutineEvents(),routineFeedback,Date.now()
+  ));
+ }catch(error){
+  console.warn('Routine intelligence unavailable',error);
+  routineCandidates=[];
+ }
+ renderRoutineInsights();
+ return routineCandidates;
+}
+async function recordRoutineOwnerFeedback(routineId,outcome){
+ try{
+  const record=normalizeRoutineFeedback({routineId,outcome,at:Date.now()});
+  await saveRoutineFeedback(record);
+  await refreshRoutineInsights({reloadFeedback:true});
+  logRoomMessage('decision',
+   'Owner '+(outcome==='confirmed'?'confirmed':outcome==='rejected'?'rejected':'revoked')+
+    ' observed routine · no Agent Memory created',
+   'owner-routine-review',{semantic:'routine-owner-review'});
+  return true;
+ }catch(error){
+  console.warn('Routine review save failed',error);return false;
+ }
+}
+function updateRoutineDeviation(event){
+ if(!event?.participantId||!routineCandidates.length)return;
+ const routine=routineCandidates.find(row=>row.status==='confirmed'&&
+  row.participantId===event.participantId&&row.semantic===event.semantic);
+ if(!routine)return;
+ const result=routineDeviation(routine,event,Date.now());
+ routineLastDeviation=result.state==='outside-baseline-window'
+  ?'latest matching observation outside prior timing baseline'
+  :null;
+ renderRoutineInsights();
 }
 async function recordEnvironmentalOwnerFeedback(event,outcome){
  const feedback=environmentalFeedbackFromRoomEvent(event,outcome,Date.now());
@@ -1063,6 +1141,7 @@ function addRoomObservation(observation){
  if(!accepted.added)return;
  roomHistory=roomLedger.entries();renderRoomObservations();
  updateRoomHandoffFromObservation(accepted.event);
+ updateRoutineDeviation(accepted.event);
  considerCognitiveObservation(accepted.event);
  if(accepted.event.source!=='multi-room-node'&&
     ['participant-observed','participant-out-of-view'].includes(accepted.event.semantic)){
@@ -4970,6 +5049,19 @@ if(state.mode==='agent'){
    });
   }
   void refreshEnvironmentalFeedback();
+  void refreshRoutineInsights({reloadFeedback:true});
+  const routineRefresh=document.getElementById('roomRoutineRefresh');
+  routineRefresh?.addEventListener('click',()=>void refreshRoutineInsights({reloadFeedback:true}));
+  const routineClear=document.getElementById('roomRoutineClearFeedback');
+  routineClear?.addEventListener('click',async()=>{
+   if(!window.confirm('Clear saved routine review metadata on this device?'))return;
+   try{
+    await clearRoutineFeedback();routineFeedback=[];routineCandidates=[];
+    routineLastDeviation=null;await refreshRoutineInsights({reloadFeedback:false});
+    logRoomMessage('system','Owner cleared routine review metadata',
+     'owner-routine-review',{semantic:'routine-feedback-cleared'});
+   }catch(error){console.warn('Unable to clear routine reviews',error);}
+  });
   const clearEnvironmentalFeedbackButton=document.getElementById('roomClearEnvironmentalFeedback');
   clearEnvironmentalFeedbackButton?.addEventListener('click',async()=>{
    if(!window.confirm('Clear saved environmental calibration feedback on this device?'))return;
@@ -5009,18 +5101,25 @@ if(state.mode==='agent'){
     if(epoch!==roomPrivacyEpoch)return;
     roomHistory=roomLedger.restore([...rows,...roomHistory]);
     renderRoomObservations();
+    void refreshRoutineInsights({reloadFeedback:true});
    }).catch(console.warn);
   }
   roomOptIn.addEventListener('change',()=>{
    roomPrivacyEpoch++;
    saveRoomHistory=roomOptIn.checked;
    try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
-   if(saveRoomHistory)persistCurrentRoomSnapshot();
+   if(saveRoomHistory){
+    persistCurrentRoomSnapshot();
+    void refreshRoutineInsights({reloadFeedback:true});
+   }else{
+    routineCandidates=[];routineLastDeviation=null;renderRoutineInsights();
+   }
   });
   roomClear.addEventListener('click',async()=>{
    if(!window.confirm('Clear ROOM observations saved on this device?'))return;
    roomPrivacyEpoch++;
-   roomLedger.clear();roomHistory=[];renderRoomObservations();
+   roomLedger.clear();roomHistory=[];routineCandidates=[];routineLastDeviation=null;
+   renderRoomObservations();renderRoutineInsights();
    try{
     await roomWrites.catch(()=>{});
     await clearRoomObservations();
