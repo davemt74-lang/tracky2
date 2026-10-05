@@ -94,6 +94,7 @@ export function createSessionRecallUi({
    const meta=document.createElement('small');
    const people=participantNames(row.participantIds);
    meta.textContent=when(row.at)+(row.status?' · '+row.status:'')+
+    (row.roomId?' · room '+row.roomId:'')+
     (people.length?' · '+people.join(', '):'');
    card.append(head,body,meta);
    if((row.references||[]).length){

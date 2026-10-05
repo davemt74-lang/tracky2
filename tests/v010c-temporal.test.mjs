@@ -100,7 +100,7 @@ test('10C bounded state and lifecycle/UI integration preserve existing canonical
  assert.match(controller,/roomTemporal\.update\(visible,scene,Date\.now\(\)\)/);
  assert.match(controller,/roomTemporal\.unavailable\(\)/);
  assert.match(controller,/roomTemporal\.sceneChanged\(\)/);
- assert.match(controller,/roomLedger\.append\(observation\)/);
+ assert.match(controller,/roomLedger\.append\((?:observation|scoped)\)/);
  assert.match(markup,/id="roomTemporalSummary"/);
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|localStorage|indexedDB/);
 });

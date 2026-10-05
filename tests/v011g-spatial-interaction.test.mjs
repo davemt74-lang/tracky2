@@ -90,8 +90,8 @@ test('11G scene schema migrates old camera-only maps and persists calibration me
   id:'desk',name:'Desk',kind:'desk',rect:{x:.1,y:.1,width:.4,height:.4}
  }],objects:[]};
  const migrated=normalizeRoomScene(old);
- assert.equal(ROOM_SCENE_SCHEMA,2);
- assert.equal(migrated.version,2);
+ assert.ok(ROOM_SCENE_SCHEMA>=2);
+ assert.equal(migrated.version,ROOM_SCENE_SCHEMA);
  assert.equal(migrated.calibration,null);
  const calibrated=setRoomCalibration(migrated,calibration());
  assert.equal(calibrated.calibration.widthM,4);

@@ -535,6 +535,7 @@ export async function saveRoomObservation(record){
   semantic:String(record.semantic||'').slice(0,48),
   deviceId:String(record.deviceId||'browser').slice(0,40),
   sessionId:String(record.sessionId||'room-session').slice(0,64),
+  roomId:String(record.roomId||'').slice(0,96)||null,
   sensor:['camera','microphone'].includes(record.sensor)?record.sensor:null,
   status:['online','offline','paused','degraded'].includes(record.status)?record.status:null,
   dedupeKey:record.dedupeKey?String(record.dedupeKey).slice(0,96):null,
