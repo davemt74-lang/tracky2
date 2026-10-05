@@ -162,6 +162,7 @@ export function createRecordingUi({
     final
    );
    active=null;recorder=null;sequence=0;failureReason=null;stopReason='owner-stop';
+   if(controls.consent)controls.consent.checked=false;
    await cleanRetention();await render();onChanged();
    status(final.status==='available'
     ?'Recording saved locally · '+duration(final.durationMs)+' · '+sizeLabel(final.bytes)+'.'
