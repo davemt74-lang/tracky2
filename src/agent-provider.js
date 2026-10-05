@@ -1,3 +1,5 @@
+import {agentMultimodalPromptLines} from './agent-multimodal-context.js';
+
 // Optional, explicitly enabled local Ollama bridge. No API keys, photos,
 // face/body embeddings or raw microphone samples are transmitted.
 export function validateLocalAgentEndpoint(input){
@@ -11,7 +13,9 @@ export function validateLocalAgentEndpoint(input){
    throw new TypeError('Enter the Ollama base address, without an API path.');
  return u.origin;
 }
-export function buildAgentMessages(history,currentText,participantName='',memoryContext=[],conversationContext={}){
+export function buildAgentMessages(
+ history,currentText,participantName='',memoryContext=[],conversationContext={},reasoningContext={}
+){
  const tail=(Array.isArray(history)?history:[])
   .filter(x=>x&&['agent','participant'].includes(x.role)&&typeof x.text==='string')
   .slice(-10).map(x=>{
@@ -32,8 +36,12 @@ export function buildAgentMessages(history,currentText,participantName='',memory
  const groupNote=' Conversation context: '+groupSize+' person'+(groupSize===1?'':'s')+
   ' in scope; attention target '+attention+'; AGENT explicitly addressed: '+(addressedAgent?'yes':'no')+
   '. Speaker labels in prior turns are canonical attribution labels; unknown speakers must stay unknown.';
+ const reasoningLines=agentMultimodalPromptLines(reasoningContext);
+ const reasoningNote=reasoningLines.length?
+  ' Canonical multimodal reasoning context:\n- '+reasoningLines.join('\n- '):
+  ' Canonical multimodal reasoning context unavailable; preserve unknown speaker state and do not infer identity.';
  return [
-  {role:'system',content:'You are Tracky2 AGENT, a helpful, concise spoken assistant in a local camera room. Speak naturally and briefly. Respect that visual identification and speaker identification are different: NEVER claim that an unverified speaker is the recognized person. If recognition is verified, the current speaker may be '+String(participantName||'unknown').slice(0,60)+'. You have no internet access and no personal facts beyond the supplied room conversation and explicitly authorized owner memory. Do not claim current observation from historical memory.'+groupNote+memoryNote},
+  {role:'system',content:'You are Tracky2 AGENT, a helpful, concise spoken assistant in a local camera room. Speak naturally and briefly. Respect that visual identification and speaker identification are different: NEVER claim that an unverified speaker is the recognized person. If recognition is verified, the current speaker may be '+String(participantName||'unknown').slice(0,60)+'. You have no internet access and no personal facts beyond the supplied room conversation and explicitly authorized owner memory. Do not claim current observation from historical memory. Never override canonical identity, speaker attribution, participant records, or owner corrections.'+groupNote+reasoningNote+memoryNote},
   ...tail,{role:'user',content}
  ];
 }
