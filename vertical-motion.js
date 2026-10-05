@@ -790,12 +790,22 @@ function renderRoomObservations(){
     (corrected?' · CORRECTED':'');
   item.append(time,heading,meta);
   if(e.kind!=='correction'&&!corrected){
+   const environmental=e.semantic==='environmental-audio-classification-v2'&&
+    Boolean(e.evidence?.environmental);
+   if(environmental){
+    const confirm=document.createElement('button');confirm.type='button';
+    confirm.className='room-confirm-environment';confirm.textContent='Confirm event';
+    confirm.setAttribute('aria-label','Confirm environmental event: '+e.message);
+    confirm.addEventListener('click',()=>void recordEnvironmentalOwnerFeedback(e,'confirmed'));
+    item.append(confirm);
+   }
    const button=document.createElement('button');button.type='button';
    button.className='room-mark-incorrect';button.textContent='Mark incorrect';
    button.setAttribute('aria-label','Retract event: '+e.message);
    button.addEventListener('click',()=>{
     const reason=window.prompt('Correction reason (stored in your ROOM history):');
     if(!reason?.trim())return;
+    if(environmental)void recordEnvironmentalOwnerFeedback(e,'incorrect');
     logRoomMessage('system','Correction: '+reason.trim().slice(0,175),'owner-correction',{
      kind:'correction',participantId:e.participantId,
      correction:{targetId:e.id,operation:'retract'}
