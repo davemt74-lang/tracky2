@@ -1,6 +1,6 @@
 # Tracky2 — Standalone development checkpoint
 
-**Resume rule:** read `docs/V012-MASTER-PLAN.md`, then inspect GitHub `main`, open PRs, current branch and CI. GitHub is authoritative. Tracky2 remains standalone.
+**Resume rule:** read `docs/V013-MASTER-PLAN.md`, then inspect GitHub `main`, open PRs, current branch and CI. GitHub is authoritative. Tracky2 remains standalone.
 
 ## Completed and verified
 - **V0.10A–10J** — complete.
@@ -32,5 +32,10 @@
 - No new camera, microphone, transcript, identity, storage or network authority is introduced by 12J.
 - **Final score: 10/10.** PR #64, post-merge CI, V0.12.9 artifact, direct release asset and SHA-256 are verified.
 
+## V0.13 planning
+- **V0.13 — Real-World Agent Intelligence & Reliability** is defined in `docs/V013-MASTER-PLAN.md`.
+- Section baselines are scored before implementation: **13A 7.4**, **13B 5.8**, **13C 7.6**, **13D 6.3**, **13E 5.4**, **13F 6.8**, **13G 5.9**, **13H 7.3**, **13I 7.9**, **13J 6.6**.
+- V0.12 remains closed. V0.13 extends the existing canonical runtime and must not create parallel microphone, transcript, participant, memory or hidden-recording authorities.
+
 ## Exact next action
-Do **not** restart V0.12 Sections 12A–12J. V0.12.9 is complete. Any further work begins as a new explicitly planned release/section from merged main. Representative physical-device evidence remains optional separate certification work, not an unfinished V0.12 software section.
+Merge the V0.13 planning PR when CI is green, then start **13A — Representative Hardware Certification** from merged `main`. Build 13A to **10/10**, PR, green CI, merge, post-merge verify, then continue to 13B.
