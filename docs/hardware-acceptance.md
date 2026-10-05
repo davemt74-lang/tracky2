@@ -157,3 +157,33 @@ It does **not** mean:
 > Tracky2 is certified on all cameras, microphones, browsers, operating systems, acoustic environments or computers.
 
 Physical performance remains environment-dependent. Later V0.13 sections may add more demanding multi-speaker, multi-room, recording and multi-hour device exercises; they must extend this certification contract rather than bypass it.
+
+
+## 11. V0.13I multi-hour performance hardening
+
+V0.13I adds bounded device-performance trend evidence to the same representative-device certification report.
+
+The browser may expose some, all, or none of these aggregate metrics:
+- frame-gap and room-scan latency;
+- listening queue depth;
+- JavaScript heap ratio (Chromium-family browsers when available);
+- battery level/charging state (when the Battery Status API is available);
+- storage ratio from the existing Storage Estimate API.
+
+Unsupported metrics remain unavailable. Tracky2 does not infer CPU temperature, thermal state, battery health, fan speed, or other hardware facts the browser did not expose.
+
+A full performance evidence run should remain active for **at least two hours** on the representative device. The diagnostics report records only bounded aggregate trend samples. It does not store frames, audio, transcripts, biometrics, raw performance traces, exact CPU model, or exact memory size.
+
+Adaptive degradation is intentionally narrow:
+- **Normal:** standard room-scan cadence and optional environmental classification.
+- **Reduced:** room identity scans run less frequently; camera, microphone, transcription, recording, identity authority, consent state and canonical transcript behavior remain unchanged.
+- **Critical:** optional environmental classification pauses and room scans slow further; camera, microphone, transcription and recording remain enabled and authoritative.
+
+A degraded performance state can recover only after multiple healthy samples. This hysteresis prevents repeated load-state flapping.
+
+The two-hour performance outcome is:
+- **Pass** when the trend is at least two hours long, has no critical degradation, and degradation is not repeatedly sustained.
+- **Partial** when evidence is shorter than two hours, critical degradation occurred, or reduced/critical periods were repeatedly sustained.
+- **Not run** when no performance samples exist.
+
+This is representative-device evidence only and is **not universal hardware certification**.
