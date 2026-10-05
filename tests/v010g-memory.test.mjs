@@ -133,6 +133,7 @@ test('10G UI requires explicit save choice and supports revision, revocation, de
  assert.match(ui,/sessionContextReferences/);
  assert.match(controller,/getMemories:participantId=>memoryUI\?\.contextFor\(participantId\)\|\|\[\]/);
  assert.match(agent,/verifiedMemoryScope/);
- assert.match(agent,/turn\.attribution!=='unknown'/);
+ assert.match(agent,/reasoningContext\.mayUseParticipantMemory/);
+ assert.match(agent,/buildAgentMultimodalContext/);
  assert.doesNotMatch(ui,/getUserMedia|MediaRecorder|fetch\(/);
 });
