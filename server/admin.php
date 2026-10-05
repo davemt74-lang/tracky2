@@ -64,7 +64,7 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=$target['username'];
    }elseif($action==='permission'){
     $role=(string)($_POST['role']??'');$perm=(string)($_POST['permission']??'');
-    $allowed=['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use'];
+    $allowed=['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use','skills.execute'];
     if(!in_array($role,['viewer','operator','admin'],true)||!in_array($perm,$allowed,true))
       throw new RuntimeException('Invalid permission.');
     if(($_POST['enabled']??'')==='1')
@@ -119,7 +119,7 @@ if(!$user){
  if(tracky_permission($db,$user,'roles.manage')){
   echo '<section><h2>User types & permissions</h2><p>Changes take effect on the next request. The owner role is immutable.</p><table><tr><th>Role</th><th>Permission</th><th>Grant</th></tr>';
   foreach(['admin','operator','viewer'] as $role)
-   foreach(['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use'] as $perm){
+   foreach(['participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','users.manage','providers.manage','providers.use','skills.execute'] as $perm){
     $q=$db->prepare('SELECT 1 FROM role_permissions WHERE role=? AND permission=?');$q->execute([$role,$perm]);
     $enabled=(bool)$q->fetchColumn();
     echo '<tr><td>'.$role.'</td><td>'.$perm.'</td><td><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="permission"><input type="hidden" name="role" value="'.$role.'"><input type="hidden" name="permission" value="'.$perm.'"><input type="hidden" name="enabled" value="'.($enabled?'0':'1').'"><button>'.($enabled?'Revoke':'Grant').'</button></form></td></tr>';
