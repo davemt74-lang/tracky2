@@ -551,12 +551,14 @@ async function saveForm() {
     return;
   }
 
-  if (!faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked).ready) {
+  const existing = state.editingId ? await getParticipant(state.editingId) : null;
+  const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  const accountOnlyExisting=Boolean(existing)&&!(existing.embeddings?.length||0)&&
+    existing.accountBiometricSyncEnabled!==true;
+  if (!galleryStatus.ready && !accountOnlyExisting) {
     setMessage('Capture at least three face samples, or disable recognition for this participant.', 'error');
     return;
   }
-
-  const existing = state.editingId ? await getParticipant(state.editingId) : null;
   const galleryFields=gallerySaveFields(state.gallery);
   const record = await saveParticipant({
     ...(existing || {}),
