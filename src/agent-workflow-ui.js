@@ -242,7 +242,10 @@ export function createAgentWorkflowUi({
    workflow=resumeWorkflow(workflow,Date.now());
    await persist(workflow);
   }else if(workflow.status==='awaiting-owner'){
-   workflow=resumeWorkflow(workflow,Date.now());await persist(workflow);
+   const waiting=workflow.steps.find(step=>step.status==='awaiting-owner');
+   if(waiting)workflow=retryInterruptedStep(workflow,waiting.id,Date.now());
+   else workflow=resumeWorkflow(workflow,Date.now());
+   await persist(workflow);
   }
   const step=readyWorkflowSteps(workflow)[0];
   if(!step){render();return;}
