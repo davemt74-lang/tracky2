@@ -72,6 +72,7 @@
 - Deterministic fixtures cover risk thresholds, canonical-sensor preservation, delta sampling, hysteretic recovery, hard sample bounds, trend summaries, two-hour certification, runtime optional-work degradation, diagnostics integration and pure-core safety.
 - PR #75 merged at `f5548fb20555447c975c28bb19ac2f4b6a12b73b` after the current PR head passed Node/package/PWA + PHP/security and deploy-ZIP verification.
 - **Merge checkpoint score: 9.9/10.** Runtime code is merged; the remaining 0.1 is latest-`main` CI plus direct V0.13.8 ZIP/SHA-256 publication.
+- This checkpoint branch is documentation-only; it changes no V0.13.8 runtime or packaging behavior.
 
 ## Exact next action
 Verify latest `main` with V0.13.8 Node/package/PWA + PHP green and direct ZIP/SHA-256 publication. Then score **13I 10/10** and begin **13J — V0.13 Release Certification**.
