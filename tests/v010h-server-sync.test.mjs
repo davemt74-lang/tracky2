@@ -116,8 +116,10 @@ test('10H local IndexedDB v7 stores only sync metadata and participant deletion 
  assert.match(store,/const PARTICIPANT_SYNC = 'participant-sync-state'/);
  assert.match(store,/localDeletedAt:Date\.now\(\)/);
  const syncStart=store.indexOf('export function normalizeParticipantSyncState');
+ const resourceSyncStart=store.indexOf('/* V0.14F generalized metadata sync state.',syncStart);
  const meetingStart=store.indexOf('/* V0.11E meeting metadata only.',syncStart);
- const syncSection=store.slice(syncStart,meetingStart>syncStart?meetingStart:undefined);
+ const syncEnd=resourceSyncStart>syncStart?resourceSyncStart:meetingStart;
+ const syncSection=store.slice(syncStart,syncEnd>syncStart?syncEnd:undefined);
  assert.doesNotMatch(syncSection,/profile|embedding|photo|transcript|memory/i);
 });
 
