@@ -302,6 +302,7 @@ const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
 let proactiveTimer=0,lastProactiveDecisionSignature='';
 let lastRoomHandoffState=null,lastRoomIdentityId='';
+let runtimeExitPrepared=false;
 function activeAgentTaskCount(){
  return (taskUI?.getTasks?.()||[]).filter(task=>
   ['pending-confirmation','scheduled','running'].includes(task.status)).length;
@@ -4307,8 +4308,22 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
   );
 });
 window.addEventListener('resize', drawTrace);
+function prepareRuntimeExit(reason='runtime-exit'){
+ if(runtimeExitPrepared)return false;
+ runtimeExitPrepared=true;
+ environmentalAudioQueue.disable();
+ cancelCameraRecovery();
+ cancelMicrophoneRecovery();
+ state.voice.generation+=1;
+ listeningController.invalidateGeneration(state.voice.generation,reason,Date.now());
+ transcriptLifecycle.clear();
+ diarizationSession.reset();
+ continuousSpeakerFusionTracker.reset();
+ roomTrackHistory=[];
+ return true;
+}
 window.addEventListener('beforeunload', () => {
-  environmentalAudioQueue.disable();
+  prepareRuntimeExit('beforeunload');
   if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
   if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
   if(storageHealthTimer)clearInterval(storageHealthTimer);
@@ -4622,7 +4637,9 @@ window.addEventListener('pageshow',()=>{
  }
 });
 window.addEventListener('pagehide',event=>{
- if(event.persisted||state.mode!=='agent')return;
+ if(event.persisted)return;
+ prepareRuntimeExit('pagehide');
+ if(state.mode!=='agent')return;
  void endStoredSessionIdentity(canonicalSessionId,'pagehide',Date.now())
   .catch(error=>console.warn('Session close metadata unavailable:',error));
 });
