@@ -11,7 +11,9 @@ test('participant deletion atomically removes directly attributed ROOM records',
   assert.match(txLine,new RegExp('\\b'+required+'\\b'));
  assert.match(del,/observations = tx.objectStore\(ROOM_OBSERVATIONS\)/);
  assert.match(del,/event.participantId === id\) observations.delete\(event.id\)/);
- assert.match(del,/memory.participantId === id\) memories.delete\(memory.id\)/);
+ assert.match(del,/memory\.participantId === id/);
+ assert.match(del,/memories\.delete\(memory\.id\)/);
+ assert.match(del,/memory\.sourceRefs/);
  assert.match(del,/scrubMeetingParticipant\(normalizeMeetingRecord\(meeting\),id,Date\.now\(\)\)/);
  assert.ok(del.indexOf('observations.delete(')<del.indexOf('await done'));
 });

@@ -255,7 +255,13 @@
         </details>
         <details class="agent-memory-settings" id="agentMemorySettings">
           <summary>Memory &amp; participant context</summary>
-          <small>Saved memory is owner-authored historical context only. Current conversation and ROOM context stay in their canonical stores and are shown separately below.</small>
+          <small>Durable memory remains owner-authorized. AGENT may suggest session-only memories from eligible canonical evidence, but nothing is saved until you review and approve it.</small>
+          <section class="agent-memory-proposals" aria-label="Memory proposals">
+            <div class="agent-session-context-head"><strong>Proposed memory review</strong><small>SESSION ONLY · source-backed · owner approval required</small></div>
+            <button type="button" id="agentMemoryScanProposals">Scan canonical evidence</button>
+            <div id="agentMemoryProposalList" class="agent-memory-list" aria-live="polite"></div>
+            <small>Participant proposals require resolved single-speaker attribution or an owner speaker correction. Health, emotion, protected-trait and other sensitive inferences are not auto-proposed.</small>
+          </section>
           <form id="agentMemoryForm" class="agent-memory-form">
             <label>Scope<select id="agentMemoryParticipant"><option value="">Room / general context</option></select></label>
             <label>Memory type<select id="agentMemoryType"></select></label>
@@ -274,7 +280,7 @@
           </div>
           <div id="agentMemoryStatus" class="agent-memory-status" role="status">No memory changes yet.</div>
           <div id="agentMemoryList" class="agent-memory-list" aria-live="polite"></div>
-          <div class="agent-session-context-head"><strong>Current-session canonical context</strong><small>Not copied into durable memory automatically</small></div>
+          <div class="agent-session-context-head"><strong>Current-session canonical context</strong><small>Not copied into durable memory without owner approval</small></div>
           <div id="agentSessionContext" class="agent-session-context" aria-live="off"></div>
           <small>Relationship notes are owner statements, never inferred social relationships. Revoked or expired memories are never supplied to AGENT.</small>
         </details>

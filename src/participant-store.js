@@ -6,7 +6,7 @@ import {
  applyAttributionCorrection,attributionFromTurn,multiPersonAttributionTurnFields,
  scrubAttributionParticipant
 } from './multi-person-attribution-core.js';
-import {normalizeMemoryRecord} from './agent-memory-core.js';
+import {normalizeMemoryRecord,revokeMemoryRecord} from './agent-memory-core.js';
 import {normalizeMeetingRecord,scrubMeetingParticipant} from './meeting-core.js';
 import {
  endSessionIdentity as closeSessionIdentity,normalizeSessionIdentity,
@@ -526,7 +526,9 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     // Explicit participant memories have the same local deletion boundary.
     const memoryRows = await requestToPromise(memories.getAll());
     for (const memory of memoryRows) {
-      if (memory.participantId === id) memories.delete(memory.id);
+      if (memory.participantId === id) { memories.delete(memory.id); continue; }
+      if ((Array.isArray(memory.sourceRefs)?memory.sourceRefs:[])
+          .some(ref=>ref?.participantId===id)) memories.delete(memory.id);
     }
 
     // Meeting metadata references participant IDs only; scrub them without deleting
@@ -1006,8 +1008,8 @@ export function clearAgentWorkflows(){
 }
 
 
-/* V0.10G durable memory is owner-authored only. Canonical transcripts and ROOM
-   events stay in their existing stores and are referenced at retrieval time. */
+/* V0.14D durable memory remains owner-authorized only. Owner-authored rows and
+   explicitly owner-approved proposal rows may persist; proposal queues never do. */
 export function listAgentMemories(){
  return storeAction(AGENT_MEMORIES,'readonly',async store=>{
   const rows=await requestToPromise(store.getAll());
@@ -1015,17 +1017,29 @@ export function listAgentMemories(){
    .slice(-MAX_PERSISTED_AGENT_MEMORIES);
  });
 }
-export async function saveAgentMemory(input){
+function persistableAgentMemory(input){
  const memory=normalizeMemoryRecord({...input,persistent:true});
- if(memory.authority!=='owner'||memory.provenance!=='owner-authored')
-  throw new Error('Only owner-authored memory can be persisted.');
- const safe={
-  schema:1,id:memory.id,type:memory.type,participantId:memory.participantId,
-  text:memory.text,authority:'owner',provenance:'owner-authored',
+ if(memory.authority!=='owner'||!['owner-authored','owner-approved-proposal'].includes(memory.provenance))
+  throw new Error('Only owner-authorized memory can be persisted.');
+ const sourceRefs=memory.provenance==='owner-approved-proposal'
+  ?memory.sourceRefs.slice(0,5).map(ref=>({
+    kind:String(ref.kind||'').slice(0,32),sourceId:String(ref.sourceId||'').slice(0,96),
+    meetingId:String(ref.meetingId||'').slice(0,96)||null,
+    participantId:String(ref.participantId||'').slice(0,96)||null,
+    at:Number.isFinite(ref.at)?ref.at:null,fingerprint:String(ref.fingerprint||'').slice(0,96)||null
+   })):[];
+ return {
+  schema:2,id:memory.id,type:memory.type,participantId:memory.participantId,
+  text:memory.text,authority:'owner',provenance:memory.provenance,
+  sourceRefs,approvedAt:Number.isFinite(memory.approvedAt)?memory.approvedAt:null,
+  proposalMethod:String(memory.proposalMethod||'').slice(0,64)||null,
   createdAt:memory.createdAt,updatedAt:memory.updatedAt,expiresAt:memory.expiresAt,
   status:memory.status,revokedAt:memory.revokedAt,revokeReason:memory.revokeReason,
   revisions:memory.revisions.map(r=>({text:r.text,at:r.at})),persistent:true
  };
+}
+export async function saveAgentMemory(input){
+ const safe=persistableAgentMemory(input);
  return storeAction(AGENT_MEMORIES,'readwrite',async store=>{
   await requestToPromise(store.put(safe));
   const rows=await requestToPromise(store.getAll());
@@ -1033,6 +1047,35 @@ export async function saveAgentMemory(input){
    .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_MEMORIES))) store.delete(item.id);
   return safe;
  });
+}
+export async function saveApprovedMemoryProposal(input,{
+ revokeIds=[],reason='Superseded by owner-approved memory proposal',at=Date.now()
+}={}){
+ const memory=normalizeMemoryRecord({...input,persistent:true});
+ if(memory.provenance!=='owner-approved-proposal')
+  throw new Error('Approved proposal memory required.');
+ const ids=[...new Set((Array.isArray(revokeIds)?revokeIds:[])
+  .map(value=>String(value||'').slice(0,96)).filter(Boolean))].slice(0,12);
+ const db=await openParticipantDb();
+ try{
+  const tx=db.transaction([AGENT_MEMORIES],'readwrite'),store=tx.objectStore(AGENT_MEMORIES);
+  const done=transactionToPromise(tx);
+  const revoked=[];
+  for(const id of ids){
+   const existing=await requestToPromise(store.get(id));
+   if(!existing)continue;
+   const current=normalizeMemoryRecord(existing,at);
+   if(current.status!=='active')continue;
+   const next=revokeMemoryRecord(current,reason,at);
+   await requestToPromise(store.put(persistableAgentMemory(next)));revoked.push(next);
+  }
+  const safe=persistableAgentMemory(memory);
+  await requestToPromise(store.put(safe));
+  const rows=await requestToPromise(store.getAll());
+  for(const item of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_MEMORIES)))store.delete(item.id);
+  await done;return {memory:safe,revoked};
+ }finally{db.close();}
 }
 export function deleteAgentMemory(id){
  return storeAction(AGENT_MEMORIES,'readwrite',async store=>{

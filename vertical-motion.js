@@ -3623,6 +3623,7 @@ async function processRoomSegment(segment) {
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     void refreshTranscriptSessionSummary();
     void meetingUI?.refreshTurns();
+    memoryUI?.refreshProposals?.();
     state.voice.lastDecision = 'accepted';
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
@@ -3837,6 +3838,7 @@ async function clearSavedDialogue() {
     renderDialogueTurns();
     await refreshTranscriptSessionSummary([]);
     void meetingUI?.refreshTurns();
+     memoryUI?.refreshProposals?.();
     agentRuntime?.refreshConversation();
     pushRoomEvent('Saved dialogue history cleared from this device.', 'system');
   } catch (error) {
@@ -4975,6 +4977,7 @@ if(state.mode==='agent'){
    onChange:active=>{
     agentRuntime?.onMeetingChange?.(active);
     agentRuntime?.refreshConversation();
+     memoryUI?.refreshProposals?.();
     void recallUI?.refreshTimeline?.();
    }
   });
@@ -4992,6 +4995,7 @@ if(state.mode==='agent'){
      void refreshTranscriptSessionSummary();
      if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
      void meetingUI?.refreshTurns();
+     memoryUI?.refreshProposals?.();
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
@@ -5003,6 +5007,7 @@ if(state.mode==='agent'){
      state.voice.turns=state.voice.turns.map(turn=>turn.id===id?revised:turn);
      if(String(ui.transcriptSearch?.value||'').trim())void runTranscriptSearch();
      void meetingUI?.refreshTurns();
+     memoryUI?.refreshProposals?.();
      logRoomMessage('system','Owner corrected speaker attribution · canonical transcript wording unchanged',
       'speaker-attribution-correction',{participantId:correction?.participantId||null});
      agentRuntime?.refreshConversation();
@@ -5102,6 +5107,7 @@ if(state.mode==='agent'){
    participants:()=>state.identity.participants,
    getDialogueTurns:()=>state.voice.turns,
    getRoomEvents:()=>roomLedger.entries(),
+    getMeetings:()=>meetingUI?.meetings?.()||[],
    onAudit:(message,memory)=>logRoomMessage('system',message,'owner-memory',{
     kind:'decision',semantic:'owner-memory-change',participantId:memory?.participantId||null
    }),

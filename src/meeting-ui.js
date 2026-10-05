@@ -278,6 +278,7 @@ export function createMeetingUi({
  return {
   init,render,updateRoster,refreshTurns,refreshParticipants,
   activeMeeting:()=>active,
+   meetings:()=>[...records],
   turnFields:()=>meetingTurnFields(active),
   replyPolicy:turn=>meetingAgentReplyPolicy(active,turn),
   destroy(){if(timer)clearInterval(timer);timer=null;ready=false;}
