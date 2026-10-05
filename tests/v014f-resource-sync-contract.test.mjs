@@ -10,6 +10,8 @@ test('14F server API is authenticated CSRF protected encrypted and allowlisted',
  assert.match(api,/tracky_decrypt\(\$row\['payload_ciphertext'\]\)/);
  assert.match(api,/Scene configuration cannot be deleted through metadata sync/);
  assert.match(api,/Resource sync quota exceeded/);
+ assert.match(api,/Resource sync record-count quota exceeded/);
+ assert.match(api,/tracky_sync_v2_count_limit/);
  assert.match(api,/sync_change_receipts/);
  assert.match(api,/sync_resource_changes/);
  for(const forbidden of ['dialogue','recording','workflow','room-event'])
@@ -48,6 +50,8 @@ test('14F controller is manual explicit scoped and resumable without background 
  assert.match(js,/resourceSyncRevoke/);
  assert.match(js,/saveResourceSyncJournal/);
  assert.match(js,/localFingerprint/);
+ assert.match(js,/clearPendingForKey/);
+ assert.match(js,/deleteResourceSyncJournal/);
  assert.match(js,/if\(snapshot\)serverCache\.clear\(\)/);
  assert.match(admin,/Encrypted metadata sync v2/);
  assert.match(admin,/value=\"memory\"/);
