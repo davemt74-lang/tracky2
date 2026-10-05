@@ -13,7 +13,8 @@ import {
  DIARIZATION_MAX_CLUSTERS,SpeakerDiarizationSession
 } from '../src/speaker-diarization-core.js';
 import {
- ContinuousSpeakerFusionTracker,VISUAL_HISTORY_MAX_ENTRIES,recordVisualHistory
+ CONTINUOUS_FUSION_MAX_LINKS,ContinuousSpeakerFusionTracker,
+ VISUAL_HISTORY_MAX_ENTRIES,recordVisualHistory
 } from '../src/continuous-fusion-core.js';
 import {RoomEventLedger,MAX_ROOM_EVENTS,roomObservation} from '../src/room-event-core.js';
 import {RecoveryBudget,storagePressure} from '../src/runtime-resilience-core.js';
@@ -62,6 +63,21 @@ test('12I continuous fusion participant churn reconciles removed identities',()=
  assert.deepEqual(tracker.snapshot().map(row=>row.participantId),['p3']);
  tracker.reconcile([]);
  assert.equal(tracker.snapshot().length,0);
+});
+
+test('12I continuous fusion hard-caps pathological cluster churn',()=>{
+ const tracker=new ContinuousSpeakerFusionTracker();
+ const active=['p1'];
+ for(let i=0;i<100;i++){
+  tracker.observe({
+   clusterId:'cluster-'+i,at:i+1,activeParticipantIds:active,
+   fusion:{participantId:'p1',decision:'verified',confidence:.9,trackId:'t1',provenance:[]}
+  });
+ }
+ assert.ok(tracker.snapshot().length<=CONTINUOUS_FUSION_MAX_LINKS);
+ assert.deepEqual(tracker.snapshot().map(row=>row.clusterId),
+  Array.from({length:CONTINUOUS_FUSION_MAX_LINKS},(_,i)=>
+   'cluster-'+(100-CONTINUOUS_FUSION_MAX_LINKS+i)));
 });
 
 test('12I visual history stays bounded through a long camera run',()=>{
