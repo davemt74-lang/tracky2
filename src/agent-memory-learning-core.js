@@ -96,7 +96,7 @@ function candidateFromOwnerText(text='',{decision=false}={}){
  if(decision&&value.length>=3)return {type:'note',text:short('Meeting decision: '+value,500),method:'owner-marked-meeting-decision'};
  return null;
 }
-function evidenceFingerprint({kind,sourceId,participantId=null,meetingId=null,at=null,text=''}) {
+export function memoryEvidenceFingerprint({kind,sourceId,participantId=null,meetingId=null,at=null,text=''}) {
  return hashText([kind,sourceId,participantId||'',meetingId||'',finite(at)?at:'',normalizeWords(text)].join('|'));
 }
 function proposalSource({kind,sourceId,participantId=null,meetingId=null,at=null,text=''}) {
@@ -105,7 +105,7 @@ function proposalSource({kind,sourceId,participantId=null,meetingId=null,at=null
  return Object.freeze({
   kind,sourceId:short(sourceId,96),participantId:short(participantId,96)||null,
   meetingId:short(meetingId,96)||null,at:finite(at)?at:null,excerpt,
-  fingerprint:evidenceFingerprint({kind,sourceId,participantId,meetingId,at,text:excerpt})
+  fingerprint:memoryEvidenceFingerprint({kind,sourceId,participantId,meetingId,at,text:excerpt})
  });
 }
 function proposalRecord({type='note',text,participantId=null,sourceRefs=[],method,createdAt=Date.now()}={}){
