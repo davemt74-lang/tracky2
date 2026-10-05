@@ -15,9 +15,11 @@
 - **12G — Advanced Spatial + Audio Source Intelligence** — PR #61 merged at `306c9c7007b29253a874d421c602fcf0906f9867`. **10/10**.
 - **12H — Agent Multimodal Reasoning** — PR #62 merged at `20ce21e5fa370be2a5b7f0b65ad01346206efa50`. **10/10**.
 - **12I — Long-Session / Stress Hardening** — PR #63 merged at `4abdea292eaf65df0da1fb8a46563cd5d6ec4690`. V0.12.8 post-merge Node/package/PWA + PHP green and deploy artifact verified. **10/10**.
+- **12J — V0.12 Release** — PR #64 merged at `7cea628b8d4ebbce8c5573c40d4b2f124e0b37fd`. V0.12.9 post-merge Node/package/PWA + PHP green; deploy artifact and direct GitHub release published with verified SHA-256 `c58e212a04f98cd5857c740bc3d4b7263d18a4337652a2b44b03523d0473e41f`. **10/10**.
+- **Complete V0.12 software delivery:** **10/10**.
 - Physical camera/microphone/multi-speaker representative-device evidence remains separate from CI.
 
-## Active section: 12J — V0.12 Release
+## Completed release: V0.12.9
 - **Branch:** `feat/v012j-final-release`.
 - Final release target: **V0.12.9**.
 - Added pure `src/v012-release-core.js` with the complete A–I software gate, canonical runtime-bound checks, one-mic/one-transcript/no-identity-shortcut evidence boundaries, artifact integrity checks and an explicit `universalHardwareClaim:false` result.
@@ -28,7 +30,7 @@
 - CI builds `tracky2-v0.12.9-deploy.zip`, verifies the complete V0.12 runtime/acceptance artifacts, smoke-imports the V0.12 release core, produces `tracky2-v0.12.9-deploy.zip.sha256`, uploads both and publishes a direct GitHub release on merged `main`.
 - Diagnostics hardware-evidence export reports **0.12.9** while continuing to state that representative-device evidence is not universal hardware certification.
 - No new camera, microphone, transcript, identity, storage or network authority is introduced by 12J.
-- **Pre-CI score: 9.8/10.** Remaining 0.2 is full Node/package/PWA + PHP proof, PR merge, post-merge verification, direct V0.12.9 release asset verification and final ZIP/SHA-256 delivery.
+- **Final score: 10/10.** PR #64, post-merge CI, V0.12.9 artifact, direct release asset and SHA-256 are verified.
 
 ## Exact next action
-Run the 12J static release consistency pass, open the PR, repair only demonstrated failures, merge when all required checks are green, verify the V0.12.9 post-merge artifact and direct release assets, then score **12J and the complete V0.12 release 10/10**.
+Do **not** restart V0.12 Sections 12A–12J. V0.12.9 is complete. Any further work begins as a new explicitly planned release/section from merged main. Representative physical-device evidence remains optional separate certification work, not an unfinished V0.12 software section.
