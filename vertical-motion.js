@@ -2537,9 +2537,19 @@ function renderDialogueTurns() {
       (turn.multiPersonAttributionCorrections||[]).length?'owner corrected':''
     ].filter(Boolean);
     attributionMeta.textContent='Turn attribution · '+attributionBits.join(' · ');
+    const spatialAudioMeta=document.createElement('small');
+    const spatialAudioBits=[
+      turn.spatialAudioSourceState||'source-unavailable',
+      turn.spatialAudioDirection||'unavailable',
+      Number.isFinite(turn.spatialAudioDirectionConfidence)
+       ?Math.round(turn.spatialAudioDirectionConfidence*100)+'%':'',
+      turn.spatialAudioMetric?'metric floor context':'non-metric context',
+      turn.spatialAudioConflict?'conflict:'+turn.spatialAudioConflict:''
+    ].filter(Boolean);
+    spatialAudioMeta.textContent='Spatial audio · '+spatialAudioBits.join(' · ');
 
     card.append(top, transcript, context,transcriptMeta,conversationMeta,
-      fusionMeta,diarizationMeta,continuousMeta,attributionMeta);
+      fusionMeta,diarizationMeta,continuousMeta,attributionMeta,spatialAudioMeta);
     ui.dialogueTurns.append(card);
   }
 }
