@@ -110,7 +110,14 @@ export async function syncAccountParticipants({reason='manual'}={}){
     continue;
    }
    const plan=accountSyncDecision({local,server,state});
-   if(plan.action==='none'||plan.action==='ack-delete')continue;
+   if(plan.action==='none')continue;
+   if(plan.action==='ack-delete'){
+    await saveAccountParticipantSyncState(normalizeAccountParticipantState({
+     ...state,participantId:id,serverVersion:Number(server?.version)||state.serverVersion,
+     serverUpdatedAt:server?.serverUpdatedAt??state.serverUpdatedAt,pending:false,
+     localDeletedAt:null,conflict:false,errorText:'',updatedAt:Date.now()
+    }));continue;
+   }
    if(plan.action==='conflict'){
     await saveAccountParticipantSyncState(normalizeAccountParticipantState({
      ...state,serverVersion:Number(server?.version)||state.serverVersion,
