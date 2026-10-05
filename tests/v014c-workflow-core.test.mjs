@@ -97,3 +97,13 @@ test('14C retry classification separates transient owner-action authorization an
  flow=failWorkflowStep(p.workflow,'describe',Object.assign(new Error('temporary'),{status:503}),3);
  assert.equal(flow.status,'paused');assert.equal(flow.steps[0].status,'pending');
 });
+
+test('14C restore rejects corrupted duplicate or forward dependency graphs',()=>{
+ const base=workflowPreset('server-research',serverTarget,{now:0});
+ assert.equal(restoreAgentWorkflow({...base,steps:[
+  {...base.steps[0],dependsOn:['research']},base.steps[1]
+ ]}),null);
+ assert.equal(restoreAgentWorkflow({...base,steps:[
+  base.steps[0],{...base.steps[1],id:base.steps[0].id}
+ ]}),null);
+});
