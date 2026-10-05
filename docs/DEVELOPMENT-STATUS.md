@@ -222,9 +222,13 @@ Do **not** restart V0.13 Sections 13A–13J. V0.13.9 is complete. Any further wo
 - Desktop quick key **CCC** opens/closes Control Center through the same centralized triple-key controller as ZZZ/XXX.
 - Control Center is account/presentation-only and does not start camera, microphone, recording, provider calls or background sync.
 - Release target: **v0.14.6**.
-- Implementation candidate score: **10/10 pending PR CI and post-merge release verification**.
+- PR #92 merged at `407646745d2ad0e3a1feb33523c591df9d115e5f`.
+- PR CI and post-merge Tracky2 CI run #37381641428 passed Node/package/PWA and PHP/security/foundation checks.
+- Direct **v0.14.6** release published against the merged commit with ZIP + SHA-256.
+- Verified deploy ZIP SHA-256: `8778fb9acce46b12141565309ee63565e043d1182f9d99e94c367ae84ed24158`.
+- **V0.14.6 final score: 10/10.**
 
 ## Exact next action
 
-Run the v0.14.6 PR gate. Repair any failing acceptance check on the same branch. Merge only when all required checks are green, verify the post-merge ZIP/SHA/direct release, then begin **14G — Multi-Room Federation V3**.
+Begin **14G — Multi-Room Federation V3** from current merged `main`. Do not reopen v0.14.6 unless testing finds a regression.
 
