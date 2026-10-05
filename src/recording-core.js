@@ -161,6 +161,27 @@ export function recordingIdsToExpire(records=[],now=Date.now()){
   .map(record=>record.id));
 }
 
+export function recordingIdsForStoragePressure(
+ records=[],{usage=null,quota=null,highRatio=.85,targetRatio=.75}={}
+){
+ const used=Number(usage),cap=Number(quota);
+ if(!finite(used)||!finite(cap)||cap<=0)return Object.freeze([]);
+ const high=Math.max(.5,Math.min(.98,Number(highRatio)||.85));
+ const target=Math.max(.4,Math.min(high,Number(targetRatio)||.75));
+ if(used/cap<high)return Object.freeze([]);
+ const rows=(records||[]).map(normalizeRecordingRecord)
+  .filter(record=>record.status!=='recording'&&record.bytes>0)
+  .sort((a,b)=>a.startedAt-b.startedAt);
+ let projected=used;
+ const remove=[];
+ for(const record of rows){
+  if(projected/cap<=target)break;
+  remove.push(record.id);
+  projected=Math.max(0,projected-record.bytes);
+ }
+ return Object.freeze(remove);
+}
+
 export function recordingIdsToPrune(records=[],maxRows=MAX_RECORDINGS){
  const rows=(records||[]).map(normalizeRecordingRecord)
   .filter(record=>record.status!=='recording')
