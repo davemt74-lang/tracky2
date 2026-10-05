@@ -7,6 +7,7 @@ export const VISUAL_WINDOW_MAX_SKEW_MS=1400;
 export const CLUSTER_IDENTITY_CARRY_MS=10000;
 export const CLUSTER_HANDOFF_CONFIRMATIONS=2;
 export const CLUSTER_CHALLENGER_MAX_GAP_MS=4500;
+export const CONTINUOUS_FUSION_MAX_LINKS=8;
 
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const uniq=values=>[...new Set((values||[]).filter(Boolean))];
@@ -114,19 +115,21 @@ export class ContinuousSpeakerFusionTracker{
  constructor({
   carryMs=CLUSTER_IDENTITY_CARRY_MS,
   handoffConfirmations=CLUSTER_HANDOFF_CONFIRMATIONS,
-  challengerMaxGapMs=CLUSTER_CHALLENGER_MAX_GAP_MS
+  challengerMaxGapMs=CLUSTER_CHALLENGER_MAX_GAP_MS,
+  maxLinks=CONTINUOUS_FUSION_MAX_LINKS
  }={}){
   this.carryMs=Math.max(1000,Math.min(30000,Number(carryMs)||CLUSTER_IDENTITY_CARRY_MS));
   this.handoffConfirmations=Math.max(2,Math.min(4,Math.floor(Number(handoffConfirmations)||2)));
   this.challengerMaxGapMs=Math.max(1000,Math.min(15000,
    Number(challengerMaxGapMs)||CLUSTER_CHALLENGER_MAX_GAP_MS));
+  this.maxLinks=Math.max(1,Math.min(16,Math.floor(Number(maxLinks)||CONTINUOUS_FUSION_MAX_LINKS)));
   this.reset();
  }
  reset(){this.links=new Map();return this.snapshot();}
  fork(){
   const copy=new ContinuousSpeakerFusionTracker({
    carryMs:this.carryMs,handoffConfirmations:this.handoffConfirmations,
-   challengerMaxGapMs:this.challengerMaxGapMs
+   challengerMaxGapMs:this.challengerMaxGapMs,maxLinks:this.maxLinks
   });
   copy.links=new Map([...this.links].map(([key,value])=>[key,copiedState(value)]));
   return copy;
@@ -142,7 +145,16 @@ export class ContinuousSpeakerFusionTracker{
   for(const [clusterId,link] of this.links){
    if(link.participantId&&!active.has(link.participantId))this.links.delete(clusterId);
   }
+  this.trim();
   return this.snapshot();
+ }
+ trim(){
+  if(this.links.size<=this.maxLinks)return 0;
+  const rows=[...this.links.entries()].sort((a,b)=>
+   (Number(a[1]?.lastObservedAt)||0)-(Number(b[1]?.lastObservedAt)||0));
+  const remove=rows.slice(0,this.links.size-this.maxLinks);
+  for(const [clusterId] of remove)this.links.delete(clusterId);
+  return remove.length;
  }
  snapshot(){
   return Object.freeze([...this.links].map(([clusterId,link])=>Object.freeze({
@@ -179,6 +191,7 @@ export class ContinuousSpeakerFusionTracker{
      provenance
     };
     this.links.set(id,link);
+    this.trim();
     return result({clusterId:id,windowId,participantId,state:'verified',
      confidence,at,startOffsetMs,endOffsetMs,trackId:fusion.trackId,
      provenance,conflicts:fusion.conflicts});
@@ -208,6 +221,7 @@ export class ContinuousSpeakerFusionTracker{
     provenance:['confirmed-cluster-handoff',...provenance]
    };
    this.links.set(id,link);
+   this.trim();
    return result({clusterId:id,windowId,participantId,state:'handoff',
     confidence,at,startOffsetMs,endOffsetMs,trackId:link.trackId,
     provenance:link.provenance});

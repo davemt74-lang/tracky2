@@ -68,6 +68,9 @@ import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from 
 import {
  RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
 } from './src/runtime-resilience-core.js';
+import {
+ reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
+} from './src/long-session-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {createSessionRecallUi} from './src/session-recall-ui.js';
@@ -299,6 +302,7 @@ const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
 let proactiveTimer=0,lastProactiveDecisionSignature='';
 let lastRoomHandoffState=null,lastRoomIdentityId='';
+let runtimeExitPrepared=false;
 function activeAgentTaskCount(){
  return (taskUI?.getTasks?.()||[]).filter(task=>
   ['pending-confirmation','scheduled','running'].includes(task.status)).length;
@@ -938,7 +942,6 @@ const state = {
     vad: false,
     turns: [],
     events: [],
-    announcedTracks: new Set(),
     announcedParticipants: new Set(),
     groups: [],
     currentSpeakerId: null,
@@ -981,6 +984,33 @@ const state = {
     generation: 0
   }
 };
+
+function reconcileLongSessionParticipantRefs(participantIds=[]){
+ const ids=Array.from(participantIds||[]).map(String);
+ const allowed=new Set(ids);
+ state.voice.announcedParticipants=new Set(
+  reconcileParticipantSet(state.voice.announcedParticipants,ids)
+ );
+ state.activity.seenParticipants=new Set(
+  reconcileParticipantSet(state.activity.seenParticipants,ids)
+ );
+ state.activity.lastZones=new Map(
+  reconcileParticipantMap(state.activity.lastZones,ids)
+ );
+ state.activity.events=state.activity.events
+  .filter(event=>allowed.has(String(event.participantId||'')));
+ state.voice.turns=Array.from(
+  reconcileTransientDialogueTurns(state.voice.turns,ids,50)
+ );
+ continuousSpeakerFusionTracker.reconcile(ids);
+ agentRuntime?.reconcileParticipants?.(ids);
+ return {
+  announcedParticipants:state.voice.announcedParticipants.size,
+  seenParticipants:state.activity.seenParticipants.size,
+  lastZones:state.activity.lastZones.size,
+  turns:state.voice.turns.length
+ };
+}
 
 function formatStorageHealth(){
  if(storageHealth.status==='unknown')return 'Unknown · browser did not expose quota';
@@ -1717,6 +1747,7 @@ async function reloadIdentityParticipants() {
     meetingUI?.refreshParticipants();
     recallUI?.refreshParticipants();
     roomHandoffTracker.reconcileParticipants(participantIds);
+    reconcileLongSessionParticipantRefs(participantIds);
     renderRoomHandoffUi();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
@@ -1762,6 +1793,7 @@ async function reloadIdentityParticipants() {
     console.error(error);
     state.identity.participants = [];
     roomHandoffTracker.reconcileParticipants([]);
+    reconcileLongSessionParticipantRefs([]);
     renderRoomHandoffUi();
     state.voice.currentSpeakerId=null;
     state.voice.currentSpeakerName=null;
@@ -2315,7 +2347,6 @@ function acknowledgeRoomTracks(now) {
   for (const track of visibleRoomParticipants(now)) {
     if (track.participantId && !state.voice.announcedParticipants.has(track.participantId)) {
       state.voice.announcedParticipants.add(track.participantId);
-      state.voice.announcedTracks.add(track.id);
       const participant = participantById(track.participantId);
       const event = acknowledgeNewTrack(track, participant);
       pushRoomEvent(event.message,'recognized',state.mode!=='agent');
@@ -4277,8 +4308,22 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
   );
 });
 window.addEventListener('resize', drawTrace);
+function prepareRuntimeExit(reason='runtime-exit'){
+ if(runtimeExitPrepared)return false;
+ runtimeExitPrepared=true;
+ environmentalAudioQueue.disable();
+ cancelCameraRecovery();
+ cancelMicrophoneRecovery();
+ state.voice.generation+=1;
+ listeningController.invalidateGeneration(state.voice.generation,reason,Date.now());
+ transcriptLifecycle.clear();
+ diarizationSession.reset();
+ continuousSpeakerFusionTracker.reset();
+ roomTrackHistory=[];
+ return true;
+}
 window.addEventListener('beforeunload', () => {
-  environmentalAudioQueue.disable();
+  prepareRuntimeExit('beforeunload');
   if(cameraRecoveryTimer)clearTimeout(cameraRecoveryTimer);
   if(microphoneRecoveryTimer)clearTimeout(microphoneRecoveryTimer);
   if(storageHealthTimer)clearInterval(storageHealthTimer);
@@ -4592,7 +4637,9 @@ window.addEventListener('pageshow',()=>{
  }
 });
 window.addEventListener('pagehide',event=>{
- if(event.persisted||state.mode!=='agent')return;
+ if(event.persisted)return;
+ prepareRuntimeExit('pagehide');
+ if(state.mode!=='agent')return;
  void endStoredSessionIdentity(canonicalSessionId,'pagehide',Date.now())
   .catch(error=>console.warn('Session close metadata unavailable:',error));
 });
