@@ -54,6 +54,9 @@ import {
 import { VoiceIdentityEngine } from './src/voice-engine.js';
 import { LocalTranscriptionEngine, RoomAudioCapture } from './src/room-audio-engine.js';
 import {RoomPresenceLedger,RoomEventLedger,roomObservation} from './src/room-event-core.js';
+import {
+ RoomHandoffTracker,roomHandoffMessage,roomHandoffTurnFields
+} from './src/room-handoff-core.js';
 import {createRoomSceneUi} from './src/room-scene-ui.js';
 import {emptyRoomScene} from './src/room-scene-graph.js';
 import {RoomTemporalLedger} from './src/room-temporal-core.js';
@@ -250,6 +253,7 @@ const traceCtx = ui.trace.getContext('2d');
 let agentRuntime=null,sceneUI=null,taskUI=null,memoryUI=null,meetingUI=null,recallUI=null;
 const roomPresence=new RoomPresenceLedger();
 const roomTemporal=new RoomTemporalLedger();
+const roomHandoffTracker=new RoomHandoffTracker();
 const roomLedger=new RoomEventLedger();
 const cognitiveLoop=new AgentCognitiveLoop();
 const proactiveGovernor=new ProactiveAgentGovernor();
@@ -290,6 +294,7 @@ let runtimeHealthLastPaint=0;
 const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
 let proactiveTimer=0,lastProactiveDecisionSignature='';
+let lastRoomHandoffState=null,lastRoomIdentityId='';
 function activeAgentTaskCount(){
  return (taskUI?.getTasks?.()||[]).filter(task=>
   ['pending-confirmation','scheduled','running'].includes(task.status)).length;
@@ -722,11 +727,140 @@ function renderRoomObservations(){
   empty.textContent='No ROOM events match this filter.';timeline.append(empty);
  }
 }
+function currentRoomIdentity(){
+ const scene=sceneUI?.getScene?.()||emptyRoomScene();
+ return {
+  id:String(scene.roomIdentityId||'room-local').slice(0,96),
+  name:String(scene.roomName||'Local room').slice(0,96)
+ };
+}
+function roomNameForHandoff(id){
+ const current=currentRoomIdentity();
+ return id===current.id?current.name:id;
+}
+function renderRoomHandoffUi(){
+ if(state.mode!=='agent')return;
+ const current=currentRoomIdentity();
+ const currentEl=document.getElementById('roomHandoffCurrent');
+ const status=document.getElementById('roomHandoffStatus');
+ const list=document.getElementById('roomHandoffList');
+ const select=document.getElementById('roomHandoffParticipant');
+ if(currentEl)currentEl.textContent='Current room · '+current.name+' · '+current.id;
+ if(select){
+  const prior=select.value;select.replaceChildren(new Option('Choose enrolled participant',''));
+  for(const person of state.identity.participants){
+   select.add(new Option(person.nickname||person.name||person.id,person.id));
+  }
+  if(state.identity.participants.some(person=>person.id===prior))select.value=prior;
+ }
+ if(status)status.textContent=lastRoomHandoffState
+  ? roomHandoffMessage(lastRoomHandoffState,roomNameForHandoff)
+  : 'No explicit room handoff is active.';
+ if(list){
+  list.replaceChildren();
+  const rows=roomHandoffTracker.snapshot();
+  if(!rows.length){list.textContent='No enrolled participant has room-level handoff state yet.';return;}
+  for(const row of rows){
+   const person=participantById(row.participantId);
+   const item=document.createElement('div');
+   const label=person?.nickname||person?.name||'Participant';
+   item.textContent=label+' · '+row.state+
+    (row.currentRoomId?' · current '+roomNameForHandoff(row.currentRoomId):
+     row.lastKnownRoomId?' · last known '+roomNameForHandoff(row.lastKnownRoomId):'')+
+    (row.candidateRoomIds.length?' · candidates '+row.candidateRoomIds.map(roomNameForHandoff).join(' / '):'');
+   list.append(item);
+  }
+ }
+}
+function emitRoomHandoffOutcome(result,sourceEvent){
+ if(!result)return;
+ lastRoomHandoffState=result;renderRoomHandoffUi();
+ const notable={
+  reentered:['presence','participant-reentered-room','inference'],
+  'handoff-confirmed':['decision','room-handoff-confirmed','outcome'],
+  'cross-room-unlinked':['decision','room-handoff-unlinked','inference'],
+  'simultaneous-room-conflict':['decision','room-handoff-conflict','inference'],
+  'observed-after-stale-gap':['presence','room-observed-after-stale-gap','observation']
+ }[result.state];
+ if(!notable)return;
+ logRoomMessage(notable[0],roomHandoffMessage(result,roomNameForHandoff),'room-handoff',{
+  kind:notable[2],semantic:notable[1],participantId:result.participantId,
+  relatedEventId:sourceEvent?.id||null,
+  roomId:sourceEvent?.roomId||currentRoomIdentity().id
+ });
+}
+function updateRoomHandoffFromObservation(event){
+ if(!event?.participantId||!event.roomId)return;
+ let result=null;
+ if(event.semantic==='participant-observed'){
+  result=roomHandoffTracker.observe({
+   participantId:event.participantId,roomId:event.roomId,at:event.at,source:event.source
+  });
+ }else if(event.semantic==='participant-out-of-view'){
+  result=roomHandoffTracker.outOfView({
+   participantId:event.participantId,roomId:event.roomId,at:event.at,source:event.source
+  });
+ }
+ if(result)emitRoomHandoffOutcome(result,event);
+}
+function initRoomHandoffControls(){
+ const form=document.getElementById('roomHandoffForm');
+ const participant=document.getElementById('roomHandoffParticipant');
+ const target=document.getElementById('roomHandoffTargetRoom');
+ const depart=document.getElementById('roomHandoffDeparture');
+ if(!form)return;
+ form.addEventListener('submit',event=>{
+  event.preventDefault();
+  const participantId=participant?.value||'',toRoomId=String(target?.value||'').trim();
+  const current=currentRoomIdentity();
+  if(!participantId||!toRoomId){
+   lastRoomHandoffState=null;
+   const status=document.getElementById('roomHandoffStatus');
+   if(status)status.textContent='Choose a participant and destination room ID.';
+   return;
+  }
+  try{
+   const result=roomHandoffTracker.declareHandoff({
+    participantId,fromRoomId:current.id,toRoomId,at:Date.now(),authority:'local-owner'
+   });
+   lastRoomHandoffState=result;renderRoomHandoffUi();
+   logRoomMessage('decision',roomHandoffMessage(result,roomNameForHandoff),'owner-room-handoff',{
+    kind:'decision',semantic:'room-handoff-declared',participantId,roomId:current.id
+   });
+  }catch(error){
+   const status=document.getElementById('roomHandoffStatus');
+   if(status)status.textContent=error.message;
+  }
+ });
+ depart?.addEventListener('click',()=>{
+  const participantId=participant?.value||'',current=currentRoomIdentity();
+  if(!participantId){
+   const status=document.getElementById('roomHandoffStatus');
+   if(status)status.textContent='Choose a participant before confirming departure.';
+   return;
+  }
+  const result=roomHandoffTracker.declareDeparture({
+   participantId,roomId:current.id,at:Date.now(),authority:'local-owner'
+  });
+  lastRoomHandoffState=result;renderRoomHandoffUi();
+  logRoomMessage('decision',roomHandoffMessage(result,roomNameForHandoff),'owner-room-handoff',{
+   kind:'decision',semantic:'room-departure-confirmed',participantId,roomId:current.id
+  });
+ });
+ renderRoomHandoffUi();
+}
+
 function addRoomObservation(observation){
  if(state.mode!=='agent'||!observation?.message)return;
- const accepted=roomLedger.append(observation);
+ const current=currentRoomIdentity();
+ const scoped=observation.roomId?observation:roomObservation({
+  ...observation,roomId:current.id
+ },observation.at);
+ if(!scoped)return;
+ const accepted=roomLedger.append(scoped);
  if(!accepted.added)return;
  roomHistory=roomLedger.entries();renderRoomObservations();
+ updateRoomHandoffFromObservation(accepted.event);
  considerCognitiveObservation(accepted.event);
  if(saveRoomHistory&&storageHealth.optionalPersistence){
   const epoch=roomPrivacyEpoch,event=accepted.event;
@@ -737,7 +871,10 @@ function addRoomObservation(observation){
  return accepted.event;
 }
 function logRoomMessage(category,message,source='runtime',options={}){
- return addRoomObservation(roomObservation({category,message,source,sessionId:roomSessionId,...options}));
+ return addRoomObservation(roomObservation({
+  category,message,source,sessionId:roomSessionId,
+  roomId:currentRoomIdentity().id,...options
+ }));
 }
 
 let agentSpeechActive=false;
@@ -1568,6 +1705,8 @@ async function reloadIdentityParticipants() {
     memoryUI?.refreshParticipants();
     meetingUI?.refreshParticipants();
     recallUI?.refreshParticipants();
+    roomHandoffTracker.reconcileParticipants(participantIds);
+    renderRoomHandoffUi();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
       : null;
@@ -1611,6 +1750,8 @@ async function reloadIdentityParticipants() {
   } catch (error) {
     console.error(error);
     state.identity.participants = [];
+    roomHandoffTracker.reconcileParticipants([]);
+    renderRoomHandoffUi();
     state.voice.currentSpeakerId=null;
     state.voice.currentSpeakerName=null;
     state.voice.currentVoiceConfidence=0;
@@ -2806,6 +2947,11 @@ async function processRoomSegment(segment) {
         Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0))
     });
     const multiPersonFields=multiPersonAttributionTurnFields(multiPersonAttribution);
+    const captureRoom=currentRoomIdentity();
+    const participantRoomState=association.participantId
+      ?roomHandoffTracker.snapshot().find(row=>row.participantId===association.participantId)||null
+      :null;
+    const roomHandoffFields=roomHandoffTurnFields(participantRoomState);
     let turn = {
      ...createSpeakerTurn({
       participantId: association.participantId,
@@ -2834,6 +2980,9 @@ async function processRoomSegment(segment) {
      ...diarizationFields,
      ...continuousFields,
      ...multiPersonFields,
+     roomId:captureRoom.id,
+     roomName:captureRoom.name,
+     ...roomHandoffFields,
      overlapEvidence:diarization.overlapObserved,
      diarizationAttributionSuppressed:diarizationUnsafe,
      diarizationAttributionReason:diarizationUnsafe
@@ -4255,9 +4404,18 @@ if(state.mode==='agent'){
     roomTemporal.sceneChanged();
     renderRoomTemporalSummary();
     taskUI?.refresh();
+    const current=currentRoomIdentity();
+    const identityChanged=Boolean(lastRoomIdentityId&&lastRoomIdentityId!==current.id);
+    lastRoomIdentityId=current.id;
+    renderRoomHandoffUi();
     logRoomMessage('activity',message,'owner-scene',{semantic:'owner-map-edit'});
+    if(identityChanged){
+     roomPresence.unavailable();
+     renderParticipantCards();
+    }
    }
   });
+  initRoomHandoffControls();
   taskUI=createAgentTaskUi({
    getScene:()=>sceneUI?.getScene()||emptyRoomScene(),
    recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options)
@@ -4283,7 +4441,10 @@ if(state.mode==='agent'){
   });
   void recallUI.init().catch(error=>console.warn('Recall runtime initialization failed:',error));
   void sceneUI.init().then(ok=>{
-   if(ok){roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();}
+   if(ok){
+    roomTemporal.sceneChanged();renderRoomTemporalSummary();taskUI?.refresh();
+    lastRoomIdentityId=currentRoomIdentity().id;renderRoomHandoffUi();
+   }
   }).catch(error=>console.warn('Scene initialization failed:',error));
   ui.mirror.addEventListener('change',()=>sceneUI?.renderTracks());
   renderAmbientAudioMeter(true);
