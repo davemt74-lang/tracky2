@@ -232,16 +232,6 @@ try{
             $changeId=tracky_sync_v2_change_id($change['changeId']??'');
             $type=tracky_sync_v2_type($change['resourceType']??'');
             $resourceId=tracky_sync_v2_resource_id($change['resourceId']??'');
-            $scope=tracky_sync_v2_scope($db,$deviceId,$type);
-            $receipt=tracky_sync_v2_receipt($db,$changeId);
-            if($receipt){
-                if($receipt['device_id']!==$deviceId||$receipt['resource_type']!==$type||$receipt['resource_id']!==$resourceId)
-                    throw new RuntimeException('Sync change ID was already used for another resource.');
-                $current=tracky_sync_v2_select($db,$type,$resourceId);
-                $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
-                  'status'=>'applied','replayed'=>true,'record'=>$current?tracky_sync_v2_record($current):null];
-                continue;
-            }
             $operation=(string)($change['operation']??'');
             if(!in_array($operation,['upsert','delete'],true))throw new InvalidArgumentException('Invalid sync operation.');
             if($type==='scene'&&$operation==='delete')throw new InvalidArgumentException('Scene configuration cannot be deleted through metadata sync.');
@@ -249,55 +239,77 @@ try{
             if($baseVersion===false||$baseVersion<0)throw new InvalidArgumentException('Invalid base version.');
             $resolution=(string)($change['resolution']??'');
             if($resolution!==''&&$resolution!=='browser')throw new InvalidArgumentException('Invalid conflict resolution.');
-            $current=tracky_sync_v2_select($db,$type,$resourceId);$currentVersion=$current?(int)$current['version']:0;
-            if($baseVersion!==$currentVersion){
-                $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
-                  'status'=>'conflict','server'=>$current?tracky_sync_v2_record($current):null];
-                continue;
-            }
             $clientAt=isset($change['clientUpdatedAt'])&&is_numeric($change['clientUpdatedAt'])?(int)$change['clientUpdatedAt']:$now;
-            $nextVersion=$currentVersion+1;$deleted=$operation==='delete';$cipher=null;$bytes=0;
+            $deleted=$operation==='delete';$cipher=null;$bytes=0;
             if(!$deleted){
                 [, $json,$bytes]=tracky_sync_v2_validate_payload($type,$resourceId,$change['payload']??null);
-                if(!$current||$current['deleted_at']!==null){
-                    $countQ=$db->prepare("SELECT COUNT(*) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
-                    $countQ->execute([$type]);
-                    if((int)$countQ->fetchColumn()>=tracky_sync_v2_count_limit($type))
-                        throw new RuntimeException('Resource sync record-count quota exceeded for '.$type.'.');
-                }
-                $totalQ=$db->prepare("SELECT COALESCE(SUM(payload_bytes),0) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
-                $totalQ->execute([$type]);$total=(int)$totalQ->fetchColumn();
-                $oldBytes=$current&&$current['deleted_at']===null?(int)$current['payload_bytes']:0;
-                if($total-$oldBytes+$bytes>(int)$scope['quota_bytes'])
-                    throw new RuntimeException('Resource sync quota exceeded for '.$type.'.');
                 $cipher=tracky_encrypt($json);
             }
-            $db->beginTransaction();
+            $locked=false;
             try{
+                // Serialize authorization, optimistic version and quota decisions with the write.
+                $db->exec('BEGIN IMMEDIATE');$locked=true;
+                tracky_sync_v2_require_device($db,$deviceId);
+                $scope=tracky_sync_v2_scope($db,$deviceId,$type);
+                $receipt=tracky_sync_v2_receipt($db,$changeId);
+                if($receipt){
+                    if($receipt['device_id']!==$deviceId||$receipt['resource_type']!==$type||$receipt['resource_id']!==$resourceId)
+                        throw new RuntimeException('Sync change ID was already used for another resource.');
+                    $current=tracky_sync_v2_select($db,$type,$resourceId);
+                    $receiptVersion=(int)$receipt['result_version'];
+                    if($current&&(int)$current['version']===$receiptVersion){
+                        $record=tracky_sync_v2_record($current);
+                        $db->exec('ROLLBACK');$locked=false;
+                        $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
+                          'status'=>'applied','replayed'=>true,'record'=>$record];
+                        continue;
+                    }
+                    $server=$current?tracky_sync_v2_record($current):null;
+                    $db->exec('ROLLBACK');$locked=false;
+                    $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
+                      'status'=>'conflict','replayed'=>true,'reason'=>'server-advanced-after-original-write','server'=>$server];
+                    continue;
+                }
+                $current=tracky_sync_v2_select($db,$type,$resourceId);$currentVersion=$current?(int)$current['version']:0;
+                if($baseVersion!==$currentVersion){
+                    $server=$current?tracky_sync_v2_record($current):null;
+                    $db->exec('ROLLBACK');$locked=false;
+                    $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
+                      'status'=>'conflict','server'=>$server];
+                    continue;
+                }
+                if(!$deleted){
+                    if(!$current||$current['deleted_at']!==null){
+                        $countQ=$db->prepare("SELECT COUNT(*) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
+                        $countQ->execute([$type]);
+                        if((int)$countQ->fetchColumn()>=tracky_sync_v2_count_limit($type))
+                            throw new RuntimeException('Resource sync record-count quota exceeded for '.$type.'.');
+                    }
+                    $totalQ=$db->prepare("SELECT COALESCE(SUM(payload_bytes),0) FROM sync_resources WHERE resource_type=? AND deleted_at IS NULL");
+                    $totalQ->execute([$type]);$total=(int)$totalQ->fetchColumn();
+                    $oldBytes=$current&&$current['deleted_at']===null?(int)$current['payload_bytes']:0;
+                    if($total-$oldBytes+$bytes>(int)$scope['quota_bytes'])
+                        throw new RuntimeException('Resource sync quota exceeded for '.$type.'.');
+                }
+                $nextVersion=$currentVersion+1;
                 if($deleted){
-                    $db->prepare("INSERT INTO sync_resources(resource_type,resource_id,payload_ciphertext,payload_bytes,version,client_updated_at,server_updated_at,deleted_at,updated_by)
-                      VALUES(?,?,NULL,0,1,?,?,?,?)
-                      ON CONFLICT(resource_type,resource_id) DO UPDATE SET payload_ciphertext=NULL,payload_bytes=0,version=?,client_updated_at=excluded.client_updated_at,server_updated_at=excluded.server_updated_at,deleted_at=excluded.deleted_at,updated_by=excluded.updated_by")
+                    $db->prepare("INSERT INTO sync_resources(resource_type,resource_id,payload_ciphertext,payload_bytes,version,client_updated_at,server_updated_at,deleted_at,updated_by) VALUES(?,?,NULL,0,1,?,?,?,?) ON CONFLICT(resource_type,resource_id) DO UPDATE SET payload_ciphertext=NULL,payload_bytes=0,version=?,client_updated_at=excluded.client_updated_at,server_updated_at=excluded.server_updated_at,deleted_at=excluded.deleted_at,updated_by=excluded.updated_by")
                       ->execute([$type,$resourceId,$clientAt,$now,$now,$actor['id'],$nextVersion]);
-                    if(!$current)$nextVersion=1;
                 }else{
-                    $db->prepare("INSERT INTO sync_resources(resource_type,resource_id,payload_ciphertext,payload_bytes,version,client_updated_at,server_updated_at,deleted_at,updated_by)
-                      VALUES(?,?,?,?,1,?,?,NULL,?)
-                      ON CONFLICT(resource_type,resource_id) DO UPDATE SET payload_ciphertext=excluded.payload_ciphertext,payload_bytes=excluded.payload_bytes,version=?,client_updated_at=excluded.client_updated_at,server_updated_at=excluded.server_updated_at,deleted_at=NULL,updated_by=excluded.updated_by")
+                    $db->prepare("INSERT INTO sync_resources(resource_type,resource_id,payload_ciphertext,payload_bytes,version,client_updated_at,server_updated_at,deleted_at,updated_by) VALUES(?,?,?,?,1,?,?,NULL,?) ON CONFLICT(resource_type,resource_id) DO UPDATE SET payload_ciphertext=excluded.payload_ciphertext,payload_bytes=excluded.payload_bytes,version=?,client_updated_at=excluded.client_updated_at,server_updated_at=excluded.server_updated_at,deleted_at=NULL,updated_by=excluded.updated_by")
                       ->execute([$type,$resourceId,$cipher,$bytes,$clientAt,$now,$actor['id'],$nextVersion]);
                 }
-                $db->prepare('INSERT INTO sync_resource_changes(resource_type,resource_id,version,deleted,server_updated_at,device_id,change_id) VALUES(?,?,?,?,?,?,?)')
-                  ->execute([$type,$resourceId,$nextVersion,$deleted?1:0,$now,$deviceId,$changeId]);
-                $db->prepare('INSERT INTO sync_change_receipts(change_id,device_id,resource_type,resource_id,result_version,created_at) VALUES(?,?,?,?,?,?)')
-                  ->execute([$changeId,$deviceId,$type,$resourceId,$nextVersion,$now]);
-                $db->prepare('INSERT INTO audit_log(actor_id,action,subject) VALUES(?,?,?)')
-                  ->execute([$actor['id'],'resource-sync.'.($deleted?'delete':'upsert'),$type.'/'.$resourceId]);
-                $db->commit();
-            }catch(Throwable $e){$db->rollBack();throw $e;}
+                $db->prepare('INSERT INTO sync_resource_changes(resource_type,resource_id,version,deleted,server_updated_at,device_id,change_id) VALUES(?,?,?,?,?,?,?)')->execute([$type,$resourceId,$nextVersion,$deleted?1:0,$now,$deviceId,$changeId]);
+                $db->prepare('INSERT INTO sync_change_receipts(change_id,device_id,resource_type,resource_id,result_version,created_at) VALUES(?,?,?,?,?,?)')->execute([$changeId,$deviceId,$type,$resourceId,$nextVersion,$now]);
+                $db->prepare('INSERT INTO audit_log(actor_id,action,subject) VALUES(?,?,?)')->execute([$actor['id'],'resource-sync.'.($deleted?'delete':'upsert'),$type.'/'.$resourceId]);
+                $db->exec('COMMIT');$locked=false;
+            }catch(Throwable $e){
+                if($locked){try{$db->exec('ROLLBACK');}catch(Throwable){}}
+                throw $e;
+            }
             tracky_sync_v2_prune($db);
             $saved=tracky_sync_v2_select($db,$type,$resourceId);
-            $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
-              'status'=>'applied','record'=>$saved?tracky_sync_v2_record($saved):null];
+            $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,'status'=>'applied','record'=>$saved?tracky_sync_v2_record($saved):null];
         }catch(Throwable $e){
             $results[]=['changeId'=>$changeId,'resourceType'=>$type,'resourceId'=>$resourceId,
               'status'=>'rejected','error'=>$e instanceof PDOException?'Database operation failed.':$e->getMessage()];
