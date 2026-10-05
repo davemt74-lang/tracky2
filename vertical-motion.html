@@ -42,13 +42,10 @@
     <button type="button" id="agentMobileBackdrop" class="agent-mobile-backdrop" aria-label="Close open sidebar" hidden></button>
     <div id="agentCameraBoxes" class="agent-camera-boxes" aria-hidden="true" hidden></div>
     <nav id="agentViewChooser" class="agent-view-chooser" aria-label="Agent main view" hidden>
-      <a class="agent-exit" href="./games.html" aria-label="Exit AGENT to games">← Exit</a>
       <div class="agent-view-buttons" role="group" aria-label="Main visualization">
         <button type="button" id="agentCameraView" aria-pressed="true">Camera</button>
         <button type="button" id="agentOrbView" aria-pressed="false">Orb</button>
       </div>
-      <button type="button" id="agentControlCenterButton" class="agent-control-center-button" aria-haspopup="dialog">Control Center</button>
-      <span class="agent-shortcut-hint" title="ZZZ switches camera/orb · XXX hides/restores panels · CCC opens Control Center">ZZZ ⇄ · XXX ⇔ · CCC ◎</span>
     </nav>
     <div id="agentOrbStage" class="agent-orb-stage" aria-label="Agent voice orb visualization" hidden>
       <div id="agentOrbFollower" class="agent-orb-follower" aria-hidden="true">
@@ -124,19 +121,6 @@
       </div>
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
 
-      <div class="dialogue-hud-head">
-        <div><small>SHARED CONVERSATION</small><strong>All participants + AGENT</strong></div>
-        <span id="transcriptModelState">Transcription standby</span>
-      </div>
-      <div class="transcript-tools" aria-label="Transcript search and export">
-        <label><span>SEARCH TRANSCRIPTS</span><input id="transcriptSearch" type="search" maxlength="120" placeholder="Search canonical transcript text"></label>
-        <button type="button" id="transcriptSearchRun">Search</button>
-        <button type="button" id="transcriptExportSession">Export session</button>
-        <button type="button" id="transcriptExportAll">Export all</button>
-        <small id="transcriptSessionSummary" role="status">No transcript session loaded.</small>
-        <small class="transcript-export-note">JSON export contains canonical transcript text and bounded provenance only—no audio, photos, face embeddings or voice embeddings.</small>
-      </div>
-      <div id="transcriptSearchResults" class="transcript-search-results" aria-live="polite" hidden></div>
       <div id="roomEvents" class="room-events" aria-live="polite"></div>
       <div class="agent-conversation-thread agent-chat-thread" id="agentConversationThread" hidden aria-label="Chronological conversation for all participants and agents"></div>
       <div id="dialogueTurns" class="dialogue-turns" aria-live="polite">

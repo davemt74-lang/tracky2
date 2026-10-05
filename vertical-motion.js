@@ -229,13 +229,6 @@ const ui = {
   roomSpeakerProvenance: $('#roomSpeakerProvenance'),
   roomConversationAttention: $('#roomConversationAttention'),
   roomConversationGroupSize: $('#roomConversationGroupSize'),
-  transcriptModelState: $('#transcriptModelState'),
-  transcriptSearch: $('#transcriptSearch'),
-  transcriptSearchRun: $('#transcriptSearchRun'),
-  transcriptExportSession: $('#transcriptExportSession'),
-  transcriptExportAll: $('#transcriptExportAll'),
-  transcriptSessionSummary: $('#transcriptSessionSummary'),
-  transcriptSearchResults: $('#transcriptSearchResults'),
   roomEvents: $('#roomEvents'),
   dialogueTurns: $('#dialogueTurns'),
   startRoomAudio: $('#startRoomAudio'),
@@ -2881,7 +2874,7 @@ function renderVoiceHud() {
     final:'Transcript final',corrected:'Transcript corrected',
     cancelled:'Transcript cancelled',unavailable:'Transcript unavailable'
   }[state.voice.currentTranscriptState];
-  ui.transcriptModelState.textContent = !ui.liveTranscription.checked
+  if(ui.transcriptModelState)ui.transcriptModelState.textContent = !ui.liveTranscription.checked
     ? 'Transcription off'
     : transcriptLifecycleLabel
       ? transcriptLifecycleLabel+(state.voice.currentTranscriptModelRevision

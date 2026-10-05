@@ -1,4 +1,8 @@
-import {listParticipants,listAccountParticipantSyncStates} from './src/participant-store.js';
+let participantStorePromise=null;
+function participantStore(){
+ if(!participantStorePromise)participantStorePromise=import('./src/participant-store.js');
+ return participantStorePromise;
+}
 
 const $=id=>document.getElementById(id);
 const ui={
@@ -44,24 +48,32 @@ async function refresh(){
  if(!open)return;
  setStatus('Refreshing account state…');
  try{
-  const [account,local,states]=await Promise.all([
-   session(),listParticipants().catch(()=>[]),listAccountParticipantSyncStates().catch(()=>[])
-  ]);
+  const account=await session();
+  let local=[],states=[];
+  try{
+   const store=await participantStore();
+   [local,states]=await Promise.all([
+    store.listParticipants?.().catch(()=>[])??[],
+    store.listAccountParticipantSyncStates?.().catch(()=>[])??[]
+   ]);
+  }catch(error){console.warn('Participant store unavailable in Control Center',error);}
   if(!account.authenticated){
-   ui.username.textContent='Not signed in';ui.role.textContent='Open Admin to sign in';
-   ui.participants.textContent=String(local.length);ui.sync.textContent='Local only';
-   ui.syncDetail.textContent='Sign in to enable account-backed desktop/mobile participants.';
+   if(ui.username)ui.username.textContent='Not signed in';
+   if(ui.role)ui.role.textContent='Open Admin to sign in';
+   if(ui.participants)ui.participants.textContent=String(local.length);
+   if(ui.sync)ui.sync.textContent='Local only';
+   if(ui.syncDetail)ui.syncDetail.textContent='Sign in to enable account-backed desktop/mobile participants.';
    setStatus('This browser is not signed in to Tracky2.');return;
   }
-  ui.username.textContent=account.user?.username||'Signed in';
-  ui.role.textContent=(account.user?.role||'account').toUpperCase();
+  if(ui.username)ui.username.textContent=account.user?.username||'Signed in';
+  if(ui.role)ui.role.textContent=(account.user?.role||'account').toUpperCase();
   let remote=null;
   try{remote=await serverParticipants();}catch{}
   const pending=states.filter(row=>row?.pending).length;
   const conflicts=states.filter(row=>row?.conflict).length;
-  ui.participants.textContent=remote?String(remote.filter(row=>!row.deleted).length):String(local.length);
-  ui.sync.textContent=conflicts?'Needs review':pending?'Pending':'Connected';
-  ui.syncDetail.textContent=conflicts
+  if(ui.participants)ui.participants.textContent=remote?String(remote.filter(row=>!row.deleted).length):String(local.length);
+  if(ui.sync)ui.sync.textContent=conflicts?'Needs review':pending?'Pending':'Connected';
+  if(ui.syncDetail)ui.syncDetail.textContent=conflicts
    ?conflicts+' participant conflict'+(conflicts===1?'':'s')+' require review.'
    :pending?pending+' offline change'+(pending===1?'':'s')+' waiting to sync.'
    :'Signed-in participant profiles are available across devices.';

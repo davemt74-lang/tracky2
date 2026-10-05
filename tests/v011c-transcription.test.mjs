@@ -183,13 +183,14 @@ test('11C runtime rejects stale transcription results before canonical save and 
  assert.doesNotMatch(runtime,/saveDialogueTurn\(\{[^}]*partialText/s);
 });
 
-test('11C UI provides explicit local transcript search/export and labels export privacy boundary',()=>{
+test('11C transcript search/export remains canonical but is not rendered as Conversation chrome',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  for(const id of ['transcriptSearch','transcriptSearchRun','transcriptExportSession',
   'transcriptExportAll','transcriptSessionSummary','transcriptSearchResults'])
-  assert.ok(html.includes('id="'+id+'"'),id);
+  assert.equal(html.includes('id="'+id+'"'),false,id+' must not render in Conversation');
+ assert.doesNotMatch(html,/SEARCH TRANSCRIPTS|Export session|Export all|No transcript session loaded/);
  assert.match(runtime,/searchTranscriptTurns\(rows,query/);
  assert.match(runtime,/transcriptExport\(rows,state\.identity\.participants/);
  assert.match(runtime,/text\/provenance only · no audio, photos or biometrics/);
