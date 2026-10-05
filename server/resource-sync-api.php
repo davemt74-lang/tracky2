@@ -102,8 +102,8 @@ function tracky_sync_v2_validate_payload(string $type,string $id,mixed $payload)
         $text=trim((string)($payload['text']??''));
         if($text===''||strlen($text)>2000)throw new InvalidArgumentException('Invalid memory text.');
     }elseif($type==='task'){
-        if(!in_array((string)($payload['status']??''),['succeeded','failed','cancelled'],true))
-            throw new InvalidArgumentException('Only terminal task metadata may sync.');
+        if(!in_array((string)($payload['status']??''),['succeeded','failed','cancelled'],true)||!is_numeric($payload['confirmedAt']??null))
+            throw new InvalidArgumentException('Only terminal owner-confirmed task metadata may sync.');
         if(!in_array((string)($payload['skillId']??''),['describe_object','capture_image','product_search'],true))
             throw new InvalidArgumentException('Invalid task skill.');
     }elseif($type==='scene'){
