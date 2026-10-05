@@ -116,7 +116,7 @@ test('12F canonical ROOM observations carry room id and runtime feeds stable pre
  const store=fs.readFileSync('src/participant-store.js','utf8');
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(events,/roomId:/);
- assert.match(store,/roomId:record\.roomId/);
+ assert.match(store,/roomId:String\(record\.roomId/);
  assert.match(runtime,/RoomHandoffTracker/);
  assert.match(runtime,/roomHandoffTracker\.observe/);
  assert.match(runtime,/roomHandoffTracker\.outOfView/);
