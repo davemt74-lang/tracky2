@@ -145,10 +145,13 @@ export function restoreAgentWorkflow(input={}){
   participantId:clean(p.participantId||input.participantId,96)||null
  });
  if(!policy.targetId||!policy.allowedSkills.length)return null;
- const rows=[];let recovery=false;
- for(let i=0;i<(Array.isArray(input.steps)?input.steps:[]).slice(0,MAX_WORKFLOW_STEPS).length;i++){
-  const result=normalizeStoredStep(input.steps[i],i,policy);if(!result)return null;
-  rows.push(result.step);recovery ||= result.recovery;
+ const rows=[];let recovery=false;const restoredIds=new Set();
+ const stored=(Array.isArray(input.steps)?input.steps:[]).slice(0,MAX_WORKFLOW_STEPS);
+ for(let i=0;i<stored.length;i++){
+  const result=normalizeStoredStep(stored[i],i,policy);if(!result)return null;
+  if(restoredIds.has(result.step.id))return null;
+  if(result.step.dependsOn.some(id=>!restoredIds.has(id)))return null;
+  restoredIds.add(result.step.id);rows.push(result.step);recovery ||= result.recovery;
  }
  if(!rows.length)return null;
  let status=WORKFLOW_STATUSES.includes(input.status)?input.status:'failed';
