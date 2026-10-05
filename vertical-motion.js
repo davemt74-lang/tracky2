@@ -315,6 +315,7 @@ const roomSessionId=canonicalSessionId;
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTrackHistory=[];
 let roomTimelineFilter='all';
+let lastRoomOccupancyCount=null;
 const runtimeBudget=new RuntimeBudget();
 const devicePerformanceGovernor=new DevicePerformanceGovernor();
 let lastDevicePerformanceRuntime=null;
@@ -860,6 +861,18 @@ function renderRoomTemporalSummary(){
   item.append(name,detail);mount.append(item);
  }
 }
+function noteAggregateRoomOccupancy(visibleTracks=[]){
+ const count=Array.isArray(visibleTracks)?visibleTracks.filter(track=>
+  !['occluded','reacquiring'].includes(String(track?.status||''))).length:0;
+ if(lastRoomOccupancyCount===count)return;
+ const previous=lastRoomOccupancyCount;lastRoomOccupancyCount=count;
+ const message=count
+  ?'ROOM occupancy'+(previous===null?'':' changed')+' · '+count+' '+(count===1?'person':'people')+' visible in the current camera view'
+  :'ROOM occupancy'+(previous===null?'':' changed')+' · room appears empty in the current camera view';
+ logRoomMessage('presence',message,'aggregate-camera-presence',{
+  semantic:'room-occupancy',dedupeKey:'room-occupancy:'+count+':'+Date.now()
+ });
+}
 function renderRoomObservations(){
  const timeline=document.getElementById('roomObservationsTimeline');
  const status=document.getElementById('roomCurrentState');
@@ -886,9 +899,9 @@ function renderRoomObservations(){
  if(sensorSummary)sensorSummary.textContent=overview.camera+' / '+overview.microphone;
  if(evidenceCount)evidenceCount.textContent=String(overview.evidence);
  if(decisionCount)decisionCount.textContent=String(overview.decisions);
- const filtered=roomHistory.slice(-65).reverse().filter(e=>roomEventMatchesFilter(e,roomTimelineFilter));
+  const filtered=roomHistory.slice(-90).reverse().filter(e=>!e?.participantId&&roomEventMatchesFilter(e,roomTimelineFilter));
  const count=document.getElementById('roomTimelineCount');
- if(count)count.textContent=filtered.length+' event'+(filtered.length===1?'':'s')+' shown';
+  if(count)count.textContent=filtered.length+' room event'+(filtered.length===1?'':'s')+' shown';
  for(const e of filtered){
   const item=document.createElement('article');item.className='room-observation';
   item.dataset.category=String(e.category||'');
@@ -934,7 +947,7 @@ function renderRoomObservations(){
  }
  if(!roomHistory.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
-  empty.textContent='Room observations appear as participant and device events occur.';timeline.append(empty);
+   empty.textContent='ROOM activity appears here as the environment, shared audio and background systems change.';timeline.append(empty);
  }else if(!filtered.length){
   const empty=document.createElement('p');empty.className='dialogue-empty';
   empty.textContent='No ROOM events match this filter.';timeline.append(empty);
@@ -2602,6 +2615,7 @@ function renderRoomRadar(visibleTracks) {
 function renderParticipantCards() {
   ui.participantCards.replaceChildren();
   const visible=publicRoomTracks();
+  if(state.mode==='agent')noteAggregateRoomOccupancy(state.running?visible:[]);
   if(state.mode==='agent'&&state.running){
    for(const event of roomPresence.update(visible,Date.now()))addRoomObservation(event);
    const scene=sceneUI?.getScene()||emptyRoomScene();
