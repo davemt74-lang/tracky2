@@ -178,10 +178,9 @@ export function workflowDependencyState(workflow,{target=null,participantIds=[]}
  }
  if(workflow.participantId&&!new Set((participantIds||[]).map(String)).has(workflow.participantId))
   return Object.freeze({valid:false,reason:'participant-deleted-or-unavailable'});
- return Object.freeze({
-  valid:true,reason:null,
-  authorizationChanged:workflow.policySnapshot.targetFingerprint!==workflowTargetFingerprint(target)
- });
+ if(workflow.policySnapshot.targetFingerprint!==workflowTargetFingerprint(target))
+  return Object.freeze({valid:false,reason:'authorization-snapshot-stale'});
+ return Object.freeze({valid:true,reason:null,authorizationChanged:false});
 }
 export function readyWorkflowSteps(workflow){
  const succeeded=new Set(workflow.steps.filter(step=>step.status==='succeeded').map(step=>step.id));
@@ -257,7 +256,7 @@ export function classifyWorkflowError(error={}){
  const reason=clean(error?.reason||'',96),status=Number(error?.status)||0,message=clean(error?.message||error,240);
  if(['skill-authorization-revoked','target-approval-revoked','target-deleted-or-unavailable',
   'participant-deleted-or-unavailable','skill-not-enabled-for-object','object-approval-required',
-  'target-source-not-allowed'].includes(reason))
+  'target-source-not-allowed','authorization-snapshot-stale'].includes(reason))
   return Object.freeze({class:'authorization',retryable:false,invalidates:true,message});
  if(['foreground-owner-action-required','interrupted-step-review-required','camera-not-active','page-not-visible'].includes(reason))
   return Object.freeze({class:'owner-action',retryable:false,invalidates:false,message});
