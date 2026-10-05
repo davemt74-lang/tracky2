@@ -109,8 +109,8 @@ test('13E participant store owns recording metadata/media stores and DB migratio
  assert.match(store,/const DB_VERSION = 10/);
  assert.match(store,/const RECORDINGS = 'recordings'/);
  assert.match(store,/const RECORDING_MEDIA = 'recording-media'/);
- assert.match(store,/export function saveRecording/);
- assert.match(store,/export function saveRecordingChunk/);
+ assert.match(store,/export async function saveRecording/);
+ assert.match(store,/export async function saveRecordingChunk/);
  assert.match(store,/export function listRecordings/);
  assert.match(store,/export function getRecordingMedia/);
  assert.match(store,/export async function deleteRecording/);
