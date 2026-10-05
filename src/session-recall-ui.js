@@ -16,7 +16,7 @@ const byId=rows=>{
 const when=at=>Number(at)>0?new Date(Number(at)).toLocaleString():'Time unavailable';
 const sourceLabel=value=>({
  conversation:'Conversation',room:'ROOM',meeting:'Meeting',
- task:'Task',memory:'Owner memory'
+ session:'Session',recording:'Recording',task:'Task',memory:'Owner memory'
 })[value]||String(value||'Source');
 
 export function createSessionRecallUi({
