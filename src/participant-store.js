@@ -412,30 +412,49 @@ export function getParticipant(id) {
   return storeAction(PARTICIPANTS, 'readonly', (store) => requestToPromise(store.get(id)));
 }
 
-export function saveParticipant(input) {
-  const record = participantRecord(input);
-  return storeAction(PARTICIPANTS, 'readwrite', async (store) => {
-    await requestToPromise(store.put(record));
-    return record;
-  });
+function notifyAccountParticipantChange(detail){
+ try{
+  if(typeof globalThis.dispatchEvent==='function'&&typeof globalThis.CustomEvent==='function')
+   globalThis.dispatchEvent(new CustomEvent('tracky:participant-account-change',{detail}));
+ }catch{}
+}
+export async function saveParticipant(input,{accountSync=true}={}) {
+  const record = participantRecord(input),db=await openParticipantDb();
+  try{
+    const tx=db.transaction([PARTICIPANTS,ACCOUNT_PARTICIPANT_SYNC],'readwrite');
+    const done=transactionToPromise(tx),participants=tx.objectStore(PARTICIPANTS);
+    const account=tx.objectStore(ACCOUNT_PARTICIPANT_SYNC);
+    await requestToPromise(participants.put(record));
+    if(accountSync){
+      const prior=await requestToPromise(account.get(record.id));
+      await requestToPromise(account.put(normalizeAccountParticipantSyncState({
+        ...(prior||{}),participantId:record.id,pending:true,localDeletedAt:null,
+        conflict:false,errorText:'',updatedAt:Date.now()
+      })));
+    }
+    await done;
+  }finally{db.close();}
+  if(accountSync)notifyAccountParticipantChange({participantId:record.id,operation:'upsert'});
+  return record;
 }
 
-export async function patchParticipant(id, patch) {
+export async function patchParticipant(id, patch,options={}) {
   const current = await getParticipant(id);
   if (!current) throw new Error('Participant not found.');
-  return saveParticipant({ ...current, ...patch, id, createdAt: current.createdAt });
+  return saveParticipant({ ...current, ...patch, id, createdAt: current.createdAt },options);
 }
 
-export async function deleteParticipant(id,{remoteSyncState=null}={}) {
+export async function deleteParticipant(id,{remoteSyncState=null,accountSync=true}={}) {
   const db = await openParticipantDb();
   try {
-    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, MEETINGS, RECORDINGS, ROUTINE_FEEDBACK], 'readwrite');
+    const tx = db.transaction([PARTICIPANTS, DIALOGUE, ROOM_OBSERVATIONS, AGENT_MEMORIES, PARTICIPANT_SYNC, ACCOUNT_PARTICIPANT_SYNC, MEETINGS, RECORDINGS, ROUTINE_FEEDBACK], 'readwrite');
     const done = transactionToPromise(tx);
     const participants = tx.objectStore(PARTICIPANTS);
     const dialogue = tx.objectStore(DIALOGUE);
     const observations = tx.objectStore(ROOM_OBSERVATIONS);
     const memories = tx.objectStore(AGENT_MEMORIES);
     const sync = tx.objectStore(PARTICIPANT_SYNC);
+    const accountSyncStore = tx.objectStore(ACCOUNT_PARTICIPANT_SYNC);
     const meetings = tx.objectStore(MEETINGS);
     const recordings = tx.objectStore(RECORDINGS);
     const routineFeedback = tx.objectStore(ROUTINE_FEEDBACK);
@@ -576,6 +595,13 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
       }
     }
 
+    const priorAccountSync=await requestToPromise(accountSyncStore.get(id));
+    if(accountSync){
+      accountSyncStore.put(normalizeAccountParticipantSyncState({
+       ...(priorAccountSync||{}),participantId:id,pending:true,localDeletedAt:Date.now(),
+       conflict:false,errorText:'',updatedAt:Date.now()
+      }));
+    }
     const priorSync=await requestToPromise(sync.get(id));
     if(remoteSyncState&&typeof remoteSyncState==='object'){
       sync.put({
@@ -592,6 +618,7 @@ export async function deleteParticipant(id,{remoteSyncState=null}={}) {
     await done;
     // Follow participant deletion with local game-history cleanup on the same device.
     deleteParticipantMatchHistory(browserMatchStorage(), id);
+    if(accountSync)notifyAccountParticipantChange({participantId:id,operation:'delete'});
     return true;
   } finally {
     db.close();
