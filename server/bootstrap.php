@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=4;
+const TRACKY_SCHEMA_VERSION=5;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -217,9 +217,9 @@ SQL);
     $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[
-      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
-      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','rooms.read','rooms.write'],
-      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','providers.use','rooms.read','rooms.write'],
+      'owner'=>['install','users.manage','roles.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','skills.execute','rooms.read','rooms.write'],
+      'admin'=>['users.manage','participants.read','participants.write','sync.manage','scene.read','scene.capture','objects.review','skills.approve','providers.manage','providers.use','skills.execute','rooms.read','rooms.write'],
+      'operator'=>['participants.read','participants.write','scene.read','scene.capture','objects.review','providers.use','skills.execute','rooms.read','rooms.write'],
       'viewer'=>['participants.read','scene.read']
     ];
     $db->beginTransaction();
