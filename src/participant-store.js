@@ -1056,25 +1056,35 @@ export async function saveApprovedMemoryProposal(input,{
   throw new Error('Approved proposal memory required.');
  const ids=[...new Set((Array.isArray(revokeIds)?revokeIds:[])
   .map(value=>String(value||'').slice(0,96)).filter(Boolean))].slice(0,12);
- const db=await openParticipantDb();
+ const safe=persistableAgentMemory(memory),db=await openParticipantDb();
  try{
-  const tx=db.transaction([AGENT_MEMORIES],'readwrite'),store=tx.objectStore(AGENT_MEMORIES);
-  const done=transactionToPromise(tx);
-  const revoked=[];
-  for(const id of ids){
-   const existing=await requestToPromise(store.get(id));
-   if(!existing)continue;
-   const current=normalizeMemoryRecord(existing,at);
-   if(current.status!=='active')continue;
-   const next=revokeMemoryRecord(current,reason,at);
-   await requestToPromise(store.put(persistableAgentMemory(next)));revoked.push(next);
-  }
-  const safe=persistableAgentMemory(memory);
-  await requestToPromise(store.put(safe));
-  const rows=await requestToPromise(store.getAll());
-  for(const item of rows.sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0))
-   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_AGENT_MEMORIES)))store.delete(item.id);
-  await done;return {memory:safe,revoked};
+  return await new Promise((resolve,reject)=>{
+   const tx=db.transaction([AGENT_MEMORIES],'readwrite'),store=tx.objectStore(AGENT_MEMORIES);
+   const revoked=[];let settled=false;
+   const fail=error=>{if(settled)return;settled=true;reject(error instanceof Error?error:new Error(String(error||'Memory transaction failed.')));};
+   tx.onerror=()=>fail(tx.error||new Error('Memory transaction failed.'));
+   tx.onabort=()=>fail(tx.error||new Error('Memory transaction aborted.'));
+   tx.oncomplete=()=>{if(settled)return;settled=true;resolve({memory:safe,revoked});};
+   const read=store.getAll();
+   read.onerror=()=>{try{tx.abort();}catch{}fail(read.error||new Error('Memory review read failed.'));};
+   read.onsuccess=()=>{
+    try{
+     const rows=Array.isArray(read.result)?read.result:[];
+     const byId=new Map(rows.map(row=>[String(row.id||''),row]));
+     for(const id of ids){
+      const existing=byId.get(id);if(!existing)continue;
+      const current=normalizeMemoryRecord(existing,at);if(current.status!=='active')continue;
+      const revokedMemory=revokeMemoryRecord(current,reason,at);
+      store.put(persistableAgentMemory(revokedMemory));revoked.push(revokedMemory);
+     }
+     store.put(safe);
+     const nextRows=[...rows.filter(row=>String(row.id)!==safe.id),safe]
+      .sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));
+     const removeCount=Math.max(0,nextRows.length-MAX_PERSISTED_AGENT_MEMORIES);
+     for(const item of nextRows.slice(0,removeCount))if(item.id!==safe.id)store.delete(item.id);
+    }catch(error){try{tx.abort();}catch{}fail(error);}
+   };
+  });
  }finally{db.close();}
 }
 export function deleteAgentMemory(id){
