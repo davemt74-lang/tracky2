@@ -280,7 +280,7 @@ export function listRecordingChunks(recordingId){
 export async function getRecordingMedia(recordingId){
  const db=await openParticipantDb();
  try{
-  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readonly');
+  const tx=db.transaction([RECORDINGS,RECORDING_MEDIA],'readwrite');
   const done=transactionToPromise(tx);
   const recordingRaw=await requestToPromise(tx.objectStore(RECORDINGS).get(recordingId));
   if(!recordingRaw){await done;return {recording:null,state:'missing',reason:'recording-metadata-missing',blob:null};}
@@ -290,8 +290,14 @@ export async function getRecordingMedia(recordingId){
    .sort((a,b)=>Number(a.seq)-Number(b.seq));
   await done;
   const mediaState=recordingMediaState(recording,rows);
-  if(mediaState.state!=='available')
-   return {recording,state:mediaState.state,reason:mediaState.reason,blob:null};
+  if(mediaState.state!=='available'){
+   const damaged=normalizeRecordingRecord({
+    ...recording,status:mediaState.state,mediaState:mediaState.state,
+    failureReason:mediaState.reason,updatedAt:Date.now()
+   });
+   await storeAction(RECORDINGS,'readwrite',store=>requestToPromise(store.put(damaged)));
+   return {recording:damaged,state:mediaState.state,reason:mediaState.reason,blob:null};
+  }
   return {
    recording,state:'available',reason:'media-complete',
    blob:new Blob(rows.map(row=>row.blob),{type:recording.mimeType||rows[0]?.type||'audio/webm'})
