@@ -34,6 +34,7 @@ function normalizeInterval(interval={},index=0){
   id:short(interval.id)||'attr-'+String(index+1).padStart(2,'0'),
   startOffsetMs:start,endOffsetMs:end,
   state:short(interval.state,48)||'unknown',
+  observedState:short(interval.observedState||interval.state,48)||'unknown',
   speakerClusterId:short(interval.speakerClusterId)||null,
   candidateClusterIds:Object.freeze(uniq(interval.candidateClusterIds).slice(0,4)),
   participantId:short(interval.participantId)||null,
@@ -57,7 +58,9 @@ function summarize(intervals=[],corrections=[]){
   if(previous&&previous!==row.participantId)ownershipChangeCount++;
   previous=row.participantId;
  }
- const interruptionCount=intervals.filter(row=>row.state==='overlap').length;
+ const interruptionCount=intervals.filter(row=>
+  row.observedState==='overlap'||row.state==='overlap'
+ ).length;
  const unresolvedCount=intervals.filter(row=>
   !row.participantId||['overlap','unknown','candidate','conflict','partial'].includes(row.state)
  ).length;
