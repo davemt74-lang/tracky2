@@ -131,7 +131,7 @@ test('12H local model prompt consumes explicit reasoning context and preserves n
  const provider=fs.readFileSync('src/agent-provider.js','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  assert.match(provider,/agentMultimodalPromptLines/);
- assert.match(provider,/identity override/i);
+ assert.match(provider,/Never override canonical identity/i);
  assert.match(agent,/buildAgentMultimodalContext/);
  assert.match(agent,/reasoningContext\.mayUseParticipantMemory/);
  assert.match(agent,/reasoningContext\.mayUseParticipantName/);
