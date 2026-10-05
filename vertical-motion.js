@@ -4146,7 +4146,7 @@ for(const button of document.querySelectorAll('[data-room-filter]')){
  });
 }
 if(state.mode==='agent'){
-  void startSessionIdentity(createSessionIdentity({
+  await startSessionIdentity(createSessionIdentity({
    id:canonicalSessionId,runtimeScope:'agent-room',
    runtimeInstanceId:canonicalRuntimeInstanceId
   },roomSessionStartedAt)).catch(error=>
@@ -4163,6 +4163,7 @@ if(state.mode==='agent'){
    onChange:active=>{
     agentRuntime?.onMeetingChange?.(active);
     agentRuntime?.refreshConversation();
+    void recallUI?.refreshTimeline?.();
    }
   });
   await meetingUI.init().catch(error=>console.warn('Meeting runtime initialization failed:',error));
@@ -4182,6 +4183,7 @@ if(state.mode==='agent'){
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
+     void recallUI?.refreshTimeline?.();
      return revised;
     },
     editAttribution:async(id,correction)=>{
@@ -4192,6 +4194,7 @@ if(state.mode==='agent'){
      logRoomMessage('system','Owner corrected speaker attribution · canonical transcript wording unchanged',
       'speaker-attribution-correction',{participantId:correction?.participantId||null});
      agentRuntime?.refreshConversation();
+     void recallUI?.refreshTimeline?.();
      return revised;
     },
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
