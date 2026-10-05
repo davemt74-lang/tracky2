@@ -68,6 +68,9 @@ import {roomEventMatchesFilter,roomUiOverview,normalizeRoomTimelineFilter} from 
 import {
  RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
 } from './src/runtime-resilience-core.js';
+import {
+ reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
+} from './src/long-session-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {createSessionRecallUi} from './src/session-recall-ui.js';
@@ -938,7 +941,6 @@ const state = {
     vad: false,
     turns: [],
     events: [],
-    announcedTracks: new Set(),
     announcedParticipants: new Set(),
     groups: [],
     currentSpeakerId: null,
@@ -981,6 +983,33 @@ const state = {
     generation: 0
   }
 };
+
+function reconcileLongSessionParticipantRefs(participantIds=[]){
+ const ids=Array.from(participantIds||[]).map(String);
+ const allowed=new Set(ids);
+ state.voice.announcedParticipants=new Set(
+  reconcileParticipantSet(state.voice.announcedParticipants,ids)
+ );
+ state.activity.seenParticipants=new Set(
+  reconcileParticipantSet(state.activity.seenParticipants,ids)
+ );
+ state.activity.lastZones=new Map(
+  reconcileParticipantMap(state.activity.lastZones,ids)
+ );
+ state.activity.events=state.activity.events
+  .filter(event=>allowed.has(String(event.participantId||'')));
+ state.voice.turns=Array.from(
+  reconcileTransientDialogueTurns(state.voice.turns,ids,50)
+ );
+ continuousSpeakerFusionTracker.reconcile(ids);
+ agentRuntime?.reconcileParticipants?.(ids);
+ return {
+  announcedParticipants:state.voice.announcedParticipants.size,
+  seenParticipants:state.activity.seenParticipants.size,
+  lastZones:state.activity.lastZones.size,
+  turns:state.voice.turns.length
+ };
+}
 
 function formatStorageHealth(){
  if(storageHealth.status==='unknown')return 'Unknown · browser did not expose quota';
@@ -1717,6 +1746,7 @@ async function reloadIdentityParticipants() {
     meetingUI?.refreshParticipants();
     recallUI?.refreshParticipants();
     roomHandoffTracker.reconcileParticipants(participantIds);
+    reconcileLongSessionParticipantRefs(participantIds);
     renderRoomHandoffUi();
     const currentSpeaker=state.voice.currentSpeakerId
       ? state.identity.participants.find(p=>p.id===state.voice.currentSpeakerId)
@@ -1762,6 +1792,7 @@ async function reloadIdentityParticipants() {
     console.error(error);
     state.identity.participants = [];
     roomHandoffTracker.reconcileParticipants([]);
+    reconcileLongSessionParticipantRefs([]);
     renderRoomHandoffUi();
     state.voice.currentSpeakerId=null;
     state.voice.currentSpeakerName=null;
@@ -2315,7 +2346,6 @@ function acknowledgeRoomTracks(now) {
   for (const track of visibleRoomParticipants(now)) {
     if (track.participantId && !state.voice.announcedParticipants.has(track.participantId)) {
       state.voice.announcedParticipants.add(track.participantId);
-      state.voice.announcedTracks.add(track.id);
       const participant = participantById(track.participantId);
       const event = acknowledgeNewTrack(track, participant);
       pushRoomEvent(event.message,'recognized',state.mode!=='agent');
