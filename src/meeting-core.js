@@ -58,6 +58,7 @@ export function normalizeMeetingRecord(input={}){
   })).filter(item=>item.text);
  return Object.freeze({
   id,schemaVersion:MEETING_SCHEMA,title:short(input.title||'Meeting',120)||'Meeting',
+  sessionId:short(input.sessionId,96)||null,
   status,startedAt,endedAt,agentPolicy,
   rosterParticipantIds:Object.freeze(uniq(input.rosterParticipantIds)),
   activeParticipantIds:Object.freeze(uniq(input.activeParticipantIds)),
@@ -70,9 +71,11 @@ export function normalizeMeetingRecord(input={}){
  });
 }
 
-export function createMeetingRecord({title='Meeting',agentPolicy='listen-only'}={},now=Date.now()){
+export function createMeetingRecord({
+ title='Meeting',agentPolicy='listen-only',sessionId=null
+}={},now=Date.now()){
  return normalizeMeetingRecord({
-  id:identifier('meeting'),title,agentPolicy,status:'active',
+  id:identifier('meeting'),title,agentPolicy,sessionId,status:'active',
   startedAt:now,updatedAt:now
  });
 }
@@ -181,7 +184,7 @@ export function meetingSummary(meeting,turns=[],participants=[]){
  const openActions=record.actionItems.filter(item=>item.status==='open').length;
  const durationEnd=record.endedAt??Date.now();
  return Object.freeze({
-  meetingId:record.id,title:record.title,status:record.status,
+  meetingId:record.id,sessionId:record.sessionId,title:record.title,status:record.status,
   startedAt:record.startedAt,endedAt:record.endedAt,
   durationMs:Math.max(0,durationEnd-record.startedAt),
   rosterParticipantIds:record.rosterParticipantIds,

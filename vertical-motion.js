@@ -68,6 +68,7 @@ import {
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
 import {createSessionRecallUi} from './src/session-recall-ui.js';
+import {createSessionIdentity} from './src/session-identity-core.js';
 import {createMeetingUi} from './src/meeting-ui.js';
 import {ConversationListeningController} from './src/conversation-listening-core.js';
 import {
@@ -106,7 +107,8 @@ import {
   reviseDialogueTurn,
   reviseDialogueAttribution,
   savePendingCapture,
-  listRoomObservations,saveRoomObservation,clearRoomObservations
+  listRoomObservations,saveRoomObservation,clearRoomObservations,
+  startSessionIdentity,endStoredSessionIdentity
 } from './src/participant-store.js';
 
 const $ = (s) => document.querySelector(s);
@@ -258,7 +260,21 @@ const diarizationSession=new SpeakerDiarizationSession();
 const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
-const roomSessionId='room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
+let canonicalRuntimeInstanceId='';
+try{
+ canonicalRuntimeInstanceId=window.sessionStorage.getItem('tracky2-runtime-instance-id')||'';
+ if(!canonicalRuntimeInstanceId){
+  canonicalRuntimeInstanceId=(typeof crypto!=='undefined'&&crypto.randomUUID)
+   ?crypto.randomUUID():'tab-'+Math.random().toString(36).slice(2,12);
+  window.sessionStorage.setItem('tracky2-runtime-instance-id',canonicalRuntimeInstanceId);
+ }
+}catch{
+ canonicalRuntimeInstanceId='tab-'+Math.random().toString(36).slice(2,12);
+}
+const canonicalSessionId=(typeof crypto!=='undefined'&&crypto.randomUUID)
+ ? crypto.randomUUID()
+ : 'room-'+roomSessionStartedAt.toString(36)+'-'+Math.random().toString(36).slice(2,8);
+const roomSessionId=canonicalSessionId;
 let roomHistory=[],saveRoomHistory=false,roomPrivacyEpoch=0,roomWrites=Promise.resolve();
 let roomTrackHistory=[];
 let roomTimelineFilter='all';
@@ -809,9 +825,7 @@ const state = {
     currentConversationAttention: 'unknown',
     currentConversationGroupSize: 1,
     currentConversationLabel: 'UNVERIFIED SPEAKER · SOLO',
-    sessionId: (typeof crypto !== 'undefined' && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : 'room-' + Date.now().toString(36),
+    sessionId: canonicalSessionId,
     lastDecision: 'standby',
     rejectedSegments: 0,
     ttsPending: 0,
@@ -4132,6 +4146,11 @@ for(const button of document.querySelectorAll('[data-room-filter]')){
  });
 }
 if(state.mode==='agent'){
+  await startSessionIdentity(createSessionIdentity({
+   id:canonicalSessionId,runtimeScope:'agent-room',
+   runtimeInstanceId:canonicalRuntimeInstanceId
+  },roomSessionStartedAt)).catch(error=>
+   console.warn('Session identity metadata unavailable:',error));
   void watchMediaPermission('camera');
   void watchMediaPermission('microphone');
   void refreshStorageHealth({announce:false});
@@ -4139,10 +4158,12 @@ if(state.mode==='agent'){
   renderRuntimeHealth(true);
   meetingUI=createMeetingUi({
    participants:()=>state.identity.participants,
+   sessionId:()=>canonicalSessionId,
    recordEvent:(category,message,source,options)=>recordProactiveSourceEvent(category,message,source,options),
    onChange:active=>{
     agentRuntime?.onMeetingChange?.(active);
     agentRuntime?.refreshConversation();
+    void recallUI?.refreshTimeline?.();
    }
   });
   await meetingUI.init().catch(error=>console.warn('Meeting runtime initialization failed:',error));
@@ -4162,6 +4183,7 @@ if(state.mode==='agent'){
      logRoomMessage('system','Owner corrected canonical transcript wording · original retained locally',
       'transcript-correction',{participantId:revised.participantId||null});
      agentRuntime?.refreshConversation();
+     void recallUI?.refreshTimeline?.();
      return revised;
     },
     editAttribution:async(id,correction)=>{
@@ -4172,6 +4194,7 @@ if(state.mode==='agent'){
      logRoomMessage('system','Owner corrected speaker attribution · canonical transcript wording unchanged',
       'speaker-attribution-correction',{participantId:correction?.participantId||null});
      agentRuntime?.refreshConversation();
+     void recallUI?.refreshTimeline?.();
      return revised;
     },
     stopAudio:async()=>{if(state.voice.active)stopRoomAudio();},
@@ -4255,7 +4278,7 @@ if(state.mode==='agent'){
    getCurrentRoomEvents:()=>roomLedger.entries(),
    getSessionMemories:()=>memoryUI?.getMemories?.()||[],
    getAgentHistory:()=>agentRuntime?.getHistory?.()||[],
-   currentSessionIds:()=>[state.voice.sessionId,roomSessionId],
+   currentSessionIds:()=>[canonicalSessionId],
    currentSessionStartedAt:()=>roomSessionStartedAt
   });
   void recallUI.init().catch(error=>console.warn('Recall runtime initialization failed:',error));
@@ -4347,6 +4370,11 @@ window.addEventListener('pageshow',()=>{
  if(!state.gameplay.game.active&&!state.multiplayer.snapshot().active&&!patternActive()){
   void reloadIdentityParticipants().then(()=>renderMode());
  }
+});
+window.addEventListener('pagehide',event=>{
+ if(event.persisted||state.mode!=='agent')return;
+ void endStoredSessionIdentity(canonicalSessionId,'pagehide',Date.now())
+  .catch(error=>console.warn('Session close metadata unavailable:',error));
 });
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden)return;

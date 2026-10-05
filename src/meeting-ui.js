@@ -8,7 +8,7 @@ import {
 } from './participant-store.js';
 
 export function createMeetingUi({
- participants=()=>[],recordEvent=()=>null,onChange=()=>{}
+ participants=()=>[],recordEvent=()=>null,onChange=()=>{},sessionId=()=>null
 }={}){
  const $=id=>document.getElementById(id);
  const ui={
@@ -215,7 +215,9 @@ export function createMeetingUi({
   ui.startForm.addEventListener('submit',async event=>{
    event.preventDefault();if(!ready||active)return;
    try{
-    const created=createMeetingRecord({title:ui.title.value,agentPolicy:ui.startPolicy.value},Date.now());
+    const created=createMeetingRecord({
+      title:ui.title.value,agentPolicy:ui.startPolicy.value,sessionId:sessionId()
+    },Date.now());
     const saved=await saveMeeting(created);active=saved;selected=saved.id;records=[saved,...records.filter(x=>x.id!==saved.id)];
     lastRosterSignature='';ui.title.value='';
     recordEvent('decision','Meeting started: '+saved.title,'meeting-runtime',{kind:'action',semantic:'meeting-started'});

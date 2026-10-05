@@ -1,7 +1,12 @@
 import {
- listDialogueTurns,listRoomObservations,listAgentTasks,listAgentMemories,listMeetings
+ listDialogueTurns,listRoomObservations,listAgentTasks,listAgentMemories,listMeetings,
+ listSessionIdentities
 } from './participant-store.js';
 import {buildRecallProjection,searchRecall,explainRecallResult} from './session-recall-core.js';
+import {
+ buildSessionIdentityTimeline,normalizeSessionIdentity,
+ sessionIdentityExport,sessionIdentitySummary
+} from './session-identity-core.js';
 
 const byId=rows=>{
  const map=new Map();
@@ -11,7 +16,7 @@ const byId=rows=>{
 const when=at=>Number(at)>0?new Date(Number(at)).toLocaleString():'Time unavailable';
 const sourceLabel=value=>({
  conversation:'Conversation',room:'ROOM',meeting:'Meeting',
- task:'Task',memory:'Owner memory'
+ session:'Session',recording:'Recording',task:'Task',memory:'Owner memory'
 })[value]||String(value||'Source');
 
 export function createSessionRecallUi({
@@ -27,7 +32,12 @@ export function createSessionRecallUi({
   form:$('agentRecallForm'),query:$('agentRecallQuery'),source:$('agentRecallSource'),
   participant:$('agentRecallParticipant'),temporal:$('agentRecallTemporal'),
   recent:$('agentRecallRecent'),refresh:$('agentRecallRefresh'),
-  status:$('agentRecallStatus'),results:$('agentRecallResults')
+  status:$('agentRecallStatus'),results:$('agentRecallResults'),
+  sessionSelect:$('agentSessionTimelineSelect'),
+  sessionRefresh:$('agentSessionTimelineRefresh'),
+  sessionExport:$('agentSessionTimelineExport'),
+  sessionStatus:$('agentSessionTimelineStatus'),
+  sessionTimeline:$('agentSessionTimeline')
  };
  let lastRows=[],lastSearch={query:'',sourceType:'all',participantId:null,temporal:'all'};
 
@@ -58,6 +68,114 @@ export function createSessionRecallUi({
    now:Date.now()
   });
  }
+ function sessionIdNow(){
+  return String((currentSessionIds()||[])[0]||'');
+ }
+ function setSessionStatus(message){
+  if(ui.sessionStatus)ui.sessionStatus.textContent=message;
+ }
+ function renderSessionTimeline(rows,summary){
+  if(!ui.sessionTimeline)return;
+  ui.sessionTimeline.replaceChildren();
+  if(!rows.length){
+   const empty=document.createElement('p');empty.className='agent-recall-empty';
+   empty.textContent='No canonical records are available for this session.';
+   ui.sessionTimeline.append(empty);return;
+  }
+  for(const row of rows.slice(-120).reverse()){
+   const card=document.createElement('article');card.className='agent-recall-result';
+   card.dataset.source=row.sourceType;card.dataset.subtype=row.subtype||'event';
+   const head=document.createElement('div');head.className='agent-recall-result-head';
+   const title=document.createElement('strong');title.textContent=row.title||sourceLabel(row.sourceType);
+   const badge=document.createElement('span');badge.textContent=
+    sourceLabel(row.sourceType)+' · '+(row.subtype||row.status||'event');
+   head.append(title,badge);
+   const body=document.createElement('p');body.textContent=row.text||'Metadata event';
+   const meta=document.createElement('small');
+   const people=participantNames(row.participantIds);
+   meta.textContent=when(row.at)+(row.status?' · '+row.status:'')+
+    (people.length?' · '+people.join(', '):'');
+   card.append(head,body,meta);
+   if((row.references||[]).length){
+    const refs=document.createElement('small');
+    refs.textContent='References · '+row.references.map(ref=>
+     ref.type+':'+ref.id+' ['+ref.state+']').join(' · ');
+    card.append(refs);
+   }
+   ui.sessionTimeline.append(card);
+  }
+  if(summary?.staleReferenceCount){
+   setSessionStatus(summary.itemCount+' timeline items · '+
+    summary.staleReferenceCount+' stale reference'+
+    (summary.staleReferenceCount===1?'':'s')+' reported explicitly');
+  }
+ }
+ async function refreshSessionTimeline(){
+  if(!ui.sessionTimeline)return false;
+  setSessionStatus('Reading canonical session sources…');
+  try{
+   const [dialogue,persistedRoom,meetings,sessions]=await Promise.all([
+    listDialogueTurns(),listRoomObservations(),listMeetings(),listSessionIdentities()
+   ]);
+   const currentId=sessionIdNow();
+   const prior=ui.sessionSelect?.value||currentId;
+   if(ui.sessionSelect){
+    ui.sessionSelect.replaceChildren();
+    for(const record of sessions){
+     const label=(record.id===currentId?'Current · ':'')+
+      new Date(record.startedAt).toLocaleString()+' · '+record.status;
+     ui.sessionSelect.add(new Option(label,record.id));
+    }
+    if(currentId&&!sessions.some(record=>record.id===currentId))
+     ui.sessionSelect.add(new Option('Current session',currentId));
+    ui.sessionSelect.value=[...ui.sessionSelect.options].some(option=>option.value===prior)
+     ?prior:(currentId||sessions[0]?.id||'');
+   }
+   const selectedId=ui.sessionSelect?.value||currentId;
+   if(!selectedId){
+    ui.sessionTimeline.replaceChildren();
+    setSessionStatus('No canonical session metadata is available yet.');
+    return false;
+   }
+   const session=sessions.find(record=>record.id===selectedId)||
+    normalizeSessionIdentity({
+     id:selectedId,status:'active',
+     startedAt:Number(currentSessionStartedAt())||Date.now(),
+     runtimeScope:'agent-room'
+    });
+   const currentRoom=selectedId===currentId?(getCurrentRoomEvents()||[]):[];
+   const room=byId([...(persistedRoom||[]),...currentRoom]);
+   const rows=buildSessionIdentityTimeline({
+    session,dialogueTurns:dialogue,roomEvents:room,meetings,
+    recordings:[],participants:participants()||[]
+   });
+   const summary=sessionIdentitySummary(rows);
+   renderSessionTimeline(rows,summary);
+   if(!summary.staleReferenceCount)setSessionStatus(
+    rows.length+' timeline item'+(rows.length===1?'':'s')+
+    ' · rebuilt from canonical sources · no media duplicated'
+   );
+   return {session,rows,summary};
+  }catch(error){
+   console.error('Session timeline failed',error);
+   setSessionStatus('Session timeline unavailable: '+error.message);
+   return false;
+  }
+ }
+ async function exportSessionTimeline(){
+  const projection=await refreshSessionTimeline();
+  if(!projection)return false;
+  const payload=sessionIdentityExport(projection.rows,projection.session);
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;link.download='tracky2-session-'+projection.session.id+'.json';
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+  setSessionStatus(payload.itemCount+' timeline items exported · metadata/text only · no audio/video/biometrics');
+  return true;
+ }
+
  function searchOptions(){
   const temporal=ui.temporal?.value||'all';
   return {
@@ -135,11 +253,16 @@ export function createSessionRecallUi({
    if(ui.query)ui.query.value=lastSearch.query||ui.query.value;
    void run({recent:!String(ui.query?.value||'').trim()});
   });
+  ui.sessionRefresh?.addEventListener('click',()=>void refreshSessionTimeline());
+  ui.sessionSelect?.addEventListener('change',()=>void refreshSessionTimeline());
+  ui.sessionExport?.addEventListener('click',()=>void exportSessionTimeline());
   setStatus('Recall is ready. No persistent search index is created.');
+  void refreshSessionTimeline();
   return true;
  }
  return {
   init,search:run,refreshParticipants:participantOptions,
+  refreshTimeline:refreshSessionTimeline,
   lastProjection:()=>[...lastRows]
  };
 }
