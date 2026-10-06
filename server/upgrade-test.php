@@ -4,7 +4,7 @@ function check(bool $ok,string $name):void{if(!$ok)throw new RuntimeException('F
 $temp=sys_get_temp_dir().'/tracky2-upgrade-'.bin2hex(random_bytes(5));
 if(!mkdir($temp,0700))throw new RuntimeException('Cannot prepare upgrade test.');
 putenv('TRACKY2_DATA_DIR='.$temp);
-require __DIR__.'/bootstrap.php';
+require __DIR__.'/providers.php';
 try{
  $db=new PDO('sqlite:'.$temp.'/tracky.sqlite',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
  $db->exec('PRAGMA foreign_keys=ON');
