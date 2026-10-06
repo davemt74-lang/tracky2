@@ -87,8 +87,12 @@ export class RoomAudioIntelligenceCoordinator{
   }
   const same=this.state&&this.state.kind===kind&&at-this.state.lastAt<this.staleMs;
   let transitionType='continued';
+  let previousState=null;
   if(!same){
    transitionType=this.state?'source-changed':'started';
+   previousState=this.state?freezeState({
+    ...this.state,status:'stopped',lastAt:at,reason:'source-changed'
+   }):null;
    this.state={
     status:'active',sessionId:sessionId(kind,at),kind,startedAt:at,lastAt:at,
     observations:0,confidence:0,sourceDirection:'unavailable',
@@ -106,7 +110,10 @@ export class RoomAudioIntelligenceCoordinator{
   const key=[transitionType,kind,this.state.identityKey].join('|');
   const emit=transitionType!=='continued'||key!==this.lastEmitKey||at-this.lastEmitAt>=this.repeatMs;
   if(emit){this.lastEmitKey=key;this.lastEmitAt=at;}
-  return Object.freeze({emit,transition:transitionType,state:this.snapshot(),reason:'environmental-'+transitionType});
+  return Object.freeze({
+   emit,transition:transitionType,state:this.snapshot(),
+   previousState,reason:'environmental-'+transitionType
+  });
  }
  observeIdentity(identity={},now=Date.now()){
   if(!this.state)return Object.freeze({emit:false,transition:'identity-without-session',state:this.snapshot(),reason:'no-active-session'});
