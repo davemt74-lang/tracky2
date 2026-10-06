@@ -11,7 +11,7 @@ import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from '.
 import {createAgentRoom} from './agent-mode.js';
 import {roomMeterState} from './src/participant-audio-meter.js';
 import {RoomAmbientAudit} from './src/room-audio-audit.js';
-import {describeAcousticPattern} from './src/room-acoustic-patterns.js';
+import {describeAcousticPattern,RoomAcousticPatternTracker} from './src/room-acoustic-patterns.js';
 import {
  EnvironmentalAudioQueue,EnvironmentalClassificationTracker,
  normalizeEnvironmentalPredictions,environmentalClassificationMessage
@@ -449,6 +449,7 @@ function roomSensorState(sensor,status,message){
   {kind:'observation',semantic:'sensor-state',sensor,status});
 }
 const roomAmbientAudit=new RoomAmbientAudit();
+const roomAcousticPatternTracker=new RoomAcousticPatternTracker();
 const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
@@ -855,8 +856,10 @@ function saveRoomAudioSummary(summary){
  // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
  if(analyzeAmbientPatterns){
   const pattern=describeAcousticPattern(summary);
-  if(pattern)logRoomMessage('audio',pattern.description,pattern.source,{
+  const tracked=roomAcousticPatternTracker.observe(pattern,summary.at);
+  if(tracked.emit&&pattern)logRoomMessage('audio',pattern.description,pattern.source,{
    at:pattern.at,semantic:'acoustic-pattern',confidence:pattern.confidence,
+   dedupeKey:'acoustic-pattern:'+pattern.pattern+':'+Math.floor(pattern.at/60000),
    evidence:{durationMs:pattern.durationMs}
   });
  }
@@ -3990,6 +3993,7 @@ function stopRoomAudio() {
    roomSensorState('microphone','offline','Room microphone stopped · silence not inferred');
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
+  roomAcousticPatternTracker.reset();
   // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
   environmentalActivityTracker.reset();
   state.voice.generation += 1;
