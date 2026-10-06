@@ -103,17 +103,27 @@ function tracky_music_id_openai(string $secret,string $model,string $instruction
       'sources'=>tracky_music_id_openai_sources($decoded)];
 }
 function tracky_music_id_anthropic(string $secret,string $model,string $instruction): array {
+    $tools=[['type'=>'web_search_20250305','name'=>'web_search','max_uses'=>2]];
+    $messages=[['role'=>'user','content'=>$instruction]];
     $payload=[
       'model'=>$model,'max_tokens'=>220,
       'system'=>'Use web search for this music-identification request. Return JSON only and do not reproduce song lyrics.',
-      'messages'=>[['role'=>'user','content'=>$instruction]],
-      'tools'=>[['type'=>'web_search_20250305','name'=>'web_search','max_uses'=>2]]
+      'messages'=>$messages,'tools'=>$tools
     ];
-    $res=tracky_provider_http('https://api.anthropic.com/v1/messages',[
+    $headers=[
       'x-api-key: '.$secret,'anthropic-version: 2023-06-01',
       'Content-Type: application/json','Accept: application/json'
-    ],json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14.7 music-id-runtime');
+    ];
+    $res=tracky_provider_http('https://api.anthropic.com/v1/messages',$headers,
+      json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14.7 music-id-runtime');
     $decoded=json_decode($res['body'],true,64,JSON_THROW_ON_ERROR);
+    if(($decoded['stop_reason']??'')==='pause_turn'){
+        $messages[]=['role'=>'assistant','content'=>$decoded['content']??[]];
+        $payload['messages']=$messages;
+        $res=tracky_provider_http('https://api.anthropic.com/v1/messages',$headers,
+          json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14.7 music-id-runtime');
+        $decoded=json_decode($res['body'],true,64,JSON_THROW_ON_ERROR);
+    }
     return ['candidate'=>tracky_music_id_json(tracky_music_id_anthropic_text($decoded)),
       'sources'=>tracky_music_id_anthropic_sources($decoded)];
 }
