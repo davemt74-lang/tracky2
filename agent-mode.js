@@ -831,6 +831,17 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
    return say(text,participantId,scopeId)===true;
   },
+  onNetworkChange(online){
+   responseGeneration+=1;responsePending=false;modelController?.abort();modelController=null;
+   if(!online){
+    stopSpeech();
+    ui.modelStatus.textContent='Network offline · remote model work cancelled; local conversation remains available.';
+    return;
+   }
+   providerRuntime=null;
+   ui.modelStatus.textContent='Network restored · refreshing provider status; stale replies will not replay.';
+   void refreshProviderRuntime({announce:false}).then(()=>applyProviderSelection());
+  },
   onMeetingChange(meeting){
    responseGeneration+=1;responsePending=false;modelController?.abort();stopSpeech();
    ui.modelStatus.textContent=meeting?.status==='active'
