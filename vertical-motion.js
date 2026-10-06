@@ -211,6 +211,7 @@ import {
 import {
  multiConversationTurnFields,conversationContextLabel
 } from './src/multi-conversation-core.js';
+import {ConversationOwnershipTracker} from './src/conversation-ownership-core.js';
 import {
   clearDialogueTurns,
   deleteDialogueTurn,
@@ -370,6 +371,7 @@ const cognitiveLoop=new AgentCognitiveLoop();
 const proactiveGovernor=new ProactiveAgentGovernor();
 const listeningController=new ConversationListeningController();
 const speakerAssociationTracker=new SpeakerAssociationTracker();
+const conversationOwnershipTracker=new ConversationOwnershipTracker();
 const multimodalFusionTracker=new MultimodalFusionTracker();
 const diarizationSession=new SpeakerDiarizationSession();
 const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
@@ -5526,6 +5528,17 @@ async function processRoomSegment(segment) {
       meetingId:segment.meetingId||null,
       meetingSchemaVersion:segment.meetingId?segment.meetingSchemaVersion||1:null
     };
+    const ownership=conversationOwnershipTracker.observe(turn,Date.now());
+    turn={...turn,
+      conversationOwnershipSchema:1,
+      conversationOwnershipState:ownership.state.state,
+      conversationOwnershipParticipantId:ownership.state.participantId,
+      conversationOwnershipScopeId:ownership.state.scopeId,
+      conversationOwnershipReason:ownership.state.reason,
+      conversationOwnershipTransition:ownership.transition?{...ownership.transition}:null,
+      conversationOwnershipReplyAllowed:ownership.reply.allow,
+      conversationOwnershipReplyReason:ownership.reply.reason
+    };
     state.voice.currentConversationAttention=turn.attentionTarget;
     state.voice.currentConversationGroupSize=turn.conversationGroupSize;
     state.voice.currentConversationLabel=conversationContextLabel(turn);
@@ -5563,6 +5576,21 @@ async function processRoomSegment(segment) {
 
     speakerAssociationTracker.commit(association);
     multimodalFusionTracker.commit(fusion);
+    if(state.mode==='agent'&&turn.conversationOwnershipTransition){
+      const transition=turn.conversationOwnershipTransition;
+      if(transition.type==='participant-handoff'){
+        logRoomMessage('audio','Conversation ownership handoff · verified speaker changed',
+          'conversation-ownership',{participantId:turn.conversationOwnershipParticipantId,
+           semantic:'conversation-owner-handoff'});
+      }else if(transition.type==='scope-handoff'){
+        logRoomMessage('audio','Conversation scope changed · group membership updated',
+          'conversation-ownership',{participantId:turn.conversationOwnershipParticipantId,
+           semantic:'conversation-scope-handoff'});
+      }else if(transition.type==='ownership-contested'){
+        logRoomMessage('audio','Conversation ownership contested · AGENT reply held',
+          'conversation-ownership',{semantic:'conversation-ownership-contested'});
+      }
+    }
     if(state.mode==='agent'&&associationTransition){
       if(associationTransition.type==='speaker-handoff'&&savedTurn.participantId){
         logRoomMessage('audio','Verified speaker handoff · current voice profile: '+
