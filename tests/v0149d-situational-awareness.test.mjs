@@ -97,5 +97,8 @@ test('14.9D bounded awareness survives local restart export/restore without raw 
  assert.equal(restored.snapshot().eventCount,1);
  assert.equal(restored.snapshot().feedbackCount,1);
  assert.equal(restored.feedback[0].outcome,'positive');
- assert.equal(JSON.stringify(payload).includes('rawAudio'),false);
+ const json=JSON.stringify(payload);
+ assert.equal(json.includes('"samples"'),false);
+ assert.equal(json.includes('"pcm"'),false);
+ assert.equal(payload.events[0].rawAudioStored,false);
 });
