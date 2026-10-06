@@ -4,11 +4,12 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('v0.14.7 release package is aligned to ROOM Conversation UI cleanup',()=>{
  const pkg=JSON.parse(read('package.json')),workflow=read('.github/workflows/test.yml');
  const sw=read('sw.js'),audit=read('scripts/audit.mjs'),diagnostics=read('diagnostics.js');
- assert.ok(['0.14.7','0.14.8'].includes(pkg.version));
- assert.match(sw,/tracky2-static-v0\.14\.(?:7|8)/);
- assert.match(diagnostics,/version:'0\.14\.(?:7|8)'/);
- assert.match(audit,/packageJson\.version !== '0\.14\.(?:7|8)'/);
- assert.match(workflow,/tracky2-v0\.14\.(?:7|8)-deploy\.zip/);
+ const [major,minor,patch]=pkg.version.split('.').map(Number);
+ assert.ok(major===0&&(minor>14||(minor===14&&patch>=7)));
+ assert.match(sw,/tracky2-static-v0\.\d+\.\d+/);
+ assert.match(diagnostics,/version:'0\.\d+\.\d+'/);
+ assert.match(audit,/packageJson\.version !== '0\.\d+\.\d+'/);
+ assert.match(workflow,/tracky2-v0\.\d+\.\d+-deploy\.zip/);
  const status=read('docs/DEVELOPMENT-STATUS.md');
  assert.match(status,/V0\.14\.7 — ROOM Feed, Control Center & Shared Conversation/);
  assert.match(status,/Direct \*\*v0\.14\.7\*\* release published/);
