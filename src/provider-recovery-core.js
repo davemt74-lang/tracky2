@@ -76,6 +76,13 @@ export class ProviderRecoveryCoordinator{
   const key=short(requestKey,220);
   return key?this.inFlight.delete(key):false;
  }
+ resetInFlight(reason='runtime-reset',now=Date.now()){
+  const count=this.inFlight.size;
+  this.inFlight.clear();
+  this.history.push(Object.freeze({at:now,provider:'*',type:'inflight-reset',requestKey:null,reason:short(reason,180)}));
+  this.history=this.history.slice(-this.maxHistory);
+  return count;
+ }
  snapshot(now=Date.now()){
   this.prune(now);
   return Object.freeze({
