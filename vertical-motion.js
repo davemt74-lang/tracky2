@@ -1531,11 +1531,31 @@ async function processMediaVisualClue(detail={}){
     active.subtype==='media-playback'?'recorded-media':null):null;
  if(!activeKind)return false;
  const evidenceId=String(detail.evidenceId||('visual-'+Date.now())).slice(0,96);
- const clue=mediaIdentificationTracker.noteVisual(detail.text,Date.now());
+ const visualObservation=normalizeMediaVisualObservation({
+  text:detail.text,objectId:detail.objectId,evidenceId,
+  confidence:detail.confidence,at:Date.now()
+ });
+ if(!visualObservation){
+  mediaRecognitionDecision='Visual media clue rejected · mapped display/device reference required';
+  renderMediaIdentification();return false;
+ }
+ const fusion=fuseRoomMediaEvidence({
+  scene:effectiveRoomScene(),mediaKind:activeKind,
+  audioDirection:active.sourceDirection,audioConfidence:active.peakConfidence,
+  visualObservation
+ });
+ logRoomMediaFusion(fusion,visualObservation.at);
+ if(!mediaVisualLookupAllowed(fusion)){
+  mediaRecognitionDecision=fusion.state==='audio-visual-owner-conflict'
+   ?'Visual media clue held · audio direction conflicts with owner device map'
+   :'Visual media clue held · owner-mapped media device could not be verified';
+  renderMediaIdentification();return false;
+ }
+ const clue=mediaIdentificationTracker.noteVisual(visualObservation.text,Date.now());
  if(!clue.usable)return false;
  mediaWorkingVisualClue=clue.text;
  if(!mediaWebLookupEnabled){
-  mediaRecognitionDecision='Visual metadata clue captured locally · remote media lookup is off';
+  mediaRecognitionDecision='Verified visual metadata captured locally · remote media lookup is off';
   renderMediaIdentification();return true;
  }
  const lookup=mediaLookupGuard.claim('visual:'+clue.text,Date.now());
@@ -1543,7 +1563,7 @@ async function processMediaVisualClue(detail={}){
  mediaWebAbortController?.abort();mediaWebAbortController=new AbortController();
  const generation=mediaRecognitionGeneration;
  try{
-  mediaRecognitionDecision='Searching public web with visual media metadata';
+  mediaRecognitionDecision='Searching public web with owner-grounded visual media metadata';
   renderMediaIdentification();
   const mediaKind=activeKind;
   const resolved=await searchMediaByClues({
@@ -1556,7 +1576,7 @@ async function processMediaVisualClue(detail={}){
    const observed=mediaIdentificationTracker.observeCandidate(resolved.candidate,Date.now());
    logMediaIdentificationResult(observed);
    mediaRecognitionDecision=observed.media.status==='confirmed'
-    ?'Media title confirmed with visual metadata'
+    ?'Media title confirmed with owner-grounded visual metadata'
     :'Visual media candidate received · waiting for corroboration';
   }else mediaRecognitionDecision='Visual metadata search found no strong media candidate';
   renderMediaIdentification();return true;
