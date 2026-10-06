@@ -66,7 +66,7 @@ export async function searchMediaByClues({
    provider:String(data?.provider||'web-search').slice(0,64),
    evidenceId:String(data?.evidenceId||evidenceId||'').slice(0,96),
    sourceUrls:sources.map(row=>row.url)
-  },visual?'visual':'dialogue',Date.now()):null,
+  },dialogue?'dialogue':'visual',Date.now()):null,
   sources,provider:String(data?.provider||'web-search').slice(0,64),
   model:String(data?.model||'').slice(0,80),
   budget:data?.budget&&typeof data.budget==='object'?Object.freeze({...data.budget}):null
