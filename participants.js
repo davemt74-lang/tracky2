@@ -303,7 +303,7 @@ function renderParticipantList() {
     const title = document.createElement('strong');
     title.textContent = participant.name || 'Unnamed participant';
     const meta = document.createElement('span');
-    const sampleText = (participant.embeddings?.length || 0) + ' / 3 face samples';
+    const sampleText = (participant.embeddings?.length || 0) + ' face samples · 3 minimum';
     const voiceReady = voiceProfileReadiness(participant);
     const voiceText = voiceReady.ready
       ? ' · voice profile ready'
@@ -693,13 +693,13 @@ async function loadPendingFromUrl() {
   state.latestPhoto = pending.photo || null;
   if (pending.embedding) {
     state.gallery=[{embedding:Array.from(pending.embedding),photo:pending.photo||null,
-      quality:null,capturedAt:null}];
+      quality:null,capturedAt:null,poseId:'front',poseLabel:'Straight forward'}];
   }
 
   updatePhotos();
   updateEnrollmentUi();
   renderFaceGallery();
-  setMessage('Live room capture imported. Enter the participant details and capture additional face angles.', 'ok');
+  setMessage('Live room capture imported as the straight-forward sample. Continue the guided face angles.', 'ok');
 }
 
 ui.newParticipant.addEventListener('click', clearForm);
