@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
- EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
- environmentalCalibrationSummary,environmentalFeedbackFromRoomEvent,
+ EnvironmentalActivityTracker,EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
+ environmentalActivityMessage,environmentalCalibrationSummary,environmentalFeedbackFromRoomEvent,
  environmentalSubtypeForLabel,environmentalV2Message,
- normalizeEnvironmentalFeedback,normalizeEnvironmentalV2Predictions
+ isPersistentEnvironmentalClassification,normalizeEnvironmentalFeedback,
+ normalizeEnvironmentalV2Predictions
 } from '../src/environmental-intelligence-core.js';
 
 test('13F V2 preserves music vs television vs door/impact subtype discrimination',()=>{
@@ -18,11 +19,18 @@ test('13F V2 preserves music vs television vs door/impact subtype discrimination
  assert.equal(environmentalSubtypeForLabel('Bang','impact-crowd'),'impact');
 });
 
-test('13F speech stays filtered while high-confidence cough-like sound is observable-only',()=>{
+test('13F high-confidence speech-like room activity stays aggregate while cough-like sound is observable-only',()=>{
  const speech=normalizeEnvironmentalV2Predictions([
   {label:'Speech',score:.92},{label:'Music',score:.3}
- ],{at:1000});
- assert.equal(speech.accepted,false);
+ ],{at:1000,durationMs:1800});
+ assert.equal(speech.accepted,true);
+ assert.equal(speech.classification.category,'room-voice-activity');
+ assert.equal(speech.classification.subtype,'speech-like-activity');
+ assert.equal(speech.classification.participantId,null);
+ assert.equal(speech.classification.speakerAttribution,'none');
+ assert.equal(speech.classification.contentInference,'none');
+ assert.match(environmentalV2Message(speech.classification),/no speaker identity or spoken content inferred/);
+
  const cough=normalizeEnvironmentalV2Predictions([
   {label:'Cough',score:.91},{label:'Music',score:.2}
  ],{at:1000,durationMs:900});
@@ -78,6 +86,40 @@ test('13F current event confidence decays and eventually becomes non-current',()
  assert.equal(expired.current,false);
 });
 
+test('13F persistent ROOM audio produces start continuation and no-longer-detected transitions without feed spam',()=>{
+ const tracker=new EnvironmentalActivityTracker({staleMs:10000,continueMs:20000});
+ const musicAt=at=>normalizeEnvironmentalV2Predictions([{label:'Music',score:.9}],{at}).classification;
+ const first=tracker.observe(musicAt(1000),1000);
+ assert.equal(isPersistentEnvironmentalClassification(musicAt(1000)),true);
+ assert.deepEqual(first.transitions.map(row=>row.type),['start']);
+ assert.match(environmentalActivityMessage(first.transitions[0]),/Music started playing/);
+
+ assert.equal(tracker.observe(musicAt(5000),5000).transitions.length,0);
+ const continued=tracker.observe(musicAt(22000),22000);
+ assert.deepEqual(continued.transitions.map(row=>row.type),['stop','start'],
+  'a gap beyond staleMs must close the old observation before starting a new one');
+
+ const tracker2=new EnvironmentalActivityTracker({staleMs:30000,continueMs:15000});
+ tracker2.observe(musicAt(1000),1000);
+ const still=tracker2.observe(musicAt(17000),17000);
+ assert.deepEqual(still.transitions.map(row=>row.type),['continue']);
+ assert.match(environmentalActivityMessage(still.transitions[0]),/still playing/);
+ assert.equal(tracker2.expire(46000),null);
+ const stopped=tracker2.expire(48000);
+ assert.equal(stopped.type,'stop');
+ assert.match(environmentalActivityMessage(stopped),/no longer detected/);
+});
+
+test('13F TV and media playback are persistent room states but exact program identity remains unknown',()=>{
+ const tv=normalizeEnvironmentalV2Predictions([{label:'Television',score:.91}],{at:1000}).classification;
+ assert.equal(tv.subtype,'television');
+ assert.equal(tv.exactMediaId,null);
+ assert.equal(isPersistentEnvironmentalClassification(tv),true);
+ const tracker=new EnvironmentalActivityTracker();
+ const start=tracker.observe(tv,1000).transitions[0];
+ assert.match(environmentalActivityMessage(start),/TV \/ video audio detected/);
+});
+
 test('13F owner feedback calibration is bounded, local-owner, and can only reduce model confidence',()=>{
  const c=normalizeEnvironmentalV2Predictions([{label:'Television',score:.9}],{at:1000}).classification;
  const feedback=[
@@ -126,6 +168,9 @@ test('13F runtime loads owner feedback, groups V2 events, and exposes confirm/in
  assert.match(runtime,/normalizeEnvironmentalV2Predictions/);
  assert.match(runtime,/calibrateEnvironmentalClassification/);
  assert.match(runtime,/EnvironmentalEventGrouper/);
+ assert.match(runtime,/EnvironmentalActivityTracker/);
+ assert.match(runtime,/environmentalActivityMessage/);
+ assert.match(runtime,/environmentalActivityTracker\.expire/);
  assert.match(runtime,/listEnvironmentalFeedback/);
  assert.match(runtime,/saveEnvironmentalFeedback/);
  assert.match(runtime,/environmentalFeedbackFromRoomEvent/);

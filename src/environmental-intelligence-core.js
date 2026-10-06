@@ -8,6 +8,10 @@ export const ENVIRONMENTAL_V2_CURRENT_HALF_LIFE_MS=30000;
 export const ENVIRONMENTAL_V2_CURRENT_MAX_AGE_MS=90000;
 export const ENVIRONMENTAL_V2_COUGH_MIN_SCORE=.78;
 export const ENVIRONMENTAL_V2_COUGH_MIN_MARGIN=.12;
+export const ENVIRONMENTAL_V2_ROOM_VOICE_MIN_SCORE=.82;
+export const ENVIRONMENTAL_V2_ROOM_VOICE_MIN_MARGIN=.12;
+export const ENVIRONMENTAL_ACTIVITY_STALE_MS=30000;
+export const ENVIRONMENTAL_ACTIVITY_CONTINUE_MS=60000;
 
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const clamp=v=>Math.max(0,Math.min(1,Number(v)||0));
@@ -87,6 +91,22 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
     observableOnly:true,healthInference:'none',emotionInference:'none',
     sourceContext:sourceContext(audioSource)
    };
+  }else if(top&&/(?:^|\b)(?:speech|conversation|narration|human voice|male speech|female speech|child speech)(?:\b|$)/i.test(top.label)&&
+     top.score>=ENVIRONMENTAL_V2_ROOM_VOICE_MIN_SCORE&&
+     margin>=ENVIRONMENTAL_V2_ROOM_VOICE_MIN_MARGIN){
+   classification={
+    schema:ENVIRONMENTAL_V2_SCHEMA,
+    category:'room-voice-activity',subtype:'speech-like-activity',
+    modelLabel:'Speech-like room activity',confidence:Number(top.score.toFixed(4)),
+    margin:Number(Math.max(0,margin).toFixed(4)),
+    at:finite(at)?at:Date.now(),
+    durationMs:finite(durationMs)?Math.max(0,Math.round(durationMs)):null,
+    source:'local-audioset-classifier',modelId:short(modelId,160)||null,
+    modelRevision:short(modelRevision,80)||null,
+    participantId:null,speakerAttribution:'none',exactMediaId:null,
+    observableOnly:true,contentInference:'none',healthInference:'none',emotionInference:'none',
+    sourceContext:sourceContext(audioSource)
+   };
   }
  }
  if(!classification)return Object.freeze({
@@ -102,6 +122,8 @@ export function environmentalV2Message(classification){
  if(!classification)return '';
  if(classification.category==='observable-human-acoustic')
   return 'Environmental audio: cough-like acoustic event · observable sound only · no person or health meaning inferred';
+ if(classification.category==='room-voice-activity')
+  return 'Room audio: speech-like activity detected · no speaker identity or spoken content inferred';
  const label=classification.subtype.replaceAll('-',' ');
  const source=classification.sourceContext?.direction&&classification.sourceContext.direction!=='unavailable'
   ?' · approximate source '+classification.sourceContext.direction
@@ -204,6 +226,113 @@ export class EnvironmentalEventGrouper{
   return group?groupSnapshot(group,now):null;
  }
  snapshot(now=Date.now()){return Object.freeze(this.groups.map(group=>groupSnapshot(group,now)));}
+}
+
+
+const PERSISTENT_ENVIRONMENT_CATEGORIES=new Set([
+ 'music','media-playback','room-voice-activity'
+]);
+export function isPersistentEnvironmentalClassification(classification){
+ return Boolean(classification&&PERSISTENT_ENVIRONMENT_CATEGORIES.has(classification.category));
+}
+function activityLabel(classification={}){
+ const subtype=short(classification.subtype,64);
+ if(subtype==='television')return 'TV / video audio';
+ if(subtype==='radio')return 'Radio audio';
+ if(subtype==='video-game')return 'Video game audio';
+ if(subtype==='instrumental-music'||classification.category==='music')return 'Music';
+ if(classification.category==='room-voice-activity')return 'Room voice-like activity';
+ if(classification.category==='media-playback')return 'Recorded media audio';
+ return 'Environmental audio';
+}
+function activitySnapshot(active,at=Date.now(),type='continue'){
+ if(!active)return null;
+ return Object.freeze({
+  type,key:active.key,category:active.category,subtype:active.subtype,
+  modelLabel:active.modelLabel,startedAt:active.startedAt,lastAt:active.lastAt,
+  at,observationCount:active.observationCount,
+  peakConfidence:Number(active.peakConfidence.toFixed(4)),
+  sourceDirection:active.sourceDirection||'unavailable',
+  observedDurationMs:Math.max(0,active.lastAt-active.startedAt),
+  participantId:null,speakerAttribution:'none',exactMediaId:null,
+  healthInference:'none',contentInference:'none'
+ });
+}
+export class EnvironmentalActivityTracker{
+ constructor({
+  staleMs=ENVIRONMENTAL_ACTIVITY_STALE_MS,
+  continueMs=ENVIRONMENTAL_ACTIVITY_CONTINUE_MS
+ }={}){
+  this.staleMs=Math.max(5000,Number(staleMs)||ENVIRONMENTAL_ACTIVITY_STALE_MS);
+  this.continueMs=Math.max(15000,Number(continueMs)||ENVIRONMENTAL_ACTIVITY_CONTINUE_MS);
+  this.active=null;
+ }
+ reset(){this.active=null;}
+ observe(classification,now=Date.now()){
+  if(!isPersistentEnvironmentalClassification(classification))
+   return Object.freeze({persistent:false,transitions:Object.freeze([]),active:this.snapshot()});
+  const at=finite(classification.at)?classification.at:now;
+  const key=classification.category+':'+classification.subtype;
+  const transitions=[];
+  if(this.active&&(
+    this.active.key!==key||at-this.active.lastAt>=this.staleMs
+  )){
+   transitions.push(activitySnapshot(this.active,at,'stop'));
+   this.active=null;
+  }
+  if(!this.active){
+   this.active={
+    key,category:classification.category,subtype:classification.subtype,
+    modelLabel:classification.modelLabel,startedAt:at,lastAt:at,lastNoticeAt:at,
+    observationCount:1,peakConfidence:clamp(classification.confidence),
+    sourceDirection:classification.sourceContext?.direction||'unavailable'
+   };
+   transitions.push(activitySnapshot(this.active,at,'start'));
+  }else{
+   this.active.lastAt=at;
+   this.active.observationCount++;
+   this.active.peakConfidence=Math.max(
+    this.active.peakConfidence,clamp(classification.confidence)
+   );
+   const direction=classification.sourceContext?.direction||'unavailable';
+   if(this.active.sourceDirection==='unavailable')this.active.sourceDirection=direction;
+   else if(direction!=='unavailable'&&this.active.sourceDirection!==direction)
+    this.active.sourceDirection='unavailable';
+   if(at-this.active.lastNoticeAt>=this.continueMs){
+    this.active.lastNoticeAt=at;
+    transitions.push(activitySnapshot(this.active,at,'continue'));
+   }
+  }
+  return Object.freeze({
+   persistent:true,transitions:Object.freeze(transitions),active:this.snapshot()
+  });
+ }
+ expire(now=Date.now()){
+  if(!this.active||now-this.active.lastAt<this.staleMs)return null;
+  const ended=activitySnapshot(this.active,now,'stop');
+  this.active=null;return ended;
+ }
+ snapshot(){
+  return this.active?activitySnapshot(this.active,this.active.lastAt,'active'):null;
+ }
+}
+function compactDuration(ms){
+ const seconds=Math.max(0,Math.round((Number(ms)||0)/1000));
+ if(seconds<60)return seconds+'s';
+ const minutes=Math.floor(seconds/60),rest=seconds%60;
+ return minutes+'m'+(rest?' '+rest+'s':'');
+}
+export function environmentalActivityMessage(transition){
+ if(!transition)return '';
+ const label=activityLabel(transition);
+ if(transition.type==='start')
+  return label+(transition.category==='music'?' started playing':' detected');
+ if(transition.type==='continue')
+  return label+(transition.category==='music'?' is still playing':' continues')+
+   ' · observed '+compactDuration(transition.observedDurationMs);
+ if(transition.type==='stop')
+  return label+' no longer detected · observed for '+compactDuration(transition.observedDurationMs);
+ return label;
 }
 
 export function environmentalFeedbackFromRoomEvent(event,outcome,now=Date.now()){

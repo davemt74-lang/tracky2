@@ -808,7 +808,7 @@
           <div class="room-environment-audio-result" id="roomEnvironmentalAudioResult">No environmental classification this session.</div>
           <div class="room-environment-audio-result" id="roomEnvironmentalCurrent">No current grouped environmental event.</div>
 
-          <small>Enabled by default as part of Basic ROOM. Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Speech remains filtered. A high-confidence cough-like model result may be logged only as an unattributed observable acoustic event with no health meaning; classifications are never assigned to a participant. If ROOM history saving is also enabled, only the classification metadata may be saved.</small>
+          <small>Enabled by default as part of Basic ROOM. Tracky2 reuses existing non-suppressed room PCM segments and performs inference in this browser after downloading the pinned model. Raw room audio is never saved or uploaded by Tracky2. Music and TV/video/radio/game audio can be tracked as room-level start/continue/no-longer-detected activity. High-confidence speech-like activity may be logged only as unattributed room activity—no speaker identity or spoken content is inferred. A high-confidence cough-like result remains an observable acoustic event only, with no health meaning. Environmental classifications are never assigned to a participant. If ROOM history saving is enabled, only bounded classification metadata may be saved.</small>
           <small>Exact song, movie or TV-title identification is not performed by this classifier and requires a separately approved media-identification provider.</small>
           <small>Live room sound levels and timestamped acoustic summaries. Sound source is unknown until verified separately; raw audio is not saved.</small>
           <div id="roomAudioDiagnosticsMount" class="room-audio-diagnostics-mount"></div>
@@ -834,7 +834,7 @@
             <button type="button" id="roomClearObservations">Clear room observations</button>
             <label class="agent-check room-acoustic-consent"><input type="checkbox" id="roomAnalyzeAcousticPatterns" checked> Analyze shared audio energy patterns locally (this session only)</label>
             <small>Energy/VAD summaries stay local and unattributed. They do not identify a sound source.</small>
-            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Classify environmental audio locally with the optional AudioSet model (this session only)</label>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Detect music, TV/video and other environmental audio locally (this session only)</label>
             <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
             <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
             <div class="control-center-setting-row">

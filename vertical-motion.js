@@ -10,15 +10,15 @@ import { consumeLobbyTicket } from './src/game-lobby.js';
 import {sceneStep,sceneAcquisition,cameraFacingPoint,stablePublicTracks} from './src/scene-analysis.js';
 import {createAgentRoom} from './agent-mode.js';
 import {roomMeterState} from './src/participant-audio-meter.js';
-import {RoomAmbientAudit,roomAudioAuditMessage} from './src/room-audio-audit.js';
-import {describeAcousticPattern} from './src/room-acoustic-patterns.js';
+import {RoomAmbientAudit} from './src/room-audio-audit.js';
+import {describeAcousticPattern,RoomAcousticPatternTracker} from './src/room-acoustic-patterns.js';
 import {
  EnvironmentalAudioQueue,EnvironmentalClassificationTracker,
  normalizeEnvironmentalPredictions,environmentalClassificationMessage
 } from './src/environmental-audio-core.js';
 import {
- EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
- environmentalFeedbackFromRoomEvent,environmentalV2Message,
+ EnvironmentalActivityTracker,EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
+ environmentalActivityMessage,environmentalFeedbackFromRoomEvent,environmentalV2Message,
  normalizeEnvironmentalV2Predictions
 } from './src/environmental-intelligence-core.js';
 import {
@@ -449,9 +449,11 @@ function roomSensorState(sensor,status,message){
   {kind:'observation',semantic:'sensor-state',sensor,status});
 }
 const roomAmbientAudit=new RoomAmbientAudit();
+const roomAcousticPatternTracker=new RoomAcousticPatternTracker();
 const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
+const environmentalActivityTracker=new EnvironmentalActivityTracker();
 let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
@@ -727,32 +729,39 @@ async function processEnvironmentalAudioWork(work){
   );
   environmentalAudioLast=classification;
   environmentalAudioDecision='V2 environmental event classified locally';
-  // Preserve the V0.11 cooldown tracker as a compatibility guard while V2
-  // grouping controls short-burst milestones.
+  // Preserve the bounded V2 grouping for burst events and owner feedback.
+  // Long-lived music/media/room-voice states use a separate lifecycle tracker so
+  // the ROOM feed reports start / continuing / no-longer-detected instead of spam.
   const legacyEmission=environmentalAudioTracker.observe(classification,Date.now());
   const grouped=environmentalEventGrouper.observe(classification,Date.now());
+  const activity=environmentalActivityTracker.observe(classification,Date.now());
   environmentalAudioCurrentGroup=grouped.group;
   renderEnvironmentalAudio();
-  const emit=grouped.reason==='new-group'?legacyEmission.emit:grouped.emit;
-  if(emit&&grouped.group&&state.mode==='agent'){
-   logRoomMessage('audio',environmentalV2Message(classification),
-    'local-audioset-c38c005',{
-     at:classification.at,semantic:'environmental-audio-classification-v2',
-     confidence:classification.confidence,
-     dedupeKey:'environment-v2:'+grouped.group.id+':'+grouped.group.observationCount,
-     evidence:{
-      durationMs:classification.durationMs,
-      environmental:{
-       category:classification.category,subtype:classification.subtype,
-       modelLabel:classification.modelLabel,groupId:grouped.group.id,
-       observationCount:grouped.group.observationCount,
-       sourceDirection:grouped.group.sourceDirection,
-       rawConfidence:classification.rawConfidence??classification.confidence,
-       calibratedConfidence:classification.confidence,
-       observableOnly:true,healthInference:'none'
+  if(activity.persistent){
+   for(const transition of activity.transitions)
+    logEnvironmentalActivityTransition(transition,grouped.group);
+  }else{
+   const emit=grouped.reason==='new-group'?legacyEmission.emit:grouped.emit;
+   if(emit&&grouped.group&&state.mode==='agent'){
+    logRoomMessage('audio',environmentalV2Message(classification),
+     'local-audioset-c38c005',{
+      at:classification.at,semantic:'environmental-audio-classification-v2',
+      confidence:classification.confidence,
+      dedupeKey:'environment-v2:'+grouped.group.id+':'+grouped.group.observationCount,
+      evidence:{
+       durationMs:classification.durationMs,
+       environmental:{
+        category:classification.category,subtype:classification.subtype,
+        modelLabel:classification.modelLabel,groupId:grouped.group.id,
+        observationCount:grouped.group.observationCount,
+        sourceDirection:grouped.group.sourceDirection,
+        rawConfidence:classification.rawConfidence??classification.confidence,
+        calibratedConfidence:classification.confidence,
+        observableOnly:true,healthInference:'none'
+       }
       }
-     }
-    });
+     });
+   }
   }
  }catch(error){
   outcome='error';
@@ -792,14 +801,39 @@ function queueEnvironmentalAudio(segment){
  if(queued.accepted)drainEnvironmentalAudioQueue();
  return queued.accepted;
 }
+function logEnvironmentalActivityTransition(transition,group=null){
+ if(!transition||state.mode!=='agent')return null;
+ const lifecycle=transition.type==='stop'?'environmental-audio-state':
+  'environmental-audio-classification-v2';
+ return logRoomMessage('audio',environmentalActivityMessage(transition),
+  'local-audioset-c38c005',{
+   at:transition.at,semantic:lifecycle,
+   confidence:transition.peakConfidence,
+   dedupeKey:'environment-activity:'+transition.key+':'+transition.type+':'+
+    transition.startedAt+':'+transition.at,
+   evidence:{
+    durationMs:transition.observedDurationMs,
+    environmental:{
+     category:transition.category,subtype:transition.subtype,
+     modelLabel:transition.modelLabel,groupId:group?.id||null,
+     observationCount:transition.observationCount,
+     sourceDirection:transition.sourceDirection,
+     rawConfidence:transition.peakConfidence,
+     calibratedConfidence:transition.peakConfidence,
+     observableOnly:true,healthInference:'none'
+    }
+   }
+  });
+}
 function setEnvironmentalAudioEnabled(enabled){
  if(enabled){
   environmentalAudioQueue.enable(Date.now());
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
+  environmentalActivityTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
-  environmentalAudioDecision='Owner enabled session-only V2 classification';
+  environmentalAudioDecision='Basic ROOM environmental awareness enabled';
   renderEnvironmentalAudio();
   void refreshEnvironmentalFeedback();
   void ensureEnvironmentalAudioClassifier();
@@ -807,6 +841,8 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioQueue.disable();
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
+  // Disabling the sensor does not prove that music/TV/voices stopped.
+  environmentalActivityTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
   environmentalAudioDecision='Disabled by owner';
@@ -815,12 +851,15 @@ function setEnvironmentalAudioEnabled(enabled){
 }
 function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
- logRoomMessage('audio',roomAudioAuditMessage(summary),'shared-room-mic',
-  {at:summary.at,evidence:{durationMs:summary.durationMs}});
+ const ended=environmentalActivityTracker.expire(summary.at);
+ if(ended)logEnvironmentalActivityTransition(ended);
+ // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
  if(analyzeAmbientPatterns){
   const pattern=describeAcousticPattern(summary);
-  if(pattern)logRoomMessage('audio',pattern.description,pattern.source,{
+  const tracked=roomAcousticPatternTracker.observe(pattern,summary.at);
+  if(tracked.emit&&pattern)logRoomMessage('audio',pattern.description,pattern.source,{
    at:pattern.at,semantic:'acoustic-pattern',confidence:pattern.confidence,
+   dedupeKey:'acoustic-pattern:'+pattern.pattern+':'+Math.floor(pattern.at/60000),
    evidence:{durationMs:pattern.durationMs}
   });
  }
@@ -3954,6 +3993,9 @@ function stopRoomAudio() {
    roomSensorState('microphone','offline','Room microphone stopped · silence not inferred');
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
+  roomAcousticPatternTracker.reset();
+  // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
+  environmentalActivityTracker.reset();
   state.voice.generation += 1;
   listeningController.stop(state.voice.generation,'audio-stopped');
   void state.voice.audio?.stop();
