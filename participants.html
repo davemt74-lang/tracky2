@@ -74,6 +74,24 @@
         <div class="face-reticle" id="faceReticle" hidden>
           <i></i><i></i><i></i><i></i><span id="faceQualityText">SCANNING</span>
         </div>
+        <section id="faceCaptureCoach" class="face-capture-coach" aria-live="polite" hidden>
+          <div class="face-capture-coach-head">
+            <div><small>GUIDED FACE CAPTURE</small><strong id="faceCaptureStep">1 / 9 · Straight forward</strong></div>
+            <span id="faceCaptureReady">Waiting for face lock</span>
+          </div>
+          <div id="faceAngleMap" class="face-angle-map" aria-label="Nine guided face angles">
+            <i data-pose="upper-left" title="Upper left">↖</i>
+            <i data-pose="up" title="Up">↑</i>
+            <i data-pose="upper-right" title="Upper right">↗</i>
+            <i data-pose="left" title="Left">←</i>
+            <i data-pose="front" title="Straight forward">●</i>
+            <i data-pose="right" title="Right">→</i>
+            <i data-pose="lower-left" title="Lower left">↙</i>
+            <i data-pose="down" title="Down">↓</i>
+            <i data-pose="lower-right" title="Lower right">↘</i>
+          </div>
+          <p id="faceCaptureInstruction">Look straight at the camera and hold still.</p>
+        </section>
         <div class="camera-placeholder" id="cameraPlaceholder">
           <span class="scan-icon" aria-hidden="true"></span><strong>Camera offline</strong>
           <p>Start the camera to capture a primary photo and enroll recognition.</p>
@@ -94,18 +112,18 @@
             <div class="participant-panel-body">
           <div class="enrollment-block">
             <div class="enrollment-head">
-              <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 minimum samples</strong></div>
+              <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 minimum · 9-angle profile</strong></div>
               <button id="captureSample" class="hud-button" disabled>Capture face sample</button>
             </div>
-            <div id="faceSampleGuide" class="face-sample-guide" role="status">Capture a primary photo, then two more clear face angles.</div>
+            <div id="faceSampleGuide" class="face-sample-guide" role="status">Use the main shutter to follow the guided 9-angle face capture.</div>
             <div class="enrollment-dots" id="enrollmentDots" aria-label="Face enrollment samples">
-              <i></i><i></i><i></i><i></i><i></i>
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
             </div>
-            <p id="faceGalleryHint">0 of 5 slots filled. A minimum of 3 samples enables recognition.</p>
+            <p id="faceGalleryHint">0 of 9 guided angles captured. A minimum of 3 clean samples enables recognition.</p>
             <div class="face-gallery-header"><strong>Enrollment photo gallery</strong>
-              <span>3 required · 5 maximum</span></div>
+              <span>3 minimum · 9 guided angles</span></div>
             <div id="faceSampleGallery" class="face-sample-gallery" aria-label="Saved face sample photos and retake controls"></div>
-            <p class="face-gallery-footnote">Capture distinct clear angles. Select any saved image as the primary photo, retake an individual sample or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos because previous versions did not store them.</p>
+            <p class="face-gallery-footnote">The guided shutter walks through center, left, right, up, down and four diagonal face angles. Select any saved image as the primary photo, retake an individual angle or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos or angle labels because previous versions did not store them.</p>
           </div>
 
 
@@ -231,8 +249,8 @@
 
           </div>
           <div class="participant-dock-center">
-            <button type="button" id="capturePrimary" class="participant-shutter" disabled aria-label="Capture primary photo" title="Capture primary photo">📷</button>
-            <span>Capture Photo</span>
+            <button type="button" id="capturePrimary" class="participant-shutter" disabled aria-label="Capture guided face angle" title="Capture guided face angle">📷</button>
+            <span id="capturePhotoLabel">Start Face Capture</span>
           </div>
           <div class="participant-dock-side participant-dock-end">
             <button type="button" id="switchParticipantCamera" class="participant-dock-action" aria-label="Switch camera" disabled>↻ Switch Camera</button>
