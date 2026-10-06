@@ -760,12 +760,21 @@
           <form id="roomObjectForm" class="room-scene-form">
             <label>Object name<input id="roomObjectName" maxlength="64" required placeholder="Monitor / Chair / Lamp"></label>
             <label>Kind<select id="roomObjectKind"><option value="furniture">Furniture</option><option value="device">Device</option><option value="other">Other</option></select></label>
+            <label>ROOM role<select id="roomObjectRole">
+              <option value="other">Other</option><option value="display">Display / TV / monitor</option>
+              <option value="speaker">Speaker / audio source</option><option value="media-device">Media device</option>
+              <option value="appliance">Appliance</option><option value="door">Door / entry device</option>
+            </select></label>
+            <label>Expected audio direction<select id="roomObjectAudioDirection">
+              <option value="unavailable">Not mapped</option><option value="left">Left</option>
+              <option value="center">Center</option><option value="right">Right</option>
+            </select></label>
             <label>Located in<select id="roomObjectArea"><option value="">Unassigned</option></select></label>
             <fieldset class="room-object-skills"><legend>Approved local skills</legend>
               <label><input type="checkbox" id="roomObjectSkillDescribe" checked> Describe object</label>
               <label><input type="checkbox" id="roomObjectSkillCapture"> Capture current mapped camera area</label>
             </fieldset>
-            <small>These grants apply only to this owner-defined local object. Camera capture still requires a fresh foreground owner action.</small>
+            <small>These grants apply only to this owner-defined local object. Camera capture still requires a fresh foreground owner action. ROOM role and audio direction are owner-entered metadata; Tracky2 does not infer that a camera-left device is also microphone-left.</small>
             <button type="submit">Add owner-defined object</button>
           </form>
           <div id="roomObjectList" class="room-scene-items" aria-label="Owner-defined objects"></div>

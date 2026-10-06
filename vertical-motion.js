@@ -35,6 +35,10 @@ import {
 } from './src/media-identification-core.js';
 import {searchMediaByClues} from './src/media-identification-client.js';
 import {
+ RoomMediaFusionTracker,fuseRoomMediaEvidence,mediaVisualLookupAllowed,
+ normalizeMediaVisualObservation,roomMediaFusionMessage
+} from './src/room-media-fusion-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -486,6 +490,7 @@ const musicLyricLookupGuard=new MusicLyricLookupGuard();
 const mediaIdentificationTracker=new MediaIdentificationTracker();
 const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
+const roomMediaFusionTracker=new RoomMediaFusionTracker();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -1088,6 +1093,8 @@ function queueEnvironmentalAudio(segment){
 }
 function logEnvironmentalActivityTransition(transition,group=null){
  if(!transition||state.mode!=='agent')return null;
+ if(transition.type==='stop'&&mediaKindForEnvironmentalState(transition))
+  roomMediaFusionTracker.reset();
  if(transition.category==='music'&&transition.type==='stop'){
   const stopped=musicIdentificationTracker.clearConfirmed(transition.at);
   logMusicIdentificationResult(stopped);
@@ -1102,6 +1109,7 @@ function logEnvironmentalActivityTransition(transition,group=null){
   mediaRecognitionDecision='Recorded media stopped · waiting for next program';
   renderMediaIdentification();
  }
+ observeAudioMediaDeviceContext(transition);
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
  return logRoomMessage('audio',environmentalActivityMessage(transition),
@@ -1131,6 +1139,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
+  roomMediaFusionTracker.reset();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
   resetPersonalizedSoundRuntime();
@@ -1153,6 +1162,7 @@ function setEnvironmentalAudioEnabled(enabled){
   resetPersonalizedSoundRuntime();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
+  roomMediaFusionTracker.reset();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
@@ -1345,6 +1355,44 @@ function resetMusicIdentification(reason='Waiting for stable music'){
  renderMusicIdentification();
 }
 
+function mediaKindForEnvironmentalState(row={}){
+ if(row.category==='music')return 'music';
+ if(row.category==='media-playback'&&row.subtype==='television')return 'television';
+ if(row.category==='media-playback'&&row.subtype==='media-playback')return 'recorded-media';
+ return null;
+}
+function logRoomMediaFusion(fusion,at=Date.now()){
+ const tracked=roomMediaFusionTracker.observe(fusion,at);
+ if(!tracked.emit||state.mode!=='agent')return tracked;
+ const message=roomMediaFusionMessage(fusion);
+ if(!message)return tracked;
+ logRoomMessage('media',message,'room-media-fusion',{
+  at,semantic:'room-media-fusion',confidence:Number(fusion.confidence)||null,
+  dedupeKey:'room-media-fusion:'+fusion.state+':'+String(fusion.objectId||'unmapped')+
+   ':'+String(fusion.mediaKind||'unknown')+':'+Math.floor(at/30000),
+  evidence:{roomMediaFusion:{
+   state:fusion.state,mediaKind:fusion.mediaKind,objectId:fusion.objectId,
+   objectName:fusion.objectName,objectRole:fusion.objectRole,
+   objectAudioDirection:fusion.objectAudioDirection,
+   audioDirection:fusion.audioDirection,audioConfidence:fusion.audioConfidence,
+   visualConfidence:fusion.visualConfidence,agreement:fusion.agreement,
+   sourceVerified:fusion.sourceVerified,reason:fusion.reason
+  }}
+ });
+ return tracked;
+}
+function observeAudioMediaDeviceContext(transition){
+ const mediaKind=mediaKindForEnvironmentalState(transition);
+ if(!mediaKind||!['start','continue'].includes(transition?.type))return null;
+ const fusion=fuseRoomMediaEvidence({
+  scene:effectiveRoomScene(),mediaKind,
+  audioDirection:transition.sourceDirection,
+  audioConfidence:transition.peakConfidence
+ });
+ logRoomMediaFusion(fusion,transition.at||Date.now());
+ return fusion;
+}
+
 function mediaResultLabel(media={}){
  if(media.kind==='episode'){
   const series=media.series||media.title||'Unknown series';
@@ -1487,11 +1535,31 @@ async function processMediaVisualClue(detail={}){
     active.subtype==='media-playback'?'recorded-media':null):null;
  if(!activeKind)return false;
  const evidenceId=String(detail.evidenceId||('visual-'+Date.now())).slice(0,96);
- const clue=mediaIdentificationTracker.noteVisual(detail.text,Date.now());
+ const visualObservation=normalizeMediaVisualObservation({
+  text:detail.text,objectId:detail.objectId,evidenceId,
+  confidence:detail.confidence,at:Date.now()
+ });
+ if(!visualObservation){
+  mediaRecognitionDecision='Visual media clue rejected · mapped display/device reference required';
+  renderMediaIdentification();return false;
+ }
+ const fusion=fuseRoomMediaEvidence({
+  scene:effectiveRoomScene(),mediaKind:activeKind,
+  audioDirection:active.sourceDirection,audioConfidence:active.peakConfidence,
+  visualObservation
+ });
+ logRoomMediaFusion(fusion,visualObservation.at);
+ if(!mediaVisualLookupAllowed(fusion)){
+  mediaRecognitionDecision=fusion.state==='audio-visual-owner-conflict'
+   ?'Visual media clue held · audio direction conflicts with owner device map'
+   :'Visual media clue held · owner-mapped media device could not be verified';
+  renderMediaIdentification();return false;
+ }
+ const clue=mediaIdentificationTracker.noteVisual(visualObservation.text,Date.now());
  if(!clue.usable)return false;
  mediaWorkingVisualClue=clue.text;
  if(!mediaWebLookupEnabled){
-  mediaRecognitionDecision='Visual metadata clue captured locally · remote media lookup is off';
+  mediaRecognitionDecision='Verified visual metadata captured locally · remote media lookup is off';
   renderMediaIdentification();return true;
  }
  const lookup=mediaLookupGuard.claim('visual:'+clue.text,Date.now());
@@ -1499,7 +1567,7 @@ async function processMediaVisualClue(detail={}){
  mediaWebAbortController?.abort();mediaWebAbortController=new AbortController();
  const generation=mediaRecognitionGeneration;
  try{
-  mediaRecognitionDecision='Searching public web with visual media metadata';
+  mediaRecognitionDecision='Searching public web with owner-grounded visual media metadata';
   renderMediaIdentification();
   const mediaKind=activeKind;
   const resolved=await searchMediaByClues({
@@ -1512,7 +1580,7 @@ async function processMediaVisualClue(detail={}){
    const observed=mediaIdentificationTracker.observeCandidate(resolved.candidate,Date.now());
    logMediaIdentificationResult(observed);
    mediaRecognitionDecision=observed.media.status==='confirmed'
-    ?'Media title confirmed with visual metadata'
+    ?'Media title confirmed with owner-grounded visual metadata'
     :'Visual media candidate received · waiting for corroboration';
   }else mediaRecognitionDecision='Visual metadata search found no strong media candidate';
   renderMediaIdentification();return true;
@@ -1525,6 +1593,7 @@ async function processMediaVisualClue(detail={}){
 }
 function resetMediaIdentification(reason='Waiting for recorded TV / video dialogue'){
  mediaRecognitionGeneration++;
+ roomMediaFusionTracker.reset();
  mediaWebAbortController?.abort();mediaWebAbortController=null;
  mediaRecognitionQueue.clear();mediaIdentificationTracker.reset();mediaLookupGuard.reset();
  mediaWorkingDialogueQuery='';mediaWorkingVisualClue='';
