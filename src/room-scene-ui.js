@@ -14,6 +14,7 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
   areaKind:$('roomAreaKind'),x:$('roomAreaX'),y:$('roomAreaY'),w:$('roomAreaW'),
   h:$('roomAreaH'),cancel:$('roomCancelAreaEdit'),areas:$('roomAreaList'),
   objectForm:$('roomObjectForm'),objectName:$('roomObjectName'),objectKind:$('roomObjectKind'),
+  objectRole:$('roomObjectRole'),objectAudioDirection:$('roomObjectAudioDirection'),
   objectArea:$('roomObjectArea'),objectSkillDescribe:$('roomObjectSkillDescribe'),
   objectSkillCapture:$('roomObjectSkillCapture'),objects:$('roomObjectList'),clear:$('roomClearScene'),
   status:$('roomSceneMessage'),
@@ -96,10 +97,14 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    const row=document.createElement('div');row.className='room-scene-item';
    const linked=scene.areas.find(a=>a.id===object.areaId);
    const name=document.createElement('strong');
-   name.textContent=object.name+' · '+object.kind+' · '+(linked?.name||'Unassigned');
+   name.textContent=object.name+' · '+object.kind+' · '+object.role+
+    (object.audioDirection&&object.audioDirection!=='unavailable'
+      ?' · audio '+object.audioDirection:'')+' · '+(linked?.name||'Unassigned');
    const edit=document.createElement('button');edit.type='button';edit.textContent='Edit';
    edit.addEventListener('click',()=>{
     els.objectName.value=object.name;els.objectKind.value=object.kind;
+    if(els.objectRole)els.objectRole.value=object.role||'other';
+    if(els.objectAudioDirection)els.objectAudioDirection.value=object.audioDirection||'unavailable';
     els.objectArea.value=object.areaId||'';els.objectForm.dataset.editId=object.id;
     els.objectName.focus();
    });
@@ -272,6 +277,8 @@ export function createRoomSceneUi({getTracks=()=>[],mirror=()=>false,onChange=()
    try{
     const name=els.objectName.value.trim(),editId=els.objectForm.dataset.editId||'';
     const next=upsertRoomObject(scene,{id:editId,name,kind:els.objectKind.value,
+     role:els.objectRole?.value||'other',
+     audioDirection:els.objectAudioDirection?.value||'unavailable',
      areaId:els.objectArea.value});
     persist(next,(editId?'Edited':'Added')+' owner-defined room object '+name);
     els.objectForm.reset();delete els.objectForm.dataset.editId;
