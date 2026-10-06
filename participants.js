@@ -125,10 +125,10 @@ function updateCaptureCoach(){
   if(status.requiredComplete){
     if(ui.captureStep)ui.captureStep.textContent=status.required+' / '+status.required+' · Required profile complete';
     if(ui.captureInstruction)ui.captureInstruction.textContent='Required face profile complete. Save the photo profile to continue to Voice. Additional angles are optional and can be added later from Photos.';
-    if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent='Photo Profile Ready';
-    ui.capturePrimary.title='Required photo profile complete';
-    ui.capturePrimary.setAttribute('aria-label','Required photo profile complete');
-    ui.capturePrimary.disabled=true;
+    if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent='Save Photo Profile & Continue to Voice';
+    ui.capturePrimary.title='Save photo profile and continue to Voice';
+    ui.capturePrimary.setAttribute('aria-label','Save photo profile and continue to Voice');
+    ui.capturePrimary.disabled=state.saving||state.voiceRecording;
     return;
   }
   const poseIndex=FACE_CAPTURE_POSES.findIndex(pose=>pose.id===next.id);
@@ -768,7 +768,11 @@ document.getElementById('switchParticipantCamera').addEventListener('click',asyn
   state.cameraDeviceId=list[(current+1)%list.length].deviceId;
   await startCamera();
 });
-ui.capturePrimary.addEventListener('click', captureGuidedPhoto);
+ui.capturePrimary.addEventListener('click',()=>{
+ const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+ if(status.requiredComplete)void saveForm();
+ else void captureGuidedPhoto();
+});
 ui.captureSample.addEventListener('click', captureFaceSample);
 ui.recognitionEnabled.addEventListener('change',()=>{updateEnrollmentUi();updateCaptureCoach();updateSaveAction();});
 ui.useLatestPrimary.addEventListener('click', () => {
