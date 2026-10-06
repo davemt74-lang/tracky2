@@ -556,6 +556,15 @@ function considerContextualMediaEngagement(now=Date.now()){
 }
 
 function renderCognitiveStatus(){
+ const awarenessLabel=document.getElementById('roomSituationalAwarenessStatus');
+ if(awarenessLabel&&state.mode==='agent'){
+  const awareness=roomSituationalAwareness.snapshot();
+  const last=awareness.lastDecision;
+  awarenessLabel.textContent='Situational learning · '+awareness.eventCount+' events · '+
+   awareness.feedbackCount+' feedback signals · '+
+   (saveRoomHistory?'saved locally':'session only')+
+   (last?' · last interest '+Math.round(last.score*100)+'%':'');
+ }
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
  const cognitive=cognitiveLoop.snapshot(),proactive=proactiveGovernor.snapshot();
