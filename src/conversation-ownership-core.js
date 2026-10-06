@@ -81,6 +81,13 @@ export class ConversationOwnershipTracker{
   if(!previous){
    transition=event({at,type:participantId?'ownership-established':'ownership-unresolved',
     toParticipantId:participantId,toScopeId:scopeId,reason});
+  }else if(previous.state!=='contested'&&state==='contested'){
+   transition=event({at,type:'ownership-contested',
+    fromParticipantId:previous.participantId,fromScopeId:previous.scopeId,
+    toScopeId:scopeId,reason});
+  }else if(previous.state==='contested'&&state!=='contested'){
+   transition=event({at,type:'ownership-resolved',
+    toParticipantId:participantId,toScopeId:scopeId,reason});
   }else if(previous.participantId&&participantId&&previous.participantId!==participantId){
    transition=event({at,type:'participant-handoff',
     fromParticipantId:previous.participantId,toParticipantId:participantId,
@@ -89,13 +96,6 @@ export class ConversationOwnershipTracker{
    transition=event({at,type:'scope-handoff',
     fromParticipantId:previous.participantId,toParticipantId:participantId,
     fromScopeId:previous.scopeId,toScopeId:scopeId,reason:'conversation-membership-changed'});
-  }else if(previous.state!=='contested'&&state==='contested'){
-   transition=event({at,type:'ownership-contested',
-    fromParticipantId:previous.participantId,fromScopeId:previous.scopeId,
-    toScopeId:scopeId,reason});
-  }else if(previous.state==='contested'&&state!=='contested'){
-   transition=event({at,type:'ownership-resolved',
-    toParticipantId:participantId,toScopeId:scopeId,reason});
   }else if(previous.participantId&&!participantId){
    transition=event({at,type:'ownership-lost',
     fromParticipantId:previous.participantId,fromScopeId:previous.scopeId,
