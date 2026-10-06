@@ -550,7 +550,8 @@ function considerContextualMediaEngagement(now=Date.now()){
   now
  });
  if(plan.action==='silence')return candidate;
- const prompt=contextualPlanPrompt(plan,candidate,awarenessContext);
+ const prompt=contextualPlanPrompt(plan,candidate,awarenessContext)+
+  '\nDo not reveal scoring, history mechanics, or internal observations.';
  if(!prompt)return candidate;
  const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey+':'+plan.action;
  const offered=proactiveGovernor.offer(proactiveOpportunity({
