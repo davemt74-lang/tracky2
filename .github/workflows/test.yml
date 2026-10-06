@@ -261,7 +261,7 @@ jobs:
           unzip -l tracky2-v0.15.2-deploy.zip | grep -F 'tracky2-v0.15.2/src/v015-autonomy-certification-core.js'
           unzip -l tracky2-v0.15.2-deploy.zip | grep -F 'tracky2-v0.15.2/src/v0151-long-session-stability-core.js'
           node --input-type=module -e "import('./src/v015-autonomy-certification-core.js').then(m=>{if(m.V015_AUTONOMY_CERT_VERSION!=='0.15.0'||!m.V015AutonomyCertificationMonitor||!m.evaluateV015AutonomyCertification||!m.v015CertificationLabel)process.exit(1)})"
-          node --input-type=module -e "import('./src/v0151-long-session-stability-core.js').then(m=>{if(m.V0151_STABILITY_VERSION!=='0.15.2'||!m.V0151LongSessionStabilityMonitor||!m.evaluateV0151LongSessionStability||!m.v0151StabilityLabel)process.exit(1)})"
+          node --input-type=module -e "import('./src/v0151-long-session-stability-core.js').then(m=>{if(m.V0151_STABILITY_VERSION!=='0.15.1'||!m.V0151LongSessionStabilityMonitor||!m.evaluateV0151LongSessionStability||!m.v0151StabilityLabel)process.exit(1)})"
           node --input-type=module -e "import('./src/agent-brain-core.js').then(m=>{if(!m.buildAgentBrainSnapshot)process.exit(1)})"
           node --input-type=module -e "import('./src/cognitive-outcome-core.js').then(m=>{if(!m.CognitiveOutcomeLedger||!m.evaluateCognitiveOutcome)process.exit(1)})"
           node --input-type=module -e "import('./src/conversation-proactivity-core.js').then(m=>{if(!m.ConversationProactivityEngine||!m.proactiveConversationDisposition)process.exit(1)})"
