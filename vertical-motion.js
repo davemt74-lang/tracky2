@@ -150,6 +150,9 @@ import {
 import {
  GoalIntentTracker
 } from './src/goal-intent-core.js';
+import {
+ CognitiveOrchestrator
+} from './src/cognitive-orchestrator-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -459,6 +462,13 @@ function updateUnifiedCognitiveState(now=Date.now()){
 function cognitiveStateSnapshot(now=Date.now()){
  return updateUnifiedCognitiveState(now);
 }
+function renderOrchestratorStatus(plan=cognitiveOrchestrator.snapshot().lastPlan){
+ const mount=document.getElementById('agentOrchestratorStatus');
+ if(!mount)return;
+ mount.textContent=plan
+  ?'Orchestrator · '+plan.action.replaceAll('-',' ')+' · '+plan.reason
+  :'Orchestrator · waiting for first cognitive cycle';
+}
 function renderGoalStatus(){
  const mount=document.getElementById('agentGoalStatus');
  if(!mount)return;
@@ -515,6 +525,11 @@ function persistSituationalAwareness(){
 function clearSituationalAwareness(){
  roomSituationalAwareness=new RoomSituationalAwarenessTracker();
  roomContextPlanner=new RoomContextPlanner();
+ unifiedCognitiveState.reset();
+ attentionPriorityEngine.reset();
+ goalIntentTracker.reset();
+ cognitiveOrchestrator.reset();
+ pendingArrivalDecision=null;
  pendingSituationalEngagement=null;pendingContextualFollowThrough=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
  try{window.localStorage.removeItem('tracky2-room-situational-awareness-v1');}catch{}
@@ -801,10 +816,42 @@ function recordProactiveSourceEvent(category,message,source,options={}){
 async function tickProactive(){
  if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
  const now=Date.now();
- updateUnifiedCognitiveState(now);
- updatePrimaryAttention(now);
+ const stateSnapshot=updateUnifiedCognitiveState(now);
+ const attention=updatePrimaryAttention(now);
  settlePendingSituationalFeedback(now);
- considerContextualMediaEngagement(now);
+ if(pendingArrivalDecision&&now>pendingArrivalDecision.expiresAt)pendingArrivalDecision=null;
+ const orchestratorPlan=cognitiveOrchestrator.evaluate({
+  state:stateSnapshot,attention,goal:goalIntentTracker.primary(),
+  arrivalDecision:pendingArrivalDecision,now
+ });
+ renderOrchestratorStatus(orchestratorPlan);
+ if(orchestratorPlan.action==='greet'&&pendingArrivalDecision){
+  const arrival=pendingArrivalDecision;pendingArrivalDecision=null;
+  const person=arrival.participantId?participantById(arrival.participantId):null;
+  const track=arrival.participantId?publicRoomTracks().find(x=>
+   x.participantId===arrival.participantId&&['matched','body-lock'].includes(x.status)):null;
+  const gate=proactiveGovernor.interruptionGate({
+   ...proactiveContext(now),participantId:person?.id||null,participant:person,respectEnabled:false
+  });
+  let executed=false;
+  if(gate.allow&&track&&person)executed=agentRuntime?.greet(track,person)===true;
+  const outcome=cognitiveLoop.recordOutcome(arrival,{executed,at:Date.now()});
+  if(executed){
+   proactiveGovernor.recordExternalInterruption({
+    participantId:person?.id||null,type:'greeting',at:Date.now()
+   });
+   attentionPriorityEngine.record(attention,{acted:true,at:Date.now()});
+  }
+  logRoomMessage('decision',outcome?.reason||gate.reason,'cognitive-orchestrator',{
+   kind:'outcome',semantic:'agent-greeting-outcome',
+   participantId:arrival.participantId,relatedEventId:arrival.relatedEventId||null
+  });
+  renderCognitiveStatus();return;
+ }
+ if(orchestratorPlan.action==='offer-contextual')considerContextualMediaEngagement(now);
+ if(!['offer-contextual','process-proactive'].includes(orchestratorPlan.action)){
+  renderCognitiveStatus();return;
+ }
  const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
  renderCognitiveStatus();
  if(!decision?.opportunityId)return;
@@ -889,6 +936,7 @@ async function tickProactive(){
    contextualOpportunityCandidates.delete(decision.opportunityId);
   }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
+  attentionPriorityEngine.record(attention,{acted:executed,at:Date.now()});
   if(outcome)logRoomMessage('decision',outcome.reason,'agent-proactive-governor',{
    kind:'outcome',semantic:'agent-proactive-outcome',
    participantId:outcome.participantId,
@@ -914,7 +962,7 @@ function considerCognitiveObservation(event){
    x.participantId===event.participantId&&['matched','body-lock'].includes(x.status)):null;
  const now=Date.now();
  const interrupt=proactiveGovernor.interruptionGate({
-  ...proactiveContext(now),participantId:person?.id||null,participant:null,
+  ...proactiveContext(now),participantId:person?.id||null,participant:person,
   respectEnabled:false
  });
  const decision=cognitiveLoop.evaluate(event,{
@@ -929,14 +977,9 @@ function considerCognitiveObservation(event){
   participantId:decision.participantId,relatedEventId:event.id
  });
  if(decision.action==='greet'){
-  const executed=agentRuntime?.greet(track,person)===true;
-  const result=cognitiveLoop.recordOutcome(decision,{executed,at:Date.now()});
-  if(executed)proactiveGovernor.recordExternalInterruption({
-   participantId:person?.id||null,type:'greeting',at:Date.now()
-  });
-  if(result)logRoomMessage('decision',result.reason,'agent-cognitive-loop',{
-   kind:'outcome',semantic:'agent-greeting-outcome',
-   participantId:result.participantId,relatedEventId:decisionEvent?.id||event.id
+  pendingArrivalDecision=Object.freeze({
+   ...decision,id:'arrival:'+String(event.id||now),
+   relatedEventId:decisionEvent?.id||event.id,expiresAt:now+15000
   });
  }
  renderCognitiveStatus();
@@ -969,6 +1012,8 @@ const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.
 const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 const attentionPriorityEngine=new AttentionPriorityEngine();
 const goalIntentTracker=new GoalIntentTracker();
+const cognitiveOrchestrator=new CognitiveOrchestrator();
+let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
