@@ -118,3 +118,23 @@ test('14.9B repeated foreground speech over one background source is one interru
  assert.equal(second.emit,false);
  assert.equal(second.continuity.interruptions,1);
 });
+
+
+test('14.9B original program can recover after a provisional interstitial itself stops',()=>{
+ const t=new RoomMediaContinuityTracker({interstitialGraceMs:45000});
+ const original=t.observeBackground(bg('started','television',1000,{
+  identityKey:'episode:show::episode-1',identity:{series:'Show',title:'Episode 1'}
+ }),1000);
+ const id=original.continuity.continuityId;
+ t.observeBackground(bg('identity-changed','television',10000,{
+  identityKey:'television:brand::ad',identity:{series:'Brand',title:'Ad'}
+ }),10000);
+ t.observeBackground(bg('stopped','television',18000,{
+  identityKey:'television:brand::ad',identity:{series:'Brand',title:'Ad'}
+ }),18000);
+ const resumed=t.observeBackground(bg('started','television',30000,{
+  identityKey:'episode:show::episode-1',identity:{series:'Show',title:'Episode 1'}
+ }),30000);
+ assert.equal(resumed.transition,'interstitial-ended');
+ assert.equal(resumed.continuity.continuityId,id);
+});
