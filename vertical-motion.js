@@ -159,6 +159,9 @@ import {
 import {
  CognitiveOutcomeLedger
 } from './src/cognitive-outcome-core.js';
+import {
+ buildAgentBrainSnapshot
+} from './src/agent-brain-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -842,6 +845,72 @@ function considerContextualMediaEngagement(now=Date.now()){
  return candidate;
 }
 
+function renderAgentBrain(now=Date.now()){
+ const stateSnapshot=unifiedCognitiveState.snapshot();
+ const attention=attentionPriorityEngine.snapshot().lastDecision;
+ const goal=goalIntentTracker.primary();
+ const orchestrator=cognitiveOrchestrator.snapshot().lastPlan;
+ const conversation=conversationProactivityEngine.snapshot(now).lastDecision;
+ const outcome=cognitiveOutcomeLedger.snapshot().lastOutcome;
+ const memories=memoryUI?.getMemories?.()||[];
+ const brain=buildAgentBrainSnapshot({
+  cognitiveState:stateSnapshot,attention,goal,orchestrator,conversation,outcome,
+  memory:{
+   active:memories.filter(row=>row.status==='active').length,
+   proposals:(memoryUI?.getProposals?.()||[]).length
+  },
+  providers:stateSnapshot?.providers||{},
+  runtime:stateSnapshot?.runtime||{},
+  followThrough:pendingContextualFollowThrough,
+  paused:cognitionPaused,
+  proactivityEnabled:document.getElementById('agentProactiveEnabled')?.checked!==false,
+  now
+ });
+ const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+ set('agentBrainState','State · '+(brain.paused?'PAUSED':'ACTIVE')+
+  ' · '+brain.room.visibleParticipantIds.length+' visible'+
+  (brain.room.mediaKind?' · '+brain.room.mediaKind:''));
+ set('agentBrainAttention',brain.attention?
+  'Attention · '+brain.attention.type+' · '+Math.round(brain.attention.score*100)+'%':
+  'Attention · none');
+ set('agentBrainGoal',brain.goal?
+  'Goal · '+brain.goal.state+' · '+brain.goal.intent:
+  'Goal · none');
+ set('agentBrainPlan',brain.orchestrator?
+  'Plan · '+brain.orchestrator.action+' · '+brain.orchestrator.reason:
+  'Plan · none');
+ set('agentBrainFollowThrough',brain.followThrough?
+  'Follow-through · '+brain.followThrough.action+' · '+brain.followThrough.status:
+  'Follow-through · none');
+ set('agentBrainOutcome',brain.outcome?
+  'Outcome · '+brain.outcome.kind+' · '+brain.outcome.action+' · '+Math.round(brain.outcome.score*100)+'%':
+  'Outcome · none');
+ set('agentBrainHealth','Memory · '+brain.memory.active+' active / '+brain.memory.proposals+
+  ' proposals · runtime '+brain.runtime.performanceLevel+' · storage '+brain.runtime.storageStatus);
+ const pause=document.getElementById('agentBrainPause');
+ if(pause)pause.textContent=cognitionPaused?'Resume cognition':'Pause cognition';
+ return brain;
+}
+
+function clearTransientCognition(){
+ unifiedCognitiveState.reset();
+ attentionPriorityEngine.reset();
+ goalIntentTracker.reset();
+ cognitiveOrchestrator.reset();
+ conversationProactivityEngine.reset();
+ cognitiveOutcomeLedger.reset();
+ roomContextPlanner=new RoomContextPlanner();
+ pendingArrivalDecision=null;
+ pendingSituationalEngagement=null;
+ pendingContextualFollowThrough=null;
+ contextualOpportunityCandidates.clear();
+ proactiveComposePending=false;
+ lastProactiveDecisionSignature='';
+ renderAgentBrain();
+ renderCognitiveStatus();
+ renderAgentBrain();
+}
+
 function renderCognitiveStatus(){
  const awarenessLabel=document.getElementById('roomSituationalAwarenessStatus');
  if(awarenessLabel&&state.mode==='agent'){
@@ -877,7 +946,9 @@ function recordProactiveSourceEvent(category,message,source,options={}){
  return event;
 }
 async function tickProactive(){
- if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
+ if(state.mode!=='agent'||!agentRuntime||proactiveComposePending||cognitionPaused){
+  renderAgentBrain();return;
+ }
  const now=Date.now();
  const stateSnapshot=updateUnifiedCognitiveState(now);
  const attention=updatePrimaryAttention(now);
@@ -1084,6 +1155,7 @@ const goalIntentTracker=new GoalIntentTracker();
 const cognitiveOrchestrator=new CognitiveOrchestrator();
 const conversationProactivityEngine=new ConversationProactivityEngine();
 const cognitiveOutcomeLedger=new CognitiveOutcomeLedger();
+let cognitionPaused=false;
 let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
@@ -6826,7 +6898,19 @@ if(state.mode==='agent'){
    control.addEventListener('change',refreshCognitivePolicy);
   autoGreet.checked=true;proactiveEnabled.checked=true;followupsEnabled.checked=true;
   quietHours.checked=false;followupDelay.value='60000';interruptionBudget.value='3';
-  refreshCognitivePolicy();
+  const brainPause=document.getElementById('agentBrainPause');
+  const brainCancelGoal=document.getElementById('agentBrainCancelGoal');
+  const brainClearState=document.getElementById('agentBrainClearState');
+  brainPause?.addEventListener('click',()=>{
+   cognitionPaused=!cognitionPaused;renderAgentBrain();renderCognitiveStatus();
+  });
+  brainCancelGoal?.addEventListener('click',()=>{
+   const goal=goalIntentTracker.primary();
+   if(goal)goalIntentTracker.transition(goal.id,'abandoned',{progress:'cancelled by owner',now:Date.now()});
+   renderAgentBrain();renderGoalStatus?.();
+  });
+  brainClearState?.addEventListener('click',()=>clearTransientCognition());
+  refreshCognitivePolicy();renderAgentBrain();
   proactiveTimer=window.setInterval(()=>{void tickProactive();},1000);
   void tickProactive();
   sceneUI=createRoomSceneUi({
