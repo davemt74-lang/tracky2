@@ -1270,6 +1270,11 @@ function queueMediaRecognitionWindow(segment,{speechOrigin=null}={}){
 }
 async function processMediaVisualClue(detail={}){
  if(!mediaIdentificationEnabled)return false;
+ const active=environmentalActivityTracker.snapshot();
+ const activeKind=active?.category==='media-playback'
+  ?(active.subtype==='television'?'television':
+    active.subtype==='media-playback'?'recorded-media':null):null;
+ if(!activeKind)return false;
  const evidenceId=String(detail.evidenceId||('visual-'+Date.now())).slice(0,96);
  const clue=mediaIdentificationTracker.noteVisual(detail.text,Date.now());
  if(!clue.usable)return false;
@@ -1285,9 +1290,7 @@ async function processMediaVisualClue(detail={}){
  try{
   mediaRecognitionDecision='Searching public web with visual media metadata';
   renderMediaIdentification();
-  const active=environmentalActivityTracker.snapshot();
-  const mediaKind=active?.category==='media-playback'&&active?.subtype==='television'
-   ?'television':'recorded-media';
+  const mediaKind=activeKind;
   const resolved=await searchMediaByClues({
    dialogueQuery:'',visualClue:clue.text,mediaKind,evidenceId,
    ownerEnabled:true,preferredProvider:remoteProviderPreference(),
