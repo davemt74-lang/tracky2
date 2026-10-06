@@ -25,6 +25,10 @@ import {
  RoomSpeechOriginTracker,resolveRoomSpeechOrigin,roomSpeechOriginMessage
 } from './src/speech-origin-core.js';
 import {
+ MusicIdentificationTracker,MusicRecognitionQueue,identifyMusicFingerprint,
+ musicIdentificationMessage
+} from './src/music-identification-core.js';
+import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
 import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-core.js';
@@ -458,6 +462,13 @@ const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
 const environmentalActivityTracker=new EnvironmentalActivityTracker();
 const roomSpeechOriginTracker=new RoomSpeechOriginTracker();
+const musicIdentificationTracker=new MusicIdentificationTracker();
+const musicRecognitionQueue=new MusicRecognitionQueue();
+let musicIdentificationEnabled=true;
+let musicFingerprintProvider=null;
+let musicRecognitionState='idle';
+let musicRecognitionDecision='Waiting for stable music';
+let musicWorkingLyricQuery='';
 let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
@@ -852,6 +863,13 @@ function queueEnvironmentalAudio(segment){
 }
 function logEnvironmentalActivityTransition(transition,group=null){
  if(!transition||state.mode!=='agent')return null;
+ if(transition.category==='music'&&transition.type==='stop'){
+  const stopped=musicIdentificationTracker.clearConfirmed(transition.at);
+  logMusicIdentificationResult(stopped);
+  musicRecognitionQueue.clear();musicWorkingLyricQuery='';
+  musicRecognitionDecision='Music stopped · waiting for next track';
+  renderMusicIdentification();
+ }
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
  return logRoomMessage('audio',environmentalActivityMessage(transition),
@@ -891,6 +909,7 @@ function setEnvironmentalAudioEnabled(enabled){
  }else{
   environmentalAudioQueue.disable();
   clearEnvironmentalSpeechEvidence();
+  resetMusicIdentification('Environmental audio disabled');
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
@@ -902,6 +921,124 @@ function setEnvironmentalAudioEnabled(enabled){
   renderEnvironmentalAudio();
  }
 }
+function renderMusicIdentification(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomMusicIdStatus');
+ const result=document.getElementById('roomMusicIdResult');
+ const queue=musicRecognitionQueue.snapshot();
+ const track=musicIdentificationTracker.snapshot();
+ if(status)status.textContent=(musicIdentificationEnabled?'ON':'OFF')+' · '+
+  musicRecognitionDecision+(queue.processing?' · analyzing':'')+
+  (queue.queueDepth?' · '+queue.queueDepth+' queued':'');
+ if(result){
+  if(track.status==='confirmed')
+   result.textContent='Identified: '+track.artist+' — '+track.title+
+    (track.album?' · '+track.album:'');
+  else if(track.status==='candidate')
+   result.textContent='Candidate: '+track.artist+' — '+track.title+' · verifying';
+  else if(musicWorkingLyricQuery)
+   result.textContent='Local lyric clue ready for candidate search · working text is memory-only';
+  else result.textContent='No exact track identified this session.';
+ }
+}
+function logMusicIdentificationResult(result){
+ if(!result?.emit||state.mode!=='agent')return;
+ const message=musicIdentificationMessage(result);
+ if(!message)return;
+ const track=result.track||{};
+ logRoomMessage('media',message,'music-identification',{
+  semantic:'music-identification',
+  confidence:Number(track.confidence)||null,
+  dedupeKey:'music-id:'+result.transition+':'+
+   String(track.artist||'unknown')+':'+String(track.title||'unknown')+':'+Date.now(),
+  evidence:{musicIdentification:{
+   status:track.status||null,title:track.title||null,artist:track.artist||null,
+   album:track.album||null,provider:track.provider||null,
+   externalId:track.externalId||null,observations:Number(track.observations)||0
+  }}
+ });
+}
+async function processMusicRecognitionWork(job){
+ let outcome='complete';
+ try{
+  musicRecognitionState='analyzing';
+  musicRecognitionDecision=musicFingerprintProvider
+   ?'Trying configured fingerprint provider':'No fingerprint provider configured · trying local lyric fallback';
+  renderMusicIdentification();
+
+  const fingerprint=await identifyMusicFingerprint(musicFingerprintProvider,{
+   samples:job.samples,sampleRate:job.sampleRate,durationMs:job.durationMs,at:job.at
+  });
+  if(fingerprint.candidate){
+   const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
+   logMusicIdentificationResult(observed);
+   musicRecognitionDecision=observed.track.status==='confirmed'
+    ?'Track confirmed by fingerprint evidence':'Fingerprint candidate received · waiting for corroboration';
+   if(observed.track.status==='confirmed'){
+    musicWorkingLyricQuery='';renderMusicIdentification();return;
+   }
+  }
+
+  if(job.lyricEligible){
+   const ready=await ensureTranscriptionEngine();
+   if(ready){
+    const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+    const lyric=musicIdentificationTracker.noteLyrics(detail.text,Date.now());
+    musicWorkingLyricQuery=lyric.usable?lyric.query:'';
+    musicRecognitionDecision=lyric.usable
+     ?'Local lyric clue captured · candidate lookup is the next V2B stage'
+     :'No usable lyric clue in this music window';
+   }else{
+    musicRecognitionDecision='Local lyric transcription unavailable';
+   }
+  }else if(!fingerprint.candidate){
+   musicRecognitionDecision='Music window retained no identity evidence · live-room speech risk avoided';
+  }
+ }catch(error){
+  outcome='error';
+  musicRecognitionState='error';
+  musicRecognitionDecision='Music identification window failed safely';
+  console.warn('Music identification failed',error);
+ }finally{
+  musicRecognitionQueue.complete(job);
+  if(outcome!=='error')musicRecognitionState='idle';
+  renderMusicIdentification();
+  void drainMusicRecognitionQueue();
+ }
+}
+function drainMusicRecognitionQueue(){
+ if(musicRecognitionQueue.snapshot().processing)return;
+ const job=musicRecognitionQueue.beginNext();
+ if(!job){renderMusicIdentification();return;}
+ void processMusicRecognitionWork(job);
+}
+function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=null}={}){
+ if(!musicIdentificationEnabled||!segment?.samples?.length)return false;
+ const mediaKind=speechOrigin?.mediaContext?.kind||null;
+ const primaryMusic=classification?.category==='music';
+ if(!primaryMusic&&mediaKind!=='music')return false;
+ const durationMs=Number(segment.captureDurationMs)||
+  Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
+ const lyricEligible=Boolean(primaryMusic&&speechOrigin?.state!=='live');
+ const queued=musicRecognitionQueue.enqueue({
+  category:'music',durationMs,sampleRate:Number(segment.sampleRate)||16000,
+  samples:segment.samples,at:Number(segment.queuedAt)||Date.now(),
+  lyricEligible,documentHidden:document.hidden
+ },Date.now());
+ if(queued.accepted){
+  musicRecognitionDecision=lyricEligible
+   ?'Music window queued · fingerprint then local lyric fallback'
+   :'Music window queued · fingerprint only while live speech is possible';
+  renderMusicIdentification();drainMusicRecognitionQueue();return true;
+ }
+ return false;
+}
+function resetMusicIdentification(reason='Waiting for stable music'){
+ musicRecognitionQueue.clear();musicIdentificationTracker.reset();
+ musicWorkingLyricQuery='';musicRecognitionState='idle';musicRecognitionDecision=reason;
+ renderMusicIdentification();
+}
+
 function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
  const ended=environmentalActivityTracker.expire(summary.at);
@@ -3405,6 +3542,9 @@ async function processRoomSegment(segment) {
       });
     }
     if(!speechOrigin.allowConversation){
+      queueMusicRecognitionWindow(segment,{
+       classification:sameSegmentEnvironment?.classification||null,speechOrigin
+      });
       state.voice.currentSpeakerId=null;
       state.voice.currentSpeakerName=speechOrigin.state==='recorded'
         ?'Recorded speech likely':'Speech origin uncertain';
@@ -4137,6 +4277,7 @@ function stopRoomAudio() {
   roomAcousticPatternTracker.reset();
   roomSpeechOriginTracker.reset();
   clearEnvironmentalSpeechEvidence();
+  resetMusicIdentification('Room microphone stopped');
   // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
   environmentalActivityTracker.reset();
   state.voice.generation += 1;
