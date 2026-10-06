@@ -26,7 +26,8 @@ export function normalizeV0151StabilitySample(input={}){
   audioQueueDepth:Math.max(0,Math.floor(num(input.audioQueueDepth))),
   heapUsedBytes:Math.max(0,num(input.heapUsedBytes)),
   heapLimitBytes:Math.max(0,num(input.heapLimitBytes)),
-  storageRatio:finite(input.storageRatio)?clamp(input.storageRatio):null
+  storageRatio:finite(input.storageRatio)?clamp(input.storageRatio):null,
+  longGap:input.longGap===true
  });
 }
 
@@ -99,10 +100,10 @@ export class V0151LongSessionStabilityMonitor{
   if(clean!==true)this.uncleanRestartCount++;
  }
  observe(input={},force=false){
-  const sample=normalizeV0151StabilitySample(input);
-  if(!force&&this.lastAcceptedAt&&sample.at-this.lastAcceptedAt<V0151_STABILITY_SAMPLE_MS)return false;
-  if(this.lastAcceptedAt&&sample.visible&&sample.at-this.lastAcceptedAt>V0151_STABILITY_SAMPLE_MS*3)
-   sample.longGap=true;
+  const at=Math.max(0,num(input.at));
+  if(!force&&this.lastAcceptedAt&&at-this.lastAcceptedAt<V0151_STABILITY_SAMPLE_MS)return false;
+  const longGap=Boolean(this.lastAcceptedAt&&input.visible!==false&&at-this.lastAcceptedAt>V0151_STABILITY_SAMPLE_MS*3);
+  const sample=normalizeV0151StabilitySample({...input,at,longGap});
   this.samples=[...this.samples,sample].slice(-this.maxSamples);
   this.lastAcceptedAt=sample.at;
   return true;
