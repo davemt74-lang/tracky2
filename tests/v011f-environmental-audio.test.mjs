@@ -149,7 +149,9 @@ test('11F Basic ROOM classification is local, owner-controllable and carries no 
  assert.match(html,/Enabled by default as part of Basic ROOM/);
  assert.match(html,/Raw room audio is never saved or uploaded by Tracky2/);
  assert.match(html,/classifications are never assigned to a participant/i);
- assert.match(html,/Exact song, movie or TV-title identification is not performed/);
+ assert.match(html,/local environmental classifier does not itself name songs, movies or TV programs/i);
+ assert.match(html,/id="roomIdentifyMedia"/);
+ assert.match(html,/id="roomIdentifyMediaWeb"/);
  assert.match(runtime,/environmentalAudioToggle\.checked=savedEnvironmental!=='no'/);
  assert.match(runtime,/tracky2-room-environmental-audio/);
  assert.match(runtime,/Owner disabled environmental audio classification/);
