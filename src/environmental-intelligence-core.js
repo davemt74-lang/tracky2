@@ -96,7 +96,7 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
    ...base,schema:ENVIRONMENTAL_V2_SCHEMA,
    subtype:environmentalSubtypeForLabel(base.modelLabel,base.category),
    observableOnly:true,healthInference:'none',emotionInference:'none',
-   sourceContext:sourceContext(audioSource)
+   sourceContext:sourceContext(audioSource),recordedMediaCue
   };
  }else if(legacy.reason==='speech-or-sensitive-filtered'){
   const rows=predictionRows(predictions),top=rows[0],second=rows[1];
@@ -131,7 +131,7 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
     modelRevision:short(modelRevision,80)||null,
     participantId:null,speakerAttribution:'none',exactMediaId:null,
     observableOnly:true,contentInference:'none',healthInference:'none',emotionInference:'none',
-    sourceContext:sourceContext(audioSource)
+    sourceContext:sourceContext(audioSource),recordedMediaCue
    };
   }
  }
