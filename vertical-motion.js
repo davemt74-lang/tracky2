@@ -147,6 +147,9 @@ import {
 import {
  AttentionPriorityEngine
 } from './src/attention-priority-core.js';
+import {
+ GoalIntentTracker
+} from './src/goal-intent-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -419,6 +422,10 @@ function updateUnifiedCognitiveState(now=Date.now()){
  const proactive=proactiveGovernor.snapshot(now);
  const performance=devicePerformanceGovernor.snapshot();
  const meeting=meetingUI?.activeMeeting?.()||null;
+ goalIntentTracker.reconcileSystem({
+  tasks:[...tasks,...workflows],followThrough:pendingContextualFollowThrough
+ },now);
+ const goals=goalIntentTracker.active();
  const snapshot=unifiedCognitiveState.update({
   sessionId:roomSessionId,pageVisible:!document.hidden,
   room:{...currentRoomIdentity(),cameraActive:state.running,microphoneActive:state.voice.active},
@@ -429,7 +436,7 @@ function updateUnifiedCognitiveState(now=Date.now()){
   },
   media:roomMediaContinuity.snapshot(),
   events:(roomHistory||[]).slice(-24),
-  memories,tasks,workflows,meeting,
+  memories,tasks,workflows,goals,meeting,
   followThrough:pendingContextualFollowThrough,
   providers:{available:[],degraded:[]},
   agent:{
@@ -451,8 +458,17 @@ function updateUnifiedCognitiveState(now=Date.now()){
 function cognitiveStateSnapshot(now=Date.now()){
  return updateUnifiedCognitiveState(now);
 }
+function renderGoalStatus(){
+ const mount=document.getElementById('agentGoalStatus');
+ if(!mount)return;
+ const snapshot=goalIntentTracker.snapshot(),primary=snapshot.primary;
+ mount.textContent=primary
+  ?'Goal · '+primary.state.replaceAll('-',' ')+' · '+String(primary.intent||'').slice(0,120)
+  :'Goal · none active';
+}
 function updatePrimaryAttention(now=Date.now()){
  const stateSnapshot=cognitiveStateSnapshot(now);
+ renderGoalStatus();
  const decision=attentionPriorityEngine.evaluate(stateSnapshot,{now});
  const status=document.getElementById('agentAttentionStatus');
  if(status)status.textContent=decision.primary
@@ -951,6 +967,7 @@ const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
 const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 const attentionPriorityEngine=new AttentionPriorityEngine();
+const goalIntentTracker=new GoalIntentTracker();
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
@@ -5234,6 +5251,8 @@ async function processRoomSegment(segment) {
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
        'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
+      goalIntentTracker.addDialogueGoal(savedTurn,Date.now());
+      renderGoalStatus();
       const followThroughHandled=await handleContextualFollowThrough(savedTurn,Date.now());
       if(!followThroughHandled)agentRuntime?.onDialogue(savedTurn);
       noteSituationalDialogueFeedback(savedTurn,Date.now());
