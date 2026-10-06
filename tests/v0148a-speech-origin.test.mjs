@@ -5,6 +5,8 @@ import {
  currentRecordedMediaContext,resolveRoomSpeechOrigin,
  roomSpeechOriginMessage,RoomSpeechOriginTracker
 } from '../src/speech-origin-core.js';
+import {recordedMediaCueFromPredictions,normalizeEnvironmentalV2Predictions} from '../src/environmental-intelligence-core.js';
+import {createEnvironmentalAudioWork} from '../src/environmental-audio-core.js';
 
 const tv=(at=1000)=>({
  type:'active',category:'media-playback',subtype:'television',
@@ -127,6 +129,40 @@ test('V2A stale media context cannot suppress a later live-room turn',()=>{
  assert.equal(result.allowConversation,true);
 });
 
+test('V2A secondary TV evidence survives a speech-dominant same-window classification',()=>{
+ const predictions=[
+  {label:'Speech',score:.91},
+  {label:'Television',score:.46},
+  {label:'Music',score:.19}
+ ];
+ const cue=recordedMediaCueFromPredictions(predictions,1900);
+ assert.equal(cue.category,'media-playback');
+ assert.equal(cue.subtype,'television');
+ assert.equal(cue.participantId,null);
+ assert.equal(cue.exactMediaId,null);
+ const normalized=normalizeEnvironmentalV2Predictions(predictions,{at:1900,durationMs:2500});
+ assert.equal(normalized.accepted,true);
+ assert.equal(normalized.classification.category,'room-voice-activity');
+ assert.equal(normalized.classification.recordedMediaCue.subtype,'television');
+ const result=resolveRoomSpeechOrigin({
+  recentEnvironmental:cue,voiceMatch:{matched:false,similarity:.2},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'recorded');
+ assert.equal(result.allowConversation,false);
+});
+
+test('V2A environmental work keeps an ephemeral correlation ID without raw-media persistence',()=>{
+ const work=createEnvironmentalAudioWork({
+  samples:new Float32Array([0,.1,-.1]),sampleRate:16000,durationSeconds:1.5,
+  environmentCorrelationId:'speech-env-123'
+ },{queuedAt:1000,generation:2,id:'work-1'});
+ assert.equal(work.correlationId,'speech-env-123');
+ assert.equal(work.generation,2);
+ assert.equal(work.samples.length,3);
+});
+
 test('V2A recent classification can protect the first media speech segment before lifecycle grouping catches up',()=>{
  const recent={category:'media-playback',subtype:'radio',confidence:.89,at:1900};
  const result=resolveRoomSpeechOrigin({
@@ -170,6 +206,10 @@ test('V2A runtime gate executes before participant continuity recovery and trans
  assert.match(runtime,/speechOriginState:speechOrigin\.state/);
  assert.match(runtime,/speechOriginMediaKind:speechOrigin\.mediaContext\?\.kind\|\|null/);
  assert.match(runtime,/speechOriginParticipantAttributionAllowed:speechOrigin\.allowParticipantAttribution/);
+ assert.match(runtime,/environmentEvidencePromise:evidenceRequest\.promise/);
+ assert.match(runtime,/await segment\.environmentEvidencePromise/);
+ assert.match(runtime,/recordedMediaCueFromPredictions/);
+ assert.match(runtime,/clearEnvironmentalSpeechEvidence\(\)/);
 });
 
 test('V2A deploy and PWA manifests include the resolver',()=>{
@@ -180,4 +220,5 @@ test('V2A deploy and PWA manifests include the resolver',()=>{
  assert.match(workflow,/resolveRoomSpeechOrigin/);
  assert.match(sw,/\.\/src\/speech-origin-core\.js/);
  assert.match(pkg,/node --check src\/speech-origin-core\.js/);
+ assert.match(workflow,/package-smoke\/tracky2-v0\.14\.7\/src\/speech-origin-core\.js/);
 });
