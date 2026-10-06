@@ -12,6 +12,7 @@ import {
  DevicePerformanceGovernor,coarseDevicePerformanceCapabilities,
  performanceCertificationOutcome,performanceSampleDelta
 } from './src/device-performance-core.js';
+import {LiveCertificationHarness,LIVE_CERT_SCENARIOS} from './src/live-certification-core.js';
 
 const DIAGNOSTICS_RELEASE={version:'0.15.1'};
 const $ = selector => document.querySelector(selector);
@@ -28,13 +29,15 @@ const ui = {
  certEnvironmentLabel:$('#certEnvironmentLabel'),certLightingLabel:$('#certLightingLabel'),
  certNoiseLabel:$('#certNoiseLabel'),certCapabilityMatrix:$('#certCapabilityMatrix'),
  certificationStatus:$('#certificationStatus'),performanceTrend:$('#certPerformanceTrend'),
- compareReport:$('#compareCertificationReport'),compareStatus:$('#certCompareStatus')
+ compareReport:$('#compareCertificationReport'),compareStatus:$('#certCompareStatus'),
+ liveScenarios:$('#liveCertificationScenarios'),liveStatus:$('#liveCertificationStatus')
 };
 
 const context=ui.canvas.getContext('2d',{willReadFrequently:true});
 const metrics=createHardwareDiagnostics();
 const runtimeBudget=new RuntimeBudget();
 const performanceGovernor=new DevicePerformanceGovernor();
+const liveCertificationHarness=new LiveCertificationHarness();
 const trackers={green:createControllerStability(),blue:createControllerStability()};
 
 let stream=null,raf=0,lastDisplay=0,lastLongCheckpoint=0,lastPerformanceSampleAt=0;
@@ -66,6 +69,34 @@ function calibration() {
  } catch {return createColorCalibration();}
 }
 const currentCalibration=calibration();
+
+const LIVE_CERTIFICATION_SNAPSHOT_KEY='tracky2-v0151g-live-certification-snapshot';
+function readLiveRuntimeSnapshot(){
+ try{
+  const raw=window.localStorage.getItem(LIVE_CERTIFICATION_SNAPSHOT_KEY);
+  const parsed=raw?JSON.parse(raw):null;
+  if(parsed)liveCertificationHarness.observeSnapshot(parsed,Date.now());
+  return parsed;
+ }catch{return null;}
+}
+function liveScenarioOutcomes(){
+ const out={};
+ for(const input of ui.liveScenarios?.querySelectorAll('[data-live-cert-scenario]')||[]){
+  const id=input.dataset.liveCertScenario;
+  const notes=ui.liveScenarios.querySelector('[data-live-cert-notes="'+id+'"]')?.value||'';
+  out[id]=liveCertificationHarness.setScenario(id,String(input.value||'not-run'),notes);
+ }
+ return out;
+}
+function renderLiveCertification(){
+ readLiveRuntimeSnapshot();
+ liveScenarioOutcomes();
+ const summary=liveCertificationHarness.summary();
+ if(ui.liveStatus)ui.liveStatus.textContent='Installed-device certification · '+summary.status.toUpperCase()+
+  ' · '+summary.counts.pass+' pass · '+summary.counts.partial+' partial · '+
+  summary.counts.fail+' fail · '+summary.counts['not-run']+' not run';
+ return summary;
+}
 
 function recordEvidence(type,state=null,detail=null){
  evidenceEvents.push({type,at:Date.now(),state,detail});
@@ -166,7 +197,11 @@ function buildCurrentReport(measuredAt=new Date().toISOString()){
   performance:currentPerformanceReport(),
   permissionStates:permissionHealth,
   storage:{status:storageHealth.status,ratio:storageHealth.ratio},
-  evidenceEvents
+  evidenceEvents,
+  liveCertification:liveCertificationHarness.report({
+   releaseVersion:DIAGNOSTICS_RELEASE.version,deviceProfile:ownerDeviceProfile(),
+   notes:ui.acceptanceNotes?.value||''
+  })
  });
 }
 
@@ -295,6 +330,7 @@ function render() {
  renderCapabilityMatrix();
  renderPerformanceTrend();
  renderCertificationStatus();
+ renderLiveCertification();
 }
 
 function stopCamera({record=true}={}) {
@@ -530,6 +566,8 @@ ui.healthRefresh?.addEventListener('click',()=>void Promise.all([
  refreshReleaseHealth(),refreshCapabilities()
 ]));
 ui.acceptance?.addEventListener('change',render);
+ui.liveScenarios?.addEventListener('change',render);
+ui.liveScenarios?.addEventListener('input',render);
 for(const input of [
  ui.certCameraLabel,ui.certMicrophoneLabel,ui.certEnvironmentLabel,
  ui.certLightingLabel,ui.certNoiseLabel,ui.acceptanceNotes
@@ -565,13 +603,13 @@ ui.export.addEventListener('click',async()=>{
   const canonical=canonicalCertificationJson(report);
   const digest=await sha256Hex(canonical);
   const stamp=Date.now();
-  const filename='tracky2-hardware-certification-'+stamp+'.json';
+  const filename='tracky2-installed-device-certification-'+stamp+'.json';
   const payload={...report,integrity:{
-   algorithm:'SHA-256',digest,canonicalScope:'redacted-certification-report'
+   algorithm:'SHA-256',digest,canonicalScope:'redacted-installed-device-certification'
   }};
   downloadText(filename,JSON.stringify(payload,null,2),'application/json');
   downloadText(filename+'.sha256',digest+'  '+filename+'\n');
-  ui.exportStatus.textContent='Certification '+report.summary.status.toUpperCase()+
+  ui.exportStatus.textContent='Certification '+report.summary.status.toUpperCase()+' / live '+report.liveCertification.summary.status.toUpperCase()+
    ' exported locally with SHA-256 '+digest+'. No raw media, transcript or biometric sample is included.';
  }catch(error){
   ui.exportStatus.textContent='Certification export failed: '+String(error?.message||error);
