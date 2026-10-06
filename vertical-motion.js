@@ -169,6 +169,7 @@ import {
  CognitiveOutcomeLedger
 } from './src/cognitive-outcome-core.js';
 import {ProactivityQualityTracker} from './src/proactivity-quality-core.js';
+import {ProviderRecoveryCoordinator} from './src/provider-recovery-core.js';
 import {
  buildAgentBrainSnapshot
 } from './src/agent-brain-core.js';
@@ -1255,6 +1256,7 @@ const cognitiveOrchestrator=new CognitiveOrchestrator();
 const conversationProactivityEngine=new ConversationProactivityEngine();
 const cognitiveOutcomeLedger=new CognitiveOutcomeLedger();
 const proactivityQualityTracker=new ProactivityQualityTracker();
+const providerRecoveryCoordinator=new ProviderRecoveryCoordinator();
 let cognitionPaused=false;
 let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
@@ -1872,8 +1874,14 @@ function renderRoomLiveValidation(){
  if(!status)return;
  status.textContent=roomLiveValidationMessage(roomLiveValidation.snapshot(Date.now()));
 }
-function noteRoomProviderOutcome(provider,status,reason=''){
+function noteRoomProviderOutcome(provider,status,reason='',requestKey=null){
  const at=Date.now();
+ if((status==='failed'||status==='error')&&requestKey)
+  providerRecoveryCoordinator.failure({requestKey,provider,reason,now:at});
+ else if(['recovered','success','ok'].includes(status)&&requestKey){
+  const result=providerRecoveryCoordinator.success({requestKey,provider,reason:status,now:at});
+  if(result.recovered)status='recovered';
+ }
  roomLiveValidation.observeProvider({provider,status,reason,at});
  if(['failed','error','recovered','success','ok'].includes(status))
   v015AutonomyCertificationMonitor.note('provider-call',{provider,status},at);
@@ -2142,6 +2150,15 @@ async function processMusicRecognitionWork(job){
 
   let fingerprint=Object.freeze({available:false,candidate:null,reason:'disabled'});
   if(musicFingerprintLookupEnabled&&job.remoteExactEligible){
+   const musicFingerprintRequestKey='music-fingerprint:'+job.evidenceId;
+   const recoveryGate=providerRecoveryCoordinator.begin({
+    requestKey:musicFingerprintRequestKey,provider:'acrcloud',now:Date.now()
+   });
+   if(!recoveryGate.allow){
+    musicRecognitionDecision=recoveryGate.reason==='provider-backoff'
+     ?'ACRCloud temporarily degraded · local lyric fallback continues'
+     :'Duplicate music recognition request suppressed';
+   }else{
    musicFingerprintAbortController?.abort();
    musicFingerprintAbortController=new AbortController();
    try{
@@ -2150,8 +2167,8 @@ async function processMusicRecognitionWork(job){
      evidenceId:job.evidenceId,signal:musicFingerprintAbortController.signal
     });
    }catch(error){
-    if(error?.name==='AbortError'){outcome='cancelled';return;}
-    noteRoomProviderOutcome('acrcloud','failure',String(error?.message||'recognition-error'));
+    if(error?.name==='AbortError'){providerRecoveryCoordinator.cancel({requestKey:musicFingerprintRequestKey});outcome='cancelled';return;}
+    noteRoomProviderOutcome('acrcloud','failure',String(error?.message||'recognition-error'),musicFingerprintRequestKey);
     const status=Number(error?.status);
     musicRecognitionDecision=status===409
      ?'ACRCloud credentials are not configured · continuing with local lyric fallback'
@@ -2164,7 +2181,7 @@ async function processMusicRecognitionWork(job){
    }
    if(!current()){outcome='cancelled';return;}
    if(fingerprint.candidate){
-    noteRoomProviderOutcome('acrcloud','success','candidate');
+    noteRoomProviderOutcome('acrcloud','success','candidate',musicFingerprintRequestKey);
     const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
     logMusicIdentificationResult(observed);
     musicRecognitionDecision=observed.track.status==='confirmed'
@@ -2174,7 +2191,9 @@ async function processMusicRecognitionWork(job){
      musicWorkingLyricQuery='';renderMusicIdentification();return;
     }
    }else if(fingerprint.available&&fingerprint.reason==='no-match'){
+    noteRoomProviderOutcome('acrcloud','success','no-match',musicFingerprintRequestKey);
     musicRecognitionDecision='ACRCloud found no match · trying local lyric fallback';
+   }
    }
   }
 
@@ -2185,7 +2204,9 @@ async function processMusicRecognitionWork(job){
   if(job.lyricEligible){
    const ready=await ensureTranscriptionEngine();
    if(ready){
+    const whisperRequestKey='local-whisper:music:'+job.evidenceId;
     const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+    noteRoomProviderOutcome('local-whisper','success','music-transcription',whisperRequestKey);
     if(!current()){outcome='cancelled';return;}
     const lyric=musicIdentificationTracker.noteLyrics(detail.text,Date.now());
     musicWorkingLyricQuery=lyric.usable?lyric.query:'';
@@ -2196,7 +2217,15 @@ async function processMusicRecognitionWork(job){
       renderMusicIdentification();
       musicLyricWebAbortController?.abort();
       musicLyricWebAbortController=new AbortController();
-      try{
+      const musicWebRequestKey='music-web:'+job.evidenceId+':'+lyric.query.toLowerCase();
+      const recoveryGate=providerRecoveryCoordinator.begin({
+       requestKey:musicWebRequestKey,provider:'music-web',now:Date.now()
+      });
+      if(!recoveryGate.allow){
+       musicRecognitionDecision=recoveryGate.reason==='provider-backoff'
+        ?'Music web lookup temporarily degraded · local detection continues'
+        :'Duplicate lyric lookup suppressed';
+      }else try{
        const resolved=await searchMusicByLyricClue({
         query:lyric.query,evidenceId:job.evidenceId,
         ownerEnabled:true,preferredProvider:remoteProviderPreference(),
@@ -2204,7 +2233,7 @@ async function processMusicRecognitionWork(job){
        });
        if(!current()){outcome='cancelled';return;}
        if(resolved.candidate){
-        noteRoomProviderOutcome('music-web','success','candidate');
+        noteRoomProviderOutcome('music-web','success','candidate',musicWebRequestKey);
         const observed=musicIdentificationTracker.observeCandidate(
          resolved.candidate,Date.now()
         );
@@ -2213,11 +2242,12 @@ async function processMusicRecognitionWork(job){
          ?'Track confirmed from corroborated lyric/web evidence'
          :'Web lyric candidate received · waiting for another independent clue';
        }else{
+        noteRoomProviderOutcome('music-web','success','no-match',musicWebRequestKey);
         musicRecognitionDecision='Public web search found no strong song candidate';
        }
       }catch(error){
-       if(error?.name==='AbortError'){outcome='cancelled';return;}
-       noteRoomProviderOutcome('music-web','failure',String(error?.message||'lookup-error'));
+       if(error?.name==='AbortError'){providerRecoveryCoordinator.cancel({requestKey:musicWebRequestKey});outcome='cancelled';return;}
+       noteRoomProviderOutcome('music-web','failure',String(error?.message||'lookup-error'),musicWebRequestKey);
        const status=Number(error?.status);
        musicRecognitionDecision=status===409
         ?'Remote lyric lookup unavailable · OpenAI provider not configured'
@@ -2251,6 +2281,8 @@ async function processMusicRecognitionWork(job){
     :'Music window retained no identity evidence · live-room speech risk avoided';
   }
  }catch(error){
+  if(String(error?.message||'').toLowerCase().includes('transcrib'))
+   noteRoomProviderOutcome('local-whisper','failure',String(error?.message||'transcription-error'),'local-whisper:music:'+job.evidenceId);
   outcome='error';
   musicRecognitionState='error';
   musicRecognitionDecision='Music identification window failed safely';
@@ -2408,7 +2440,7 @@ function logMediaIdentificationResult(result){
  });
 }
 async function processMediaRecognitionWork(job){
- let outcome='complete';
+ let outcome='complete',mediaWebRequestKey=null;
  const generation=job.generation;
  const current=()=>generation===mediaRecognitionGeneration&&mediaIdentificationEnabled;
  try{
@@ -2416,7 +2448,9 @@ async function processMediaRecognitionWork(job){
   renderMediaIdentification();
   const ready=await ensureTranscriptionEngine();
   if(!ready){mediaRecognitionDecision='Local recorded-media transcription unavailable';return;}
+  const whisperRequestKey='local-whisper:media:'+job.evidenceId;
   const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+  noteRoomProviderOutcome('local-whisper','success','media-transcription',whisperRequestKey);
   if(!current()){outcome='cancelled';return;}
   const clue=mediaIdentificationTracker.noteDialogue(detail.text,Date.now());
   mediaWorkingDialogueQuery=clue.usable?clue.query:'';
@@ -2437,6 +2471,16 @@ async function processMediaRecognitionWork(job){
   renderMediaIdentification();
   mediaWebAbortController?.abort();
   mediaWebAbortController=new AbortController();
+  mediaWebRequestKey='media-web:'+job.evidenceId+':'+clue.query.toLowerCase();
+  const recoveryGate=providerRecoveryCoordinator.begin({
+   requestKey:mediaWebRequestKey,provider:'media-web',now:Date.now()
+  });
+  if(!recoveryGate.allow){
+   mediaRecognitionDecision=recoveryGate.reason==='provider-backoff'
+    ?'Media lookup temporarily degraded · local detection continues'
+    :'Duplicate media lookup suppressed';
+   return;
+  }
   const resolved=await searchMediaByClues({
    dialogueQuery:clue.query,visualClue:mediaWorkingVisualClue,
    mediaKind:job.mediaKind,evidenceId:job.evidenceId,
@@ -2445,16 +2489,21 @@ async function processMediaRecognitionWork(job){
   });
   if(!current()){outcome='cancelled';return;}
   if(resolved.candidate){
-   noteRoomProviderOutcome('media-web','success','candidate');
+   noteRoomProviderOutcome('media-web','success','candidate',mediaWebRequestKey);
    const observed=mediaIdentificationTracker.observeCandidate(resolved.candidate,Date.now());
    logMediaIdentificationResult(observed);
    mediaRecognitionDecision=observed.media.status==='confirmed'
     ?'Recorded media title confirmed from corroborated evidence'
     :'Media candidate received · waiting for another independent clue';
-  }else mediaRecognitionDecision='Public web search found no strong media candidate';
+  }else{
+   noteRoomProviderOutcome('media-web','success','no-match',mediaWebRequestKey);
+   mediaRecognitionDecision='Public web search found no strong media candidate';
+  }
  }catch(error){
-  if(error?.name==='AbortError'){outcome='cancelled';return;}
-  noteRoomProviderOutcome('media-web','failure',String(error?.message||'lookup-error'));
+  if(error?.name==='AbortError'){if(mediaWebRequestKey)providerRecoveryCoordinator.cancel({requestKey:mediaWebRequestKey});outcome='cancelled';return;}
+  if(String(error?.message||'').toLowerCase().includes('transcrib'))
+   noteRoomProviderOutcome('local-whisper','failure',String(error?.message||'transcription-error'),'local-whisper:media:'+job.evidenceId);
+  else noteRoomProviderOutcome('media-web','failure',String(error?.message||'lookup-error'),mediaWebRequestKey);
   outcome='error';
   const status=Number(error?.status);
   mediaRecognitionDecision=status===409
