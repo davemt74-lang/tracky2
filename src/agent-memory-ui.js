@@ -3,7 +3,7 @@ import {
 } from './agent-memory-core.js';
 import {
  MemoryProposalLedger,approvedMemoryFromProposal,reviewMemoryProposal,
- validateMemoryProposalSources
+ validateMemoryProposalSources,situationalPatternEvidence
 } from './agent-memory-learning-core.js';
 import {
  listAgentMemories,saveAgentMemory,saveApprovedMemoryProposal,deleteAgentMemory
@@ -11,6 +11,7 @@ import {
 
 export function createAgentMemoryUi({
  participants=()=>[],getDialogueTurns=()=>[],getRoomEvents=()=>[],getMeetings=()=>[],
+ getSituationalAwareness=()=>({events:[],feedback:[]}),
  onAudit=()=>null,onChanged=()=>{}
 }={}){
  const $=id=>document.getElementById(id);
@@ -25,7 +26,8 @@ export function createAgentMemoryUi({
  const setStatus=text=>{if(ui.status)ui.status.textContent=text;};
  const names=()=>new Map((participants()||[]).map(p=>[p.id,p.nickname||p.name||p.id]));
  const evidence=()=>({
-  dialogueTurns:getDialogueTurns()||[],roomEvents:getRoomEvents()||[],meetings:getMeetings()||[]
+  dialogueTurns:getDialogueTurns()||[],roomEvents:getRoomEvents()||[],meetings:getMeetings()||[],
+  situationalPatterns:situationalPatternEvidence(getSituationalAwareness()||{})
  });
  function participantOptions(){
   if(!ui.person)return;
@@ -76,7 +78,8 @@ export function createAgentMemoryUi({
  }
  function sourceLabel(ref){
   return ({dialogue:'Canonical dialogue', 'room-event':'Owner ROOM decision',
-   'meeting-note':'Owner meeting note','meeting-decision':'Owner-marked meeting decision'})[ref.kind]||ref.kind;
+   'meeting-note':'Owner meeting note','meeting-decision':'Owner-marked meeting decision',
+   'situational-pattern':'Adaptive situational pattern'})[ref.kind]||ref.kind;
  }
  async function approveProposal(proposal,{text,type,expiry}){
   const valid=validateMemoryProposalSources(proposal,evidence());
@@ -138,6 +141,7 @@ export function createAgentMemoryUi({
    const expiry=document.createElement('select');expiry.setAttribute('aria-label','Proposal expiry');
    for(const [value,label] of [['0','Never expires'],['1','1 day'],['7','7 days'],['30','30 days'],['90','90 days']])
     expiry.add(new Option(label,value));
+   if(String(proposal.method||'').startsWith('adaptive-'))expiry.value='90';
    const review=document.createElement('small');review.className='agent-memory-proposal-review';
    review.textContent=reviewLabel(reviewMemoryProposal(proposal,ledger.entries()));
    const sources=document.createElement('div');sources.className='agent-session-context';
@@ -164,7 +168,7 @@ export function createAgentMemoryUi({
   proposalLedger.scan(evidence());renderProposals();
   if(announce)setStatus(proposalLedger.entries().length
    ?proposalLedger.entries().length+' reviewable memory proposal(s) found. Nothing is saved until you approve.'
-   :'No eligible explicit memory statements found in current canonical evidence.');
+   :'No eligible explicit or repeated adaptive memory patterns found.');
   return proposalLedger.entries();
  }
  function render(){
