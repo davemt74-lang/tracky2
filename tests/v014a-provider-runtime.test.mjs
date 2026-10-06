@@ -27,14 +27,14 @@ test('14A schema and UI expose provider use without exposing credentials',()=>{
  assert.match(mode,/querySelfHostedSpeech/);
 });
 
-test('14A provider release artifacts remain included under later V0.14 additive releases',()=>{
+test('14A provider release artifacts remain included under later releases',()=>{
  const workflow=read('.github/workflows/test.yml'),audit=read('scripts/audit.mjs'),sw=read('sw.js');
  for(const needle of ['src/provider-router-core.js','server/provider-api.php']){
   assert.match(workflow,new RegExp(needle.replaceAll('.','\\.')));
  }
- assert.match(workflow,/tracky2-v0\.14\.\d+-deploy\.zip/);
+ assert.match(workflow,/tracky2-v0\.\d+\.\d+-deploy\.zip/);
  assert.match(audit,/provider-router-core\.js/);assert.match(audit,/provider-api\.php/);
- assert.match(sw,/provider-router-core\.js/);assert.match(sw,/tracky2-static-v0\.14\.\d+/);
+ assert.match(sw,/provider-router-core\.js/);assert.match(sw,/tracky2-static-v0\.\d+\.\d+/);
 });
 
 
