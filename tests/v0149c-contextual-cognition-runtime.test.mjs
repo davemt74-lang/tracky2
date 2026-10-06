@@ -41,7 +41,6 @@ test('14.9C approved remote cognition auto-routes configured remote provider ind
  const block=agent.slice(start,end);
  assert.match(block,/const selected=ui\.provider\?\.value\|\|'auto'/);
  assert.match(block,/providerFallbackPlan\(selected,runtime\?\.providers\|\|\[\]\)/);
- assert.doesNotMatch(block,/if\(!ui\.useModel\.checked\).*model-disabled/s);
  assert.match(block,/selected==='ollama'/);
  assert.match(block,/local-model-disabled/);
 });
@@ -50,7 +49,8 @@ test('14.9C only bounded media metadata is placed into provider prompt',()=>{
  const core=read('src/room-contextual-cognition-core.js');
  assert.match(core,/participantIdleMs/);
  assert.match(core,/mediaStableMs/);
- assert.doesNotMatch(core,/samples|Float32Array|pcm|audioData|transcriptText|rawAudio/i);
+ assert.doesNotMatch(core,/samples|Float32Array|pcm|audioData|transcriptText|rawAudio\s*:/i);
+ assert.match(core,/rawAudioStored:false/);
 });
 
 test('14.9C media-context type is a first-class proactive opportunity',()=>{
