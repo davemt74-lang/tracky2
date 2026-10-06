@@ -19,7 +19,7 @@ import {
 import {
  EnvironmentalActivityTracker,EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
  environmentalActivityMessage,environmentalFeedbackFromRoomEvent,environmentalV2Message,
- normalizeEnvironmentalV2Predictions
+ normalizeEnvironmentalV2Predictions,recordedMediaCueFromPredictions
 } from './src/environmental-intelligence-core.js';
 import {
  RoomSpeechOriginTracker,resolveRoomSpeechOrigin,roomSpeechOriginMessage
@@ -462,6 +462,35 @@ let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
 let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
+const environmentalSpeechEvidenceWaiters=new Map();
+let environmentalSpeechEvidenceSequence=0;
+function createEnvironmentalSpeechEvidenceRequest(){
+ const id='speech-env-'+Date.now().toString(36)+'-'+(++environmentalSpeechEvidenceSequence).toString(36);
+ let settle;
+ const promise=new Promise(resolve=>{settle=resolve;});
+ const timer=setTimeout(()=>{
+  const waiter=environmentalSpeechEvidenceWaiters.get(id);
+  if(!waiter)return;
+  environmentalSpeechEvidenceWaiters.delete(id);
+  waiter.resolve(null);
+ },900);
+ environmentalSpeechEvidenceWaiters.set(id,{
+  resolve:value=>{clearTimeout(timer);settle(value);}
+ });
+ return Object.freeze({id,promise});
+}
+function resolveEnvironmentalSpeechEvidence(id,value=null){
+ if(!id)return false;
+ const waiter=environmentalSpeechEvidenceWaiters.get(id);
+ if(!waiter)return false;
+ environmentalSpeechEvidenceWaiters.delete(id);
+ waiter.resolve(value);return true;
+}
+function clearEnvironmentalSpeechEvidence(){
+ for(const [id,waiter] of environmentalSpeechEvidenceWaiters){
+  environmentalSpeechEvidenceWaiters.delete(id);waiter.resolve(null);
+ }
+}
 let environmentalAudioDecision='Disabled by owner';
 let environmentalAudioLastErrorAt=-Infinity;
 let analyzeAmbientPatterns=false,advancedRoomMappingEnabled=false;
