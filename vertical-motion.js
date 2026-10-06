@@ -29,6 +29,7 @@ import {
  identifyMusicFingerprint,musicIdentificationMessage
 } from './src/music-identification-core.js';
 import {searchMusicByLyricClue} from './src/music-identification-client.js';
+import {createAcrCloudMusicProvider} from './src/music-fingerprint-client.js';
 import {
  MediaIdentificationTracker,MediaLookupGuard,MediaRecognitionQueue,
  mediaIdentificationMessage
@@ -500,7 +501,11 @@ let personalizedSoundProfiles=[];
 let latestLearnableSound=null;
 let musicIdentificationEnabled=true;
 let musicLyricWebLookupEnabled=false;
-let musicFingerprintProvider=null;
+let musicFingerprintLookupEnabled=false;
+let musicFingerprintAbortController=null;
+const musicFingerprintProvider=createAcrCloudMusicProvider({
+ ownerEnabled:()=>musicFingerprintLookupEnabled
+});
 let musicRecognitionState='idle';
 let musicRecognitionDecision='Waiting for stable music';
 let musicWorkingLyricQuery='';
@@ -1186,6 +1191,7 @@ function renderMusicIdentification(){
  const queue=musicRecognitionQueue.snapshot();
  const track=musicIdentificationTracker.snapshot();
  if(status)status.textContent=(musicIdentificationEnabled?'ON':'OFF')+
+  ' · ACRCloud '+(musicFingerprintLookupEnabled?'ON':'OFF')+
   ' · lyric web '+(musicLyricWebLookupEnabled?'ON':'OFF')+' · '+
   musicRecognitionDecision+(queue.processing?' · analyzing':'')+
   (queue.queueDepth?' · '+queue.queueDepth+' queued':'');
@@ -1224,21 +1230,44 @@ async function processMusicRecognitionWork(job){
  const current=()=>generation===musicRecognitionGeneration&&musicIdentificationEnabled;
  try{
   musicRecognitionState='analyzing';
-  musicRecognitionDecision=musicFingerprintProvider
-   ?'Trying configured fingerprint provider':'No fingerprint provider configured · trying local lyric fallback';
+  musicRecognitionDecision=musicFingerprintLookupEnabled
+   ?'Trying ACRCloud exact music recognition'
+   :'ACRCloud exact recognition is off · trying local lyric fallback';
   renderMusicIdentification();
 
-  const fingerprint=await identifyMusicFingerprint(musicFingerprintProvider,{
-   samples:job.samples,sampleRate:job.sampleRate,durationMs:job.durationMs,at:job.at
-  });
-  if(!current()){outcome='cancelled';return;}
-  if(fingerprint.candidate){
-   const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
-   logMusicIdentificationResult(observed);
-   musicRecognitionDecision=observed.track.status==='confirmed'
-    ?'Track confirmed by fingerprint evidence':'Fingerprint candidate received · waiting for corroboration';
-   if(observed.track.status==='confirmed'){
-    musicWorkingLyricQuery='';renderMusicIdentification();return;
+  let fingerprint=Object.freeze({available:false,candidate:null,reason:'disabled'});
+  if(musicFingerprintLookupEnabled){
+   musicFingerprintAbortController?.abort();
+   musicFingerprintAbortController=new AbortController();
+   try{
+    fingerprint=await identifyMusicFingerprint(musicFingerprintProvider,{
+     samples:job.samples,sampleRate:job.sampleRate,durationMs:job.durationMs,at:job.at,
+     evidenceId:job.evidenceId,signal:musicFingerprintAbortController.signal
+    });
+   }catch(error){
+    if(error?.name==='AbortError'){outcome='cancelled';return;}
+    const status=Number(error?.status);
+    musicRecognitionDecision=status===409
+     ?'ACRCloud credentials are not configured · continuing with local lyric fallback'
+     :status===403
+      ?'ACRCloud recognition unavailable · provider permission required'
+      :'ACRCloud recognition failed safely · continuing with local lyric fallback';
+    console.warn('ACRCloud music recognition failed',error);
+   }finally{
+    musicFingerprintAbortController=null;
+   }
+   if(!current()){outcome='cancelled';return;}
+   if(fingerprint.candidate){
+    const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
+    logMusicIdentificationResult(observed);
+    musicRecognitionDecision=observed.track.status==='confirmed'
+     ?'Track confirmed by ACRCloud evidence'
+     :'ACRCloud candidate received · waiting for corroboration';
+    if(observed.track.status==='confirmed'){
+     musicWorkingLyricQuery='';renderMusicIdentification();return;
+    }
+   }else if(fingerprint.available&&fingerprint.reason==='no-match'){
+    musicRecognitionDecision='ACRCloud found no match · trying local lyric fallback';
    }
   }
 
@@ -1302,7 +1331,9 @@ async function processMusicRecognitionWork(job){
     musicRecognitionDecision='Local lyric transcription unavailable';
    }
   }else if(!fingerprint.candidate){
-   musicRecognitionDecision='Music window retained no identity evidence · live-room speech risk avoided';
+   musicRecognitionDecision=musicFingerprintLookupEnabled
+    ?'No exact music match · live-room speech risk avoided'
+    :'Music window retained no identity evidence · live-room speech risk avoided';
   }
  }catch(error){
   outcome='error';
@@ -1348,6 +1379,7 @@ function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=n
 }
 function resetMusicIdentification(reason='Waiting for stable music'){
  musicRecognitionGeneration++;
+ musicFingerprintAbortController?.abort();musicFingerprintAbortController=null;
  musicLyricWebAbortController?.abort();musicLyricWebAbortController=null;
  musicRecognitionQueue.clear();musicIdentificationTracker.reset();
  musicLyricLookupGuard.reset();
