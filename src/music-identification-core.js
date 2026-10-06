@@ -91,6 +91,7 @@ function publicTrack(candidate,status,observations,at,firstAt){
   schema:MUSIC_ID_SCHEMA,status,title:candidate?.title||null,artist:candidate?.artist||null,
   album:candidate?.album||null,provider:candidate?.provider||null,
   externalId:candidate?.externalId||null,
+  sourceUrls:Object.freeze(Array.from(candidate?.sourceUrls||[]).slice(0,5)),
   confidence:candidate?Number(clamp(candidate.confidence).toFixed(4)):0,
   observations,firstAt:firstAt||null,lastAt:at||null
  });
