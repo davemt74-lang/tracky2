@@ -1530,7 +1530,7 @@ function renderMediaIdentification(){
  }
 }
 function logMediaIdentificationResult(result){
- if(result?.media?.status==='confirmed'&&['confirmed','media-changed'].includes(result.transition)){
+ if(result?.media?.status==='confirmed'&&['confirmed','content-changed'].includes(result.transition)){
   observeRoomAudioIdentity({
    kind:result.media.kind,title:result.media.title,series:result.media.series,
    season:result.media.season,episode:result.media.episode,
