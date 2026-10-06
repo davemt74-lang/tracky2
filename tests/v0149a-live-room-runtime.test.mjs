@@ -21,7 +21,8 @@ test('14.9A uncertain mixed music can transcribe locally but cannot use web look
 
 test('14.9A recorded media web lookup requires behavior-policy approval',()=>{
  const runtime=read('vertical-motion.js');
- assert.match(runtime,/speechOrigin\?\.state!=='recorded'\|\|!policy\.allowRemoteDialogueLookup/);
+ assert.match(runtime,/if\(speechOrigin\?\.state!=='recorded'\)return false/);
+ assert.match(runtime,/if\(!policy\.allowRemoteDialogueLookup\)return false/);
 });
 
 test('14.9A provider outcomes are telemetry-only and contain no audio payload',()=>{
