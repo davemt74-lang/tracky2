@@ -3904,7 +3904,10 @@ function onRoomAudioSegment(segment) {
   reportListeningDrops(queued.dropped);
   runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
   renderRuntimeHealth();renderListeningHealth();
-  if(!queued.accepted)return;
+  if(!queued.accepted){
+    resolveEnvironmentalSpeechEvidence(evidenceRequest.id,null);
+    return;
+  }
   void drainRoomAudioQueue();
 }
 
