@@ -54,3 +54,11 @@ test('15.1F coordinator is metadata-only and bounded',()=>{
  assert.ok(c.snapshot(1000).recent.length<=20);
  for(const bad of ['rawAudio','transcript','embedding','samples','imageData'])assert.equal(json.includes(bad),false);
 });
+
+
+test('15.1F replay tombstones restore across browser reload',()=>{
+ const first=new RestartReconnectCoordinator({epochId:'e1'});
+ first.markCompleted('follow:42',1000);
+ const second=new RestartReconnectCoordinator({epochId:'e2',state:first.exportState(1200)});
+ assert.equal(second.replayAllowed('follow:42',1300).allow,false);
+});
