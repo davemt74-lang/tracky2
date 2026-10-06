@@ -53,6 +53,27 @@ export function normalizeMusicCandidate(input={},source='fingerprint',at=Date.no
   confidence,at:finite(at)?at:Date.now()
  });
 }
+export async function identifyMusicFingerprint(provider,{
+ samples=null,sampleRate=16000,durationMs=0,at=Date.now(),signal=null
+}={}){
+ if(!provider)return Object.freeze({available:false,candidate:null,reason:'provider-not-configured'});
+ if(typeof provider.identify!=='function')
+  return Object.freeze({available:false,candidate:null,reason:'provider-invalid'});
+ if(!samples?.length)
+  return Object.freeze({available:true,candidate:null,reason:'missing-samples'});
+ const raw=await provider.identify({samples,sampleRate,durationMs,at,signal});
+ const candidate=normalizeMusicCandidate(raw||{},'fingerprint',at);
+ return Object.freeze({
+  available:true,candidate,reason:candidate?'candidate':'no-match'
+ });
+}
+
+export function musicLyricSearchSeed(text){
+ const lyric=typeof text==='string'?normalizeLyricWorkingText(text):text;
+ if(!lyric?.usable)return '';
+ return lyric.query;
+}
+
 export function musicCandidateKey(candidate){
  if(!candidate)return '';
  const norm=v=>String(v||'').toLowerCase().normalize('NFKD')
