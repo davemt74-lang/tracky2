@@ -1,6 +1,6 @@
 {
   "name": "tracky2",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "private": true,
   "type": "module",
   "description": "Tracky2 modular camera-controlled game platform with timed Random Follow Pattern, participant tracking and optional voice profiles",

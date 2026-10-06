@@ -22,7 +22,7 @@ test('participant save falls back to recovery IndexedDB and merges reads',()=>{
 
 test('service worker cannot pin participant code to an old cache after deploy',()=>{
  const sw=read('sw.js');
- assert.match(sw,/tracky2-static-v0\.15\.1-participant-save-r2/);
+ assert.match(sw,/tracky2-static-v0\.15\.2-participant-save-r2/);
  const fetchBlock=sw.slice(sw.indexOf("self.addEventListener('fetch'"));
  assert.match(fetchBlock,/Network-first for application code/);
  assert.match(fetchBlock,/fetch\(request\)\.then\(response=>/);

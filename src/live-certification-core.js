@@ -1,10 +1,10 @@
-// V0.15.1G installed-device live certification harness.
+// V0.15.2G installed-device live certification harness.
 // Metadata-only scenario evidence. No raw media, transcript bodies, embeddings, or provider payloads.
 const clean=(v,n=240)=>String(v??'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,n);
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 
 export const LIVE_CERT_SCHEMA=1;
-export const LIVE_CERT_VERSION='0.15.1';
+export const LIVE_CERT_VERSION='0.15.2';
 export const LIVE_CERT_SCENARIOS=Object.freeze([
  'long-session-stability',
  'participant-arrival-departure-reentry',
