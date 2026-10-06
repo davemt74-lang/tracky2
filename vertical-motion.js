@@ -231,7 +231,7 @@ import {
   listPersonalizedSoundProfiles,savePersonalizedSoundProfile,
   deletePersonalizedSoundProfile,clearPersonalizedSoundProfiles,
   listRoutineFeedback,saveRoutineFeedback,clearRoutineFeedback,
-  startSessionIdentity,endStoredSessionIdentity
+  startSessionIdentity,endStoredSessionIdentity,PARTICIPANT_CHANGE_KEY
 } from './src/participant-store.js';
 
 const $ = (s) => document.querySelector(s);
@@ -4082,6 +4082,20 @@ function renderGame() {
   setGameInstructions(presentation.title, presentation.detail);
 }
 
+let participantProfileRefreshTimer=0;
+function scheduleParticipantProfileRefresh(){
+ clearTimeout(participantProfileRefreshTimer);
+ participantProfileRefreshTimer=setTimeout(async()=>{
+  participantProfileRefreshTimer=0;
+  await reloadIdentityParticipants();
+  if(state.mode==='agent')renderParticipantCards();
+ },80);
+}
+window.addEventListener('tracky:participant-account-change',scheduleParticipantProfileRefresh);
+window.addEventListener('storage',event=>{
+ if(event.key===PARTICIPANT_CHANGE_KEY)scheduleParticipantProfileRefresh();
+});
+
 async function enumerateCameras() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const cameras = devices.filter((d) => d.kind === 'videoinput');
@@ -5227,6 +5241,22 @@ async function diarizeRoomSegment(segment,wholeEmbedding=null) {
   return Object.freeze({...diarization,continuousFusion});
 }
 
+function noteLiveVoiceProfileMatch(match,segment){
+ if(!match?.matched||!match.participant?.id)return false;
+ const participant=state.identity.participants.find(person=>person.id===match.participant.id);
+ if(!participant||!voiceProfileReadiness(participant).ready)return false;
+ const liveTrack=state.identity.tracks.find(candidate=>
+  candidate.participantId===participant.id&&
+  !['occluded','reacquiring'].includes(candidate.status));
+ if(!liveTrack)return false;
+ liveTrack.voiceProfileMatchedSegment=true;
+ liveTrack.voiceProfileMatchConfidence=Number(match.similarity)||0;
+ liveTrack.lastVoiceProfileMatchAt=performance.now();
+ liveTrack.voiceLevelDb=Number.isFinite(segment?.avgDb)?segment.avgDb:state.voice.micDb;
+ updateParticipantAudioMeters(true);
+ return true;
+}
+
 async function processRoomSegment(segment) {
   let outcome='completed';
   if (!voiceSegmentIsCurrent(segment)) {
@@ -5246,6 +5276,7 @@ async function processRoomSegment(segment) {
     if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const rawVoiceMatch = bestVoiceMatch(embedding, state.identity.participants);
+    noteLiveVoiceProfileMatch(rawVoiceMatch,segment);
     const diarization=await diarizeRoomSegment(segment,embedding);
     if(diarization.state==='cancelled'){outcome='cancelled';return;}
     let overlapSeparation=separateStereoOverlap(
