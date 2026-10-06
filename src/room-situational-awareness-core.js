@@ -95,14 +95,14 @@ export function situationalInterestingness(event,context={}){
  const novelty=clamp(event.novelty);
  const salience=clamp(event.salience);
  const confidence=clamp(event.confidence);
- const recurrencePenalty=clamp(profile.recurrence*.22);
+ const recurrencePenalty=clamp(profile.recurrence*.15);
  const interruptionFatigue=clamp((context.recentInterruptions||0)/6)*.28;
  const score=clamp(
-  .22*novelty+
-  .22*salience+
-  .16*confidence+
-  .2*freshness+
-  .2*profile.score-
+  .15*novelty+
+  .15*salience+
+  .15*confidence+
+  .15*freshness+
+  .4*profile.score-
   recurrencePenalty-
   interruptionFatigue
  );
