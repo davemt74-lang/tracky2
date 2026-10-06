@@ -170,7 +170,7 @@ function updateEnrollmentUi() {
 
 function renderFaceGallery() {
   ui.faceGallery.replaceChildren();
-  for(let i=0;i<5;i++){
+  for(let i=0;i<MAX_FACE_SAMPLES;i++){
     const sample=state.gallery[i];
     const card=document.createElement('article');
     card.className='face-gallery-tile';
@@ -187,7 +187,8 @@ function renderFaceGallery() {
       frame.append(empty);
     }
     const title=document.createElement('strong');
-    title.textContent='Sample '+(i+1)+(sample?' · Saved':' · Pending');
+    const pose=sample?.poseLabel||FACE_CAPTURE_POSES[i]?.label||('Angle '+(i+1));
+    title.textContent=pose+(sample?' · Saved':' · Pending');
     card.append(frame,title);
     if(sample){
       const detail=document.createElement('small');
@@ -211,7 +212,7 @@ function renderFaceGallery() {
         state.retakeIndex=state.retakeIndex===i?null:i;
         updateEnrollmentUi();renderFaceGallery();
         if(state.retakeIndex!==null)
-          setMessage('Sample '+(i+1)+' selected. Face the camera, then click Retake sample.','ok');
+          setMessage((sample?.poseLabel||('Sample '+(i+1)))+' selected. Match that angle, then click Retake.','ok');
       });
       const remove=document.createElement('button');
       remove.type='button';remove.textContent='Remove';
