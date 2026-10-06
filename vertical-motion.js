@@ -838,6 +838,7 @@ function considerContextualMediaEngagement(now=Date.now()){
   recentInterruptions:proactiveGovernor.snapshot(now).interruptionsThisHour,
   now
  });
+ if(!situationalDecision.interesting)return candidate;
  const adaptiveQuality=proactivityQualityTracker.shouldSpeak({
   participantId:candidate.participantId,topicKey:candidate.topicKey,
   semanticKey:'media-context:'+candidate.participantId+':'+candidate.topicKey,
@@ -845,11 +846,10 @@ function considerContextualMediaEngagement(now=Date.now()){
   now,baseMaxInterruptionsPerHour:proactiveGovernor.policy.maxInterruptionsPerHour
  });
  const adaptiveMaxInterruptionsPerHour=adaptiveQuality.policy.maxInterruptionsPerHour;
- if(!situationalDecision.interesting||!adaptiveQuality.allow){
+ if(!adaptiveQuality.allow){
   proactivityQualityTracker.note({
    participantId:candidate.participantId,topicKey:candidate.topicKey,
-   action:'silence',outcome:'silence-correct',
-   reason:!situationalDecision.interesting?'not-interesting':adaptiveQuality.reason
+   action:'silence',outcome:'silence-correct',reason:adaptiveQuality.reason
   },now);
   recordUnifiedCognitiveOutcome({
    action:'adaptive-silence',participantId:candidate.participantId,
