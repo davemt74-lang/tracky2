@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  RoomSituationalAwarenessTracker,adaptiveInterestProfile,
- situationalInterestingness,normalizeSituationalEvent
+ situationalInterestingness,normalizeSituationalEvent,
+ situationalFeedbackFromReply,exportSituationalAwareness,restoreSituationalAwareness
 } from '../src/room-situational-awareness-core.js';
 
 test('14.9D positive response history raises adaptive interest over time',()=>{
@@ -76,4 +77,25 @@ test('14.9D tracker remains bounded and metadata-only',()=>{
  assert.equal(s.eventCount,40);
  assert.equal(s.feedbackCount,20);
  assert.equal('rawAudio' in s,false);
+});
+
+
+test('14.9D participant replies classify adaptive feedback conservatively',()=>{
+ assert.equal(situationalFeedbackFromReply('tell me more about that').outcome,'expanded');
+ assert.equal(situationalFeedbackFromReply('yeah, that is interesting').outcome,'positive');
+ assert.equal(situationalFeedbackFromReply('not now please').outcome,'dismissed');
+ assert.equal(situationalFeedbackFromReply('I need to call Mike',{elapsedMs:30000}).outcome,'neutral');
+ assert.equal(situationalFeedbackFromReply('I need to call Mike',{elapsedMs:180000}).outcome,'topic-changed');
+});
+
+test('14.9D bounded awareness survives local restart export/restore without raw media',()=>{
+ const t=new RoomSituationalAwarenessTracker();
+ t.observe({participantId:'p1',type:'media-context',topicKey:'music:x',message:'media changed'},1000);
+ t.noteFeedback({participantId:'p1',topicKey:'music:x',eventType:'media-context',outcome:'positive'},2000);
+ const payload=exportSituationalAwareness(t);
+ const restored=restoreSituationalAwareness(JSON.parse(JSON.stringify(payload)));
+ assert.equal(restored.snapshot().eventCount,1);
+ assert.equal(restored.snapshot().feedbackCount,1);
+ assert.equal(restored.feedback[0].outcome,'positive');
+ assert.equal(JSON.stringify(payload).includes('rawAudio'),false);
 });
