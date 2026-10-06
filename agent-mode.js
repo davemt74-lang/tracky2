@@ -695,14 +695,14 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const value=String(prompt||'').trim();
   if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
    return Object.freeze({ok:false,reason:'agent-unavailable',reply:''});
-  if(!ui.useModel.checked)
-   return Object.freeze({ok:false,reason:'model-disabled',reply:''});
   const selected=ui.provider?.value||'auto';
   const messages=[
    {role:'system',content:'You are the room agent. Follow the supplied context exactly. Never invent a media title, artist, show, user activity, or preference. Keep proactive remarks brief, optional, and conversational.'},
    {role:'user',content:value}
   ];
   if(selected==='ollama'){
+   if(!ui.useModel.checked)
+    return Object.freeze({ok:false,reason:'local-model-disabled',reply:''});
    let endpoint;
    try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
    catch(error){return Object.freeze({ok:false,reason:error.message,reply:''});}
