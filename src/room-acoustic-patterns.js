@@ -27,3 +27,19 @@ export function describeAcousticPattern(summary){
  return Object.freeze({pattern,description,confidence,
   at:summary.at,durationMs:summary.durationMs,source:'shared-room-mic-metadata'});
 }
+
+
+export class RoomAcousticPatternTracker{
+ constructor({repeatMs=60000}={}){
+  this.repeatMs=Math.max(15000,Number(repeatMs)||60000);
+  this.last=null;
+ }
+ reset(){this.last=null;}
+ observe(pattern,now=Date.now()){
+  if(!pattern)return Object.freeze({emit:false,reason:'no-pattern',pattern:null});
+  const same=this.last&&this.last.pattern===pattern.pattern;
+  const emit=!same||!this.last||now-this.last.emittedAt>=this.repeatMs;
+  if(emit)this.last={pattern:pattern.pattern,emittedAt:now};
+  return Object.freeze({emit,reason:emit?(same?'repeat-window':'changed'):'deduplicated',pattern});
+ }
+}
