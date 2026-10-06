@@ -280,10 +280,12 @@
 
 /* V0.9.2: individual meters NEVER display live shared-room microphone noise.
    Only a completed, voice-profile-verified segment may animate a card. */
-.game-page.agent-mode .participant-audio-meter[data-mode="verified"] .participant-audio-fill{
+.game-page.agent-mode .participant-audio-meter[data-mode="verified"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="profile-match"] .participant-audio-fill{
  background:linear-gradient(90deg,#1caaa2,#8cf7bb);box-shadow:0 0 13px rgba(83,246,183,.48);
 }
-.game-page.agent-mode .participant-audio-meter[data-mode="verified"] + .participant-audio-caption{
+.game-page.agent-mode .participant-audio-meter[data-mode="verified"] + .participant-audio-caption,
+.game-page.agent-mode .participant-audio-meter[data-mode="profile-match"] + .participant-audio-caption{
  color:#96f7c0
 }
 .game-page.agent-mode .participant-audio-meter[data-mode="unenrolled"] .participant-audio-fill,
