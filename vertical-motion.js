@@ -1236,7 +1236,7 @@ async function processMusicRecognitionWork(job){
   renderMusicIdentification();
 
   let fingerprint=Object.freeze({available:false,candidate:null,reason:'disabled'});
-  if(musicFingerprintLookupEnabled){
+  if(musicFingerprintLookupEnabled&&job.remoteExactEligible){
    musicFingerprintAbortController?.abort();
    musicFingerprintAbortController=new AbortController();
    try{
@@ -1269,6 +1269,10 @@ async function processMusicRecognitionWork(job){
    }else if(fingerprint.available&&fingerprint.reason==='no-match'){
     musicRecognitionDecision='ACRCloud found no match · trying local lyric fallback';
    }
+  }
+
+  if(musicFingerprintLookupEnabled&&!job.remoteExactEligible&&!fingerprint.candidate){
+   musicRecognitionDecision='ACRCloud audio skipped · live-room speech may be present';
   }
 
   if(job.lyricEligible){
@@ -1363,16 +1367,22 @@ function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=n
  const durationMs=Number(segment.captureDurationMs)||
   Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
  const lyricEligible=Boolean(primaryMusic&&speechOrigin?.state!=='live');
+ // ACRCloud browser transport sends a short WAV, so require V2A to positively
+ // classify the sound as recorded before any room audio may leave the device.
+ const remoteExactEligible=Boolean(speechOrigin?.state==='recorded');
  const queued=musicRecognitionQueue.enqueue({
   category:'music',durationMs,sampleRate:Number(segment.sampleRate)||16000,
   samples:segment.samples,at:Number(segment.queuedAt)||Date.now(),
-  lyricEligible,evidenceId:String(segment.segmentId||('music-'+Date.now())).slice(0,96),
+  lyricEligible,remoteExactEligible,
+  evidenceId:String(segment.segmentId||('music-'+Date.now())).slice(0,96),
   generation:musicRecognitionGeneration,documentHidden:document.hidden
  },Date.now());
  if(queued.accepted){
-  musicRecognitionDecision=lyricEligible
-   ?'Music window queued · fingerprint then local lyric fallback'
-   :'Music window queued · fingerprint only while live speech is possible';
+  musicRecognitionDecision=remoteExactEligible
+   ?(lyricEligible
+     ?'Music window queued · ACRCloud exact match then local lyric fallback'
+     :'Music window queued · ACRCloud exact match only')
+   :'Music window queued · remote exact match held because live-room speech may be present';
   renderMusicIdentification();drainMusicRecognitionQueue();return true;
  }
  return false;
