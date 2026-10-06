@@ -15,7 +15,7 @@ import {
 import {LiveCertificationHarness,LIVE_CERT_SCENARIOS} from './src/live-certification-core.js';
 import {buildFinalCertificationReport,canonicalFinalCertificationJson,finalCertificationLabel} from './src/final-certification-core.js';
 
-const DIAGNOSTICS_RELEASE={version:'0.15.2'};
+const DIAGNOSTICS_RELEASE={version:'0.15.3'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
