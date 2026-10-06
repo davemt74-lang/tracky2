@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  MUSIC_ID_MIN_WINDOW_MS,MusicIdentificationTracker,MusicRecognitionQueue,
- musicIdentificationMessage,musicWindowEligibility,normalizeLyricWorkingText,
- normalizeMusicCandidate
+ identifyMusicFingerprint,musicIdentificationMessage,musicLyricSearchSeed,
+ musicWindowEligibility,normalizeLyricWorkingText,normalizeMusicCandidate
 } from '../src/music-identification-core.js';
 
 test('V2B music windows require stable bounded music and obey cooldown',()=>{
@@ -78,4 +78,28 @@ test('V2B queue retains at most one memory-only recognition job and never persis
 test('V2B invalid title or artist cannot become an exact track identity',()=>{
  assert.equal(normalizeMusicCandidate({title:'Only title',confidence:.99},'fingerprint',1),null);
  assert.equal(normalizeMusicCandidate({artist:'Only artist',confidence:.99},'fingerprint',1),null);
+});
+
+
+test('V2B fingerprint adapter is provider-independent and returns normalized candidates',async()=>{
+ const provider={identify:async({samples,sampleRate,durationMs})=>{
+  assert.equal(samples.length,3);assert.equal(sampleRate,16000);assert.equal(durationMs,5000);
+  return {title:'Track',artist:'Artist',album:'Album',confidence:.93,
+   provider:'mock-fingerprint',externalId:'track-1'};
+ }};
+ const result=await identifyMusicFingerprint(provider,{
+  samples:new Float32Array([.1,.2,.3]),sampleRate:16000,durationMs:5000,at:1000
+ });
+ assert.equal(result.available,true);
+ assert.equal(result.reason,'candidate');
+ assert.equal(result.candidate.title,'Track');
+ assert.equal(result.candidate.source,'fingerprint');
+ const unavailable=await identifyMusicFingerprint(null,{samples:new Float32Array([.1])});
+ assert.equal(unavailable.reason,'provider-not-configured');
+});
+
+test('V2B lyric search seed exposes only bounded working text for the later resolver',()=>{
+ const query=musicLyricSearchSeed('hello darkness my old friend I have come to talk with you again');
+ assert.ok(query.length>10&&query.length<=160);
+ assert.equal(musicLyricSearchSeed('la la'), '');
 });
