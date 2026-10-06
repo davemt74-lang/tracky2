@@ -17,12 +17,13 @@ import {
  recordingIdsToExpire,recordingIdsToPrune,recordingMediaState,recoverInterruptedRecording
 } from './recording-core.js';
 import {normalizeEnvironmentalFeedback} from './environmental-intelligence-core.js';
+import {normalizePersonalizedSoundProfile} from './personalized-sound-core.js';
 import {
  normalizeRoutineFeedback,routineFeedbackIdsToPrune,scrubRoutineFeedbackParticipant
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 15;
+const DB_VERSION = 16;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -42,9 +43,11 @@ const RECORDINGS = 'recordings';
 const RECORDING_MEDIA = 'recording-media';
 const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback';
 const ROUTINE_FEEDBACK = 'routine-feedback';
+const PERSONALIZED_SOUNDS = 'personalized-sounds';
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 export const MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK=200;
 export const MAX_PERSISTED_ROUTINE_FEEDBACK=160;
+export const MAX_PERSISTED_PERSONALIZED_SOUNDS=32;
 
 export const PENDING_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MAX_DIALOGUE_TURNS = 500;
@@ -182,6 +185,11 @@ export async function openParticipantDb() {
         const routines=db.createObjectStore(ROUTINE_FEEDBACK,{keyPath:'id'});
         routines.createIndex('at','at',{unique:false});
         routines.createIndex('routineId','routineId',{unique:false});
+      }
+      if (!db.objectStoreNames.contains(PERSONALIZED_SOUNDS)) {
+        const sounds=db.createObjectStore(PERSONALIZED_SOUNDS,{keyPath:'id'});
+        sounds.createIndex('label','label',{unique:false});
+        sounds.createIndex('updatedAt','updatedAt',{unique:false});
       }
       if (!db.objectStoreNames.contains(DIALOGUE)) {
         const dialogue = db.createObjectStore(DIALOGUE, { keyPath: 'id' });
@@ -868,6 +876,42 @@ export async function saveEnvironmentalFeedback(input){
 }
 export function clearEnvironmentalFeedback(){
  return storeAction(ENVIRONMENTAL_FEEDBACK,'readwrite',store=>requestToPromise(store.clear()));
+}
+
+
+/* V0.14.8F owner-labeled local acoustic profiles.
+   Stores only bounded numeric feature vectors + labels; never raw audio,
+   transcripts, participant identity, model tensors or room recordings. */
+export function listPersonalizedSoundProfiles(){
+ return storeAction(PERSONALIZED_SOUNDS,'readonly',async store=>{
+  const rows=await requestToPromise(store.getAll()),safe=[];
+  for(const row of rows){
+   try{safe.push(normalizePersonalizedSoundProfile(row));}catch{}
+  }
+  return safe.sort((a,b)=>a.updatedAt-b.updatedAt)
+   .slice(-MAX_PERSISTED_PERSONALIZED_SOUNDS);
+ });
+}
+export async function savePersonalizedSoundProfile(input){
+ const record=normalizePersonalizedSoundProfile(input);
+ return storeAction(PERSONALIZED_SOUNDS,'readwrite',async store=>{
+  await requestToPromise(store.put(record));
+  const rows=await requestToPromise(store.getAll());
+  const remove=rows.sort((a,b)=>(Number(a.updatedAt)||0)-(Number(b.updatedAt)||0))
+   .slice(0,Math.max(0,rows.length-MAX_PERSISTED_PERSONALIZED_SOUNDS));
+  for(const row of remove)if(row?.id&&row.id!==record.id)store.delete(row.id);
+  return record;
+ });
+}
+export function deletePersonalizedSoundProfile(id){
+ const key=String(id||'').slice(0,96);
+ if(!key)return Promise.reject(new TypeError('Personalized sound profile ID required.'));
+ return storeAction(PERSONALIZED_SOUNDS,'readwrite',async store=>{
+  await requestToPromise(store.delete(key));return true;
+ });
+}
+export function clearPersonalizedSoundProfiles(){
+ return storeAction(PERSONALIZED_SOUNDS,'readwrite',store=>requestToPromise(store.clear()));
 }
 
 
