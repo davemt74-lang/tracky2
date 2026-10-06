@@ -676,7 +676,8 @@ function renderCognitiveStatus(){
    awareness.feedbackCount+' feedback signals · '+
    (saveRoomHistory?'saved locally':'session only')+
    (last?' · last interest '+Math.round(last.score*100)+'%':'')+
-   (planning.lastPlan?' · plan '+planning.lastPlan.action:'');
+   (planning.lastPlan?' · plan '+planning.lastPlan.action:'')+
+   (pendingContextualFollowThrough?' · follow-through '+pendingContextualFollowThrough.action+' pending':'');
  }
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
