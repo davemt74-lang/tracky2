@@ -57,12 +57,12 @@ export async function searchMusicByLyricClue({
    artist:String(data?.artist||'').replace(/\s+/g,' ').trim().slice(0,120),
    album:String(data?.album||'').replace(/\s+/g,' ').trim().slice(0,120)||null,
    confidence:Math.max(0,Math.min(1,Number(data?.confidence)||0)),
-   provider:String(data?.provider||'openai-web-search').slice(0,64),
+   provider:String(data?.provider||'web-search').slice(0,64),
    externalId:null,evidenceId:String(data?.evidenceId||evidenceId||'').slice(0,96),
    sourceUrls:boundedSources(data?.sources).map(row=>row.url)
   },'lyrics',Date.now()):null,
   sources:boundedSources(data?.sources),
-  provider:String(data?.provider||'openai-web-search').slice(0,64),
+  provider:String(data?.provider||'web-search').slice(0,64),
   model:String(data?.model||'').slice(0,80),
   budget:data?.budget&&typeof data.budget==='object'?Object.freeze({...data.budget}):null
  });
