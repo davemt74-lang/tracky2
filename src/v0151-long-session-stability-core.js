@@ -1,6 +1,6 @@
 // V0.15.1A installed-runtime long-session stability certification.
-// Stores bounded aggregate runtime metrics only; no media, transcript, image, or chain-of-thought data.
-const finite=v=>Number.isFinite(Number(v));
+// Stores bounded aggregate runtime metrics only; no media, transcript, image, or reasoning-trace data.
+const finite=v=>v!==null&&v!==''&&Number.isFinite(Number(v));
 const num=v=>finite(v)?Number(v):0;
 const clamp=(v,min=0,max=1)=>Math.max(min,Math.min(max,num(v)));
 const percentile=(values,p=.95)=>{
