@@ -469,6 +469,7 @@ let musicFingerprintProvider=null;
 let musicRecognitionState='idle';
 let musicRecognitionDecision='Waiting for stable music';
 let musicWorkingLyricQuery='';
+let musicRecognitionGeneration=0;
 let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
@@ -960,6 +961,8 @@ function logMusicIdentificationResult(result){
 }
 async function processMusicRecognitionWork(job){
  let outcome='complete';
+ const generation=job.generation;
+ const current=()=>generation===musicRecognitionGeneration&&musicIdentificationEnabled;
  try{
   musicRecognitionState='analyzing';
   musicRecognitionDecision=musicFingerprintProvider
@@ -969,6 +972,7 @@ async function processMusicRecognitionWork(job){
   const fingerprint=await identifyMusicFingerprint(musicFingerprintProvider,{
    samples:job.samples,sampleRate:job.sampleRate,durationMs:job.durationMs,at:job.at
   });
+  if(!current()){outcome='cancelled';return;}
   if(fingerprint.candidate){
    const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
    logMusicIdentificationResult(observed);
@@ -983,6 +987,7 @@ async function processMusicRecognitionWork(job){
    const ready=await ensureTranscriptionEngine();
    if(ready){
     const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+    if(!current()){outcome='cancelled';return;}
     const lyric=musicIdentificationTracker.noteLyrics(detail.text,Date.now());
     musicWorkingLyricQuery=lyric.usable?lyric.query:'';
     musicRecognitionDecision=lyric.usable
@@ -1001,9 +1006,11 @@ async function processMusicRecognitionWork(job){
   console.warn('Music identification failed',error);
  }finally{
   musicRecognitionQueue.complete(job);
-  if(outcome!=='error')musicRecognitionState='idle';
-  renderMusicIdentification();
-  void drainMusicRecognitionQueue();
+  if(current()){
+   if(outcome!=='error')musicRecognitionState='idle';
+   renderMusicIdentification();
+   void drainMusicRecognitionQueue();
+  }
  }
 }
 function drainMusicRecognitionQueue(){
@@ -1023,7 +1030,7 @@ function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=n
  const queued=musicRecognitionQueue.enqueue({
   category:'music',durationMs,sampleRate:Number(segment.sampleRate)||16000,
   samples:segment.samples,at:Number(segment.queuedAt)||Date.now(),
-  lyricEligible,documentHidden:document.hidden
+  lyricEligible,generation:musicRecognitionGeneration,documentHidden:document.hidden
  },Date.now());
  if(queued.accepted){
   musicRecognitionDecision=lyricEligible
@@ -1034,6 +1041,7 @@ function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=n
  return false;
 }
 function resetMusicIdentification(reason='Waiting for stable music'){
+ musicRecognitionGeneration++;
  musicRecognitionQueue.clear();musicIdentificationTracker.reset();
  musicWorkingLyricQuery='';musicRecognitionState='idle';musicRecognitionDecision=reason;
  renderMusicIdentification();
