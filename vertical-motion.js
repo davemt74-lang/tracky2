@@ -881,6 +881,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
+  roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
   environmentalAudioDecision='Basic ROOM environmental awareness enabled';
@@ -894,6 +895,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalEventGrouper.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
+  roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
   environmentalAudioDecision='Disabled by owner';
@@ -3904,7 +3906,10 @@ function onRoomAudioSegment(segment) {
   reportListeningDrops(queued.dropped);
   runtimeBudget.recordAudioQueue(listeningController.snapshot().queueDepth);
   renderRuntimeHealth();renderListeningHealth();
-  if(!queued.accepted)return;
+  if(!queued.accepted){
+    resolveEnvironmentalSpeechEvidence(evidenceRequest.id,null);
+    return;
+  }
   void drainRoomAudioQueue();
 }
 
