@@ -411,6 +411,7 @@ function considerContextualMediaEngagement(now=Date.now()){
  if(!prompt)return candidate;
  const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey;
  const offered=proactiveGovernor.offer(proactiveOpportunity({
+  id:'media-context:'+candidate.participantId,
   type:'media-context',
   participantId:candidate.participantId,
   scopeId:'media-context:'+candidate.participantId,
