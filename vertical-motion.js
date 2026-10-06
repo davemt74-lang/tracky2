@@ -56,6 +56,9 @@ import {
  situationalFeedbackFromReply,situationalPromptContext
 } from './src/room-situational-awareness-core.js';
 import {
+ RoomContextPlanner,contextualPlanPrompt
+} from './src/room-context-planning-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -413,6 +416,7 @@ function persistSituationalAwareness(){
 }
 function clearSituationalAwareness(){
  roomSituationalAwareness=new RoomSituationalAwarenessTracker();
+ roomContextPlanner=new RoomContextPlanner();
  pendingSituationalEngagement=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
  try{window.localStorage.removeItem('tracky2-room-situational-awareness-v1');}catch{}
@@ -527,11 +531,18 @@ function considerContextualMediaEngagement(now=Date.now()){
  const awarenessContext=situationalPromptContext(
   roomSituationalAwareness,situationalEvent,situationalDecision
  );
- const basePrompt=contextualMediaPrompt(candidate);
- if(!basePrompt)return candidate;
- const prompt=basePrompt+'\nSituational context: '+JSON.stringify(awarenessContext)+
-  '\nUse the situational context only to decide relevance and framing. Do not reveal scoring, history mechanics, or internal observations.';
- const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey;
+ const recentFeedback=roomSituationalAwareness.snapshot().recentFeedback||[];
+ const latestFeedback=[...recentFeedback].reverse().find(row=>
+  !row.participantId||String(row.participantId)===String(candidate.participantId)
+ )||null;
+ const plan=roomContextPlanner.plan(candidate,situationalDecision,{
+  recentDialogueTopicShift:latestFeedback?.outcome==='topic-changed',
+  now
+ });
+ if(plan.action==='silence')return candidate;
+ const prompt=contextualPlanPrompt(plan,candidate,awarenessContext);
+ if(!prompt)return candidate;
+ const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey+':'+plan.action;
  const offered=proactiveGovernor.offer(proactiveOpportunity({
   id:'media-context:'+candidate.participantId,
   type:'media-context',
@@ -551,7 +562,7 @@ function considerContextualMediaEngagement(now=Date.now()){
   source:'room-contextual-media-cognition'
  },now,proactiveGovernor.policy));
  if(offered?.opportunity?.id)
-  contextualOpportunityCandidates.set(offered.opportunity.id,candidate);
+  contextualOpportunityCandidates.set(offered.opportunity.id,{candidate,plan});
  return candidate;
 }
 
@@ -628,14 +639,18 @@ async function tickProactive(){
     scopeId:decision.opportunity.scopeId
    })===true;
   }
-  const contextualCandidate=contextualOpportunityCandidates.get(decision.opportunityId)||null;
-  if(contextualCandidate){
+  const contextualEntry=contextualOpportunityCandidates.get(decision.opportunityId)||null;
+  if(contextualEntry){
+   const contextualCandidate=contextualEntry.candidate;
+   const contextualPlan=contextualEntry.plan;
    const outcomeAt=Date.now();
    roomContextualCognition.record(contextualCandidate,{executed,at:outcomeAt});
+   roomContextPlanner.record(contextualPlan,{executed,at:outcomeAt});
    if(executed){
     pendingSituationalEngagement={
      participantId:contextualCandidate.participantId,
      topicKey:contextualCandidate.topicKey,
+     action:contextualPlan?.action||null,
      at:outcomeAt
     };
    }else{
@@ -726,6 +741,7 @@ const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
+let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
 let pendingSituationalEngagement=null,lastSituationalMediaKey='',lastSituationalMediaAt=0;
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
