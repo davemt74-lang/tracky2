@@ -112,12 +112,13 @@ test('bestParticipantMatch rejects ambiguous face profiles', () => {
 
 test('local participant record persists paired sample previews without affecting voice profiles',()=>{
  const p=participantRecord({name:'Test',embeddings:[[1,2],[3,4],[5,6]],
-   faceSamples:[{photo:'data:image/jpeg;base64,AAAA',quality:.8,capturedAt:'2026-10-03T00:00:00Z'},
-     {photo:null,quality:null,capturedAt:null},{photo:'data:image/jpeg;base64,BBBB',quality:.9}],
+   faceSamples:[{photo:'data:image/jpeg;base64,AAAA',quality:.8,capturedAt:'2026-10-03T00:00:00Z',poseId:'front'},
+     {photo:null,quality:null,capturedAt:null,poseId:'left'},{photo:'data:image/jpeg;base64,BBBB',quality:.9,poseId:'right'}],
    voiceEmbeddings:[[.1,.2]],voiceProfileSamples:[{duration:1.3}]});
  assert.equal(p.faceSamples.length,3);
  assert.equal(p.faceSamples[0].photo,'data:image/jpeg;base64,AAAA');
  assert.equal(p.faceSamples[1].photo,null);
+ assert.deepEqual(p.faceSamples.map(sample=>sample.poseId),['front','left','right']);
  assert.deepEqual(p.voiceEmbeddings,[[.1,.2]]);
  assert.equal(p.voiceProfileSamples.length,1);
  const older=participantRecord({name:'Legacy',embeddings:[[1],[2],[3]]});

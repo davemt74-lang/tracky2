@@ -221,7 +221,8 @@ export function participantRecord(input = {}) {
       ? input.faceSamples.map(sample=>({
         photo:typeof sample?.photo==='string' && sample.photo.startsWith('data:image/')?sample.photo:null,
         quality:Number.isFinite(sample?.quality)?sample.quality:null,
-        capturedAt:typeof sample?.capturedAt==='string'?sample.capturedAt:null
+        capturedAt:typeof sample?.capturedAt==='string'?sample.capturedAt:null,
+        poseId:typeof sample?.poseId==='string'?sample.poseId.slice(0,32):null
       })) : [],
     recognitionEnabled: input.recognitionEnabled !== false,
     agentGreetingEnabled: input.agentGreetingEnabled !== false,

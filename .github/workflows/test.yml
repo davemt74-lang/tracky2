@@ -228,7 +228,7 @@ jobs:
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/provider-router-core.js').then(m=>{if(!m.providerFallbackPlan||!m.boundedProviderMessages||!m.providerModelFor)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/governed-skill-core.js').then(m=>{if(!m.skillExecutionPolicy||!m.executionProvenance||!m.localSkillTarget)process.exit(1)})"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/agent-cognitive-core.js').then(m=>{if(!m.AgentCognitiveLoop||!m.inQuietHours)process.exit(1)})"
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 5) process.exit(1); })"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/face-gallery.js').then(m => { if (m.MIN_FACE_SAMPLES !== 3 || m.MAX_FACE_SAMPLES !== 9 || m.FACE_CAPTURE_POSES?.length !== 9 || !m.nextFaceCapturePose) process.exit(1); })"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/face-preview.js').then(m => { if (!m.facePreviewRect || !m.smoothPreviewRect) process.exit(1); })"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/games/random-follow-pattern.js').then(m => { if (!m.randomFollowPatternGame || m.FOLLOW_ZONE_COUNT !== 4) process.exit(1); })"
           node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.7/src/shared-board.js').then(m => { if (m.sharedBoardView().zones.length !== 4) process.exit(1); })"
