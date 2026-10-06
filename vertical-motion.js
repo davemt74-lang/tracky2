@@ -490,6 +490,7 @@ const musicLyricLookupGuard=new MusicLyricLookupGuard();
 const mediaIdentificationTracker=new MediaIdentificationTracker();
 const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
+const roomMediaFusionTracker=new RoomMediaFusionTracker();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
