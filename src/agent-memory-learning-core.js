@@ -243,13 +243,6 @@ export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings
    method:'owner-room-decision',createdAt:Number(event.at)||Date.now()});
   if(proposal)rows.push(proposal);
  }
- for(const row of Array.isArray(situationalPatterns)?situationalPatterns:[]){
-  const ref=proposalSource({
-   kind:'situational-pattern',sourceId:row.id,participantId:row.participantId,
-   at:row.at,text:row.text
-  });
-  if(ref)map.set('situational-pattern:'+ref.sourceId,ref);
- }
  for(const meeting of Array.isArray(meetings)?meetings:[]){
   for(const note of Array.isArray(meeting?.notes)?meeting.notes:[]){
    const candidate=candidateFromOwnerText(note.text);if(!candidate)continue;
@@ -294,6 +287,13 @@ function evidenceIndex({dialogueTurns=[],roomEvents=[],meetings=[],situationalPa
  for(const event of Array.isArray(roomEvents)?roomEvents:[]){
   const ref=proposalSource({kind:'room-event',sourceId:event.id,participantId:event.participantId,
    at:Number(event.at)||0,text:event.message});if(ref)map.set('room-event:'+ref.sourceId,ref);
+ }
+ for(const row of Array.isArray(situationalPatterns)?situationalPatterns:[]){
+  const ref=proposalSource({
+   kind:'situational-pattern',sourceId:row.id,participantId:row.participantId,
+   at:row.at,text:row.text
+  });
+  if(ref)map.set('situational-pattern:'+ref.sourceId,ref);
  }
  for(const meeting of Array.isArray(meetings)?meetings:[]){
   for(const note of Array.isArray(meeting?.notes)?meeting.notes:[]){
