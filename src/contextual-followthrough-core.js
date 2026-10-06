@@ -57,10 +57,14 @@ export function completedFollowThrough(proposal,{
 }={}){
  if(!proposal)return null;
  const finalStatus=['succeeded','failed','cancelled'].includes(status)?status:'failed';
- const safeSources=(Array.isArray(sources)?sources:[]).slice(0,5).map(row=>Object.freeze({
-  url:/^https:\/\//i.test(String(row?.url||''))?String(row.url).slice(0,700):'',
-  title:clean(row?.title,160)
- })).filter(row=>row.url);
+ const seen=new Set(),safeSources=[];
+ for(const row of Array.isArray(sources)?sources:[]){
+  const url=/^https:\/\//i.test(String(row?.url||''))?String(row.url).slice(0,700):'';
+  if(!url||seen.has(url))continue;
+  seen.add(url);
+  safeSources.push(Object.freeze({url,title:clean(row?.title,160)}));
+  if(safeSources.length>=5)break;
+ }
  return Object.freeze({
   ...proposal,status:finalStatus,completedAt:at,
   summary:clean(summary,900),sources:Object.freeze(safeSources),
