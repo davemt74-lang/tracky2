@@ -11,7 +11,7 @@ test('participant storage recovery recognizes browser IndexedDB internal failure
  assert.equal(participantStorageRecoveryReason({name:'QuotaExceededError',message:'quota exceeded'}),false);
 });
 
-test('participant save falls back to recovery IndexedDB and merges reads',()=>{
+test('participant save has recovery IndexedDB plus non-IndexedDB emergency storage',()=>{
  const store=read('src/participant-store.js');
  assert.match(store,/tracky-participant-profiles-recovery-v1/);
  assert.match(store,/saveRecoveryParticipant\(record,error\)/);
