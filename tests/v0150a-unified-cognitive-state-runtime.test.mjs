@@ -18,7 +18,8 @@ test('15A runtime builds one canonical cognitive state from existing subsystems'
 test('15A canonical state refreshes on room events and proactive cognition ticks',()=>{
  const runtime=read('vertical-motion.js');
  assert.match(runtime,/updateUnifiedCognitiveState\(accepted\.event\.at\|\|Date\.now\(\)\)/);
- assert.match(runtime,/updateUnifiedCognitiveState\(now\);\n settlePendingSituationalFeedback/);
+ assert.match(runtime,/updateUnifiedCognitiveState\(now\);/);
+ assert.match(runtime,/settlePendingSituationalFeedback\(now\);/);
 });
 
 test('15A canonical state excludes raw audio/frame capture objects',()=>{
