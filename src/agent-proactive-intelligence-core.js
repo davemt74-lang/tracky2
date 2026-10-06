@@ -13,6 +13,7 @@ const TYPE_WEIGHTS=Object.freeze({
  'task-status':Object.freeze({usefulness:.82,urgency:.62}),
  'meeting-followup':Object.freeze({usefulness:.72,urgency:.38}),
  'conversation-followup':Object.freeze({usefulness:.58,urgency:.22}),
+ 'media-context':Object.freeze({usefulness:.64,urgency:.12}),
  'routine-status':Object.freeze({usefulness:.52,urgency:.2})
 });
 
