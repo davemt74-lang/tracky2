@@ -738,6 +738,7 @@ function reportEnvironmentalDrops(dropped=[]){
 async function processEnvironmentalAudioWork(work){
  let outcome='classified';
  if(!environmentalAudioQueue.current(work,Date.now())){
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   environmentalAudioQueue.complete(work,'cancelled');renderEnvironmentalAudio();return;
  }
  try{
