@@ -6996,6 +6996,7 @@ function prepareRuntimeExit(reason='runtime-exit'){
  persistV0151Stability(true);
  persistRestartReconnectState(true);
  clearTransientCognition();
+ providerRecoveryCoordinator.resetInFlight(reason,Date.now());
  environmentalAudioQueue.disable();
  cancelCameraRecovery();
  cancelMicrophoneRecovery();
