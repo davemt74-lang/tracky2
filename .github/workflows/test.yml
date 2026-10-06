@@ -63,7 +63,7 @@ jobs:
           unzip -l tracky2-v0.14.8-deploy.zip | grep -F 'tracky2-v0.14.8/src/v013-release-core.js'
           unzip -l tracky2-v0.14.8-deploy.zip | grep -F 'tracky2-v0.14.8/src/v0148-release-core.js'
           unzip -l tracky2-v0.14.8-deploy.zip | grep -F 'tracky2-v0.14.8/docs/V0148-RELEASE-ACCEPTANCE.md'
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.14.8/src/v0148-release-core.js').then(m=>{if(m.V0148_RELEASE_VERSION!=='0.14.8'||!m.v0148ReleaseReadiness||!m.v0148PrivacyBoundary)process.exit(1)})"
+          node --input-type=module -e "import('./src/v0148-release-core.js').then(m=>{if(m.V0148_RELEASE_VERSION!=='0.14.8'||!m.v0148ReleaseReadiness||!m.v0148PrivacyBoundary)process.exit(1)})"
           unzip -l tracky2-v0.14.8-deploy.zip | grep -F 'tracky2-v0.14.8/docs/V013-RELEASE-ACCEPTANCE.md'
           node --input-type=module -e "import('./src/v013-release-core.js').then(m=>{if(m.V013_RELEASE_VERSION!=='0.13.9'||!m.v013RuntimeBounds||!m.v013AuthorityBoundary||!m.v013RepresentativeDeviceScope||!m.v013ArtifactIntegrity||!m.v013ReleaseReadiness)process.exit(1)})"
           node --input-type=module -e "import('./src/device-performance-core.js').then(m=>{if(!m.DevicePerformanceGovernor||!m.adaptivePerformancePolicy||!m.performanceCertificationOutcome)process.exit(1)})"
