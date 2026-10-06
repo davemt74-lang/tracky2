@@ -700,10 +700,13 @@ async function saveForm() {
     }
 
     await reloadParticipants();
+    const emergencySaved=record.storageTier==='emergency-local-storage';
     setMessage(
-      galleryStatus.requiredComplete
-        ? 'Photo profile saved. Face recognition is ready. Continue with Voice Profile enrollment. Signed-in account sync will update automatically.'
-        : 'Participant saved. Face recognition will become active after 3 clean face samples. You can continue face and voice enrollment now.',
+      emergencySaved
+        ? 'Participant saved using browser recovery storage. Continue with Voice Profile enrollment. Tracky will keep using this profile even while IndexedDB is unavailable.'
+        : galleryStatus.requiredComplete
+          ? 'Photo profile saved. Face recognition is ready. Continue with Voice Profile enrollment. Signed-in account sync will update automatically.'
+          : 'Participant saved. Face recognition will become active after 3 clean face samples. You can continue face and voice enrollment now.',
       'ok'
     );
   }catch(error){
