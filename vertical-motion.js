@@ -52,6 +52,10 @@ import {
  RoomContextualCognitionTracker,contextualMediaPrompt
 } from './src/room-contextual-cognition-core.js';
 import {
+ RoomSituationalAwarenessTracker,restoreSituationalAwareness,exportSituationalAwareness,
+ situationalFeedbackFromReply,situationalPromptContext
+} from './src/room-situational-awareness-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -391,6 +395,111 @@ function proactiveContext(now=Date.now()){
   quietPolicy:cognitiveLoop.policy
  };
 }
+function loadSituationalAwareness(){
+ if(!saveRoomHistory)return roomSituationalAwareness;
+ try{
+  const raw=window.localStorage.getItem('tracky2-room-situational-awareness-v1');
+  if(raw)roomSituationalAwareness=restoreSituationalAwareness(JSON.parse(raw));
+ }catch{}
+ return roomSituationalAwareness;
+}
+function persistSituationalAwareness(){
+ if(!saveRoomHistory)return false;
+ try{
+  window.localStorage.setItem('tracky2-room-situational-awareness-v1',
+   JSON.stringify(exportSituationalAwareness(roomSituationalAwareness)));
+  return true;
+ }catch{return false;}
+}
+function clearSituationalAwareness(){
+ roomSituationalAwareness=new RoomSituationalAwarenessTracker();
+ pendingSituationalEngagement=null;
+ lastSituationalMediaKey='';lastSituationalMediaAt=0;
+ try{window.localStorage.removeItem('tracky2-room-situational-awareness-v1');}catch{}
+}
+function situationalEventFromRoomEvent(event){
+ if(!event||!event.semantic)return null;
+ const allowed=new Set([
+  'participant-observed','participant-out-of-view','environmental-alert',
+  'music-identification','media-identification','room-media-continuity',
+  'routine-deviation','room-departure-confirmed','room-arrival-observed'
+ ]);
+ if(!allowed.has(event.semantic))return null;
+ let topicKey=event.semantic;
+ let mediaKind=null;
+ const music=event.evidence?.musicIdentification;
+ const media=event.evidence?.mediaIdentification;
+ const continuity=event.evidence?.roomMediaContinuity;
+ const alert=event.evidence?.environmentalAlert;
+ if(music?.artist||music?.title){
+  mediaKind='music';
+  topicKey='music:'+String(music.artist||'').toLowerCase()+'::'+String(music.title||'').toLowerCase();
+ }else if(media?.title||media?.series){
+  mediaKind=media.kind||'recorded-media';
+  topicKey=mediaKind+':'+String(media.series||'').toLowerCase()+'::'+String(media.title||'').toLowerCase();
+ }else if(continuity?.identity){
+  mediaKind=continuity.kind||'recorded-media';
+  topicKey=mediaKind+':'+String(continuity.identity.artist||continuity.identity.series||'').toLowerCase()+
+   '::'+String(continuity.identity.title||'').toLowerCase();
+ }else if(alert?.key){
+  topicKey='environment:'+String(alert.key).toLowerCase();
+ }
+ const novelty=['participant-observed','participant-out-of-view','room-departure-confirmed','room-arrival-observed'].includes(event.semantic)
+  ?.72:event.semantic==='environmental-alert'?.88:.66;
+ const salience=event.semantic==='environmental-alert'?.92:
+  event.semantic==='routine-deviation'?.78:.62;
+ return roomSituationalAwareness.observe({
+  id:event.id,participantId:event.participantId||null,
+  type:event.semantic,semantic:event.semantic,topicKey,mediaKind,
+  message:event.message,confidence:Number(event.confidence)||.5,
+  novelty,salience,source:event.source,relatedEventId:event.relatedEventId||null
+ },event.at||Date.now());
+}
+function situationalMediaEvent(candidate,now=Date.now()){
+ const key=String(candidate?.participantId||'')+':'+String(candidate?.topicKey||'');
+ if(!key||key===':')return null;
+ const recent=roomSituationalAwareness.relatedContext({
+  participantId:candidate.participantId,topicKey:candidate.topicKey,limit:1
+ })[0]||null;
+ if(recent&&recent.type==='media-context'&&now-recent.at<30000)return recent;
+ const novelty=(lastSituationalMediaKey&&lastSituationalMediaKey!==key)?.9:
+  lastSituationalMediaKey===key?.52:.76;
+ lastSituationalMediaKey=key;lastSituationalMediaAt=now;
+ return roomSituationalAwareness.observe({
+  participantId:candidate.participantId,type:'media-context',
+  topicKey:candidate.topicKey,mediaKind:candidate.mediaKind,
+  message:candidate.mediaLabel||'identified media context',
+  confidence:candidate.confidence,novelty,
+  salience:.64,source:'room-contextual-media-cognition'
+ },now);
+}
+function settlePendingSituationalFeedback(now=Date.now()){
+ if(!pendingSituationalEngagement)return null;
+ if(now-pendingSituationalEngagement.at<120000)return null;
+ const feedback=roomSituationalAwareness.noteFeedback({
+  participantId:pendingSituationalEngagement.participantId,
+  topicKey:pendingSituationalEngagement.topicKey,
+  eventType:'media-context',outcome:'ignored',weight:.7
+ },now);
+ pendingSituationalEngagement=null;
+ persistSituationalAwareness();
+ return feedback;
+}
+function noteSituationalDialogueFeedback(turn,now=Date.now()){
+ if(!pendingSituationalEngagement||!turn?.participantId||
+    String(turn.participantId)!==String(pendingSituationalEngagement.participantId))return null;
+ const elapsed=now-pendingSituationalEngagement.at;
+ if(elapsed<0||elapsed>180000)return settlePendingSituationalFeedback(now);
+ const classified=situationalFeedbackFromReply(turn.transcript,{elapsedMs:elapsed});
+ const feedback=roomSituationalAwareness.noteFeedback({
+  participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
+  eventType:'media-context',outcome:classified.outcome,weight:classified.weight
+ },now);
+ pendingSituationalEngagement=null;
+ persistSituationalAwareness();
+ return feedback;
+}
+
 function considerContextualMediaEngagement(now=Date.now()){
  if(state.mode!=='agent'||!agentRuntime||meetingUI?.activeMeeting()?.status==='active')return null;
  const visible=state.running?publicRoomTracks().filter(track=>
@@ -407,8 +516,21 @@ function considerContextualMediaEngagement(now=Date.now()){
   participant,temporal,continuity,audio,lastDialogueAt:latestCanonicalDialogueAt()
  },now);
  if(!candidate?.eligible)return candidate||null;
- const prompt=contextualMediaPrompt(candidate);
- if(!prompt)return candidate;
+ const situationalEvent=situationalMediaEvent(candidate,now);
+ if(!situationalEvent)return candidate;
+ const situationalDecision=roomSituationalAwareness.evaluate(situationalEvent,{
+  participantId:candidate.participantId,
+  recentInterruptions:proactiveGovernor.snapshot(now).interruptionsThisHour,
+  now
+ });
+ if(!situationalDecision.interesting)return candidate;
+ const awarenessContext=situationalPromptContext(
+  roomSituationalAwareness,situationalEvent,situationalDecision
+ );
+ const basePrompt=contextualMediaPrompt(candidate);
+ if(!basePrompt)return candidate;
+ const prompt=basePrompt+'\nSituational context: '+JSON.stringify(awarenessContext)+
+  '\nUse the situational context only to decide relevance and framing. Do not reveal scoring, history mechanics, or internal observations.';
  const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey;
  const offered=proactiveGovernor.offer(proactiveOpportunity({
   id:'media-context:'+candidate.participantId,
@@ -434,6 +556,15 @@ function considerContextualMediaEngagement(now=Date.now()){
 }
 
 function renderCognitiveStatus(){
+ const awarenessLabel=document.getElementById('roomSituationalAwarenessStatus');
+ if(awarenessLabel&&state.mode==='agent'){
+  const awareness=roomSituationalAwareness.snapshot();
+  const last=awareness.lastDecision;
+  awarenessLabel.textContent='Situational learning · '+awareness.eventCount+' events · '+
+   awareness.feedbackCount+' feedback signals · '+
+   (saveRoomHistory?'saved locally':'session only')+
+   (last?' · last interest '+Math.round(last.score*100)+'%':'');
+ }
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
  const cognitive=cognitiveLoop.snapshot(),proactive=proactiveGovernor.snapshot();
@@ -458,6 +589,7 @@ function recordProactiveSourceEvent(category,message,source,options={}){
 async function tickProactive(){
  if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
  const now=Date.now();
+ settlePendingSituationalFeedback(now);
  considerContextualMediaEngagement(now);
  const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
  renderCognitiveStatus();
@@ -498,7 +630,22 @@ async function tickProactive(){
   }
   const contextualCandidate=contextualOpportunityCandidates.get(decision.opportunityId)||null;
   if(contextualCandidate){
-   roomContextualCognition.record(contextualCandidate,{executed,at:Date.now()});
+   const outcomeAt=Date.now();
+   roomContextualCognition.record(contextualCandidate,{executed,at:outcomeAt});
+   if(executed){
+    pendingSituationalEngagement={
+     participantId:contextualCandidate.participantId,
+     topicKey:contextualCandidate.topicKey,
+     at:outcomeAt
+    };
+   }else{
+    roomSituationalAwareness.noteFeedback({
+     participantId:contextualCandidate.participantId,
+     topicKey:contextualCandidate.topicKey,eventType:'media-context',
+     outcome:'neutral',weight:.2
+    },outcomeAt);
+    persistSituationalAwareness();
+   }
    contextualOpportunityCandidates.delete(decision.opportunityId);
   }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
@@ -578,7 +725,9 @@ const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
+let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 const contextualOpportunityCandidates=new Map();
+let pendingSituationalEngagement=null,lastSituationalMediaKey='',lastSituationalMediaAt=0;
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -2277,6 +2426,8 @@ function addRoomObservation(observation){
  const accepted=roomLedger.append(scoped);
  if(!accepted.added)return;
  roomHistory=roomLedger.entries();renderRoomObservations();
+ const situationalEvent=situationalEventFromRoomEvent(accepted.event);
+ if(situationalEvent)persistSituationalAwareness();
  updateRoomHandoffFromObservation(accepted.event);
  updateRoutineDeviation(accepted.event);
  if(saveRoomHistory){
@@ -4818,6 +4969,7 @@ async function processRoomSegment(segment) {
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
        'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
       agentRuntime?.onDialogue(savedTurn);
+      noteSituationalDialogueFeedback(savedTurn,Date.now());
       proactiveGovernor.noteDialogue(savedTurn,Date.now());
       renderCognitiveStatus();
     }
@@ -6621,6 +6773,7 @@ if(state.mode==='agent'){
    }catch{saveRoomHistory=true;}
    roomOptIn.checked=saveRoomHistory;
   if(saveRoomHistory){
+   loadSituationalAwareness();
    const epoch=roomPrivacyEpoch;
    void listRoomObservations().then(rows=>{
     if(epoch!==roomPrivacyEpoch)return;
@@ -6636,6 +6789,7 @@ if(state.mode==='agent'){
    try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
    if(saveRoomHistory){
     persistCurrentRoomSnapshot();
+    persistSituationalAwareness();
     void refreshRoutineInsights({reloadFeedback:true});
    }else{
     routineCandidates=[];routineLastDeviation=null;renderRoutineInsights();
@@ -6646,6 +6800,7 @@ if(state.mode==='agent'){
    roomPrivacyEpoch++;
    roomLedger.clear();roomHistory=[];routineHistoryRows=[];
    routineCandidates=[];routineLastDeviation=null;
+   clearSituationalAwareness();
    renderRoomObservations();renderRoutineInsights();
    try{
     await roomWrites.catch(()=>{});
