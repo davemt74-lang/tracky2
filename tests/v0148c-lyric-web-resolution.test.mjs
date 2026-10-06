@@ -70,8 +70,23 @@ test('V2B3 server endpoint routes through configured OpenAI or Anthropic web sea
  assert.match(php,/'type'=>'json_schema'/);
  assert.match(php,/tracky_chat_provider_plan/);
  assert.match(php,/https:\/\/api\.anthropic\.com\/v1\/messages/);
+ assert.match(php,/stop_reason.*pause_turn/s);
+ assert.match(php,/tracky_chat_provider_plan\(\$db,\$preferred\)/);
+ assert.match(php,/foreach\(\$plan as \$provider\)/);
  assert.match(php,/Do not reproduce lyrics/);
  assert.match(php,/provider\.music-lyric-search/);
  assert.doesNotMatch(php,/tracky_provider_audit\([^;]*\$query/s);
  assert.match(php,/Lyric clue must be 12-160 characters/);
+});
+
+
+test('V2B3 packaged runtime includes governed lyric client and server endpoint',()=>{
+ const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
+ const sw=fs.readFileSync('sw.js','utf8');
+ const pkg=fs.readFileSync('package.json','utf8');
+ assert.match(workflow,/src\/music-identification-client\.js/);
+ assert.match(workflow,/server\/music-id-api\.php/);
+ assert.match(workflow,/searchMusicByLyricClue/);
+ assert.match(sw,/\.\/src\/music-identification-client\.js/);
+ assert.match(pkg,/node --check src\/music-identification-client\.js/);
 });
