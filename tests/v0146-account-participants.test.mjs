@@ -52,7 +52,8 @@ test('v0.14.6 participant editor supports account biometric consent and mobile b
  assert.match(html,/id="accountBiometricSyncEnabled"/);
  assert.match(html,/Sync encrypted face\/voice identity data across my signed-in Tracky2 devices/);
  assert.match(js,/accountBiometricSyncEnabled/);
- assert.match(js,/accountOnlyExisting/);
+ assert.match(js,/voiceDraftSaveFields/);
+ assert.doesNotMatch(js,/accountOnlyExisting/);
  assert.match(js,/Signed-in account sync will update automatically/);
  assert.match(core,/accountBiometricSyncEnabled: input\.accountBiometricSyncEnabled === true/);
 });

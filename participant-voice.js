@@ -1,9 +1,8 @@
 import { getParticipant, patchParticipant } from './src/participant-store.js';
+import {assessVoiceSampleLevels,voiceProfileReadiness} from './src/voice-core.js';
 import {
-  assessVoiceSampleLevels,
-  voiceEnrollmentConsistency,
-  voiceProfileReadiness
-} from './src/voice-core.js';
+  emptyVoiceDraft,normalizeVoiceDraft,appendVoiceDraftSample
+} from './src/participant-enrollment-core.js';
 import {
   MicrophoneCapture,
   VoiceIdentityEngine,
@@ -30,6 +29,7 @@ const ui = {
 
 const state = {
   participant: null,
+  draft: emptyVoiceDraft(),
   engine: new VoiceIdentityEngine(),
   capture: new MicrophoneCapture(),
   recording: false,
@@ -43,6 +43,19 @@ const state = {
 
 const AUTO_STOP_SECONDS = 8;
 const MIN_SAMPLE_SECONDS = 4;
+const DRAFT_ID='__participant-draft__';
+
+function activeProfile(){return state.participant||state.draft;}
+
+function emitRecording(recording){
+ window.dispatchEvent(new CustomEvent('tracky:participant-voice-recording',{detail:{recording:Boolean(recording)}}));
+}
+
+function emitDraft(){
+ window.dispatchEvent(new CustomEvent('tracky:participant-voice-draft',{
+  detail:{profile:normalizeVoiceDraft(state.draft)}
+ }));
+}
 
 function setStage(stage, detail) {
   state.stage = stage;
@@ -72,54 +85,53 @@ function renderBars(db) {
   });
 }
 
-function sampleSeconds(participant) {
-  return (participant?.voiceProfileSamples || []).reduce(
-    (sum, sample) => sum + Number(sample.durationSeconds || 0),
-    0
-  );
-}
-
 function render() {
   const participant = state.participant;
+  const profile=activeProfile();
   const saved = Boolean(participant?.id);
-  const readiness = voiceProfileReadiness(participant || {});
-  const sampleCount = participant?.voiceEmbeddings?.length || 0;
+  const readiness = voiceProfileReadiness(profile || {});
+  const sampleCount = profile?.voiceEmbeddings?.length || 0;
 
   ui.samples.textContent = sampleCount + ' / 3';
   ui.seconds.textContent = readiness.totalSeconds.toFixed(1) + 's';
-  ui.recognition.disabled = !saved || state.recording;
-  ui.record.disabled = !saved || state.recording;
+  ui.recognition.disabled = state.recording;
+  ui.record.disabled = state.recording;
   ui.stop.disabled = !state.recording;
-  ui.recognition.checked = participant?.voiceRecognitionEnabled !== false;
+  ui.recognition.checked = profile?.voiceRecognitionEnabled !== false;
 
-  ui.status.textContent = !saved
-    ? 'Save participant to enable voice profiling'
-    : readiness.ready
+  ui.status.textContent = saved
+    ? readiness.ready
       ? 'Voice profile ready · redundant speaker samples active'
       : sampleCount
         ? 'Voice profile building · ' + sampleCount + ' / 3 samples'
-        : 'Voice profile not enrolled';
+        : 'Voice profile not enrolled'
+    : readiness.ready
+      ? 'Draft Voice Profile ready · save participant to keep it'
+      : sampleCount
+        ? 'Draft Voice Profile building · ' + sampleCount + ' / 3 · saves with participant'
+        : 'Voice Profile ready to capture · saves with participant';
 
   if (readiness.ready) setPipeline('ready');
   else if (sampleCount >= 2) setPipeline('redundancy');
   else if (sampleCount >= 1) setPipeline('embed');
   else setPipeline('capture');
 
-  if (!saved && !state.recording) {
-    setStage('voice core standby', 'Save the participant profile before voice enrollment.');
-  } else if (saved && !state.recording && state.stage === 'idle') {
+  if (!state.recording && state.stage === 'idle') {
     setStage(
       readiness.ready ? 'voice profile ready' : 'voice profile enrollment',
       readiness.ready
-        ? 'Tracky can use this participant voice signature for live speaker tracking.'
-        : 'Capture three clean speech samples from slightly different phrases.'
+        ? saved
+          ? 'Tracky can use this participant voice signature for live speaker tracking.'
+          : 'Draft Voice Profile is complete. Save the participant to keep it.'
+        : saved
+          ? 'Capture three clean speech samples from slightly different phrases.'
+          : 'Capture three clean phrases now. The Voice Profile will be saved with the new participant.'
     );
   }
 }
 
 async function cancelRecordingForProfileChange() {
   if (!state.recording) return;
-
   state.recording = false;
   state.recordingParticipantId = null;
   cancelAnimationFrame(state.meterRaf);
@@ -129,24 +141,26 @@ async function cancelRecordingForProfileChange() {
   ui.liveDb.textContent = '— dB';
   ui.progress.style.width = '0%';
   renderBars(-100);
+  emitRecording(false);
 }
 
 async function loadParticipant(participantId) {
-  if (
-    state.recording &&
-    participantId !== state.recordingParticipantId
-  ) {
+  const nextId=participantId||'';
+  if (state.recording && nextId !== String(state.recordingParticipantId||'')) {
     await cancelRecordingForProfileChange();
   }
 
   if (!participantId) {
     state.participant = null;
+    state.draft=emptyVoiceDraft();
     state.stage = 'idle';
     render();
+    emitDraft();
     return;
   }
 
   state.participant = await getParticipant(participantId);
+  state.draft=emptyVoiceDraft();
   state.stage = 'idle';
   render();
 }
@@ -170,7 +184,6 @@ async function ensureEngine() {
 
 function meterLoop() {
   if (!state.recording) return;
-
   const level = state.capture.level();
   state.levels.push(level.db);
   ui.liveDb.textContent = level.db.toFixed(1) + ' dB';
@@ -180,20 +193,19 @@ function meterLoop() {
   ui.progress.style.width = Math.min(100, elapsed / AUTO_STOP_SECONDS * 100) + '%';
   setStage('capturing voice profile', elapsed.toFixed(1) + 's · speak naturally at your normal level');
   setPipeline('capture');
-
   state.meterRaf = requestAnimationFrame(meterLoop);
 }
 
 async function startRecording() {
-  if (!state.participant?.id || state.recording) return;
-
+  if (state.recording) return;
   try {
     await state.capture.start();
     state.recording = true;
-    state.recordingParticipantId = state.participant.id;
+    state.recordingParticipantId = state.participant?.id || DRAFT_ID;
     state.recordStartedAt = performance.now();
     state.levels = [];
     ui.progress.style.width = '0%';
+    emitRecording(true);
     render();
     meterLoop();
 
@@ -203,7 +215,7 @@ async function startRecording() {
     console.error(error);
     setStage(
       'microphone error',
-      window.isSecureContext ? 'Could not open the microphone.' : 'Microphone access requires localhost or HTTPS.'
+      window.isSecureContext ? 'Could not open the microphone. Check browser permission and try again.' : 'Microphone access requires localhost or HTTPS.'
     );
   }
 }
@@ -216,6 +228,7 @@ async function stopRecording() {
   state.recordingParticipantId = null;
   cancelAnimationFrame(state.meterRaf);
   clearTimeout(state.autoStopTimer);
+  emitRecording(false);
 
   setStage('noise gate', 'Checking level and rejecting unusable background-only audio.');
   setPipeline('clean');
@@ -249,19 +262,34 @@ async function stopRecording() {
     setStage('extracting voice identity', 'Converting the clean speech sample into a local speaker signature.');
     const embedding = await extractVoiceEmbedding(state.engine, sample.blob);
 
-    const current = recordingParticipantId
-      ? await getParticipant(recordingParticipantId)
-      : null;
+    const draftCapture=recordingParticipantId===DRAFT_ID;
+    const current = draftCapture
+      ? state.draft
+      : recordingParticipantId
+        ? await getParticipant(recordingParticipantId)
+        : null;
     if (!current) {
       setStage('profile changed', 'The participant changed before this sample completed, so the sample was discarded.');
       return;
     }
-    const consistency = voiceEnrollmentConsistency(
-      embedding,
-      current.voiceEmbeddings || []
-    );
 
-    if (!consistency.accept) {
+    const updatedAt=new Date().toISOString();
+    const result=appendVoiceDraftSample(current,{
+      embedding,
+      sample:{
+        durationSeconds: sample.durationSeconds,
+        peakDb: quality.peakDb,
+        avgDb: quality.averageDb,
+        noiseFloorDb: quality.noiseFloorDb,
+        signalDb: quality.signalDb,
+        speechFraction: quality.speechFraction,
+        createdAt:updatedAt
+      },
+      recognitionEnabled:ui.recognition.checked,
+      updatedAt
+    });
+
+    if (!result.accepted) {
       setPipeline('clean');
       setStage(
         'speaker mismatch',
@@ -270,57 +298,53 @@ async function stopRecording() {
       return;
     }
 
-    const embeddings = [...(current.voiceEmbeddings || []), embedding].slice(-5);
-    const profileSamples = [...(current.voiceProfileSamples || []), {
-      durationSeconds: sample.durationSeconds,
-      peakDb: quality.peakDb,
-      avgDb: quality.averageDb,
-      noiseFloorDb: quality.noiseFloorDb,
-      signalDb: quality.signalDb,
-      speechFraction: quality.speechFraction,
-      consistency: consistency.similarity,
-      createdAt: new Date().toISOString()
-    }].slice(-5);
-
-    const readiness = voiceProfileReadiness({
-      ...current,
-      voiceEmbeddings: embeddings,
-      voiceProfileSamples: profileSamples
-    });
-
+    const readiness=voiceProfileReadiness(result.profile);
     setPipeline(readiness.ready ? 'ready' : 'redundancy');
     setStage(
       readiness.ready ? 'voice profile ready' : 'building redundancy',
       readiness.ready
-        ? 'Three or more voice signatures are available for live speaker tracking.'
-        : 'Sample saved. Capture additional phrases so Tracky can verify the speaker redundantly.'
+        ? draftCapture
+          ? 'Three or more voice signatures are ready. Save the participant to keep this Voice Profile.'
+          : 'Three or more voice signatures are available for live speaker tracking.'
+        : draftCapture
+          ? 'Sample captured in the draft. Capture additional phrases, then save the participant.'
+          : 'Sample saved. Capture additional phrases so Tracky can verify the speaker redundantly.'
     );
 
-    state.participant = await patchParticipant(current.id, {
-      voiceEmbeddings: embeddings,
-      voiceProfileSamples: profileSamples,
-      voiceProfileReady: readiness.ready,
-      voiceRecognitionEnabled: ui.recognition.checked,
-      voiceUpdatedAt: new Date().toISOString()
-    });
-
+    if(draftCapture){
+      state.draft=result.profile;
+      emitDraft();
+    }else{
+      state.participant = await patchParticipant(current.id,result.profile);
+      window.dispatchEvent(new CustomEvent('tracky:participant-voice-updated', {
+        detail: { participantId: current.id }
+      }));
+    }
     ui.progress.style.width = '100%';
-    window.dispatchEvent(new CustomEvent('tracky:participant-voice-updated', {
-      detail: { participantId: current.id }
-    }));
   } catch (error) {
     console.error(error);
     setStage('voice profile error', error.message || 'Could not process voice profile sample.');
   } finally {
+    state.levels=[];
     render();
   }
 }
 
 async function saveRecognitionPreference() {
-  if (!state.participant?.id) return;
+  const updatedAt=new Date().toISOString();
+  if (!state.participant?.id) {
+    state.draft=normalizeVoiceDraft({
+      ...state.draft,
+      voiceRecognitionEnabled:ui.recognition.checked,
+      voiceUpdatedAt:updatedAt
+    });
+    emitDraft();
+    render();
+    return;
+  }
   state.participant = await patchParticipant(state.participant.id, {
     voiceRecognitionEnabled: ui.recognition.checked,
-    voiceUpdatedAt: new Date().toISOString()
+    voiceUpdatedAt: updatedAt
   });
   render();
   window.dispatchEvent(new CustomEvent('tracky:participant-voice-updated', {
@@ -334,7 +358,10 @@ ui.recognition.addEventListener('change', saveRecognitionPreference);
 
 window.addEventListener('tracky:participant-loaded', (event) => loadParticipant(event.detail.participantId));
 window.addEventListener('tracky:participant-saved', (event) => loadParticipant(event.detail.participantId));
-window.addEventListener('tracky:participant-cleared', () => loadParticipant(''));
+window.addEventListener('tracky:participant-cleared', async () => {
+ await cancelRecordingForProfileChange();
+ state.participant=null;state.draft=emptyVoiceDraft();state.stage='idle';render();emitDraft();
+});
 window.addEventListener('beforeunload', () => {
   state.recording = false;
   state.recordingParticipantId = null;
@@ -342,5 +369,5 @@ window.addEventListener('beforeunload', () => {
 });
 
 const initialId = document.body.dataset.participantId || '';
-await loadParticipant(initialId);
-render();
+if(initialId)await loadParticipant(initialId);
+else render();
