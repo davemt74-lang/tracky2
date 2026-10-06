@@ -44,6 +44,8 @@ export function normalizeSituationalFeedback(input={},at=Date.now()){
   at,participantId:clean(input.participantId,96)||null,
   topicKey:clean(input.topicKey,360)||null,
   eventType:clean(input.eventType,64)||null,
+  mediaKind:clean(input.mediaKind,48)||null,
+  action:clean(input.action,32)||null,
   outcome:allowed.includes(outcome)?outcome:'neutral',
   weight:clamp(input.weight??1)
  });

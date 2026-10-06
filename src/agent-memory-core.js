@@ -9,7 +9,7 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const short=(v,n)=>String(v??'').trim().slice(0,n);
 const id=()=>globalThis.crypto?.randomUUID?.()||
  'memory-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
-const SOURCE_KINDS=new Set(['dialogue','room-event','meeting-note','meeting-decision']);
+const SOURCE_KINDS=new Set(['dialogue','room-event','meeting-note','meeting-decision','situational-pattern']);
 export function normalizeMemorySourceRefs(input=[]){
  const rows=[];
  for(const ref of Array.isArray(input)?input:[]){

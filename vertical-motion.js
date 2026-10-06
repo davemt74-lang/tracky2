@@ -415,6 +415,7 @@ function persistSituationalAwareness(){
  try{
   window.localStorage.setItem('tracky2-room-situational-awareness-v1',
    JSON.stringify(exportSituationalAwareness(roomSituationalAwareness)));
+  memoryUI?.refreshProposals?.();
   return true;
  }catch{return false;}
 }
@@ -487,7 +488,9 @@ function settlePendingSituationalFeedback(now=Date.now()){
  const feedback=roomSituationalAwareness.noteFeedback({
   participantId:pendingSituationalEngagement.participantId,
   topicKey:pendingSituationalEngagement.topicKey,
-  eventType:'media-context',outcome:'ignored',weight:.7
+  eventType:'media-context',mediaKind:pendingSituationalEngagement.mediaKind,
+  action:pendingSituationalEngagement.action,
+  outcome:'ignored',weight:.7
  },now);
  roomContextPlanner.noteFeedback({
   action:pendingSituationalEngagement.action,
@@ -591,7 +594,9 @@ function noteSituationalDialogueFeedback(turn,now=Date.now()){
  const classified=situationalFeedbackFromReply(turn.transcript,{elapsedMs:elapsed});
  const feedback=roomSituationalAwareness.noteFeedback({
   participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
-  eventType:'media-context',outcome:classified.outcome,weight:classified.weight
+  eventType:'media-context',mediaKind:pendingSituationalEngagement.mediaKind,
+  action:pendingSituationalEngagement.action,
+  outcome:classified.outcome,weight:classified.weight
  },now);
  roomContextPlanner.noteFeedback({
   action:pendingSituationalEngagement.action,
@@ -6612,6 +6617,7 @@ if(state.mode==='agent'){
    getDialogueTurns:()=>state.voice.turns,
    getRoomEvents:()=>roomLedger.entries(),
     getMeetings:()=>meetingUI?.meetings?.()||[],
+   getSituationalAwareness:()=>exportSituationalAwareness(roomSituationalAwareness),
    onAudit:(message,memory)=>logRoomMessage('system',message,'owner-memory',{
     kind:'decision',semantic:'owner-memory-change',participantId:memory?.participantId||null
    }),
