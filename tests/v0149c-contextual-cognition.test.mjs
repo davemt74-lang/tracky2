@@ -74,3 +74,25 @@ test('14.9C tracker records only metadata about executed engagement',()=>{
  assert.equal(row.topicKey,candidate.topicKey);
  assert.equal('rawAudio' in row,false);
 });
+
+
+test('14.9C failed generation attempt backs off briefly without consuming long semantic cooldown',()=>{
+ const obs=contextualMediaObservation({...base(),now});
+ const first=contextualMediaEngagementCandidate(obs,[],now);
+ const retry=contextualMediaEngagementCandidate(obs,[{
+  topicKey:first.topicKey,executed:false,at:now-30000
+ }],now);
+ assert.equal(retry.eligible,false);
+ assert.ok(retry.reasons.includes('recent-generation-attempt'));
+ const later=contextualMediaEngagementCandidate(obs,[{
+  topicKey:first.topicKey,executed:false,at:now-180000
+ }],now);
+ assert.equal(later.eligible,true);
+});
+
+test('14.9C no named show song artist or canned example exists in cognition source',()=>{
+ const source=await import('node:fs').then(fs=>fs.readFileSync(
+  new URL('../src/room-contextual-cognition-core.js',import.meta.url),'utf8'
+ ));
+ assert.doesNotMatch(source,/The Outpost|Eyes of the World|Grateful Dead|Greatful Dead/i);
+});
