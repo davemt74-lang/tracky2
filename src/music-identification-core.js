@@ -9,6 +9,8 @@ export const MUSIC_ID_ATTEMPT_COOLDOWN_MS=12000;
 export const MUSIC_ID_CANDIDATE_MAX_AGE_MS=120000;
 export const MUSIC_ID_CONFIRM_OBSERVATIONS=2;
 export const MUSIC_ID_MAX_LYRIC_WORDS=24;
+export const MUSIC_ID_LYRIC_WEB_COOLDOWN_MS=20000;
+export const MUSIC_ID_LYRIC_WEB_DEDUPE_MS=10*60*1000;
 
 export function musicWindowEligibility({
  category='',durationMs=0,at=Date.now(),lastAttemptAt=0,processing=false,
@@ -50,6 +52,9 @@ export function normalizeMusicCandidate(input={},source='fingerprint',at=Date.no
  return Object.freeze({
   schema:MUSIC_ID_SCHEMA,title,artist,album,externalId,provider,
   source:['fingerprint','lyrics','visual','metadata'].includes(source)?source:'metadata',
+  evidenceId:clean(input.evidenceId,96)||null,
+  sourceUrls:Object.freeze((Array.isArray(input.sourceUrls)?input.sourceUrls:[])
+   .map(value=>clean(value,700)).filter(value=>/^https:\/\//i.test(value)).slice(0,5)),
   confidence,at:finite(at)?at:Date.now()
  });
 }
@@ -115,15 +120,19 @@ export class MusicIdentificationTracker{
   }
   if(!this.pending||this.pending.key!==key||now-this.pending.lastAt>this.candidateMaxAgeMs){
    this.pending={key,candidate,observations:1,firstAt:now,lastAt:now,
-    sources:new Set([candidate.source])};
+    sources:new Set([candidate.source]),
+    evidenceIds:new Set(candidate.evidenceId?[candidate.evidenceId]:[])};
    return Object.freeze({emit:true,transition:'candidate',track:this.snapshot(),candidate});
   }
   this.pending.candidate=candidate;this.pending.observations++;
   this.pending.lastAt=now;this.pending.sources.add(candidate.source);
+  if(candidate.evidenceId)this.pending.evidenceIds.add(candidate.evidenceId);
   const enough=this.pending.observations>=this.confirmObservations;
   const independent=this.pending.sources.size>=2;
   const strongFingerprint=candidate.source==='fingerprint'&&candidate.confidence>=.9;
-  if(enough&&(independent||strongFingerprint)){
+  const repeatedDistinctLyrics=candidate.source==='lyrics'&&candidate.confidence>=.78&&
+    this.pending.evidenceIds.size>=this.confirmObservations;
+  if(enough&&(independent||strongFingerprint||repeatedDistinctLyrics)){
    const prior=this.confirmed;
    this.confirmed={candidate,observations:this.pending.observations,
     firstAt:this.pending.firstAt,lastAt:now};
@@ -145,6 +154,37 @@ export class MusicIdentificationTracker{
   if(this.pending)return publicTrack(this.pending.candidate,'candidate',
     this.pending.observations,this.pending.lastAt,this.pending.firstAt);
   return publicTrack(null,'unknown',0,null,null);
+ }
+}
+
+
+function lyricLookupKey(query){
+ return clean(query,160).toLowerCase().normalize('NFKD').replace(/[^a-z0-9']+/g,' ').trim();
+}
+export class MusicLyricLookupGuard{
+ constructor({
+  cooldownMs=MUSIC_ID_LYRIC_WEB_COOLDOWN_MS,
+  dedupeMs=MUSIC_ID_LYRIC_WEB_DEDUPE_MS,maxSeen=32
+ }={}){
+  this.cooldownMs=Math.max(5000,Number(cooldownMs)||MUSIC_ID_LYRIC_WEB_COOLDOWN_MS);
+  this.dedupeMs=Math.max(60000,Number(dedupeMs)||MUSIC_ID_LYRIC_WEB_DEDUPE_MS);
+  this.maxSeen=Math.max(4,Math.min(100,Math.floor(maxSeen)||32));
+  this.lastAt=0;this.seen=new Map();
+ }
+ reset(){this.lastAt=0;this.seen.clear();}
+ claim(query,now=Date.now()){
+  const key=lyricLookupKey(query);
+  if(!key)return Object.freeze({allow:false,reason:'empty-query',key:''});
+  if(this.lastAt&&now-this.lastAt<this.cooldownMs)
+   return Object.freeze({allow:false,reason:'lookup-cooldown',key});
+  const seenAt=this.seen.get(key)||0;
+  if(seenAt&&now-seenAt<this.dedupeMs)
+   return Object.freeze({allow:false,reason:'duplicate-lyric-clue',key});
+  this.lastAt=now;this.seen.set(key,now);
+  for(const [candidate,at] of this.seen)
+   if(now-at>this.dedupeMs)this.seen.delete(candidate);
+  while(this.seen.size>this.maxSeen)this.seen.delete(this.seen.keys().next().value);
+  return Object.freeze({allow:true,reason:'allowed',key});
  }
 }
 
