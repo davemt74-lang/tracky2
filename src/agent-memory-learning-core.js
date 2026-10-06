@@ -7,7 +7,7 @@ export const MAX_MEMORY_PROPOSALS=40;
 export const MAX_PROPOSAL_SOURCE_REFS=5;
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const short=(v,n=500)=>String(v??'').replace(/\s+/g,' ').trim().slice(0,n);
-const SOURCE_KINDS=new Set(['dialogue','room-event','meeting-note','meeting-decision']);
+const SOURCE_KINDS=new Set(['dialogue','room-event','meeting-note','meeting-decision','situational-pattern']);
 
 function hashText(value=''){
  let h=0x811c9dc5;
@@ -124,7 +124,102 @@ function proposalRecord({type='note',text,participantId=null,sourceRefs=[],metho
 }
 function turnsById(turns=[]){return new Map((Array.isArray(turns)?turns:[]).filter(x=>x?.id).map(x=>[String(x.id),x]));}
 
-export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings=[]}={}){
+
+export function situationalPatternEvidence({events=[],feedback=[]}={}){
+ const rows=[];
+ const eventList=Array.isArray(events)?events:[];
+ const feedbackList=Array.isArray(feedback)?feedback:[];
+ for(const row of eventList){
+  if(!row?.id||!row?.participantId||!row?.topicKey)continue;
+  rows.push(Object.freeze({
+   id:'event:'+String(row.id),participantId:short(row.participantId,96),
+   topicKey:short(row.topicKey,360),eventType:short(row.type,64),
+   mediaKind:short(row.mediaKind,48)||null,action:null,outcome:null,
+   at:finite(row.at)?row.at:0,text:short(row.message||row.topicKey,300),
+   confidence:Math.max(0,Math.min(1,Number(row.confidence)||0))
+  }));
+ }
+ for(let i=0;i<feedbackList.length;i++){
+  const row=feedbackList[i];
+  if(!row?.participantId||!row?.topicKey)continue;
+  rows.push(Object.freeze({
+   id:'feedback:'+String(row.at||0)+':'+i,
+   participantId:short(row.participantId,96),topicKey:short(row.topicKey,360),
+   eventType:short(row.eventType,64)||null,mediaKind:short(row.mediaKind,48)||null,
+   action:short(row.action,32)||null,outcome:short(row.outcome,48)||'neutral',
+   at:finite(row.at)?row.at:0,text:short(
+    'Response '+(row.outcome||'neutral')+
+    (row.action?' to '+row.action:'')+' for '+row.topicKey,300),
+   confidence:1
+  }));
+ }
+ return Object.freeze(rows.sort((a,b)=>a.at-b.at));
+}
+
+function situationalProposalCandidates(rows=[]){
+ const proposals=[];
+ const byTopic=new Map();
+ for(const row of rows){
+  if(!row?.participantId||!row?.topicKey)continue;
+  const key=row.participantId+'|'+row.topicKey;
+  const bucket=byTopic.get(key)||[];bucket.push(row);byTopic.set(key,bucket);
+ }
+ for(const bucket of byTopic.values()){
+  const feedback=bucket.filter(row=>row.outcome);
+  const positive=feedback.filter(row=>['positive','expanded'].includes(row.outcome));
+  const negative=feedback.filter(row=>['ignored','dismissed','topic-changed'].includes(row.outcome));
+  const events=bucket.filter(row=>!row.outcome);
+  if(positive.length<3||events.length<2||negative.length>1)continue;
+  const representative=[...events].sort((a,b)=>b.at-a.at)[0]||positive[positive.length-1];
+  const label=short(representative.text||representative.topicKey,180);
+  const mediaKind=short(representative.mediaKind,48);
+  const text=short(
+   mediaKind
+    ?'Recurring interest in '+mediaKind+': '+label
+    :'Recurring interest: '+label,
+   500
+  );
+  if(sensitiveMemoryReason(text))continue;
+  const refs=[...positive.slice(-3),...events.slice(-2)].slice(0,MAX_PROPOSAL_SOURCE_REFS)
+   .map(row=>proposalSource({
+    kind:'situational-pattern',sourceId:row.id,participantId:row.participantId,
+    at:row.at,text:row.text
+   })).filter(Boolean);
+  const proposal=proposalRecord({
+   type:'preference',text,participantId:representative.participantId,sourceRefs:refs,
+   method:'adaptive-situational-pattern',createdAt:Math.max(...bucket.map(row=>row.at||0))
+  });
+  if(proposal)proposals.push(proposal);
+ }
+
+ const byAction=new Map();
+ for(const row of rows){
+  if(!row?.participantId||!row?.action||!row?.outcome)continue;
+  const key=row.participantId+'|'+row.action;
+  const bucket=byAction.get(key)||[];bucket.push(row);byAction.set(key,bucket);
+ }
+ for(const bucket of byAction.values()){
+  const positive=bucket.filter(row=>['positive','expanded'].includes(row.outcome));
+  const negative=bucket.filter(row=>['ignored','dismissed','topic-changed'].includes(row.outcome));
+  if(positive.length<4||negative.length>1)continue;
+  const representative=positive[positive.length-1];
+  const action=short(representative.action,32);
+  const text=short('Often engages positively with '+action+'-style proactive follow-up',500);
+  if(sensitiveMemoryReason(text))continue;
+  const refs=positive.slice(-MAX_PROPOSAL_SOURCE_REFS).map(row=>proposalSource({
+   kind:'situational-pattern',sourceId:row.id,participantId:row.participantId,
+   at:row.at,text:row.text
+  })).filter(Boolean);
+  const proposal=proposalRecord({
+   type:'preference',text,participantId:representative.participantId,sourceRefs:refs,
+   method:'adaptive-interaction-style',createdAt:Math.max(...bucket.map(row=>row.at||0))
+  });
+  if(proposal)proposals.push(proposal);
+ }
+ return proposals;
+}
+
+export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings=[],situationalPatterns=[]}={}){
  const rows=[],turnMap=turnsById(dialogueTurns);
  for(const turn of Array.isArray(dialogueTurns)?dialogueTurns:[]){
   if(!dialogueEligibleForParticipantMemory(turn))continue;
@@ -145,6 +240,13 @@ export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings
   const proposal=proposalRecord({...candidate,participantId:event.participantId||null,sourceRefs:[source],
    method:'owner-room-decision',createdAt:Number(event.at)||Date.now()});
   if(proposal)rows.push(proposal);
+ }
+ for(const row of Array.isArray(situationalPatterns)?situationalPatterns:[]){
+  const ref=proposalSource({
+   kind:'situational-pattern',sourceId:row.id,participantId:row.participantId,
+   at:row.at,text:row.text
+  });
+  if(ref)map.set('situational-pattern:'+ref.sourceId,ref);
  }
  for(const meeting of Array.isArray(meetings)?meetings:[]){
   for(const note of Array.isArray(meeting?.notes)?meeting.notes:[]){
@@ -173,12 +275,14 @@ export function canonicalMemoryEvidence({dialogueTurns=[],roomEvents=[],meetings
    if(proposal)rows.push(proposal);
   }
  }
+ for(const proposal of situationalProposalCandidates(Array.isArray(situationalPatterns)?situationalPatterns:[]))
+  rows.push(proposal);
  const unique=new Map();
  for(const row of rows)if(!unique.has(row.id))unique.set(row.id,row);
  return Object.freeze([...unique.values()].sort((a,b)=>b.createdAt-a.createdAt).slice(0,MAX_MEMORY_PROPOSALS));
 }
 
-function evidenceIndex({dialogueTurns=[],roomEvents=[],meetings=[]}={}){
+function evidenceIndex({dialogueTurns=[],roomEvents=[],meetings=[],situationalPatterns=[]}={}){
  const map=new Map();
  for(const turn of Array.isArray(dialogueTurns)?dialogueTurns:[]){
   const at=Date.parse(turn.createdAt||'')||Number(turn.at)||0;
