@@ -1,10 +1,10 @@
-// V0.15.2H final installed-device certification gate.
+// V0.15.3H final installed-device certification gate.
 // Combines representative-device hardware evidence, live scenario evidence,
 // long-session/runtime evidence, and unified autonomy evidence into one release verdict.
 const text=(v,n=240)=>String(v??'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,n);
 const arr=v=>Array.isArray(v)?v:[];
 export const FINAL_CERT_SCHEMA=1;
-export const FINAL_CERT_VERSION='0.15.2';
+export const FINAL_CERT_VERSION='0.15.3';
 
 export function evaluateFinalInstalledDeviceCertification({
  hardwareSummary=null,liveSummary=null,autonomy=null,longSession=null,releaseVersion=FINAL_CERT_VERSION
@@ -46,9 +46,9 @@ export function evaluateFinalInstalledDeviceCertification({
 }
 
 export function finalCertificationLabel(result={}){
- if(result.status==='certified')return 'V0.15.2 final installed-device certification · PASS · release may be frozen';
+ if(result.status==='certified')return 'V0.15.3 final installed-device certification · PASS · release may be frozen';
  const count=Array.isArray(result.blockers)?result.blockers.length:0;
- return 'V0.15.2 final installed-device certification · BLOCKED · '+count+' gate'+(count===1?'':'s')+' unresolved';
+ return 'V0.15.3 final installed-device certification · BLOCKED · '+count+' gate'+(count===1?'':'s')+' unresolved';
 }
 
 export function buildFinalCertificationReport({

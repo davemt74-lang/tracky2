@@ -25,6 +25,7 @@ import {
 const DB_NAME = 'tracky-participants-v1';
 const DB_VERSION = 17;
 const PARTICIPANT_RECOVERY_DB='tracky-participant-profiles-recovery-v1';
+const PARTICIPANT_EMERGENCY_KEY='tracky-participant-profiles-emergency-v1';
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -272,6 +273,76 @@ async function deleteRecoveryParticipant(id){
   try{await recoveryParticipantAction('readwrite',store=>requestToPromise(store.delete(id)));return true;}
   catch{return false;}
 }
+export function emergencyParticipantRecord(record={}){
+  return {
+    ...record,
+    primaryPhoto:null,latestPhoto:null,
+    faceSamples:Array.isArray(record.faceSamples)?record.faceSamples.map(sample=>({
+      photo:null,quality:Number.isFinite(sample?.quality)?sample.quality:null,
+      capturedAt:typeof sample?.capturedAt==='string'?sample.capturedAt:null,
+      poseId:typeof sample?.poseId==='string'?sample.poseId:null
+    })):[],
+    recoveryStorage:'local-storage-emergency'
+  };
+}
+function emergencyParticipantStorage(){
+  const storage=globalThis.localStorage;
+  if(!storage)throw new Error('Emergency local participant storage is unavailable.');
+  return storage;
+}
+function readEmergencyParticipantMap(){
+  try{
+    const raw=emergencyParticipantStorage().getItem(PARTICIPANT_EMERGENCY_KEY);
+    const rows=raw?JSON.parse(raw):[];
+    return new Map((Array.isArray(rows)?rows:[]).filter(row=>row?.id).map(row=>[String(row.id),row]));
+  }catch(error){
+    if(error instanceof SyntaxError)return new Map();
+    throw error;
+  }
+}
+function writeEmergencyParticipantMap(map){
+  emergencyParticipantStorage().setItem(PARTICIPANT_EMERGENCY_KEY,JSON.stringify([...map.values()]));
+}
+async function listEmergencyParticipants(){
+  try{return [...readEmergencyParticipantMap().values()];}catch{return [];}
+}
+async function getEmergencyParticipant(id){
+  try{return readEmergencyParticipantMap().get(String(id))||null;}catch{return null;}
+}
+async function saveEmergencyParticipant(record,primaryError,recoveryError){
+  try{
+    const map=readEmergencyParticipantMap();
+    const slim=emergencyParticipantRecord(record);
+    map.set(record.id,slim);
+    writeEmergencyParticipantMap(map);
+    console.warn('IndexedDB participant storage failed; participant saved in emergency local storage.',
+      primaryError,recoveryError);
+    notifyAccountParticipantChange({
+      participantId:record.id,operation:'upsert-emergency',
+      status:'recovered-local-storage',
+      error:'IndexedDB unavailable; participant saved in emergency local storage.'
+    });
+    return slim;
+  }catch(emergencyError){
+    const error=new Error(
+      'Participant persistence failed. Primary IndexedDB: '+
+      String(primaryError?.name||primaryError?.message||'error')+
+      '; recovery IndexedDB: '+String(recoveryError?.name||recoveryError?.message||'error')+
+      '; emergency local storage: '+String(emergencyError?.name||emergencyError?.message||'error')
+    );
+    error.name='ParticipantPersistenceError';
+    error.cause=emergencyError;
+    throw error;
+  }
+}
+async function deleteEmergencyParticipant(id){
+  try{
+    const map=readEmergencyParticipantMap();
+    const removed=map.delete(String(id));
+    if(removed)writeEmergencyParticipantMap(map);
+    return removed;
+  }catch{return false;}
+}
 
 export function startSessionIdentity(input) {
   const record=normalizeSessionIdentity(input);
@@ -467,8 +538,9 @@ export async function listParticipants() {
     if(!participantStorageRecoveryReason(error))throw error;
   }
   const recovery=await listRecoveryParticipants();
+  const emergency=await listEmergencyParticipants();
   const merged=new Map();
-  for(const row of [...primary,...recovery]){
+  for(const row of [...primary,...recovery,...emergency]){
     const prior=merged.get(row.id);
     if(!prior||String(row.updatedAt||'')>=String(prior.updatedAt||''))merged.set(row.id,row);
   }
@@ -483,9 +555,10 @@ export async function getParticipant(id) {
   try{primary=await storeAction(PARTICIPANTS,'readonly',store=>requestToPromise(store.get(id)));}
   catch(error){if(!participantStorageRecoveryReason(error))throw error;}
   const recovery=await getRecoveryParticipant(id);
-  if(!primary)return recovery||null;
-  if(!recovery)return primary;
-  return String(recovery.updatedAt||'')>String(primary.updatedAt||'')?recovery:primary;
+  const emergency=await getEmergencyParticipant(id);
+  const candidates=[primary,recovery,emergency].filter(Boolean);
+  if(!candidates.length)return null;
+  return candidates.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0];
 }
 
 function notifyAccountParticipantChange(detail){
@@ -514,20 +587,47 @@ async function queueAccountParticipantUpsert(record){
     return false;
   }
 }
+export async function persistParticipantRecord(record,{
+  primarySave,recoverySave,emergencySave
+}={}){
+  if(typeof primarySave!=='function'||typeof recoverySave!=='function'||typeof emergencySave!=='function')
+    throw new TypeError('Participant persistence backends are required.');
+  try{
+    await primarySave(record);
+    return Object.freeze({record,tier:'primary'});
+  }catch(primaryError){
+    if(!participantStorageRecoveryReason(primaryError))throw primaryError;
+    try{
+      const recovered=await recoverySave(record,primaryError);
+      return Object.freeze({record:recovered||record,tier:'recovery-indexeddb',primaryError});
+    }catch(recoveryError){
+      const emergency=await emergencySave(record,primaryError,recoveryError);
+      return Object.freeze({record:emergency||record,tier:'emergency-local-storage',primaryError,recoveryError});
+    }
+  }
+}
+
 export async function saveParticipant(input,{accountSync=true}={}) {
   const record=participantRecord(input);
   // Local participant durability is authoritative. Account-sync bookkeeping is a
   // separate best-effort lane and must never abort an otherwise valid enrollment.
-  try{
-    await storeAction(PARTICIPANTS,'readwrite',
-      participants=>requestToPromise(participants.put(record)));
-    await deleteRecoveryParticipant(record.id);
-  }catch(error){
-    if(!participantStorageRecoveryReason(error))throw error;
-    await saveRecoveryParticipant(record,error);
-  }
-  if(accountSync)await queueAccountParticipantUpsert(record);
-  return record;
+  const persisted=await persistParticipantRecord(record,{
+    primarySave:async value=>{
+      await storeAction(PARTICIPANTS,'readwrite',
+        participants=>requestToPromise(participants.put(value)));
+      await deleteRecoveryParticipant(value.id);
+      await deleteEmergencyParticipant(value.id);
+    },
+    recoverySave:async(value,primaryError)=>{
+      const recovered=await saveRecoveryParticipant(value,primaryError);
+      await deleteEmergencyParticipant(value.id);
+      return recovered;
+    },
+    emergencySave:saveEmergencyParticipant
+  });
+  const storedRecord=persisted.record;
+  if(accountSync)await queueAccountParticipantUpsert(storedRecord);
+  return {...storedRecord,storageTier:persisted.tier};
 }
 
 export async function patchParticipant(id, patch,options={}) {
