@@ -51,7 +51,7 @@ test('14.9D persisted prompt context stays bounded and hides internal scoring me
  const core=read('src/room-situational-awareness-core.js');
  const runtime=read('vertical-motion.js');
  assert.match(core,/relatedContext/);
- assert.match(core,/limit=6/);
+ assert.match(core,/limit:6/);
  assert.match(runtime,/Do not reveal scoring, history mechanics, or internal observations/);
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|fetch\(|WebSocket/);
 });
