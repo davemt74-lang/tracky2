@@ -71,6 +71,29 @@ test('v0.14.7 shared Conversation timeline contains multiple participants and AG
  ]);
 });
 
+test('v0.14.7 Conversation restores persisted legacy history without duplicating canonical transcript turns',()=>{
+ const turns=[{id:'t1',transcript:'Canonical hello',participantId:'a',participantName:'A',
+  attribution:'voice',at:1000}];
+ const history=[
+  {role:'participant',text:'Canonical hello',participantId:'a',at:1002},
+  {role:'participant',text:'Older local question',participantId:'a',at:500},
+  {role:'agent',text:'Older saved answer',participantId:'a',at:700}
+ ];
+ const rows=conversationTimeline(turns,history,[{id:'a',name:'Alice'}]);
+ assert.deepEqual(rows.map(r=>r.text),['Older local question','Older saved answer','Canonical hello']);
+ assert.equal(rows[0].source,'legacy-agent-history');
+ assert.equal(rows[0].verified,false);
+ assert.equal(rows.filter(r=>r.text==='Canonical hello').length,1);
+});
+
+test('v0.14.7 Conversation controller loads saved history at startup instead of hiding it behind the save toggle',()=>{
+ const agent=read('agent-mode.js');
+ assert.match(agent,/entries=loadAgentHistory\(localStorage\)/);
+ assert.match(agent,/ui\.save\.checked=entries\.length>0/);
+ assert.doesNotMatch(agent,/filter\(item=>item\.role!==['"]participant['"]\)/);
+ assert.match(agent,/Legacy local conversation · speaker attribution not revalidated/);
+});
+
 test('v0.14.7 Conversation auto-scrolls on render and when tab becomes visible',()=>{
  const agent=read('agent-mode.js'),tabs=read('room-tabs-controller.js'),html=read('vertical-motion.html');
  assert.doesNotMatch(html,/SHARED CONVERSATION|All participants \+ AGENT|SEARCH TRANSCRIPTS|Export session|Export all|No transcript session loaded/);
@@ -98,4 +121,12 @@ test('v0.14.7 AGENT header exposes only Camera and Orb controls',()=>{
  assert.match(chooser,/>Camera<\/button>/);
  assert.match(chooser,/>Orb<\/button>/);
  assert.doesNotMatch(chooser,/Control Center|ZZZ|XXX|CCC|agent-shortcut-hint|agent-exit/);
+});
+
+test('v0.14.7 right participant sidebar removes section titles and AGENT diagnostic rows below voice meter',()=>{
+ const html=read('vertical-motion.html'),runtime=read('vertical-motion.js');
+ assert.doesNotMatch(html,/ROOM IDENTITY · FULL BODY|Persistent participant tracking/);
+ assert.doesNotMatch(html,/ROOM PARTICIPANTS|Known participants and stable visitors/);
+ assert.match(runtime,/AGENT participant cards stop at the verified Voice Profile\/input meter/);
+ assert.match(runtime,/if \(state\.mode !== 'agent'\) \{/);
 });
