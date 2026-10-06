@@ -16,7 +16,8 @@ test('v0.14.6 account participant release evidence remains present under later a
 
 test('v0.14.6 browser schema 15 preserves earlier sync stores additively',()=>{
  const store=read('src/participant-store.js');
- assert.match(store,/const DB_VERSION = 15/);
+ const schemaVersion=Number(store.match(/const DB_VERSION = ([0-9]+)/)?.[1]||0);
+ assert.ok(schemaVersion>=15,'v0.14.6 sync stores must survive later additive browser schemas');
  for(const name of ['participant-sync-state','account-participant-sync-state',
   'resource-sync-config','resource-sync-state','resource-sync-journal'])
   assert.match(store,new RegExp(name));

@@ -842,6 +842,14 @@
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Detect music, TV/video and other environmental audio locally (this session only)</label>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomImportantSoundEvents" checked> Highlight important sounds and allow governed AGENT notices</label>
             <small>Important-sound handling is local and conservative: alarm/siren, doorbell/knock, impact/breaking-like, animal and appliance events remain source-unverified observations. No emergency is inferred, no external action is taken automatically, and any spoken notice must still pass the existing proactive attention, quiet-hours and interruption policy.</small>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomPersonalizedSounds"> Learn and recognize owner-labeled local sounds</label>
+            <small>Personalized sound learning is off by default. When enabled, Tracky keeps only the latest eligible non-speech acoustic feature signature in memory so you can label it. Saved profiles contain the owner label and a small bounded numeric feature vector—never raw room audio, transcripts, camera data or participant identity. Two labeled examples are required before automatic recognition.</small>
+            <div class="room-environment-audio-status" id="roomPersonalizedSoundStatus" role="status">OFF · 0 profiles · 0 recognition-ready</div>
+            <div class="control-center-setting-row">
+              <button type="button" id="roomTeachLatestSound" disabled>Label latest sound</button>
+              <button type="button" id="roomClearPersonalizedSounds">Clear personalized sounds</button>
+            </div>
+            <div id="roomPersonalizedSoundProfiles" class="room-environment-audio-result"><small>No owner-labeled sounds yet.</small></div>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusic" checked> Identify background music from short memory-only windows</label>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusicWeb"> Search the public web with short lyric clues when local Music ID is uncertain</label>
             <small>Remote lyric lookup is off by default and uses the configured Auto/OpenAI/Anthropic provider route. When enabled, only a short bounded lyric clue is sent to the governed server-side web-search path; raw room audio and the full working transcription stay on this device. Working lyric text never becomes a participant Conversation turn and is not written to ROOM history. Track title/artist metadata and source URLs may be written only after candidate resolution.</small>
