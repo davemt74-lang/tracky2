@@ -46,6 +46,9 @@ import {
  RoomLiveValidationTracker,roomAudioBehaviorPolicy,roomLiveValidationMessage
 } from './src/room-audio-live-validation-core.js';
 import {
+ RoomMediaContinuityTracker,roomMediaContinuityMessage
+} from './src/room-media-continuity-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -500,6 +503,7 @@ const mediaLookupGuard=new MediaLookupGuard();
 const roomMediaFusionTracker=new RoomMediaFusionTracker();
 const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const roomLiveValidation=new RoomLiveValidationTracker();
+const roomMediaContinuity=new RoomMediaContinuityTracker();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -1115,6 +1119,46 @@ function noteRoomProviderOutcome(provider,status,reason=''){
  renderRoomLiveValidation();
 }
 
+function renderRoomMediaContinuity(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomMediaContinuityStatus');
+ if(!status)return;
+ const snapshot=roomMediaContinuity.snapshot();
+ const current=snapshot.active||snapshot.suspended;
+ if(!current){
+  status.textContent='Background continuity · idle';
+  return;
+ }
+ const label=current.kind==='music'?'music':
+  current.kind==='television'?'TV / video':
+  current.kind==='radio'?'radio / podcast':
+  current.kind==='video-game'?'video game':'recorded media';
+ status.textContent='Background continuity · '+label+' · '+current.status+
+  ' · '+current.resumes+' resumes · '+current.interruptions+' interruptions';
+}
+function logRoomMediaContinuity(result,at=Date.now()){
+ renderRoomMediaContinuity();
+ if(!result?.emit||state.mode!=='agent')return null;
+ const message=roomMediaContinuityMessage(result);
+ if(!message)return null;
+ const row=result.continuity||{};
+ return logRoomMessage('media',message,'room-media-continuity',{
+  at,semantic:'room-media-continuity',
+  dedupeKey:'room-media-continuity:'+result.transition+':'+
+   String(row.continuityId||'none')+':'+String(row.identityKey||'none')+
+   ':'+Math.floor(at/5000),
+  evidence:{roomMediaContinuity:{
+   schema:row.schema,continuityId:row.continuityId,status:row.status,
+   kind:row.kind,startedAt:row.startedAt,lastAt:row.lastAt,
+   suspendedAt:row.suspendedAt,resumeDeadline:row.resumeDeadline,
+   lowLevelSessionId:row.lowLevelSessionId,
+   interruption:row.interruption,interruptions:row.interruptions,
+   resumes:row.resumes,contentChanges:row.contentChanges,
+   identity:row.identity,participantId:null,rawAudioStored:false
+  }}
+ });
+}
+
 function renderRoomAudioIntelligence(){
  if(state.mode!=='agent')return;
  const status=document.getElementById('roomAudioIntelligenceStatus');
@@ -1156,6 +1200,8 @@ function logRoomAudioIntelligence(result,at=Date.now()){
 }
 function observeRoomAudioIdentity(identity,at=Date.now()){
  const result=roomAudioIntelligence.observeIdentity(identity,at);
+ const continuity=roomMediaContinuity.observeBackground(result,at);
+ logRoomMediaContinuity(continuity,at);
  logRoomAudioIntelligence(result,at);
  return result;
 }
@@ -1182,6 +1228,8 @@ function logEnvironmentalActivityTransition(transition,group=null){
  const unified=roomAudioIntelligence.observeEnvironmental(transition,transition.at||Date.now());
  roomLiveValidation.observeBackground(unified,transition.at||Date.now());
  renderRoomLiveValidation();
+ const continuity=roomMediaContinuity.observeBackground(unified,transition.at||Date.now());
+ logRoomMediaContinuity(continuity,transition.at||Date.now());
  logRoomAudioIntelligence(unified,transition.at||Date.now());
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
@@ -1215,8 +1263,10 @@ function setEnvironmentalAudioEnabled(enabled){
   roomMediaFusionTracker.reset();
   roomAudioIntelligence.reset('environmental-audio-enabled');
   roomLiveValidation.reset();
+  roomMediaContinuity.reset();
   renderRoomAudioIntelligence();
   renderRoomLiveValidation();
+  renderRoomMediaContinuity();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
   resetPersonalizedSoundRuntime();
@@ -1242,8 +1292,10 @@ function setEnvironmentalAudioEnabled(enabled){
   roomMediaFusionTracker.reset();
   roomAudioIntelligence.reset('environmental-audio-disabled');
   roomLiveValidation.reset();
+  roomMediaContinuity.reset();
   renderRoomAudioIntelligence();
   renderRoomLiveValidation();
+  renderRoomMediaContinuity();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
@@ -1763,8 +1815,12 @@ function saveRoomAudioSummary(summary){
  if(unifiedEnded){
   roomLiveValidation.observeBackground(unifiedEnded,summary.at);
   renderRoomLiveValidation();
+  const continuityPaused=roomMediaContinuity.observeBackground(unifiedEnded,summary.at);
+  logRoomMediaContinuity(continuityPaused,summary.at);
   logRoomAudioIntelligence(unifiedEnded,summary.at);
  }
+ const continuityEnded=roomMediaContinuity.expire(summary.at);
+ if(continuityEnded)logRoomMediaContinuity(continuityEnded,summary.at);
  const mechanicalEnded=environmentalMechanicalTracker.expire(summary.at);
  if(mechanicalEnded)logEnvironmentalMechanicalTransition(mechanicalEnded);
  // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
@@ -4246,6 +4302,8 @@ async function processRoomSegment(segment) {
     });
     const liveObservation=roomLiveValidation.observeSpeechOrigin(speechOrigin,Date.now());
     const behaviorPolicy=liveObservation.policy||roomAudioBehaviorPolicy({speechOrigin});
+    const continuityInterruption=roomMediaContinuity.observeForeground(behaviorPolicy,Date.now());
+    logRoomMediaContinuity(continuityInterruption,Date.now());
     renderRoomLiveValidation();
     const originNotice=roomSpeechOriginTracker.observe(speechOrigin,Date.now());
     if(originNotice.emit&&speechOrigin.mediaContext&&state.mode==='agent'){
