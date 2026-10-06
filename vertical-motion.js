@@ -5580,6 +5580,30 @@ if(state.mode==='agent'){
     }
    });
   }
+  const musicIdToggle=document.getElementById('roomIdentifyMusic');
+  if(musicIdToggle){
+   let savedMusicId=null;try{savedMusicId=window.localStorage.getItem('tracky2-room-music-id');}catch{}
+   musicIdToggle.checked=savedMusicId!=='no';
+   musicIdentificationEnabled=musicIdToggle.checked;
+   musicRecognitionQueue.setEnabled(musicIdentificationEnabled);
+   if(!musicIdentificationEnabled)resetMusicIdentification('Music identification disabled');
+   else renderMusicIdentification();
+   musicIdToggle.addEventListener('change',()=>{
+    musicIdentificationEnabled=musicIdToggle.checked;
+    musicRecognitionQueue.setEnabled(musicIdentificationEnabled);
+    if(!musicIdentificationEnabled)resetMusicIdentification('Music identification disabled');
+    else{
+     musicRecognitionGeneration++;
+     musicRecognitionDecision='Waiting for stable music';
+     renderMusicIdentification();
+    }
+    try{window.localStorage.setItem('tracky2-room-music-id',musicIdentificationEnabled?'yes':'no');}catch{}
+    logRoomMessage('system',
+     'Owner '+(musicIdentificationEnabled?'enabled':'disabled')+
+      ' memory-only background music identification',
+     'audio-consent',{semantic:'music-identification-consent'});
+   });
+  }
    const roomOptIn=document.getElementById('roomSaveObservations');
    const roomClear=document.getElementById('roomClearObservations');
    try{
