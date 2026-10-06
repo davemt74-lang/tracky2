@@ -911,6 +911,7 @@ function publishLiveCertificationSnapshot(now=Date.now()){
  const recovery=providerRecoveryCoordinator.snapshot(now);
  const restart=restartReconnectCoordinator.snapshot(now);
  const longSession=v0151LongSessionStabilityMonitor.certify(now);
+ const autonomy=renderV015CertificationStatus(now);
  const perf=devicePerformanceGovernor.snapshot();
  const participants=state.running?publicRoomTracks().filter(track=>
   !['occluded','reacquiring'].includes(track.status)&&track.participantId)
@@ -927,7 +928,8 @@ function publishLiveCertificationSnapshot(now=Date.now()){
   providers:recovery.providers,reconnectGeneration:restart.reconnectGeneration,
   replayTombstones:restart.completedRecent,
   longSessionStatus:longSession.status,longSessionDurationMs:longSession.snapshot.durationMs,
-  longSessionFailures:longSession.failed,performanceLevel:perf.level,
+  longSessionFailures:longSession.failed,autonomyStatus:autonomy?.status||'failed',
+  autonomyFailures:autonomy?.failed||[],performanceLevel:perf.level,
   heapGrowthRatio:longSession.snapshot.heapGrowthRatio,
   maxHeapRatio:longSession.snapshot.maxHeapRatio
  },now);
