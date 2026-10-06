@@ -931,6 +931,7 @@ async function tickProactive(){
    contextualOpportunityCandidates.delete(decision.opportunityId);
   }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
+  attentionPriorityEngine.record(attention,{acted:executed,at:Date.now()});
   if(outcome)logRoomMessage('decision',outcome.reason,'agent-proactive-governor',{
    kind:'outcome',semantic:'agent-proactive-outcome',
    participantId:outcome.participantId,
