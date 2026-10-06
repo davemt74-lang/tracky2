@@ -1,7 +1,7 @@
 import {facePreviewRect} from './src/face-preview.js';
 import {conversationTimeline} from './src/conversation-timeline.js';
 import {orbSpatialTarget} from './src/orb-spatial-core.js';
-import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint,fetchSelfHostedProviderStatus,querySelfHostedProvider,querySelfHostedSpeech} from './src/agent-provider.js';
+import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint,fetchSelfHostedProviderStatus,querySelfHostedProvider,querySelfHostedResearch,querySelfHostedSpeech} from './src/agent-provider.js';
 import {
  activeRemoteProvider,normalizeProviderChoice,providerBudgetLabel,providerFallbackPlan,providerModelFor
 } from './src/provider-router-core.js';
@@ -691,6 +691,39 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
+ async function researchContext(prompt){
+  const value=String(prompt||'').replace(/\s+/g,' ').trim().slice(0,900);
+  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+   return Object.freeze({ok:false,reason:'agent-unavailable',reply:'',sources:[]});
+  const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+  const selected=ui.provider?.value||'auto';
+  const plan=providerFallbackPlan(selected==='ollama'?'auto':selected,runtime?.providers||[]);
+  const messages=[
+   {role:'system',content:'Research the user-approved topic with current web search. Return concise useful findings grounded in sources. Do not infer private traits or add unrelated personal claims.'},
+   {role:'user',content:value}
+  ];
+  let lastError=null;
+  for(const candidate of plan){
+   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),24000);
+   try{
+    const result=await querySelfHostedResearch({
+     provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
+     messages,status:runtime,signal:controller.signal
+    });
+    if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
+    return Object.freeze({
+     ok:true,reason:'researched',reply:String(result.reply||'').slice(0,1200),
+     sources:Object.freeze([...(result.sources||[])]),provider:result.provider,model:result.model
+    });
+   }catch(error){lastError=error;}
+   finally{clearTimeout(timeout);}
+  }
+  return Object.freeze({
+   ok:false,reason:lastError?.message||'no-research-provider',
+   reply:'',sources:Object.freeze([])
+  });
+ }
+
  async function composeProactive(prompt,{participantId=null,scopeId=null}={}){
   const value=String(prompt||'').trim();
   if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
@@ -739,7 +772,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
 
  return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
   getHistory:()=>entries.map(entry=>({...entry})),
-  composeProactive,
+  composeProactive,researchContext,
   reconcileParticipants(validIds=[]){
    const allowed=new Set((validIds||[]).map(String));
    for(const id of greeted.keys())if(!allowed.has(String(id)))greeted.delete(id);
