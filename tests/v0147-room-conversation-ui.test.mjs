@@ -71,27 +71,24 @@ test('v0.14.7 shared Conversation timeline contains multiple participants and AG
  ]);
 });
 
-test('v0.14.7 Conversation restores persisted legacy history without duplicating canonical transcript turns',()=>{
+test('v0.14.7 Conversation restores saved AGENT replies beside canonical participant transcripts',()=>{
  const turns=[{id:'t1',transcript:'Canonical hello',participantId:'a',participantName:'A',
   attribution:'voice',at:1000}];
  const history=[
-  {role:'participant',text:'Canonical hello',participantId:'a',at:1002},
-  {role:'participant',text:'Older local question',participantId:'a',at:500},
+  {role:'participant',text:'Stale duplicate',participantId:'a',at:900},
   {role:'agent',text:'Older saved answer',participantId:'a',at:700}
  ];
  const rows=conversationTimeline(turns,history,[{id:'a',name:'Alice'}]);
- assert.deepEqual(rows.map(r=>r.text),['Older local question','Older saved answer','Canonical hello']);
- assert.equal(rows[0].source,'legacy-agent-history');
- assert.equal(rows[0].verified,false);
- assert.equal(rows.filter(r=>r.text==='Canonical hello').length,1);
+ assert.deepEqual(rows.map(r=>r.text),['Older saved answer','Canonical hello']);
+ assert.equal(rows.some(r=>r.text==='Stale duplicate'),false);
 });
 
 test('v0.14.7 Conversation controller loads saved history at startup instead of hiding it behind the save toggle',()=>{
  const agent=read('agent-mode.js');
  assert.match(agent,/entries=loadAgentHistory\(localStorage\)/);
  assert.match(agent,/ui\.save\.checked=entries\.length>0/);
- assert.doesNotMatch(agent,/filter\(item=>item\.role!==['"]participant['"]\)/);
- assert.match(agent,/Legacy local conversation · speaker attribution not revalidated/);
+ assert.doesNotMatch(agent,/entries=\[\]/);
+ assert.match(agent,/saveAgentHistory\(localStorage,entries,true\)/);
 });
 
 test('v0.14.7 Conversation auto-scrolls on render and when tab becomes visible',()=>{
