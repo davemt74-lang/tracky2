@@ -125,17 +125,20 @@ test('11F engine uses pinned local AudioSet classifier and never opens or upload
  assert.doesNotMatch(engine,/getUserMedia|MediaRecorder|createMediaStreamSource|fetch\(/);
 });
 
-test('11F runtime sidecar reuses the one room segment and never blocks canonical conversation processing',()=>{
+test('11F runtime reuses one room segment and bounds media evidence before the canonical conversation decision',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.equal((runtime.match(/new RoomAudioCapture\(/g)||[]).length,1);
  const start=runtime.indexOf('function onRoomAudioSegment(segment)');
  const end=runtime.indexOf('function transcriptParticipantName',start);
  const block=runtime.slice(start,end);
- assert.match(block,/queueEnvironmentalAudio\((?:segment|environmentSegment)\)/);
  assert.match(block,/const \{separationInput,\.\.\.environmentSegment\}=segment/);
+ assert.match(block,/queueEnvironmentalAudio\(\{\s*\.\.\.environmentSegment,environmentCorrelationId:evidenceRequest\.id/s);
+ assert.match(block,/environmentEvidencePromise:evidenceRequest\.promise/);
  assert.match(block,/listeningController\.enqueue/);
  assert.doesNotMatch(block,/await queueEnvironmentalAudio/);
- assert.match(runtime,/environmentalAudioState!=='ready'\|\|document\.hidden/);
+ assert.match(runtime,/environmentalSpeechEvidenceWaiters/);
+ assert.match(runtime,/\},900\)/);
+ assert.match(runtime,/!\['ready','loading'\]\.includes\(environmentalAudioState\)\|\|document\.hidden/);
  assert.match(runtime,/environmentalAudioQueue\.disable\(\)/);
 });
 
