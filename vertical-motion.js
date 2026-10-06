@@ -171,6 +171,7 @@ import {
 import {ProactivityQualityTracker} from './src/proactivity-quality-core.js';
 import {ProviderRecoveryCoordinator} from './src/provider-recovery-core.js';
 import {RestartReconnectCoordinator,reconcileTransientState} from './src/restart-reconnect-core.js';
+import {normalizeLiveRuntimeSnapshot} from './src/live-certification-core.js';
 import {
  buildAgentBrainSnapshot
 } from './src/agent-brain-core.js';
@@ -902,6 +903,38 @@ function considerContextualMediaEngagement(now=Date.now()){
  return candidate;
 }
 
+const LIVE_CERTIFICATION_SNAPSHOT_KEY='tracky2-v0151g-live-certification-snapshot';
+function publishLiveCertificationSnapshot(now=Date.now()){
+ const ownership=conversationOwnershipTracker.snapshot().current;
+ const continuity=roomMediaContinuity.snapshot?.()||{};
+ const proactive=proactiveGovernor.snapshot(now);
+ const recovery=providerRecoveryCoordinator.snapshot(now);
+ const restart=restartReconnectCoordinator.snapshot(now);
+ const longSession=v0151LongSessionStabilityMonitor.certify(now);
+ const perf=devicePerformanceGovernor.snapshot();
+ const participants=state.running?publicRoomTracks().filter(track=>
+  !['occluded','reacquiring'].includes(track.status)&&track.participantId)
+  .map(track=>({id:track.participantId})):[];
+ const snapshot=normalizeLiveRuntimeSnapshot({
+  at:now,runtimeEpochId:restart.epochId,participants,
+  conversationOwnershipState:ownership?.state||null,
+  conversationOwnerId:ownership?.participantId||null,
+  mediaKind:continuity?.current?.kind||continuity?.kind||null,
+  mediaIdentity:continuity?.current?.identity?.title||continuity?.identity?.title||
+   continuity?.current?.identity?.artist||continuity?.identity?.artist||null,
+  proactivityPending:proactive.pending,
+  interruptionsThisHour:proactive.interruptionsThisHour,
+  providers:recovery.providers,reconnectGeneration:restart.reconnectGeneration,
+  replayTombstones:restart.completedRecent,
+  longSessionStatus:longSession.status,longSessionDurationMs:longSession.snapshot.durationMs,
+  longSessionFailures:longSession.failed,performanceLevel:perf.level,
+  heapGrowthRatio:longSession.snapshot.heapGrowthRatio,
+  maxHeapRatio:longSession.snapshot.maxHeapRatio
+ },now);
+ try{window.localStorage.setItem(LIVE_CERTIFICATION_SNAPSHOT_KEY,JSON.stringify(snapshot));}catch{}
+ return snapshot;
+}
+
 function renderAgentBrain(now=Date.now()){
  const stateSnapshot=unifiedCognitiveState.snapshot();
  const attention=attentionPriorityEngine.snapshot().lastDecision;
@@ -947,6 +980,7 @@ function renderAgentBrain(now=Date.now()){
  const pause=document.getElementById('agentBrainPause');
  if(pause)pause.textContent=cognitionPaused?'Resume cognition':'Pause cognition';
  renderV015CertificationStatus(now);
+ publishLiveCertificationSnapshot(now);
  return brain;
 }
 
