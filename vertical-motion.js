@@ -6193,6 +6193,8 @@ if(state.mode==='agent'){
     musicRecognitionQueue.setEnabled(musicIdentificationEnabled);
     const webToggle=document.getElementById('roomIdentifyMusicWeb');
     if(webToggle)webToggle.disabled=!musicIdentificationEnabled;
+    const fingerprintToggle=document.getElementById('roomIdentifyMusicFingerprint');
+    if(fingerprintToggle)fingerprintToggle.disabled=!musicIdentificationEnabled;
     if(!musicIdentificationEnabled)resetMusicIdentification('Music identification disabled');
     else{
      musicRecognitionGeneration++;
@@ -6204,6 +6206,32 @@ if(state.mode==='agent'){
      'Owner '+(musicIdentificationEnabled?'enabled':'disabled')+
       ' memory-only background music identification',
      'audio-consent',{semantic:'music-identification-consent'});
+   });
+  }
+  const musicFingerprintToggle=document.getElementById('roomIdentifyMusicFingerprint');
+  if(musicFingerprintToggle){
+   let savedMusicFingerprint=null;
+   try{savedMusicFingerprint=window.localStorage.getItem('tracky2-room-music-acrcloud');}catch{}
+   musicFingerprintLookupEnabled=savedMusicFingerprint==='yes';
+   musicFingerprintToggle.checked=musicFingerprintLookupEnabled;
+   musicFingerprintToggle.disabled=!musicIdentificationEnabled;
+   musicFingerprintToggle.addEventListener('change',()=>{
+    musicFingerprintLookupEnabled=musicFingerprintToggle.checked&&musicIdentificationEnabled;
+    musicFingerprintToggle.checked=musicFingerprintLookupEnabled;
+    if(!musicFingerprintLookupEnabled){
+     musicFingerprintAbortController?.abort();musicFingerprintAbortController=null;
+    }
+    try{window.localStorage.setItem(
+     'tracky2-room-music-acrcloud',musicFingerprintLookupEnabled?'yes':'no'
+    );}catch{}
+    musicRecognitionDecision=musicFingerprintLookupEnabled
+     ?'ACRCloud exact recognition enabled · waiting for a stable music window'
+     :'ACRCloud exact recognition disabled · local Music ID continues';
+    renderMusicIdentification();
+    logRoomMessage('system',
+     'Owner '+(musicFingerprintLookupEnabled?'enabled':'disabled')+
+      ' ACRCloud exact music recognition for bounded music windows',
+     'audio-consent',{semantic:'music-fingerprint-consent'});
    });
   }
   const musicWebToggle=document.getElementById('roomIdentifyMusicWeb');
