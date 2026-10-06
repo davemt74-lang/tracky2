@@ -27,6 +27,16 @@ test('unique enrollment, camera, voice, roster, and gallery controls survive re-
  for(const id of ['participantVideo','participantCameraStatus','primaryPhotoPreview','latestPhotoPreview',
   'participantName','participantNickname','recognitionEnabled','capturePrimary','captureSample',
   'voiceEnrollmentBlock','recordVoiceSample','stopVoiceSample','newParticipant','participantList',
-  'saveParticipant','participantRosterBackdrop','collapseParticipantRoster'])
+  'saveParticipant','participantRosterBackdrop','collapseParticipantRoster','faceCaptureCoach',
+  'faceCaptureStep','faceCaptureReady','faceCaptureInstruction','faceAngleMap','capturePhotoLabel'])
    assert.ok(ids.includes(id),'Missing '+id);
+});
+
+test('guided face capture exposes nine target angles without covering the camera workflow',()=>{
+ assert.match(html,/id="faceCaptureCoach"/);
+ assert.equal((html.match(/data-pose="/g)||[]).length,9);
+ for(const pose of ['upper-left','up','upper-right','left','front','right','lower-left','down','lower-right'])
+  assert.ok(html.includes('data-pose="'+pose+'"'),'Missing guided pose '+pose);
+ assert.match(css,/\.face-capture-coach/);
+ assert.match(css,/\.face-angle-map i\.active/);
 });
