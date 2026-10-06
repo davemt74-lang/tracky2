@@ -19,7 +19,7 @@ export function mediaWindowEligibility({
  if(!enabled)return Object.freeze({accept:false,reason:'disabled'});
  if(documentHidden)return Object.freeze({accept:false,reason:'document-hidden'});
  if(processing)return Object.freeze({accept:false,reason:'recognition-busy'});
- if(!['television','recorded-media'].includes(mediaKind))
+ if(!['television','recorded-media','radio'].includes(mediaKind))
   return Object.freeze({accept:false,reason:'unsupported-media-kind'});
  const duration=Math.max(0,Number(durationMs)||0);
  if(duration<MEDIA_ID_MIN_WINDOW_MS)return Object.freeze({accept:false,reason:'window-too-short'});
@@ -54,8 +54,10 @@ export function normalizeMediaVisualClue(text){
 export function normalizeMediaCandidate(input={},source='dialogue',at=Date.now()){
  const title=clean(input.title,140);
  if(!title)return null;
- const kind=['movie','tv-series','episode','streaming-video','unknown'].includes(input.kind)
-  ?input.kind:'unknown';
+ const kind=[
+  'movie','tv-series','episode','streaming-video',
+  'podcast','podcast-episode','radio-show','radio-station','unknown'
+ ].includes(input.kind)?input.kind:'unknown';
  const series=clean(input.series,140)||null;
  const season=Number.isInteger(Number(input.season))&&Number(input.season)>0?Number(input.season):null;
  const episode=Number.isInteger(Number(input.episode))&&Number(input.episode)>0?Number(input.episode):null;
@@ -210,10 +212,15 @@ export class MediaRecognitionQueue{
 }
 
 function mediaLabel(media={}){
- if(media.kind==='episode'){
+ if(['episode','podcast-episode'].includes(media.kind)){
   const series=media.series||media.title;
-  const suffix=media.season&&media.episode?' · S'+media.season+'E'+media.episode:'';
+  const suffix=media.kind==='episode'&&media.season&&media.episode
+   ?' · S'+media.season+'E'+media.episode:'';
   return series+(media.title&&media.title!==series?' · '+media.title:'')+suffix;
+ }
+ if(media.kind==='radio-show'){
+  return (media.series||media.title)+(media.title&&media.series&&media.title!==media.series
+   ?' · '+media.title:'');
  }
  return media.title||media.series||'Unknown media';
 }

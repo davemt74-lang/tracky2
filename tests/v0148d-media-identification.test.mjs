@@ -6,10 +6,10 @@ import {
  normalizeMediaDialogueClue,normalizeMediaVisualClue
 } from '../src/media-identification-core.js';
 
-test('V2C recorded-media windows are bounded and exclude radio/game/music routes',()=>{
+test('V2C recorded-media windows stay bounded while later V2F additively supports radio',()=>{
  assert.equal(mediaWindowEligibility({mediaKind:'television',durationMs:5000}).accept,true);
  assert.equal(mediaWindowEligibility({mediaKind:'recorded-media',durationMs:5000}).accept,true);
- assert.equal(mediaWindowEligibility({mediaKind:'radio',durationMs:5000}).reason,'unsupported-media-kind');
+ assert.equal(mediaWindowEligibility({mediaKind:'radio',durationMs:5000}).accept,true);
  assert.equal(mediaWindowEligibility({mediaKind:'video-game',durationMs:5000}).accept,false);
  assert.equal(mediaWindowEligibility({mediaKind:'television',durationMs:1000}).reason,'window-too-short');
 });

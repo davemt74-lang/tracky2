@@ -45,7 +45,7 @@ export async function searchMediaByClues({
   },
   body:JSON.stringify({
    action:'media_search',dialogueQuery:dialogue,visualClue:visual,
-   mediaKind:['television','recorded-media'].includes(mediaKind)?mediaKind:'recorded-media',
+   mediaKind:['television','recorded-media','radio'].includes(mediaKind)?mediaKind:'recorded-media',
    evidenceId:String(evidenceId||'').slice(0,96),ownerEnabled:true,
    preferredProvider:['openai','anthropic'].includes(String(preferredProvider||'').toLowerCase())
     ?String(preferredProvider).toLowerCase():'auto'
