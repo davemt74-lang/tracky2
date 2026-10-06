@@ -30,11 +30,16 @@ test('10B sanitized persistent scene has unique owner labels, no media and bound
  assert.deepEqual(clean.areas.map(a=>a.id),['a','b']);
  assert.equal(clean.areas[1].rawImage,undefined);
  assert.equal(clean.objects[0].embedding,undefined);
+ assert.equal(clean.objects[0].role,'other');
+ assert.equal(clean.objects[0].audioDirection,'unavailable');
  assert.equal(clean.objects[1].areaId,null);
  assert.equal(clean.rawFrame,undefined);
  assert.equal(clean.participants,undefined);
- let room=upsertRoomObject(clean,{id:'lamp',name:'Lamp',kind:'device',areaId:'b'});
+ let room=upsertRoomObject(clean,{id:'lamp',name:'Lamp',kind:'device',areaId:'b',
+  role:'display',audioDirection:'right'});
  assert.equal(room.objects[2].areaId,'b');
+ assert.equal(room.objects[2].role,'display');
+ assert.equal(room.objects[2].audioDirection,'right');
  room=removeRoomArea(room,'b');
  assert.equal(room.objects[2].areaId,null,'area deletion must not silently delete the object');
  assert.equal(removeRoomObject(room,'monitor').objects.length,2);
