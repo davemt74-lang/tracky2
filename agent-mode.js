@@ -486,10 +486,16 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
      catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
      if(endpoint){
+      const logicalRequestKey='chat-local:'+(turn.id||turn.transcriptSegmentId||responseToken);
+      const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:'ollama',now:Date.now()});
+      if(!recoveryGate.allow){
+       ui.modelStatus.textContent='Local Ollama temporarily unavailable · using basic reply';
+      }else{
       const controller=new AbortController();modelController=controller;
       const timeout=setTimeout(()=>controller.abort(),16000);ui.modelStatus.textContent='Local Ollama thinking…';
       try{
        const reply=await queryLocalOllama({endpoint,model:ui.modelName.value.trim(),messages,signal:controller.signal});
+       providerRecovery.success({requestKey:logicalRequestKey,provider:'ollama',reason:'chat-success',now:Date.now()});
        if(responseToken!==responseGeneration||open)return;
        if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
        if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
@@ -497,9 +503,12 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
        say(reply,turn.participantId||null,turn.conversationScopeId||null);
        ui.modelStatus.textContent='Local Ollama connected · scoped conversation';return;
       }catch(error){
+       providerRecovery.failure({requestKey:logicalRequestKey,provider:'ollama',
+        reason:error?.name==='AbortError'?'timeout':String(error?.message||'provider-failure'),now:Date.now()});
        if(responseToken!==responseGeneration)return;
        ui.modelStatus.textContent='Local Ollama unavailable: '+error.message+' · using basic reply';
       }finally{clearTimeout(timeout);if(modelController===controller)modelController=null;}
+      }
      }
     }else{
      const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
@@ -522,11 +531,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
         provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
         messages,status:runtime,signal:controller.signal
        });
+       providerRecovery.success({requestKey:logicalRequestKey,provider:candidate,reason:'chat-success',now:Date.now()});
        if(responseToken!==responseGeneration||open)return;
        if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
        if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
        if(!conversationReplyOwnershipPolicy(turn,{participantId:turn.conversationOwnershipParticipantId,state:turn.conversationOwnershipState}).allow)return;
-       providerRecovery.success({requestKey:logicalRequestKey,provider:candidate,reason:'chat-success',now:Date.now()});
        say(result.reply,turn.participantId||null,turn.conversationScopeId||null);
        if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
        ui.modelStatus.textContent=candidate+' connected · scoped conversation'+
