@@ -142,6 +142,9 @@ import {
  LongSessionAutonomyMonitor,certificationLabel
 } from './src/long-session-autonomy-core.js';
 import {
+ V015AutonomyCertificationMonitor,v015CertificationLabel
+} from './src/v015-autonomy-certification-core.js';
+import {
  UnifiedCognitiveStateStore
 } from './src/unified-cognitive-state-core.js';
 import {
@@ -637,6 +640,7 @@ function settlePendingSituationalFeedback(now=Date.now()){
   participantId:pendingSituationalEngagement.participantId,
   topicKey:pendingSituationalEngagement.topicKey,outcome:'ignored',at:now
  });
+ v015AutonomyCertificationMonitor.note('silence-window',{},now);
  recordUnifiedCognitiveOutcome({
   action:pendingSituationalEngagement.action||'contextual',
   participantId:pendingSituationalEngagement.participantId,
@@ -662,6 +666,7 @@ async function handleContextualFollowThrough(turn,now=Date.now()){
   pendingContextualFollowThrough=null;return false;
  }
  if(decision.action==='decline'){
+  v015AutonomyCertificationMonitor.note('proactive-rejected',{},now);
   const cancelled=completedFollowThrough(proposal,{status:'cancelled',at:now});
   logRoomMessage('decision',followThroughResultMessage(cancelled),
    'room-contextual-followthrough',{
@@ -673,6 +678,7 @@ async function handleContextualFollowThrough(turn,now=Date.now()){
  }
  const confirmed=confirmedFollowThrough(proposal,now);
  if(!confirmed)return false;
+ v015AutonomyCertificationMonitor.note('proactive-accepted',{},now);
  pendingContextualFollowThrough=null;
  logRoomMessage('decision','Owner confirmed contextual '+confirmed.action,
   'room-contextual-followthrough',{
@@ -762,6 +768,10 @@ function noteSituationalDialogueFeedback(turn,now=Date.now()){
   participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
   outcome:classified.outcome,at:now
  });
+ if(['positive','expanded'].includes(classified.outcome))
+  v015AutonomyCertificationMonitor.note('proactive-accepted',{},now);
+ else if(['dismissed','topic-changed'].includes(classified.outcome))
+  v015AutonomyCertificationMonitor.note('proactive-rejected',{},now);
  recordUnifiedCognitiveOutcome({
   action:pendingSituationalEngagement.action||'contextual',
   participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
@@ -889,6 +899,7 @@ function renderAgentBrain(now=Date.now()){
   ' proposals · runtime '+brain.runtime.performanceLevel+' · storage '+brain.runtime.storageStatus);
  const pause=document.getElementById('agentBrainPause');
  if(pause)pause.textContent=cognitionPaused?'Resume cognition':'Pause cognition';
+ renderV015CertificationStatus(now);
  return brain;
 }
 
@@ -1071,6 +1082,7 @@ async function tickProactive(){
   }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
   attentionPriorityEngine.record(attention,{acted:executed,at:Date.now()});
+  if(executed)v015AutonomyCertificationMonitor.note('interruption',{},Date.now());
   recordUnifiedCognitiveOutcome({
    action:decision.opportunity?.type||'proactive',participantId:decision.participantId,
    topicKey:contextualEntry?.candidate?.topicKey||null,executed,
@@ -1149,6 +1161,7 @@ const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
+const v015AutonomyCertificationMonitor=new V015AutonomyCertificationMonitor({startedAt:Date.now()});
 const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 const attentionPriorityEngine=new AttentionPriorityEngine();
 const goalIntentTracker=new GoalIntentTracker();
@@ -1775,9 +1788,16 @@ function renderRoomLiveValidation(){
 function noteRoomProviderOutcome(provider,status,reason=''){
  const at=Date.now();
  roomLiveValidation.observeProvider({provider,status,reason,at});
- if(status==='failed'||status==='error')longSessionAutonomyMonitor.note('provider-failure',{provider,reason},at);
- else if(status==='recovered'||status==='success'||status==='ok')longSessionAutonomyMonitor.note('provider-recovery',{provider},at);
- renderRoomLiveValidation();renderAutonomyCertificationStatus();
+ if(['failed','error','recovered','success','ok'].includes(status))
+  v015AutonomyCertificationMonitor.note('provider-call',{provider,status},at);
+ if(status==='failed'||status==='error'){
+  longSessionAutonomyMonitor.note('provider-failure',{provider,reason},at);
+  v015AutonomyCertificationMonitor.note('provider-failure',{provider,reason},at);
+ }else if(status==='recovered'||status==='success'||status==='ok'){
+  longSessionAutonomyMonitor.note('provider-recovery',{provider},at);
+  v015AutonomyCertificationMonitor.note('provider-recovery',{provider},at);
+ }
+ renderRoomLiveValidation();renderAutonomyCertificationStatus();renderV015CertificationStatus(at);
 }
 
 function renderRoomMediaContinuity(){
@@ -2855,24 +2875,34 @@ function initRoomHandoffControls(){
 
 function noteAutonomyCertificationObservation(event){
  if(!event)return;
- const semantic=String(event.semantic||'');
- if(['participant-observed','participant-reentered-room','room-arrival-observed','room-departure-confirmed'].includes(semantic))
-  longSessionAutonomyMonitor.note('participant-cycle',{},event.at||Date.now());
+ const semantic=String(event.semantic||''),at=event.at||Date.now();
+ if(['participant-observed','participant-reentered-room','room-arrival-observed','room-departure-confirmed'].includes(semantic)){
+  longSessionAutonomyMonitor.note('participant-cycle',{},at);
+  v015AutonomyCertificationMonitor.note('participant-cycle',{},at);
+ }
  if(semantic==='room-media-continuity'){
   const transition=String(event.evidence?.roomMediaContinuity?.status||'');
-  longSessionAutonomyMonitor.note('media-transition',{transition},event.at||Date.now());
-  if(String(event.evidence?.roomMediaContinuity?.interruption||'').includes('foreground-conversation'))
-   longSessionAutonomyMonitor.note('conversation-over-media',{},event.at||Date.now());
+  longSessionAutonomyMonitor.note('media-transition',{transition},at);
+  v015AutonomyCertificationMonitor.note('media-transition',{transition},at);
+  if(String(event.evidence?.roomMediaContinuity?.interruption||'').includes('foreground-conversation')){
+   longSessionAutonomyMonitor.note('conversation-over-media',{},at);
+   v015AutonomyCertificationMonitor.note('conversation-over-media',{},at);
+  }
  }
- if(semantic==='agent-proactive-outcome'&&/spoken|executed|success/i.test(String(event.message||'')))
-  longSessionAutonomyMonitor.note('interruption',{},event.at||Date.now());
- if(semantic==='context-followthrough-expired')
-  longSessionAutonomyMonitor.note('stale-followthrough',{},event.at||Date.now());
+ if(semantic==='agent-proactive-outcome'&&/spoken|executed|success/i.test(String(event.message||''))){
+  longSessionAutonomyMonitor.note('interruption',{},at);
+  v015AutonomyCertificationMonitor.note('interruption',{},at);
+ }
+ if(semantic==='context-followthrough-expired'){
+  longSessionAutonomyMonitor.note('stale-followthrough',{},at);
+  v015AutonomyCertificationMonitor.note('stale-followthrough',{},at);
+ }
  const awareness=roomSituationalAwareness.snapshot();
  longSessionAutonomyMonitor.note('memory-bounds',{
   events:awareness.eventCount,feedback:awareness.feedbackCount
- },event.at||Date.now());
+ },at);
  renderAutonomyCertificationStatus();
+ renderV015CertificationStatus(at);
 }
 function renderAutonomyCertificationStatus(){
  if(state.mode!=='agent')return;
@@ -2881,6 +2911,23 @@ function renderAutonomyCertificationStatus(){
  const result=longSessionAutonomyMonitor.certify(Date.now());
  mount.textContent=certificationLabel(result)+' · '+Math.round(result.snapshot.durationMs/60000)+
   ' min · '+result.failed.length+' gates pending/failed';
+}
+function renderV015CertificationStatus(now=Date.now()){
+ if(state.mode!=='agent')return null;
+ const mount=document.getElementById('v015AutonomyCertificationStatus');
+ const result=v015AutonomyCertificationMonitor.certify({
+  cognitiveState:unifiedCognitiveState.snapshot(),
+  attention:attentionPriorityEngine.snapshot().lastDecision,
+  goalSnapshot:goalIntentTracker.snapshot(),
+  orchestrator:cognitiveOrchestrator.snapshot().lastPlan,
+  outcomes:cognitiveOutcomeLedger.snapshot(),
+  situational:roomSituationalAwareness.snapshot(),
+  cognitionPaused,now
+ });
+ if(mount)mount.textContent=v015CertificationLabel(result)+' · '+
+  Math.round(result.snapshot.durationMs/60000)+' min · '+
+  result.failed.length+' gates pending/failed';
+ return result;
 }
 
 function addRoomObservation(observation){
