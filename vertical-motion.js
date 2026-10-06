@@ -503,7 +503,7 @@ let musicLyricWebAbortController=null;
 let musicRecognitionGeneration=0;
 let mediaIdentificationEnabled=true;
 let mediaWebLookupEnabled=false;
-let mediaRecognitionDecision='Waiting for recorded TV / video dialogue';
+let mediaRecognitionDecision='Waiting for recorded TV / video / radio / podcast speech';
 let mediaWorkingDialogueQuery='';
 let mediaWorkingVisualClue='';
 let mediaWebAbortController=null;
@@ -1346,11 +1346,16 @@ function resetMusicIdentification(reason='Waiting for stable music'){
 }
 
 function mediaResultLabel(media={}){
- if(media.kind==='episode'){
+ if(['episode','podcast-episode'].includes(media.kind)){
   const series=media.series||media.title||'Unknown series';
   const episode=media.title&&media.title!==series?' · '+media.title:'';
-  const code=media.season&&media.episode?' · S'+media.season+'E'+media.episode:'';
+  const code=media.kind==='episode'&&media.season&&media.episode
+   ?' · S'+media.season+'E'+media.episode:'';
   return series+episode+code;
+ }
+ if(media.kind==='radio-show'){
+  return (media.series||media.title||'Unknown radio show')+
+   (media.title&&media.series&&media.title!==media.series?' · '+media.title:'');
  }
  return media.title||media.series||'Unknown media';
 }
@@ -1369,7 +1374,7 @@ function renderMediaIdentification(){
   else if(media.status==='candidate')result.textContent='Candidate: '+mediaResultLabel(media)+' · verifying';
   else if(mediaWorkingDialogueQuery)result.textContent='Recorded dialogue clue ready · working text is memory-only';
   else if(mediaWorkingVisualClue)result.textContent='Visual metadata clue ready · no camera frame was uploaded';
-  else result.textContent='No exact TV / movie / streaming title identified this session.';
+  else result.textContent='No exact TV / movie / streaming / radio / podcast title identified this session.';
  }
 }
 function logMediaIdentificationResult(result){
@@ -1432,7 +1437,7 @@ async function processMediaRecognitionWork(job){
    const observed=mediaIdentificationTracker.observeCandidate(resolved.candidate,Date.now());
    logMediaIdentificationResult(observed);
    mediaRecognitionDecision=observed.media.status==='confirmed'
-    ?'TV / movie / streaming title confirmed from corroborated evidence'
+    ?'Recorded media title confirmed from corroborated evidence'
     :'Media candidate received · waiting for another independent clue';
   }else mediaRecognitionDecision='Public web search found no strong media candidate';
  }catch(error){
@@ -1463,7 +1468,7 @@ function drainMediaRecognitionQueue(){
 function queueMediaRecognitionWindow(segment,{speechOrigin=null}={}){
  if(!mediaIdentificationEnabled||!segment?.samples?.length)return false;
  const mediaKind=speechOrigin?.mediaContext?.kind||null;
- if(!['television','recorded-media'].includes(mediaKind))return false;
+ if(!['television','recorded-media','radio'].includes(mediaKind))return false;
  if(speechOrigin?.state!=='recorded')return false;
  const durationMs=Number(segment.captureDurationMs)||
   Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
@@ -1474,7 +1479,9 @@ function queueMediaRecognitionWindow(segment,{speechOrigin=null}={}){
   generation:mediaRecognitionGeneration,documentHidden:document.hidden
  },Date.now());
  if(queued.accepted){
-  mediaRecognitionDecision='Recorded TV / video dialogue window queued for local transcription';
+  mediaRecognitionDecision=mediaKind==='radio'
+   ?'Recorded radio / podcast speech window queued for local transcription'
+   :'Recorded TV / video dialogue window queued for local transcription';
   renderMediaIdentification();drainMediaRecognitionQueue();return true;
  }
  return false;
@@ -1484,6 +1491,7 @@ async function processMediaVisualClue(detail={}){
  const active=environmentalActivityTracker.snapshot();
  const activeKind=active?.category==='media-playback'
   ?(active.subtype==='television'?'television':
+    active.subtype==='radio'?'radio':
     active.subtype==='media-playback'?'recorded-media':null):null;
  if(!activeKind)return false;
  const evidenceId=String(detail.evidenceId||('visual-'+Date.now())).slice(0,96);
@@ -1523,7 +1531,7 @@ async function processMediaVisualClue(detail={}){
   mediaWebAbortController=null;
  }
 }
-function resetMediaIdentification(reason='Waiting for recorded TV / video dialogue'){
+function resetMediaIdentification(reason='Waiting for recorded TV / video / radio / podcast speech'){
  mediaRecognitionGeneration++;
  mediaWebAbortController?.abort();mediaWebAbortController=null;
  mediaRecognitionQueue.clear();mediaIdentificationTracker.reset();mediaLookupGuard.reset();
@@ -6128,22 +6136,22 @@ if(state.mode==='agent'){
    mediaIdToggle.checked=savedMediaId!=='no';
    mediaIdentificationEnabled=mediaIdToggle.checked;
    mediaRecognitionQueue.setEnabled(mediaIdentificationEnabled);
-   if(!mediaIdentificationEnabled)resetMediaIdentification('TV / movie identification disabled');
+   if(!mediaIdentificationEnabled)resetMediaIdentification('Recorded media identification disabled');
    else renderMediaIdentification();
    mediaIdToggle.addEventListener('change',()=>{
     mediaIdentificationEnabled=mediaIdToggle.checked;
     mediaRecognitionQueue.setEnabled(mediaIdentificationEnabled);
     const webToggle=document.getElementById('roomIdentifyMediaWeb');
     if(webToggle)webToggle.disabled=!mediaIdentificationEnabled;
-    if(!mediaIdentificationEnabled)resetMediaIdentification('TV / movie identification disabled');
+    if(!mediaIdentificationEnabled)resetMediaIdentification('Recorded media identification disabled');
     else{
      mediaRecognitionGeneration++;
-     mediaRecognitionDecision='Waiting for recorded TV / video dialogue';
+     mediaRecognitionDecision='Waiting for recorded TV / video / radio / podcast speech';
      renderMediaIdentification();
     }
     try{window.localStorage.setItem('tracky2-room-media-id',mediaIdentificationEnabled?'yes':'no');}catch{}
     logRoomMessage('system','Owner '+(mediaIdentificationEnabled?'enabled':'disabled')+
-     ' memory-only TV / movie / streaming identification',
+     ' memory-only TV / movie / streaming / radio / podcast identification',
      'audio-consent',{semantic:'media-identification-consent'});
    });
   }
@@ -6160,11 +6168,11 @@ if(state.mode==='agent'){
     }
     try{window.localStorage.setItem('tracky2-room-media-web',mediaWebLookupEnabled?'yes':'no');}catch{}
     mediaRecognitionDecision=mediaWebLookupEnabled
-     ?'Remote TV / movie lookup enabled · waiting for recorded-media evidence'
-     :'Remote TV / movie lookup disabled · local detection continues';
+     ?'Remote recorded-media lookup enabled · waiting for TV / radio / podcast evidence'
+     :'Remote recorded-media lookup disabled · local detection continues';
     renderMediaIdentification();
     logRoomMessage('system','Owner '+(mediaWebLookupEnabled?'enabled':'disabled')+
-     ' remote TV / movie / streaming web lookup',
+     ' remote TV / movie / streaming / radio / podcast web lookup',
      'audio-consent',{semantic:'media-web-consent'});
    });
   }
