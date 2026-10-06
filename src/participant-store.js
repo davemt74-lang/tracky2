@@ -587,27 +587,47 @@ async function queueAccountParticipantUpsert(record){
     return false;
   }
 }
+export async function persistParticipantRecord(record,{
+  primarySave,recoverySave,emergencySave
+}={}){
+  if(typeof primarySave!=='function'||typeof recoverySave!=='function'||typeof emergencySave!=='function')
+    throw new TypeError('Participant persistence backends are required.');
+  try{
+    await primarySave(record);
+    return Object.freeze({record,tier:'primary'});
+  }catch(primaryError){
+    if(!participantStorageRecoveryReason(primaryError))throw primaryError;
+    try{
+      const recovered=await recoverySave(record,primaryError);
+      return Object.freeze({record:recovered||record,tier:'recovery-indexeddb',primaryError});
+    }catch(recoveryError){
+      const emergency=await emergencySave(record,primaryError,recoveryError);
+      return Object.freeze({record:emergency||record,tier:'emergency-local-storage',primaryError,recoveryError});
+    }
+  }
+}
+
 export async function saveParticipant(input,{accountSync=true}={}) {
   const record=participantRecord(input);
   // Local participant durability is authoritative. Account-sync bookkeeping is a
   // separate best-effort lane and must never abort an otherwise valid enrollment.
-  let storedRecord=record;
-  try{
-    await storeAction(PARTICIPANTS,'readwrite',
-      participants=>requestToPromise(participants.put(record)));
-    await deleteRecoveryParticipant(record.id);
-    await deleteEmergencyParticipant(record.id);
-  }catch(primaryError){
-    if(!participantStorageRecoveryReason(primaryError))throw primaryError;
-    try{
-      storedRecord=await saveRecoveryParticipant(record,primaryError);
-      await deleteEmergencyParticipant(record.id);
-    }catch(recoveryError){
-      storedRecord=await saveEmergencyParticipant(record,primaryError,recoveryError);
-    }
-  }
+  const persisted=await persistParticipantRecord(record,{
+    primarySave:async value=>{
+      await storeAction(PARTICIPANTS,'readwrite',
+        participants=>requestToPromise(participants.put(value)));
+      await deleteRecoveryParticipant(value.id);
+      await deleteEmergencyParticipant(value.id);
+    },
+    recoverySave:async(value,primaryError)=>{
+      const recovered=await saveRecoveryParticipant(value,primaryError);
+      await deleteEmergencyParticipant(value.id);
+      return recovered;
+    },
+    emergencySave:saveEmergencyParticipant
+  });
+  const storedRecord=persisted.record;
   if(accountSync)await queueAccountParticipantUpsert(storedRecord);
-  return storedRecord;
+  return {...storedRecord,storageTier:persisted.tier};
 }
 
 export async function patchParticipant(id, patch,options={}) {
