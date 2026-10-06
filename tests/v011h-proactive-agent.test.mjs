@@ -64,6 +64,45 @@ test('11H task/meeting status opportunities are narrow and retry notices are not
  assert.match(meeting.text,/summary and action items/i);
 });
 
+test('V2D environmental alerts enter the proactive governor only when the alert core marks them eligible',()=>{
+ const muted=statusOpportunity({
+  id:'a0',semantic:'environmental-alert',message:'Alarm-like sound detected',at:1000,
+  confidence:.8,evidence:{environmentalAlert:{
+   key:'alarm-siren-like',severity:'urgent',proactiveEligible:false,
+   agentNotice:'I heard an alarm-like sound.'
+  }}
+ },1000);
+ assert.equal(muted,null);
+
+ const alert=statusOpportunity({
+  id:'a1',semantic:'environmental-alert',message:'Repeated alarm-like sound',at:1000,
+  confidence:.86,evidence:{environmentalAlert:{
+   key:'alarm-siren-like',severity:'urgent',proactiveEligible:true,
+   agentNotice:'I heard an alarm- or siren-like sound. I cannot verify its source.'
+  }}
+ },1000);
+ assert.equal(alert.type,'environment-alert');
+ assert.equal(alert.participantId,null);
+ assert.equal(alert.source,'environmental-alert-runtime');
+ assert.match(alert.text,/cannot verify its source/);
+
+ const governor=new ProactiveAgentGovernor();
+ governor.noteStatusEvent({
+  id:'a2',semantic:'environmental-alert',message:'Repeated alarm-like sound',at:1000,
+  confidence:.86,evidence:{environmentalAlert:{
+   key:'alarm-siren-like',severity:'urgent',proactiveEligible:true,
+   agentNotice:'I heard an alarm- or siren-like sound. I cannot verify its source.'
+  }}
+ },1000);
+ assert.equal(governor.snapshot(1000).pending,1);
+ let decision=governor.evaluateNext(ctx({now:1000,visibleParticipantIds:[]}));
+ assert.equal(decision.action,null);
+ assert.equal(decision.reason,'no single verified attention target');
+ decision=governor.evaluateNext(ctx({now:1000,visibleParticipantIds:['p1']}));
+ assert.equal(decision.action,'speak');
+ assert.equal(decision.opportunity.type,'environment-alert');
+});
+
 test('11H dedupe replaces equivalent pending follow-up and newer dialogue supersedes older one',()=>{
  const g=new ProactiveAgentGovernor({...DEFAULT_PROACTIVE_POLICY,followupDelayMs:60000});
  const first=g.noteDialogue(turn({id:'t1',at:1000}),1000);

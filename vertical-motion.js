@@ -35,6 +35,10 @@ import {
 } from './src/media-identification-core.js';
 import {searchMediaByClues} from './src/media-identification-client.js';
 import {
+ EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
+ environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
+} from './src/environmental-alert-core.js';
+import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
 import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-core.js';
@@ -474,6 +478,9 @@ const musicLyricLookupGuard=new MusicLyricLookupGuard();
 const mediaIdentificationTracker=new MediaIdentificationTracker();
 const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
+const environmentalAlertTracker=new EnvironmentalAlertTracker();
+const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
+let importantEnvironmentalEventsEnabled=true;
 let musicIdentificationEnabled=true;
 let musicLyricWebLookupEnabled=false;
 let musicFingerprintProvider=null;
@@ -766,6 +773,47 @@ function reportEnvironmentalDrops(dropped=[]){
   (dropped.length===1?'':'s');
  renderEnvironmentalAudio();
 }
+function logEnvironmentalAlertResult(result,classification){
+ if(!result?.accepted||!result.emit||state.mode!=='agent')return null;
+ const event=result.event||{};
+ const agentNotice=environmentalAlertAgentNotice(result);
+ return recordProactiveSourceEvent('audio',environmentalAlertMessage(result),
+  'environmental-alert-runtime',{
+   at:event.at||classification?.at||Date.now(),
+   semantic:'environmental-alert',
+   confidence:Number(event.peakConfidence)||Number(classification?.confidence)||null,
+   dedupeKey:'environment-alert:'+String(event.key||'sound')+':'+
+    String(event.observationCount||1)+':'+String(event.firstAt||event.at||Date.now()),
+   evidence:{
+    durationMs:classification?.durationMs||null,
+    environmentalAlert:{
+     key:event.key||null,label:event.label||null,severity:event.severity||'info',
+     modelLabel:event.modelLabel||classification?.modelLabel||null,
+     observationCount:Number(event.observationCount)||1,
+     sourceDirection:event.sourceDirection||'unavailable',
+     proactiveEligible:result.proactiveEligible===true,
+     agentNotice:agentNotice||null,
+     sourceVerified:false,emergencyConfirmed:false,observableOnly:true
+    }
+   }
+  });
+}
+function logEnvironmentalMechanicalTransition(event){
+ if(!event||state.mode!=='agent')return null;
+ return logRoomMessage('audio',environmentalMechanicalMessage(event),
+  'environmental-mechanical-runtime',{
+   at:event.at,semantic:'environmental-mechanical-state',
+   confidence:Number(event.peakConfidence)||null,
+   dedupeKey:'environment-mechanical:'+event.key+':'+event.type+':'+
+    event.startedAt+':'+event.at,
+   evidence:{environmentalMechanical:{
+    type:event.type,modelLabel:event.modelLabel,
+    observationCount:event.observationCount,
+    observedDurationMs:event.observedDurationMs,
+    sourceVerified:false,observableOnly:true
+   }}
+  });
+}
 async function processEnvironmentalAudioWork(work){
  let outcome='classified';
  if(!environmentalAudioQueue.current(work,Date.now())){
@@ -813,14 +861,29 @@ async function processEnvironmentalAudioWork(work){
   const legacyEmission=environmentalAudioTracker.observe(classification,Date.now());
   const grouped=environmentalEventGrouper.observe(classification,Date.now());
   const activity=environmentalActivityTracker.observe(classification,Date.now());
+  const important=importantEnvironmentalEventsEnabled
+   ?environmentalAlertTracker.observe(classification,Date.now())
+   :{accepted:false,emit:false,proactiveEligible:false,event:null};
+  const mechanical=importantEnvironmentalEventsEnabled
+   ?environmentalMechanicalTracker.observe(classification,Date.now())
+   :{accepted:false,transitions:[]};
   environmentalAudioCurrentGroup=grouped.group;
   renderEnvironmentalAudio();
+  let specialized=false;
+  if(important.accepted){
+   specialized=true;
+   if(important.emit)logEnvironmentalAlertResult(important,classification);
+  }
+  if(mechanical.accepted){
+   specialized=true;
+   for(const transition of mechanical.transitions)logEnvironmentalMechanicalTransition(transition);
+  }
   if(activity.persistent){
    for(const transition of activity.transitions)
     logEnvironmentalActivityTransition(transition,grouped.group);
   }else{
    const emit=grouped.reason==='new-group'?legacyEmission.emit:grouped.emit;
-   if(emit&&grouped.group&&state.mode==='agent'){
+   if(!specialized&&emit&&grouped.group&&state.mode==='agent'){
     logRoomMessage('audio',environmentalV2Message(classification),
      'local-audioset-c38c005',{
       at:classification.at,semantic:'environmental-audio-classification-v2',
@@ -926,6 +989,8 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
+  environmentalAlertTracker.reset();
+  environmentalMechanicalTracker.reset();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
@@ -940,6 +1005,8 @@ function setEnvironmentalAudioEnabled(enabled){
   resetMediaIdentification('Environmental audio disabled');
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
+  environmentalAlertTracker.reset();
+  environmentalMechanicalTracker.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
   roomSpeechOriginTracker.reset();
@@ -1324,6 +1391,8 @@ function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
  const ended=environmentalActivityTracker.expire(summary.at);
  if(ended)logEnvironmentalActivityTransition(ended);
+ const mechanicalEnded=environmentalMechanicalTracker.expire(summary.at);
+ if(mechanicalEnded)logEnvironmentalMechanicalTransition(mechanicalEnded);
  // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
  if(analyzeAmbientPatterns){
   const pattern=describeAcousticPattern(summary);
@@ -4558,6 +4627,8 @@ function stopRoomAudio() {
   roomAmbientAudit.reset();
   roomAcousticPatternTracker.reset();
   roomSpeechOriginTracker.reset();
+  environmentalAlertTracker.reset();
+  environmentalMechanicalTracker.reset();
   clearEnvironmentalSpeechEvidence();
   resetMusicIdentification('Room microphone stopped');
   resetMediaIdentification('Room microphone stopped');
@@ -5956,6 +6027,23 @@ if(state.mode==='agent'){
    const detail=event?.detail&&typeof event.detail==='object'?event.detail:{};
    void processMediaVisualClue(detail);
   });
+  const importantSoundsToggle=document.getElementById('roomImportantSoundEvents');
+  if(importantSoundsToggle){
+   let savedImportant=null;try{savedImportant=window.localStorage.getItem('tracky2-room-important-sounds');}catch{}
+   importantEnvironmentalEventsEnabled=savedImportant!=='no';
+   importantSoundsToggle.checked=importantEnvironmentalEventsEnabled;
+   importantSoundsToggle.addEventListener('change',()=>{
+    importantEnvironmentalEventsEnabled=importantSoundsToggle.checked;
+    if(!importantEnvironmentalEventsEnabled){
+     environmentalAlertTracker.reset();environmentalMechanicalTracker.reset();
+    }
+    try{window.localStorage.setItem('tracky2-room-important-sounds',
+     importantEnvironmentalEventsEnabled?'yes':'no');}catch{}
+    logRoomMessage('system','Owner '+(importantEnvironmentalEventsEnabled?'enabled':'disabled')+
+     ' important environmental sound events and governed notices',
+     'audio-consent',{semantic:'environmental-alert-consent'});
+   });
+  }
    const roomOptIn=document.getElementById('roomSaveObservations');
    const roomClear=document.getElementById('roomClearObservations');
    try{

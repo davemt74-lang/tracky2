@@ -9,6 +9,7 @@ const clamp=value=>Math.max(0,Math.min(1,Number(value)||0));
 const short=(value,max=180)=>String(value??'').trim().slice(0,max);
 
 const TYPE_WEIGHTS=Object.freeze({
+ 'environment-alert':Object.freeze({usefulness:.9,urgency:.86}),
  'task-status':Object.freeze({usefulness:.82,urgency:.62}),
  'meeting-followup':Object.freeze({usefulness:.72,urgency:.38}),
  'conversation-followup':Object.freeze({usefulness:.58,urgency:.22}),
