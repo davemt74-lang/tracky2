@@ -74,3 +74,16 @@ test('V2C server uses shared configured OpenAI/Anthropic routing and bounded web
  assert.doesNotMatch(php,/tracky_provider_audit\([^;]*\$dialogue/s);
  assert.doesNotMatch(php,/tracky_provider_audit\([^;]*\$visual/s);
 });
+
+
+test('V2C deploy/PWA manifests include media core, client and governed server endpoint',()=>{
+ const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
+ const sw=fs.readFileSync('sw.js','utf8');
+ const pkg=fs.readFileSync('package.json','utf8');
+ for(const needle of ['src/media-identification-core.js','src/media-identification-client.js','server/media-id-api.php'])
+  assert.match(workflow,new RegExp(needle.replaceAll('.','\\.')));
+ assert.match(sw,/\.\/src\/media-identification-core\.js/);
+ assert.match(sw,/\.\/src\/media-identification-client\.js/);
+ assert.match(pkg,/node --check src\/media-identification-core\.js/);
+ assert.match(pkg,/node --check src\/media-identification-client\.js/);
+});
