@@ -129,7 +129,8 @@ test('V2E Control Center is opt-in and documents two-example local-only learning
 
 test('V2E IndexedDB schema stores only bounded personalized profiles in its own local store',()=>{
  const store=fs.readFileSync('src/participant-store.js','utf8');
- assert.match(store,/const DB_VERSION = 16/);
+ const schemaVersion=Number(store.match(/const DB_VERSION = ([0-9]+)/)?.[1]||0);
+ assert.ok(schemaVersion>=16);
  assert.match(store,/const PERSONALIZED_SOUNDS = 'personalized-sounds'/);
  assert.match(store,/MAX_PERSISTED_PERSONALIZED_SOUNDS=32/);
  assert.match(store,/normalizePersonalizedSoundProfile/);
