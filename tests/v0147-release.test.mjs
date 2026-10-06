@@ -9,8 +9,9 @@ test('v0.14.7 release package is aligned to ROOM Conversation UI cleanup',()=>{
  assert.match(diagnostics,/version:'0\.14\.(?:7|8)'/);
  assert.match(audit,/packageJson\.version !== '0\.14\.(?:7|8)'/);
  assert.match(workflow,/tracky2-v0\.14\.(?:7|8)-deploy\.zip/);
- assert.match(workflow,/ROOM Feed, Control Center & Shared Conversation/);
- assert.match(workflow,/gh release create v0\.14\.7/);
+ const status=read('docs/DEVELOPMENT-STATUS.md');
+ assert.match(status,/V0\.14\.7 — ROOM Feed, Control Center & Shared Conversation/);
+ assert.match(status,/Direct \*\*v0\.14\.7\*\* release published/);
 });
 
 test('v0.14.7 release status preserves closed v0.14.6 and points next to 14G',()=>{
