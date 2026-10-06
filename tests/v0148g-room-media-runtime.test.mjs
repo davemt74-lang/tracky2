@@ -45,3 +45,14 @@ test('V2F room media fusion stores bounded metadata only',()=>{
  assert.doesNotMatch(core,/face|voice-profile|participant-store|biometric/i);
  assert.match(core,/participantId:null/);
 });
+
+
+test('V2F deploy and PWA include the fusion module and schema-5 room map',()=>{
+ const workflow=read('.github/workflows/test.yml');
+ const sw=read('sw.js');
+ const pkg=read('package.json');
+ assert.match(workflow,/src\/room-media-fusion-core\.js/);
+ assert.match(workflow,/ROOM_SCENE_SCHEMA<5/);
+ assert.match(sw,/\.\/src\/room-media-fusion-core\.js/);
+ assert.match(pkg,/node --check src\/room-media-fusion-core\.js/);
+});
