@@ -93,5 +93,6 @@ test('Basic ROOM UI explains music TV and aggregate voice-like activity boundari
  assert.match(html,/Detect music, TV\/video and other environmental audio locally/);
  assert.match(html,/Music and TV\/video\/radio\/game audio can be tracked/);
  assert.match(html,/no speaker identity or spoken content is inferred/);
- assert.match(html,/Exact song, movie or TV-title identification is not performed/);
+ assert.match(html,/local environmental classifier does not itself name songs, movies or TV programs/i);
+ assert.match(html,/TV\/movie\/streaming ID use separate bounded recognition sidecars/);
 });
