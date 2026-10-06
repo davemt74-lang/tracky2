@@ -7,6 +7,7 @@ export const ROOM_CONTEXTUAL_COGNITION_SCHEMA=1;
 export const ROOM_CONTEXTUAL_MIN_IDLE_MS=45000;
 export const ROOM_CONTEXTUAL_MIN_MEDIA_MS=30000;
 export const ROOM_CONTEXTUAL_REPEAT_MS=30*60*1000;
+export const ROOM_CONTEXTUAL_RETRY_MS=2*60*1000;
 
 function mediaLabel(media={}){
  const kind=clean(media.kind,40);
@@ -63,10 +64,12 @@ export function contextualMediaEngagementCandidate(observation={},history=[],now
  if(!observation.stableMedia)reasons.push('media-not-stable');
  if(!observation.identified)reasons.push('media-not-confidently-identified');
  if(!observation.topicKey)reasons.push('missing-media-topic');
- const prior=(history||[]).filter(row=>row?.executed&&row.topicKey===observation.topicKey&&
-   finite(row.at)&&now-row.at>=0&&now-row.at<ROOM_CONTEXTUAL_REPEAT_MS)
-   .sort((a,b)=>b.at-a.at)[0]||null;
- if(prior)reasons.push('recent-topic-engagement');
+ const rows=(history||[]).filter(row=>row?.topicKey===observation.topicKey&&finite(row.at)&&now-row.at>=0)
+  .sort((a,b)=>b.at-a.at);
+ const priorSuccess=rows.find(row=>row.executed&&now-row.at<ROOM_CONTEXTUAL_REPEAT_MS)||null;
+ const priorAttempt=rows.find(row=>!row.executed&&now-row.at<ROOM_CONTEXTUAL_RETRY_MS)||null;
+ if(priorSuccess)reasons.push('recent-topic-engagement');
+ else if(priorAttempt)reasons.push('recent-generation-attempt');
  const eligible=reasons.length===0;
  const media=observation.media||{};
  const identity=media.identity||{};
