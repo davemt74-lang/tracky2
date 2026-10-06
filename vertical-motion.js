@@ -881,6 +881,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
+  roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
   environmentalAudioDecision='Basic ROOM environmental awareness enabled';
