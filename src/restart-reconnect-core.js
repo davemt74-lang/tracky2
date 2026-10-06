@@ -28,12 +28,26 @@ export function reconcileTransientState(input={},now=Date.now()){
 }
 
 export class RestartReconnectCoordinator{
- constructor({epochId='',replayTtlMs=REPLAY_TOMBSTONE_TTL_MS,maxHistory=RESTART_HISTORY_MAX}={}){
+ constructor({epochId='',replayTtlMs=REPLAY_TOMBSTONE_TTL_MS,maxHistory=RESTART_HISTORY_MAX,state=null}={}){
   this.epochId=short(epochId,96)||'epoch';
   this.replayTtlMs=Math.max(60000,Math.min(60*60*1000,Number(replayTtlMs)||REPLAY_TOMBSTONE_TTL_MS));
   this.maxHistory=Math.max(24,Math.min(240,Math.floor(maxHistory)||RESTART_HISTORY_MAX));
   this.networkOnline=true;this.reconnectGeneration=0;this.startedAt=Date.now();
   this.completed=new Map();this.history=[];
+  if(state)this.restore(state);
+ }
+ restore(state={}){
+  if(state.schema!==RESTART_RECONNECT_SCHEMA)return false;
+  const rows=Array.isArray(state.completed)?state.completed:[];
+  this.completed=new Map(rows.filter(row=>Array.isArray(row)&&row.length===2&&finite(row[1]))
+   .map(row=>[short(row[0],220),Number(row[1])]).filter(row=>row[0]));
+  this.history=(Array.isArray(state.recent)?state.recent:[]).slice(-this.maxHistory).map(row=>Object.freeze({...row}));
+  this.prune(Date.now());return true;
+ }
+ exportState(now=Date.now()){
+  this.prune(now);
+  return Object.freeze({schema:RESTART_RECONNECT_SCHEMA,completed:Object.freeze([...this.completed.entries()]),
+   recent:Object.freeze(this.history.slice(-this.maxHistory))});
  }
  prune(now=Date.now()){
   for(const [key,at] of this.completed)if(now-at>this.replayTtlMs)this.completed.delete(key);
