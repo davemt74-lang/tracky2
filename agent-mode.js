@@ -691,8 +691,55 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-tab-ready'));
   window.dispatchEvent(new CustomEvent('tracky:agent-ready',{detail:{enabled:true}}));
  }
+ async function composeProactive(prompt,{participantId=null,scopeId=null}={}){
+  const value=String(prompt||'').trim();
+  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+   return Object.freeze({ok:false,reason:'agent-unavailable',reply:''});
+  if(!ui.useModel.checked)
+   return Object.freeze({ok:false,reason:'model-disabled',reply:''});
+  const selected=ui.provider?.value||'auto';
+  const messages=[
+   {role:'system',content:'You are the room agent. Follow the supplied context exactly. Never invent a media title, artist, show, user activity, or preference. Keep proactive remarks brief, optional, and conversational.'},
+   {role:'user',content:value}
+  ];
+  if(selected==='ollama'){
+   let endpoint;
+   try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
+   catch(error){return Object.freeze({ok:false,reason:error.message,reply:''});}
+   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),16000);
+   try{
+    const reply=await queryLocalOllama({
+     endpoint,model:ui.modelName.value.trim(),messages,signal:controller.signal
+    });
+    return Object.freeze({ok:Boolean(reply),reason:reply?'generated':'empty-reply',reply:String(reply||'').slice(0,700)});
+   }catch(error){
+    return Object.freeze({ok:false,reason:error?.message||'local-provider-failed',reply:''});
+   }finally{clearTimeout(timeout);}
+  }
+  const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+  const plan=providerFallbackPlan(selected,runtime?.providers||[]);
+  let lastError=null;
+  for(const candidate of plan){
+   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),16000);
+   try{
+    const result=await querySelfHostedProvider({
+     provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
+     messages,status:runtime,signal:controller.signal
+    });
+    if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
+    return Object.freeze({
+     ok:Boolean(result.reply),reason:result.reply?'generated':'empty-reply',
+     reply:String(result.reply||'').slice(0,700),provider:candidate
+    });
+   }catch(error){lastError=error;}
+   finally{clearTimeout(timeout);}
+  }
+  return Object.freeze({ok:false,reason:lastError?.message||'no-configured-provider',reply:''});
+ }
+
  return {init,greet,onDialogue,renderBoxes,openVoice,refreshConversation:showThread,
   getHistory:()=>entries.map(entry=>({...entry})),
+  composeProactive,
   reconcileParticipants(validIds=[]){
    const allowed=new Set((validIds||[]).map(String));
    for(const id of greeted.keys())if(!allowed.has(String(id)))greeted.delete(id);
