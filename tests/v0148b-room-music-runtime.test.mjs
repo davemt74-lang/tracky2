@@ -33,8 +33,9 @@ test('V2B owner UI states the memory-only lyric boundary and provider status',()
  assert.match(html,/id="roomIdentifyMusic" checked/);
  assert.match(html,/id="roomMusicIdStatus"/);
  assert.match(html,/id="roomMusicIdResult"/);
- assert.match(html,/Working lyric text stays memory-only/);
- assert.match(html,/Exact lyric\/web candidate lookup is the next V2B stage/);
+ assert.match(html,/id="roomIdentifyMusicWeb"/);
+ assert.match(html,/Remote lyric lookup is off by default/);
+ assert.match(html,/raw room audio and the full working transcription stay on this device/);
 });
 
 test('V2B music stop closes exact identity state without persisting lyrics',()=>{
@@ -52,4 +53,23 @@ test('V2B setting defaults on, persists owner preference and never grants new se
  assert.match(runtime,/musicIdToggle\.checked=savedMusicId!=='no'/);
  assert.match(runtime,/musicRecognitionQueue\.setEnabled\(musicIdentificationEnabled\)/);
  assert.doesNotMatch(runtime,/musicIdToggle[\s\S]{0,1000}getUserMedia/);
+});
+
+
+test('V2B3 remote lyric lookup requires explicit opt-in and never sends raw samples',()=>{
+ const runtime=read('vertical-motion.js');
+ assert.match(runtime,/let musicLyricWebLookupEnabled=false/);
+ assert.match(runtime,/savedMusicWeb==='yes'/);
+ assert.match(runtime,/searchMusicByLyricClue\(\{/);
+ assert.match(runtime,/query:lyric\.query/);
+ assert.match(runtime,/ownerEnabled:true/);
+ assert.doesNotMatch(runtime,/searchMusicByLyricClue\(\{[^}]*samples/s);
+ assert.match(runtime,/musicLyricWebAbortController\?\.abort\(\)/);
+});
+
+test('V2B3 only persists resolved metadata and source URLs, never lyric clue text',()=>{
+ const runtime=read('vertical-motion.js');
+ assert.match(runtime,/sourceUrls:Array\.from\(track\.sourceUrls\|\|\[\]\)\.slice\(0,5\)/);
+ assert.doesNotMatch(runtime,/evidence:\{musicIdentification:\{[^}]*musicWorkingLyricQuery/s);
+ assert.doesNotMatch(runtime,/evidence:\{musicIdentification:\{[^}]*lyric\.query/s);
 });

@@ -22,7 +22,8 @@ test('14A schema and UI expose provider use without exposing credentials',()=>{
  assert.match(html,/id="agentModelProvider"/);
  assert.match(html,/value="openai"/);assert.match(html,/value="anthropic"/);
  assert.match(html,/id="agentSpeechProvider"/);assert.match(html,/value="elevenlabs"/);
- assert.match(mode,/providerFallbackPlan/);assert.match(mode,/querySelfHostedProvider/);
+ assert.match(mode,/providerFallbackPlan/);assert.match(mode,/activeRemoteProvider/);
+ assert.match(mode,/tracky2-agent-provider/);assert.match(mode,/querySelfHostedProvider/);
  assert.match(mode,/querySelfHostedSpeech/);
 });
 
@@ -34,4 +35,15 @@ test('14A provider release artifacts remain included under later V0.14 additive 
  assert.match(workflow,/tracky2-v0\.14\.\d+-deploy\.zip/);
  assert.match(audit,/provider-router-core\.js/);assert.match(audit,/provider-api\.php/);
  assert.match(sw,/provider-router-core\.js/);assert.match(sw,/tracky2-static-v0\.14\.\d+/);
+});
+
+
+test('14A Auto provider UI prefers configured remote API keys while preserving explicit provider choices',()=>{
+ const html=read('vertical-motion.html'),mode=read('agent-mode.js'),providers=read('server/providers.php');
+ assert.match(html,/value="auto" selected>Auto · configured API key/);
+ assert.match(html,/Auto uses the configured OpenAI key first, otherwise Anthropic/);
+ assert.match(mode,/activeRemoteProvider\(selected,providerRuntime\.providers\)/);
+ assert.match(mode,/localStorage\.setItem\('tracky2-agent-provider'/);
+ assert.match(providers,/function tracky_chat_provider_plan/);
+ assert.match(providers,/foreach\(\['openai','anthropic'\] as \$provider\)/);
 });

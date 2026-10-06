@@ -54,6 +54,21 @@ function tracky_provider_status(PDO $db): array {
         'transportAvailable'=>extension_loaded('curl')
     ],TRACKY_PROVIDERS);
 }
+function tracky_chat_provider_plan(PDO $db,string $preferred='auto'): array {
+    $preferred=strtolower(trim($preferred));
+    $configured=[];
+    foreach(tracky_provider_status($db) as $row){
+        if(!in_array($row['provider'],['openai','anthropic'],true))continue;
+        if(($row['configured']??false)!==true||($row['transportAvailable']??false)!==true)continue;
+        $configured[]=(string)$row['provider'];
+    }
+    $plan=[];
+    if(in_array($preferred,['openai','anthropic'],true)&&in_array($preferred,$configured,true))
+        $plan[]=$preferred;
+    foreach(['openai','anthropic'] as $provider)
+        if(in_array($provider,$configured,true)&&!in_array($provider,$plan,true))$plan[]=$provider;
+    return $plan;
+}
 function tracky_provider_messages(mixed $input): array {
     if(!is_array($input))throw new InvalidArgumentException('Conversation messages required.');
     $rows=[];$total=0;

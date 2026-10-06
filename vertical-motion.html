@@ -344,16 +344,17 @@
           <small>AGENT can reason from labeled canonical evidence, but it cannot create or override participant identity. Unknown/conflicted speakers do not receive participant memory.</small>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable AI model · send bounded conversation text only</label>
           <label>Provider <select id="agentModelProvider">
-            <option value="ollama" selected>Local Ollama</option>
+            <option value="auto" selected>Auto · configured API key</option>
             <option value="openai">OpenAI · self-hosted key</option>
             <option value="anthropic">Anthropic · self-hosted key</option>
+            <option value="ollama">Local Ollama</option>
           </select></label>
           <label>Local Ollama endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
           <label>Model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
           <button type="button" id="agentProviderRefresh">Refresh provider status</button>
           <small id="agentProviderBudget" role="status">Local Ollama has no Tracky2 server API budget.</small>
           <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
-          <small>Ollama remains loopback-only. OpenAI, Anthropic and ElevenLabs requests are sent through the authenticated same-origin Tracky2 server; stored API keys are never returned to this browser. No images, raw audio or biometrics are included in chat requests.</small>
+          <small>Auto uses the configured OpenAI key first, otherwise Anthropic; an explicit provider selection is honored when available. Ollama remains loopback-only. OpenAI, Anthropic and ElevenLabs requests are sent through the authenticated same-origin Tracky2 server; stored API keys are never returned to this browser. No images, raw audio or biometrics are included in chat requests.</small>
         </details>
         <button type="button" id="agentClearHistory">Clear agent history</button>
         <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
@@ -838,7 +839,8 @@
             <small>Energy/VAD summaries stay local and unattributed. They do not identify a sound source.</small>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Detect music, TV/video and other environmental audio locally (this session only)</label>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusic" checked> Identify background music from short memory-only windows</label>
-            <small>The fingerprint-provider slot is ready but no external fingerprint provider is configured in this build. The active fallback uses local Whisper on selected music windows. Working lyric text stays memory-only, never becomes a participant Conversation turn, and is not written to ROOM history. Exact lyric/web candidate lookup is the next V2B stage.</small>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusicWeb"> Search the public web with short lyric clues when local Music ID is uncertain</label>
+            <small>Remote lyric lookup is off by default and requires an authenticated configured OpenAI provider. When enabled, only a short bounded lyric clue is sent to the server-side governed web-search path; raw room audio and the full working transcription stay on this device. Working lyric text never becomes a participant Conversation turn and is not written to ROOM history. Track title/artist metadata and source URLs may be written only after candidate resolution.</small>
             <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
             <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
             <div class="control-center-setting-row">
