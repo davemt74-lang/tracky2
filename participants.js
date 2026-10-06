@@ -106,28 +106,66 @@ function setPhoto(img, empty, value) {
   else img.removeAttribute('src');
 }
 
+function updateCaptureCoach(){
+  const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  const next=nextFaceCapturePose(state.gallery);
+  const captured=new Set(state.gallery.map(sample=>sample?.poseId).filter(Boolean));
+  const ready=Boolean(state.currentFace?.embedding&&state.currentFace.quality>=0.55);
+  if(ui.captureCoach)ui.captureCoach.hidden=!state.stream;
+  if(ui.captureReady)ui.captureReady.textContent=status.full?'Profile complete':ready?'Face lock ready':'Waiting for face lock';
+  for(const marker of ui.angleMap?.querySelectorAll?.('[data-pose]')||[]){
+    const pose=marker.dataset.pose;
+    marker.classList.toggle('complete',captured.has(pose));
+    marker.classList.toggle('active',Boolean(next)&&pose===next.id&&!status.full);
+  }
+  if(status.full||!next){
+    if(ui.captureStep)ui.captureStep.textContent=MAX_FACE_SAMPLES+' / '+MAX_FACE_SAMPLES+' · Complete';
+    if(ui.captureInstruction)ui.captureInstruction.textContent='Guided face profile complete. You can retake any angle from the Photos panel.';
+    if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent='Face Profile Complete';
+    ui.capturePrimary.title='Guided face profile complete';
+    ui.capturePrimary.setAttribute('aria-label','Guided face profile complete');
+    ui.capturePrimary.disabled=true;
+    return;
+  }
+  const poseIndex=FACE_CAPTURE_POSES.findIndex(pose=>pose.id===next.id);
+  if(ui.captureStep)ui.captureStep.textContent=(poseIndex+1)+' / '+MAX_FACE_SAMPLES+' · '+next.label;
+  if(ui.captureInstruction)ui.captureInstruction.textContent=next.instruction;
+  if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent=status.count?'Capture '+next.label:'Start Face Capture';
+  ui.capturePrimary.title='Capture '+next.label+' face angle';
+  ui.capturePrimary.setAttribute('aria-label','Capture '+next.label+' face angle');
+  if(state.stream)ui.capturePrimary.disabled=!ready;
+}
+
 function updateEnrollmentUi() {
   const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  const next=nextFaceCapturePose(state.gallery);
   ui.sampleCount.textContent=String(status.count);
   [...ui.enrollmentDots.children].forEach((dot,index)=>{
     dot.classList.toggle('complete',index<status.count);
     dot.setAttribute('aria-label',index<status.count?'Sample '+(index+1)+' saved':'Sample '+(index+1)+' pending');
   });
   ui.enrollmentStatus.textContent=!ui.recognitionEnabled.checked?'Recognition off':
-    status.ready?'Recognition ready':status.count?
+    status.coverageComplete?'9-angle profile complete':status.ready?
+    'Recognition ready · '+status.count+'/'+status.maximum:status.count?
     'Capture '+status.remaining+' more':'Not enrolled';
   ui.enrollmentStatus.classList.toggle('ok',status.ready&&ui.recognitionEnabled.checked);
-  ui.sampleGuide.textContent=status.ready?
-    'Minimum met. '+(status.maximum-status.count)+' optional additional sample slots.':
-    'Capture '+status.remaining+' more clear face sample'+(status.remaining===1?'':'s')+
-    '. Your first primary photo also counts as sample one.';
+  ui.sampleGuide.textContent=status.coverageComplete?
+    'Guided 9-angle profile complete. Retake any angle if you want a cleaner sample.':
+    status.ready?
+      'Recognition is ready. Continue the guided profile'+(next?' with '+next.label:'')+
+      ' for stronger pose coverage.':
+      'Capture '+status.remaining+' more clean face sample'+(status.remaining===1?'':'s')+
+      ' for recognition. The guided shutter will continue through all 9 angles.';
   ui.galleryHint.textContent=status.count+' of '+status.maximum+' samples · '+
-    status.photographed+' photos · '+status.required+' minimum for recognition';
+    status.photographed+' photos · '+status.guidedCaptured+' guided angles · '+
+    status.required+' minimum for recognition';
   ui.captureSample.textContent=state.retakeIndex!==null?
-    'Retake sample '+(state.retakeIndex+1):status.full?'Gallery full · 5/5':
-    'Capture sample '+(status.count+1)+' / '+status.maximum;
+    'Retake '+(state.gallery[state.retakeIndex]?.poseLabel||('sample '+(state.retakeIndex+1))):
+    status.full?'Guided profile full · '+MAX_FACE_SAMPLES+'/'+MAX_FACE_SAMPLES:
+    'Capture '+(next?.label||('sample '+(status.count+1)));
   ui.captureSample.disabled=!state.currentFace?.embedding ||
     state.currentFace.quality<0.55 || (status.full&&state.retakeIndex===null);
+  updateCaptureCoach();
 }
 
 function renderFaceGallery() {
