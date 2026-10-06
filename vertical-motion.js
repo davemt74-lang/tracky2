@@ -170,6 +170,7 @@ import {
 } from './src/cognitive-outcome-core.js';
 import {ProactivityQualityTracker} from './src/proactivity-quality-core.js';
 import {ProviderRecoveryCoordinator} from './src/provider-recovery-core.js';
+import {RestartReconnectCoordinator,reconcileTransientState} from './src/restart-reconnect-core.js';
 import {
  buildAgentBrainSnapshot
 } from './src/agent-brain-core.js';
@@ -1052,6 +1053,14 @@ async function tickProactive(){
  if(!decision?.opportunityId)return;
  const signature=decision.opportunityId+':'+decision.action+':'+decision.reason;
  if(decision.action==='speak'){
+  const proactiveReplayKey='proactive-replay:'+String(decision.opportunityId||'unknown');
+  const replayGate=restartReconnectCoordinator.replayAllowed(proactiveReplayKey,now);
+  if(!replayGate.allow){
+   logRoomMessage('decision','Proactive opportunity suppressed after restart/reconnect · '+replayGate.reason,
+    'restart-reconnect-integrity',{kind:'decision',semantic:'agent-proactive-replay-suppressed',
+     participantId:decision.participantId});
+   renderCognitiveStatus();return;
+  }
   const decisionEvent=logRoomMessage('decision',
    'Proactive opportunity approved · '+decision.opportunity.type+' · '+decision.reason,
    'agent-proactive-governor',{
@@ -1132,7 +1141,11 @@ async function tickProactive(){
   }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
   attentionPriorityEngine.record(attention,{acted:executed,at:Date.now()});
-  if(executed)v015AutonomyCertificationMonitor.note('interruption',{},Date.now());
+  if(executed){
+   restartReconnectCoordinator.markCompleted(proactiveReplayKey,Date.now());
+   persistRestartReconnectState(false);
+   v015AutonomyCertificationMonitor.note('interruption',{},Date.now());
+  }
   recordUnifiedCognitiveOutcome({
    action:decision.opportunity?.type||'proactive',participantId:decision.participantId,
    topicKey:contextualEntry?.candidate?.topicKey||null,executed,
@@ -1257,12 +1270,48 @@ const conversationProactivityEngine=new ConversationProactivityEngine();
 const cognitiveOutcomeLedger=new CognitiveOutcomeLedger();
 const proactivityQualityTracker=new ProactivityQualityTracker();
 const providerRecoveryCoordinator=new ProviderRecoveryCoordinator();
+const RESTART_RECONNECT_STATE_KEY='tracky2-v0151f-restart-reconnect';
+const RESTART_RECONNECT_EPOCH_KEY='tracky2-v0151f-runtime-epoch';
+const RESTART_RECONNECT_CLEAN_KEY='tracky2-v0151f-clean-exit';
+const runtimeEpochId=(typeof crypto!=='undefined'&&crypto.randomUUID)
+ ?crypto.randomUUID():'epoch-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+let restartReconnectState=null,priorRuntimeEpoch=null,priorRuntimeClean=true;
+try{
+ const raw=window.localStorage.getItem(RESTART_RECONNECT_STATE_KEY);
+ restartReconnectState=raw?JSON.parse(raw):null;
+ priorRuntimeEpoch=window.sessionStorage.getItem(RESTART_RECONNECT_EPOCH_KEY)||null;
+ priorRuntimeClean=window.sessionStorage.getItem(RESTART_RECONNECT_CLEAN_KEY)!=='0';
+ window.sessionStorage.setItem(RESTART_RECONNECT_EPOCH_KEY,runtimeEpochId);
+ window.sessionStorage.setItem(RESTART_RECONNECT_CLEAN_KEY,'0');
+}catch{}
+const restartReconnectCoordinator=new RestartReconnectCoordinator({
+ epochId:runtimeEpochId,state:restartReconnectState
+});
+if(priorRuntimeEpoch)restartReconnectCoordinator.restart({
+ clean:priorRuntimeClean,priorEpochId:priorRuntimeEpoch,now:Date.now()
+});
+function persistRestartReconnectState(clean=false){
+ try{
+  window.localStorage.setItem(RESTART_RECONNECT_STATE_KEY,
+   JSON.stringify(restartReconnectCoordinator.exportState(Date.now())));
+  window.sessionStorage.setItem(RESTART_RECONNECT_CLEAN_KEY,clean?'1':'0');
+  return true;
+ }catch{return false;}
+}
 let cognitionPaused=false;
 let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
 let pendingSituationalEngagement=null,pendingContextualFollowThrough=null;
+{
+ const reconciled=reconcileTransientState({
+  pendingArrivalDecision,pendingSituationalEngagement,pendingContextualFollowThrough
+ },Date.now());
+ pendingArrivalDecision=reconciled.pendingArrivalDecision;
+ pendingSituationalEngagement=reconciled.pendingSituationalEngagement;
+ pendingContextualFollowThrough=reconciled.pendingContextualFollowThrough;
+}
 let lastSituationalMediaKey='',lastSituationalMediaAt=0;
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
@@ -6945,6 +6994,9 @@ function prepareRuntimeExit(reason='runtime-exit'){
  runtimeExitPrepared=true;
  try{window.sessionStorage.setItem('tracky2-v015-clean-exit','1');}catch{}
  persistV0151Stability(true);
+ persistRestartReconnectState(true);
+ clearTransientCognition();
+ providerRecoveryCoordinator.resetInFlight(reason,Date.now());
  environmentalAudioQueue.disable();
  cancelCameraRecovery();
  cancelMicrophoneRecovery();
@@ -7597,6 +7649,24 @@ window.addEventListener('pagehide',event=>{
  if(state.mode!=='agent')return;
  void endStoredSessionIdentity(canonicalSessionId,'pagehide',Date.now())
   .catch(error=>console.warn('Session close metadata unavailable:',error));
+});
+window.addEventListener('offline',()=>{
+ restartReconnectCoordinator.setNetwork(false,Date.now());
+ persistRestartReconnectState(false);
+ musicFingerprintAbortController?.abort();musicLyricWebAbortController?.abort();mediaWebAbortController?.abort();
+ musicRecognitionGeneration++;mediaRecognitionGeneration++;
+ musicRecognitionQueue.clear();mediaRecognitionQueue.clear();
+ agentRuntime?.onNetworkChange?.(false);
+ logRoomMessage('system','Network offline · remote provider work cancelled; local room processing continues',
+  'restart-reconnect-integrity',{semantic:'network-offline'});
+});
+window.addEventListener('online',()=>{
+ restartReconnectCoordinator.setNetwork(true,Date.now());
+ persistRestartReconnectState(false);
+ agentRuntime?.onNetworkChange?.(true);
+ void multiRoomRuntime?.sync?.();
+ logRoomMessage('system','Network restored · remote providers require fresh requests; stale work will not replay',
+  'restart-reconnect-integrity',{semantic:'network-reconnected'});
 });
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden)return;
