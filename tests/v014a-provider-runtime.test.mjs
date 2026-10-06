@@ -47,3 +47,17 @@ test('14A Auto provider UI prefers configured remote API keys while preserving e
  assert.match(providers,/function tracky_chat_provider_plan/);
  assert.match(providers,/foreach\(\['openai','anthropic'\] as \$provider\)/);
 });
+
+
+test('V2G ACRCloud is a recognition provider, not an AGENT LLM provider',()=>{
+ const api=read('server/provider-api.php');
+ const providers=read('server/providers.php');
+ const admin=read('server/admin.php');
+ const router=read('src/provider-router-core.js');
+ assert.match(providers,/TRACKY_PROVIDERS=\['openai','anthropic','elevenlabs','acrcloud'\]/);
+ assert.match(api,/ACRCloud is available only through the governed music fingerprint runtime/);
+ assert.doesNotMatch(router,/REMOTE_CHAT_PROVIDERS=.*acrcloud/);
+ assert.doesNotMatch(router,/REMOTE_SPEECH_PROVIDERS=.*acrcloud/);
+ assert.match(admin,/ACRCloud Music Recognition/);
+ assert.match(admin,/Access secret/);
+});
