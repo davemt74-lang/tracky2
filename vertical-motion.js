@@ -416,7 +416,7 @@ function updateUnifiedCognitiveState(now=Date.now()){
  const proactive=proactiveGovernor.snapshot(now);
  const performance=devicePerformanceGovernor.snapshot();
  const meeting=meetingUI?.activeMeeting?.()||null;
- return unifiedCognitiveState.update({
+ const snapshot=unifiedCognitiveState.update({
   sessionId:roomSessionId,pageVisible:!document.hidden,
   room:{...currentRoomIdentity(),cameraActive:state.running,microphoneActive:state.voice.active},
   participants,
@@ -439,6 +439,11 @@ function updateUnifiedCognitiveState(now=Date.now()){
    cameraRecoveryPending,microphoneRecoveryPending
   }
  },now);
+ const status=document.getElementById('unifiedCognitiveStateStatus');
+ if(status)status.textContent='Unified cognitive state · #'+unifiedCognitiveState.transition().sequence+
+  ' · '+snapshot.visibleParticipantIds.length+' visible · '+snapshot.tasks.length+' active work · '+
+  snapshot.conflicts.length+' conflict'+(snapshot.conflicts.length===1?'':'s');
+ return snapshot;
 }
 function cognitiveStateSnapshot(now=Date.now()){
  return updateUnifiedCognitiveState(now);
