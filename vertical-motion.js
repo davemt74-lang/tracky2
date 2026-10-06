@@ -59,6 +59,10 @@ import {
  RoomContextPlanner,contextualPlanPrompt
 } from './src/room-context-planning-core.js';
 import {
+ contextualFollowThroughProposal,followThroughReplyDecision,confirmedFollowThrough,
+ completedFollowThrough,followThroughResultMessage
+} from './src/contextual-followthrough-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -417,7 +421,7 @@ function persistSituationalAwareness(){
 function clearSituationalAwareness(){
  roomSituationalAwareness=new RoomSituationalAwarenessTracker();
  roomContextPlanner=new RoomContextPlanner();
- pendingSituationalEngagement=null;
+ pendingSituationalEngagement=null;pendingContextualFollowThrough=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
  try{window.localStorage.removeItem('tracky2-room-situational-awareness-v1');}catch{}
 }
@@ -494,6 +498,91 @@ function settlePendingSituationalFeedback(now=Date.now()){
  persistSituationalAwareness();
  return feedback;
 }
+async function handleContextualFollowThrough(turn,now=Date.now()){
+ const proposal=pendingContextualFollowThrough;
+ if(!proposal||!turn?.participantId||
+    String(turn.participantId)!==String(proposal.participantId))return false;
+ const decision=followThroughReplyDecision(turn.transcript,proposal,now);
+ if(decision.action==='none')return false;
+ if(decision.action==='expire'){
+  logRoomMessage('decision','Contextual follow-through expired before confirmation',
+   'room-contextual-followthrough',{
+    kind:'outcome',semantic:'context-followthrough-expired',
+    participantId:proposal.participantId,relatedEventId:proposal.relatedEventId||null
+   });
+  pendingContextualFollowThrough=null;return false;
+ }
+ if(decision.action==='decline'){
+  const cancelled=completedFollowThrough(proposal,{status:'cancelled',at:now});
+  logRoomMessage('decision',followThroughResultMessage(cancelled),
+   'room-contextual-followthrough',{
+    kind:'outcome',semantic:'context-followthrough-cancelled',
+    participantId:proposal.participantId,relatedEventId:proposal.relatedEventId||null,
+    evidence:{contextualFollowThrough:cancelled}
+   });
+  pendingContextualFollowThrough=null;return false;
+ }
+ const confirmed=confirmedFollowThrough(proposal,now);
+ if(!confirmed)return false;
+ pendingContextualFollowThrough=null;
+ logRoomMessage('decision','Owner confirmed contextual '+confirmed.action,
+  'room-contextual-followthrough',{
+   kind:'decision',semantic:'context-followthrough-confirmed',
+   participantId:confirmed.participantId,relatedEventId:confirmed.relatedEventId||null,
+   evidence:{contextualFollowThrough:{
+    schema:confirmed.schema,id:confirmed.id,status:confirmed.status,
+    action:confirmed.action,topicKey:confirmed.topicKey,subject:confirmed.subject,
+    participantId:confirmed.participantId,confirmedAt:confirmed.confirmedAt,rawAudioStored:false
+   }}
+  });
+ proactiveComposePending=true;
+ try{
+  let result=null;
+  if(confirmed.action==='research'){
+   result=await agentRuntime.researchContext(confirmed.query);
+  }else{
+   const prompt='The user explicitly accepted the proposed '+confirmed.action+
+    ' follow-through about '+confirmed.subject+
+    '. Complete that accepted follow-through now in a concise useful response. '+
+    'Do not claim web research unless a research tool was actually used.';
+   result=await agentRuntime.composeProactive(prompt,{
+    participantId:confirmed.participantId,scopeId:'media-context:'+confirmed.participantId
+   });
+  }
+  if(result?.ok&&result.reply){
+   const spoken=agentRuntime.proactiveSpeak(result.reply,{
+    participantId:confirmed.participantId,scopeId:'media-context:'+confirmed.participantId
+   })===true;
+   const completed=completedFollowThrough(confirmed,{
+    status:spoken?'succeeded':'failed',summary:result.reply,
+    sources:result.sources||[],provider:result.provider,model:result.model,at:Date.now()
+   });
+   logRoomMessage('decision',followThroughResultMessage(completed),
+    'room-contextual-followthrough',{
+     kind:'outcome',semantic:'context-followthrough-outcome',
+     participantId:confirmed.participantId,relatedEventId:confirmed.relatedEventId||null,
+     evidence:{contextualFollowThrough:completed}
+    });
+   if(spoken){
+    roomContextPlanner.noteFeedback({
+     action:confirmed.action,mediaKind:confirmed.mediaKind,topicKey:confirmed.topicKey
+    },{outcome:'expanded',at:Date.now()});
+   }
+   return true;
+  }
+  const failed=completedFollowThrough(confirmed,{
+   status:'failed',summary:String(result?.reason||'follow-through unavailable'),at:Date.now()
+  });
+  logRoomMessage('decision',followThroughResultMessage(failed)+' · '+failed.summary,
+   'room-contextual-followthrough',{
+    kind:'outcome',semantic:'context-followthrough-outcome',
+    participantId:confirmed.participantId,relatedEventId:confirmed.relatedEventId||null,
+    evidence:{contextualFollowThrough:failed}
+   });
+  return true;
+ }finally{proactiveComposePending=false;}
+}
+
 function noteSituationalDialogueFeedback(turn,now=Date.now()){
  if(!pendingSituationalEngagement||!turn?.participantId||
     String(turn.participantId)!==String(pendingSituationalEngagement.participantId))return null;
@@ -667,6 +756,27 @@ async function tickProactive(){
      mediaKind:contextualCandidate.mediaKind||null,
      at:outcomeAt
     };
+    pendingContextualFollowThrough=contextualFollowThroughProposal({
+     plan:contextualPlan,candidate:contextualCandidate,
+     relatedEventId:decisionEvent?.id||decision.opportunity.relatedEventId||null,
+     at:outcomeAt
+    });
+    if(pendingContextualFollowThrough){
+     logRoomMessage('decision','Contextual '+pendingContextualFollowThrough.action+
+      ' follow-through awaiting explicit user acceptance',
+      'room-contextual-followthrough',{
+       kind:'decision',semantic:'context-followthrough-proposed',
+       participantId:contextualCandidate.participantId,
+       relatedEventId:pendingContextualFollowThrough.relatedEventId||null,
+       evidence:{contextualFollowThrough:{
+        schema:pendingContextualFollowThrough.schema,id:pendingContextualFollowThrough.id,
+        status:pendingContextualFollowThrough.status,action:pendingContextualFollowThrough.action,
+        topicKey:pendingContextualFollowThrough.topicKey,subject:pendingContextualFollowThrough.subject,
+        participantId:pendingContextualFollowThrough.participantId,
+        expiresAt:pendingContextualFollowThrough.expiresAt,rawAudioStored:false
+       }}
+      });
+    }
    }else{
     roomSituationalAwareness.noteFeedback({
      participantId:contextualCandidate.participantId,
@@ -757,7 +867,8 @@ const roomContextualCognition=new RoomContextualCognitionTracker();
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
-let pendingSituationalEngagement=null,lastSituationalMediaKey='',lastSituationalMediaAt=0;
+let pendingSituationalEngagement=null,pendingContextualFollowThrough=null;
+let lastSituationalMediaKey='',lastSituationalMediaAt=0;
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -4998,7 +5109,8 @@ async function processRoomSegment(segment) {
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
        'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
-      agentRuntime?.onDialogue(savedTurn);
+      const followThroughHandled=await handleContextualFollowThrough(savedTurn,Date.now());
+      if(!followThroughHandled)agentRuntime?.onDialogue(savedTurn);
       noteSituationalDialogueFeedback(savedTurn,Date.now());
       proactiveGovernor.noteDialogue(savedTurn,Date.now());
       renderCognitiveStatus();
