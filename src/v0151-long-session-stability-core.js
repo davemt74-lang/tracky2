@@ -87,7 +87,7 @@ export class V0151LongSessionStabilityMonitor{
  }
  restore(state={}){
   if(state.schema!==V0151_STABILITY_SCHEMA)return false;
-  this.startedAt=Math.max(0,num(state.startedAt)||this.startedAt);
+  if(finite(state.startedAt))this.startedAt=Math.max(0,Number(state.startedAt));
   this.restartCount=Math.max(0,Math.floor(num(state.restartCount)));
   this.uncleanRestartCount=Math.max(0,Math.floor(num(state.uncleanRestartCount)));
   this.samples=(Array.isArray(state.samples)?state.samples:[]).map(normalizeV0151StabilitySample)
