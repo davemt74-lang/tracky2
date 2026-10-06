@@ -102,6 +102,9 @@ import {
   roomPresenceState
 } from './src/room-tracking-core.js';
 import {ParticipantContinuityTracker} from './src/participant-continuity-core.js';
+import {
+ ParticipantPresenceTransitionTracker,participantTargetEligibility
+} from './src/participant-transition-core.js';
 import { IdentityEngine, cropFacePhoto } from './src/identity-engine.js';
 import {
   acknowledgeNewTrack,
@@ -371,6 +374,7 @@ const multimodalFusionTracker=new MultimodalFusionTracker();
 const diarizationSession=new SpeakerDiarizationSession();
 const continuousSpeakerFusionTracker=new ContinuousSpeakerFusionTracker();
 const participantContinuity=new ParticipantContinuityTracker();
+const participantPresenceTransitions=new ParticipantPresenceTransitionTracker();
 const transcriptLifecycle=new TranscriptLifecycleController();
 const roomSessionStartedAt=Date.now();
 let canonicalRuntimeInstanceId='';
@@ -3139,6 +3143,7 @@ function reconcileLongSessionParticipantRefs(participantIds=[]){
  );
  continuousSpeakerFusionTracker.reconcile(ids);
  participantContinuity.reconcile(ids);
+ participantPresenceTransitions.reconcile(ids);
  multiRoomRuntime?.reconcileParticipants(ids);
  state.identity.tracks=state.identity.tracks.map(track=>
   track.participantId&&!allowed.has(String(track.participantId))
@@ -4429,7 +4434,29 @@ function renderParticipantCards() {
   const visible=publicRoomTracks();
   if(state.mode==='agent')noteAggregateRoomOccupancy(state.running?visible:[]);
   if(state.mode==='agent'&&state.running){
-   for(const event of roomPresence.update(visible,Date.now()))addRoomObservation(event);
+   const presenceAt=Date.now();
+   for(const event of roomPresence.update(visible,presenceAt))addRoomObservation(event);
+   for(const transition of participantPresenceTransitions.observe(visible,presenceAt)){
+    const person=transition.participantId?participantById(transition.participantId):null;
+    const name=person?.nickname||person?.name||'Participant';
+    const semantic=({
+     arrival:'participant-arrival',departure:'participant-departure',
+     reentry:'participant-reentry','confidence-change':'participant-identity-confidence',
+     'track-handoff':'participant-track-handoff'
+    })[transition.type]||'participant-transition';
+    const message=transition.type==='arrival'?name+' arrived':
+     transition.type==='departure'?name+' left the current camera view':
+     transition.type==='reentry'?name+' returned':
+     transition.type==='confidence-change'?name+' identity confidence changed from '+
+       String(transition.from||'unknown')+' to '+String(transition.to||'unknown'):
+     name+' tracking moved to a new body track';
+    addRoomObservation(roomObservation({
+     at:presenceAt,category:'presence',kind:'observation',semantic,message,
+     participantId:transition.participantId,source:'participant-transition-core',
+     confidence:transition.confidence,
+     dedupeKey:'participant-transition:'+transition.participantId+':'+transition.type
+    }));
+   }
    const scene=effectiveRoomScene();
    for(const event of roomTemporal.update(visible,scene,Date.now()))addRoomObservation(event);
    renderRoomTemporalSummary();
@@ -5172,6 +5199,23 @@ async function processRoomSegment(segment) {
         ambiguous:true,speechOriginSuppressed:true
       };
       association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    }
+    const targeting=participantTargetEligibility({
+      participantId:association.participantId,
+      tracks:roomTracks,association,now:Date.now()
+    });
+    if(association.participantId&&!targeting.allowed){
+      v015AutonomyCertificationMonitor.note('participant-mistarget',{
+       participantId:association.participantId,reason:targeting.reason
+      },Date.now());
+      association=resolveSpeakerAssociation({
+       voiceMatch:{
+        matched:false,participant:null,similarity:voiceMatch.similarity,
+        secondSimilarity:voiceMatch.secondSimilarity,margin:voiceMatch.margin,
+        ambiguous:true,targetingSuppressed:true
+       },
+       roomTracks
+      });
     }
     const participant=association.participantId
       ? (voiceMatch.participant?.id===association.participantId
@@ -6249,6 +6293,7 @@ function maybeScanRoom(now) {
 function stopCamera() {
   if(state.mode==='agent'&&state.running){
    roomPresence.unavailable();
+   participantPresenceTransitions.unavailable();
    roomTemporal.unavailable();
    roomSensorState('camera','offline','Camera stopped · participant absence not inferred');
   }
