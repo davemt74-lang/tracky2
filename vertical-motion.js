@@ -395,7 +395,16 @@ function proactiveContext(now=Date.now()){
   quietPolicy:cognitiveLoop.policy
  };
 }
+function loadSituationalAwareness(){
+ if(!saveRoomHistory)return roomSituationalAwareness;
+ try{
+  const raw=window.localStorage.getItem('tracky2-room-situational-awareness-v1');
+  if(raw)roomSituationalAwareness=restoreSituationalAwareness(JSON.parse(raw));
+ }catch{}
+ return roomSituationalAwareness;
+}
 function persistSituationalAwareness(){
+ if(!saveRoomHistory)return false;
  try{
   window.localStorage.setItem('tracky2-room-situational-awareness-v1',
    JSON.stringify(exportSituationalAwareness(roomSituationalAwareness)));
@@ -707,12 +716,7 @@ const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
-let roomSituationalAwareness=(()=>{
- try{
-  const raw=window.localStorage.getItem('tracky2-room-situational-awareness-v1');
-  return raw?restoreSituationalAwareness(JSON.parse(raw)):new RoomSituationalAwarenessTracker();
- }catch{return new RoomSituationalAwarenessTracker();}
-})();
+let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 const contextualOpportunityCandidates=new Map();
 let pendingSituationalEngagement=null,lastSituationalMediaKey='',lastSituationalMediaAt=0;
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
@@ -6760,6 +6764,7 @@ if(state.mode==='agent'){
    }catch{saveRoomHistory=true;}
    roomOptIn.checked=saveRoomHistory;
   if(saveRoomHistory){
+   loadSituationalAwareness();
    const epoch=roomPrivacyEpoch;
    void listRoomObservations().then(rows=>{
     if(epoch!==roomPrivacyEpoch)return;
@@ -6775,6 +6780,7 @@ if(state.mode==='agent'){
    try{window.localStorage.setItem('tracky2-save-room-observations',saveRoomHistory?'yes':'no');}catch{}
    if(saveRoomHistory){
     persistCurrentRoomSnapshot();
+    persistSituationalAwareness();
     void refreshRoutineInsights({reloadFeedback:true});
    }else{
     routineCandidates=[];routineLastDeviation=null;renderRoutineInsights();
