@@ -59,14 +59,19 @@ export function normalizeMusicCandidate(input={},source='fingerprint',at=Date.no
  });
 }
 export async function identifyMusicFingerprint(provider,{
- samples=null,sampleRate=16000,durationMs=0,at=Date.now(),signal=null
+ samples=null,sampleRate=16000,durationMs=0,at=Date.now(),signal=null,
+ evidenceId='',fingerprint=null
 }={}){
  if(!provider)return Object.freeze({available:false,candidate:null,reason:'provider-not-configured'});
  if(typeof provider.identify!=='function')
   return Object.freeze({available:false,candidate:null,reason:'provider-invalid'});
- if(!samples?.length)
+ const hasSamples=Boolean(samples?.length);
+ const hasFingerprint=Boolean(fingerprint?.length);
+ if(!hasSamples&&!hasFingerprint)
   return Object.freeze({available:true,candidate:null,reason:'missing-samples'});
- const raw=await provider.identify({samples,sampleRate,durationMs,at,signal});
+ const raw=await provider.identify({
+  samples,sampleRate,durationMs,at,signal,evidenceId,fingerprint
+ });
  const candidate=normalizeMusicCandidate(raw||{},'fingerprint',at);
  return Object.freeze({
   available:true,candidate,reason:candidate?'candidate':'no-match'
