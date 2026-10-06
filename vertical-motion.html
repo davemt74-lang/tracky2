@@ -209,6 +209,23 @@
           <div id="agentOrchestratorStatus" role="status" class="agent-cognitive-status">Orchestrator · waiting for first cognitive cycle</div>
           <div id="agentConversationProactivityStatus" role="status" class="agent-cognitive-status">Conversation timing · monitoring</div>
         </details>
+        <details class="agent-task-settings" id="agentBrainPanel" open>
+          <summary>Agent Brain · cognitive state</summary>
+          <small>Operational evidence and decisions only. Hidden chain-of-thought is not exposed.</small>
+          <div class="agent-task-tools">
+            <button type="button" id="agentBrainPause">Pause cognition</button>
+            <button type="button" id="agentBrainCancelGoal">Cancel active goal</button>
+            <button type="button" id="agentBrainClearState">Clear transient cognition</button>
+          </div>
+          <div id="agentBrainState" class="agent-cognitive-status">State · waiting for first snapshot</div>
+          <div id="agentBrainAttention" class="agent-cognitive-status">Attention · none</div>
+          <div id="agentBrainGoal" class="agent-cognitive-status">Goal · none</div>
+          <div id="agentBrainPlan" class="agent-cognitive-status">Plan · none</div>
+          <div id="agentBrainFollowThrough" class="agent-cognitive-status">Follow-through · none</div>
+          <div id="agentBrainOutcome" class="agent-cognitive-status">Outcome · none</div>
+          <div id="agentBrainHealth" class="agent-cognitive-status">Memory/runtime · waiting</div>
+          <small>Pause and clear controls affect session cognition only; ROOM history and owner-approved durable memory are unchanged.</small>
+        </details>
         <details class="agent-task-settings" id="agentTaskSettings">
           <summary>Tasks &amp; approved skills</summary>
           <small>Tasks are local metadata. Every executable task requires owner confirmation. Scheduled tasks run only while this AGENT page is open.</small>
