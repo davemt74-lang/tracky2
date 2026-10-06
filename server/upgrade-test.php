@@ -39,6 +39,14 @@ try{
  check(tracky_permission($db,['role'=>'operator'],'skills.execute'),'Operator receives governed skill execution permission after upgrade');
  check(!tracky_permission($db,['role'=>'viewer'],'skills.execute'),'Viewer remains unable to execute governed skills after upgrade');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'")->fetchColumn(),'Upgrade creates provider usage budget table');
+ check(tracky_provider_table_allows_acrcloud($db,'provider_credentials'),
+  'Upgrade expands encrypted provider credentials for ACRCloud');
+ check(tracky_provider_table_allows_acrcloud($db,'provider_usage_daily'),
+  'Upgrade expands provider usage budgets for ACRCloud');
+ tracky_store_acrcloud_provider(
+  $db,1,'identify-us-west-2.acrcloud.com','upgradeAccessKey01','upgradeAccessSecret01'
+ );
+ check(tracky_acrcloud_config($db)!==null,'Upgraded database accepts encrypted ACRCloud credentials');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Upgrade creates room node registry');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Upgrade creates room observation relay');
  foreach(['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'] as $table)
