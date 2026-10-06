@@ -702,7 +702,7 @@ async function saveForm() {
     await reloadParticipants();
     setMessage(
       galleryStatus.requiredComplete
-        ? 'Photo profile saved. Face recognition is ready. Continue with Voice Profile enrollment.'
+        ? 'Photo profile saved. Face recognition is ready. Continue with Voice Profile enrollment. Signed-in account sync will update automatically.'
         : 'Participant saved. Face recognition will become active after 3 clean face samples. You can continue face and voice enrollment now.',
       'ok'
     );
