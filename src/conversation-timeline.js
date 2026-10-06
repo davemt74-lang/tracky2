@@ -123,15 +123,33 @@ export function conversationTimeline(turns=[],history=[],participants=[]){
    overlapState:t.overlapState||'not-observed',
    turnOwnership:t.turnOwnership|| (verified?'verified-speaker':'unverified-speaker')};
  });
- // Remove historical duplicated participant entries in AGENT localStorage.
- // Canonical IndexedDB transcript changes/deletion must never resurrect stale copies.
- const saved=history.filter(h=>['agent','system'].includes(h.role)&&String(h.text||'').trim())
+ // Keep persisted AGENT/system replies and recover legacy participant-side history
+ // only when no canonical transcript already represents that same turn.
+ const canonicalKeys=rows.map(row=>({
+  participantId:String(row.participantId||''),
+  text:String(row.text||'').trim(),
+  at:Number.isFinite(row.at)?row.at:0
+ }));
+ const saved=history.filter(h=>['agent','participant','system'].includes(h.role)&&String(h.text||'').trim())
+  .filter(h=>{
+   if(h.role!=='participant')return true;
+   const participantId=String(h.participantId||'');
+   const text=String(h.text||'').trim();
+   const at=Number.isFinite(h.at)?h.at:0;
+   return !canonicalKeys.some(row=>
+    row.participantId===participantId&&row.text===text&&
+    (!row.at||!at||Math.abs(row.at-at)<=5000)
+   );
+  })
   .map((h,i)=>{
    const person=h.participantId?people.get(h.participantId):null;
-   const verified=h.role==='participant'&&Boolean(h.participantId&&person&&h.verified===true);
+   const legacyParticipant=h.role==='participant';
    return {id:h.id||'agent-'+i,role:h.role,text:h.text,at:Number.isFinite(h.at)?h.at:0,
-    name:h.role==='agent'?'AGENT':h.role==='system'?'System':verified?(person.nickname||person.name):'Unknown speaker',
-    photo:verified?person.primaryPhoto||null:null,verified,source:'agent-history'};
+    name:h.role==='agent'?'AGENT':h.role==='system'?'System':
+      (person?.nickname||person?.name||'Legacy participant'),
+    photo:legacyParticipant?(person?.primaryPhoto||null):null,
+    verified:false,participantId:h.participantId||null,
+    source:legacyParticipant?'legacy-agent-history':'agent-history'};
   });
  return [...rows,...saved].sort((a,b)=>a.at-b.at).slice(-120);
 }
