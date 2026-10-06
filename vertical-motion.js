@@ -451,7 +451,8 @@ function updateUnifiedCognitiveState(now=Date.now()){
  },now);
  const status=document.getElementById('unifiedCognitiveStateStatus');
  if(status)status.textContent='Unified cognitive state · #'+unifiedCognitiveState.transition().sequence+
-  ' · '+snapshot.visibleParticipantIds.length+' visible · '+snapshot.tasks.length+' active work · '+
+  ' · '+snapshot.visibleParticipantIds.length+' visible · '+snapshot.goals.length+' active goal'+
+  (snapshot.goals.length===1?'':'s')+' · '+snapshot.tasks.length+' active work · '+
   snapshot.conflicts.length+' conflict'+(snapshot.conflicts.length===1?'':'s');
  return snapshot;
 }
