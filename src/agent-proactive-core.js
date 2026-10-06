@@ -252,7 +252,7 @@ export class ProactiveAgentGovernor{
   participantId=null,now=Date.now(),localMinute=null,quietPolicy=null,
   pageVisible=true,busy=false,meetingActive=false,participant=null,
   visibleParticipantIds=[],activeTaskCount=0,lastDialogueAt=0,opportunity=null,
-  respectEnabled=true
+  maxInterruptionsPerHour=null,respectEnabled=true
  }={}){
   this.prune(now);
   const policy=this.policy;
@@ -289,7 +289,9 @@ export class ProactiveAgentGovernor{
    if(last!==undefined&&now-last<policy.participantCooldownMs)
     return Object.freeze({allow:false,reason:'participant interruption cooldown'});
   }
-  if(this.interruptions.length>=policy.maxInterruptionsPerHour)
+  const interruptionLimit=Math.max(1,Math.min(10,Number.isFinite(Number(maxInterruptionsPerHour))
+   ?Math.floor(Number(maxInterruptionsPerHour)):policy.maxInterruptionsPerHour));
+  if(this.interruptions.length>=interruptionLimit)
    return Object.freeze({allow:false,reason:'hourly interruption budget exhausted'});
   return Object.freeze({allow:true,reason:'attention and interruption policy allow engagement'});
  }
