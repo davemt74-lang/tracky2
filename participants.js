@@ -1,6 +1,9 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
 import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference,cameraAutostartEligible,cameraPermissionState} from './src/camera-preference.js';
-import { loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields } from './src/face-gallery.js';
+import {
+  loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields,
+  FACE_CAPTURE_POSES,MAX_FACE_SAMPLES,nextFaceCapturePose
+} from './src/face-gallery.js';
 import { facePreviewRect,smoothPreviewRect } from './src/face-preview.js';
 import {sceneStep,sceneAcquisition} from './src/scene-analysis.js';
 import { IdentityEngine, cropFacePhoto, qualityMessage } from './src/identity-engine.js';
@@ -36,6 +39,12 @@ const ui = {
   qualityText: $('#faceQualityText'),
   qualityValue: $('#faceQualityValue'),
   qualityBar: $('#faceQualityBar'),
+  captureCoach: $('#faceCaptureCoach'),
+  captureStep: $('#faceCaptureStep'),
+  captureReady: $('#faceCaptureReady'),
+  captureInstruction: $('#faceCaptureInstruction'),
+  angleMap: $('#faceAngleMap'),
+  capturePhotoLabel: $('#capturePhotoLabel'),
   startCamera: $('#startParticipantCamera'),
   stopCamera: $('#stopParticipantCamera'),
   capturePrimary: $('#capturePrimary'),
