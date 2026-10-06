@@ -90,9 +90,10 @@ test('14.9C failed generation attempt backs off briefly without consuming long s
  assert.equal(later.eligible,true);
 });
 
-test('14.9C no named show song artist or canned example exists in cognition source',()=>{
- const source=await import('node:fs').then(fs=>fs.readFileSync(
+test('14.9C no named show song artist or canned example exists in cognition source',async()=>{
+ const fs=await import('node:fs');
+ const source=fs.readFileSync(
   new URL('../src/room-contextual-cognition-core.js',import.meta.url),'utf8'
- ));
+ );
  assert.doesNotMatch(source,/The Outpost|Eyes of the World|Grateful Dead|Greatful Dead/i);
 });
