@@ -895,6 +895,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalEventGrouper.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
+  roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
   environmentalAudioDecision='Disabled by owner';
