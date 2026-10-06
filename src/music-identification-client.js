@@ -22,7 +22,7 @@ function boundedSources(input=[]){
  return Object.freeze(rows);
 }
 export async function searchMusicByLyricClue({
- query,evidenceId='',ownerEnabled=false,fetcher=fetch,signal
+ query,evidenceId='',ownerEnabled=false,preferredProvider='auto',fetcher=fetch,signal
 }={}){
  const clue=String(query||'').replace(/\s+/g,' ').trim().slice(0,160);
  if(clue.length<12)throw new TypeError('A usable lyric clue is required.');
@@ -43,7 +43,9 @@ export async function searchMusicByLyricClue({
   },
   body:JSON.stringify({
    action:'lyric_search',query:clue,
-   evidenceId:String(evidenceId||'').slice(0,96),ownerEnabled:true
+   evidenceId:String(evidenceId||'').slice(0,96),ownerEnabled:true,
+   preferredProvider:['openai','anthropic'].includes(String(preferredProvider||'').toLowerCase())
+    ?String(preferredProvider).toLowerCase():'auto'
   })
  });
  const data=await json(response,'Music lyric lookup failed.');
