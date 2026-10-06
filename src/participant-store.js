@@ -24,6 +24,7 @@ import {
 
 const DB_NAME = 'tracky-participants-v1';
 const DB_VERSION = 17;
+const PARTICIPANT_RECOVERY_DB='tracky-participant-profiles-recovery-v1';
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -219,6 +220,59 @@ async function storeAction(storeName, mode, action) {
   }
 }
 
+export function participantStorageRecoveryReason(error){
+  const name=String(error?.name||'');
+  const message=String(error?.message||'').toLowerCase();
+  return ['InternalError','UnknownError','InvalidStateError'].includes(name)||
+    message.includes('internal error')||message.includes('backing store')||
+    message.includes('database is closed')||message.includes('connection is closing');
+}
+async function openParticipantRecoveryDb(){
+  if(!('indexedDB' in window))throw new Error('IndexedDB is not available in this browser.');
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open(PARTICIPANT_RECOVERY_DB,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(PARTICIPANTS)){
+        const store=db.createObjectStore(PARTICIPANTS,{keyPath:'id'});
+        store.createIndex('updatedAt','updatedAt',{unique:false});
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('Participant recovery database failed.'));
+    request.onblocked=()=>reject(new Error('Participant recovery database is blocked by another tab.'));
+  });
+}
+async function recoveryParticipantAction(mode,action){
+  const db=await openParticipantRecoveryDb();
+  try{
+    const tx=db.transaction(PARTICIPANTS,mode),done=transactionToPromise(tx);
+    const result=await action(tx.objectStore(PARTICIPANTS));
+    await done;return result;
+  }finally{db.close();}
+}
+async function listRecoveryParticipants(){
+  try{return await recoveryParticipantAction('readonly',store=>requestToPromise(store.getAll()));}
+  catch{return [];}
+}
+async function getRecoveryParticipant(id){
+  try{return await recoveryParticipantAction('readonly',store=>requestToPromise(store.get(id)));}
+  catch{return null;}
+}
+async function saveRecoveryParticipant(record,error){
+  await recoveryParticipantAction('readwrite',store=>requestToPromise(store.put(record)));
+  console.warn('Primary participant IndexedDB failed; participant saved in recovery storage.',error);
+  notifyAccountParticipantChange({
+    participantId:record.id,operation:'upsert-recovery',
+    status:'recovered-storage',error:String(error?.message||error?.name||'IndexedDB internal error')
+  });
+  return record;
+}
+async function deleteRecoveryParticipant(id){
+  try{await recoveryParticipantAction('readwrite',store=>requestToPromise(store.delete(id)));return true;}
+  catch{return false;}
+}
+
 export function startSessionIdentity(input) {
   const record=normalizeSessionIdentity(input);
   return storeAction(SESSION_IDENTITIES,'readwrite',async store=>{
@@ -405,19 +459,33 @@ export async function recoverInterruptedRecordings(now=Date.now()){
  return active.length;
 }
 
-export function listParticipants() {
-  return storeAction(PARTICIPANTS, 'readonly', async (store) => {
-    const rows = await requestToPromise(store.getAll());
-    return rows.sort((a, b) => {
-      const aSeen = a.lastSeenAt || a.updatedAt || '';
-      const bSeen = b.lastSeenAt || b.updatedAt || '';
-      return bSeen.localeCompare(aSeen) || String(a.name).localeCompare(String(b.name));
-    });
+export async function listParticipants() {
+  let primary=[];
+  try{
+    primary=await storeAction(PARTICIPANTS,'readonly',store=>requestToPromise(store.getAll()));
+  }catch(error){
+    if(!participantStorageRecoveryReason(error))throw error;
+  }
+  const recovery=await listRecoveryParticipants();
+  const merged=new Map();
+  for(const row of [...primary,...recovery]){
+    const prior=merged.get(row.id);
+    if(!prior||String(row.updatedAt||'')>=String(prior.updatedAt||''))merged.set(row.id,row);
+  }
+  return [...merged.values()].sort((a,b)=>{
+    const aSeen=a.lastSeenAt||a.updatedAt||'',bSeen=b.lastSeenAt||b.updatedAt||'';
+    return bSeen.localeCompare(aSeen)||String(a.name).localeCompare(String(b.name));
   });
 }
 
-export function getParticipant(id) {
-  return storeAction(PARTICIPANTS, 'readonly', (store) => requestToPromise(store.get(id)));
+export async function getParticipant(id) {
+  let primary=null;
+  try{primary=await storeAction(PARTICIPANTS,'readonly',store=>requestToPromise(store.get(id)));}
+  catch(error){if(!participantStorageRecoveryReason(error))throw error;}
+  const recovery=await getRecoveryParticipant(id);
+  if(!primary)return recovery||null;
+  if(!recovery)return primary;
+  return String(recovery.updatedAt||'')>String(primary.updatedAt||'')?recovery:primary;
 }
 
 function notifyAccountParticipantChange(detail){
@@ -450,8 +518,14 @@ export async function saveParticipant(input,{accountSync=true}={}) {
   const record=participantRecord(input);
   // Local participant durability is authoritative. Account-sync bookkeeping is a
   // separate best-effort lane and must never abort an otherwise valid enrollment.
-  await storeAction(PARTICIPANTS,'readwrite',
-    participants=>requestToPromise(participants.put(record)));
+  try{
+    await storeAction(PARTICIPANTS,'readwrite',
+      participants=>requestToPromise(participants.put(record)));
+    await deleteRecoveryParticipant(record.id);
+  }catch(error){
+    if(!participantStorageRecoveryReason(error))throw error;
+    await saveRecoveryParticipant(record,error);
+  }
   if(accountSync)await queueAccountParticipantUpsert(record);
   return record;
 }
