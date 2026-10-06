@@ -138,6 +138,9 @@ import {
 import {
  reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
 } from './src/long-session-core.js';
+import {
+ LongSessionAutonomyMonitor,certificationLabel
+} from './src/long-session-autonomy-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -870,6 +873,7 @@ const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
+const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
@@ -1486,8 +1490,11 @@ function renderRoomLiveValidation(){
  status.textContent=roomLiveValidationMessage(roomLiveValidation.snapshot(Date.now()));
 }
 function noteRoomProviderOutcome(provider,status,reason=''){
- roomLiveValidation.observeProvider({provider,status,reason,at:Date.now()});
- renderRoomLiveValidation();
+ const at=Date.now();
+ roomLiveValidation.observeProvider({provider,status,reason,at});
+ if(status==='failed'||status==='error')longSessionAutonomyMonitor.note('provider-failure',{provider,reason},at);
+ else if(status==='recovered'||status==='success'||status==='ok')longSessionAutonomyMonitor.note('provider-recovery',{provider},at);
+ renderRoomLiveValidation();renderAutonomyCertificationStatus();
 }
 
 function renderRoomMediaContinuity(){
@@ -2563,6 +2570,36 @@ function initRoomHandoffControls(){
  renderRoomHandoffUi();
 }
 
+function noteAutonomyCertificationObservation(event){
+ if(!event)return;
+ const semantic=String(event.semantic||'');
+ if(['participant-observed','participant-reentered-room','room-arrival-observed','room-departure-confirmed'].includes(semantic))
+  longSessionAutonomyMonitor.note('participant-cycle',{},event.at||Date.now());
+ if(semantic==='room-media-continuity'){
+  const transition=String(event.evidence?.roomMediaContinuity?.status||'');
+  longSessionAutonomyMonitor.note('media-transition',{transition},event.at||Date.now());
+  if(String(event.evidence?.roomMediaContinuity?.interruption||'').includes('foreground-conversation'))
+   longSessionAutonomyMonitor.note('conversation-over-media',{},event.at||Date.now());
+ }
+ if(semantic==='agent-proactive-outcome'&&/spoken|executed|success/i.test(String(event.message||'')))
+  longSessionAutonomyMonitor.note('interruption',{},event.at||Date.now());
+ if(semantic==='context-followthrough-expired')
+  longSessionAutonomyMonitor.note('stale-followthrough',{},event.at||Date.now());
+ const awareness=roomSituationalAwareness.snapshot();
+ longSessionAutonomyMonitor.note('memory-bounds',{
+  events:awareness.eventCount,feedback:awareness.feedbackCount
+ },event.at||Date.now());
+ renderAutonomyCertificationStatus();
+}
+function renderAutonomyCertificationStatus(){
+ if(state.mode!=='agent')return;
+ const mount=document.getElementById('roomAutonomyCertificationStatus');
+ if(!mount)return;
+ const result=longSessionAutonomyMonitor.certify(Date.now());
+ mount.textContent=certificationLabel(result)+' · '+Math.round(result.snapshot.durationMs/60000)+
+  ' min · '+result.failed.length+' gates pending/failed';
+}
+
 function addRoomObservation(observation){
  if(state.mode!=='agent'||!observation?.message)return;
  const current=currentRoomIdentity();
@@ -2572,6 +2609,7 @@ function addRoomObservation(observation){
  if(!scoped)return;
  const accepted=roomLedger.append(scoped);
  if(!accepted.added)return;
+ noteAutonomyCertificationObservation(accepted.event);
  roomHistory=roomLedger.entries();renderRoomObservations();
  const situationalEvent=situationalEventFromRoomEvent(accepted.event);
  if(situationalEvent)persistSituationalAwareness();
@@ -2775,6 +2813,7 @@ function renderRuntimeHealth(force=false){
   audioQueueDepth:listeningController.snapshot().queueDepth,heapRatio,storageRatio:storageHealth.ratio
  };
  const devicePerformance=devicePerformanceGovernor.observe(performanceSample);
+ longSessionAutonomyMonitor.note('performance',{level:devicePerformance.level},Date.now());
  const camera=document.getElementById('roomCameraPermission');
  const microphone=document.getElementById('roomMicrophonePermission');
  const storage=document.getElementById('roomStorageHealth');
@@ -2793,6 +2832,7 @@ function renderRuntimeHealth(force=false){
   cRetry.attempts+'/'+cRetry.maxAttempts+' attempts in window';
  if(microphoneRetry)microphoneRetry.textContent=(microphoneRecoveryPending?'Pending · ':'Idle · ')+
   mRetry.attempts+'/'+mRetry.maxAttempts+' attempts in window';
+ renderAutonomyCertificationStatus();
 }
 async function refreshStorageHealth({announce=true}={}){
  const prior=storageHealth.status;
