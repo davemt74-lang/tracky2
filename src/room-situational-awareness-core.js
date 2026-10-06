@@ -183,3 +183,40 @@ export function situationalPromptContext(tracker,event,decision){
   related
  });
 }
+
+
+export function situationalFeedbackFromReply(transcript,{elapsedMs=0}={}){
+ const text=clean(transcript,500).toLowerCase();
+ if(!text)return Object.freeze({outcome:'neutral',weight:.2});
+ const dismissed=/\b(stop|don't|do not|not now|leave me alone|no thanks|no thank you|quit|enough)\b/.test(text);
+ if(dismissed)return Object.freeze({outcome:'dismissed',weight:1});
+ const expanded=/\b(tell me more|more about|recommend|similar|what else|why|how|who|when|where|research|look up|find|show me)\b/.test(text);
+ if(expanded)return Object.freeze({outcome:'expanded',weight:1});
+ const positive=/\b(yes|yeah|yep|sure|okay|ok|cool|interesting|nice|love|like|thanks|thank you)\b/.test(text);
+ if(positive)return Object.freeze({outcome:'positive',weight:.8});
+ if(finite(elapsedMs)&&elapsedMs>0&&elapsedMs<120000)
+  return Object.freeze({outcome:'neutral',weight:.45});
+ return Object.freeze({outcome:'topic-changed',weight:.6});
+}
+
+export function exportSituationalAwareness(tracker){
+ const snapshot=tracker?.snapshot?.()||{};
+ return Object.freeze({
+  schema:ROOM_SITUATIONAL_SCHEMA,
+  feedback:Object.freeze((tracker?.feedback||[]).slice(-ROOM_SITUATIONAL_FEEDBACK_LIMIT).map(row=>Object.freeze({...row}))),
+  events:Object.freeze((tracker?.events||[]).slice(-ROOM_SITUATIONAL_EVENT_LIMIT).map(row=>Object.freeze({...row}))),
+  exportedAt:Date.now(),
+  eventCount:Number(snapshot.eventCount)||0,
+  feedbackCount:Number(snapshot.feedbackCount)||0
+ });
+}
+
+export function restoreSituationalAwareness(payload={},options={}){
+ const tracker=new RoomSituationalAwarenessTracker(options);
+ if(Number(payload?.schema)!==ROOM_SITUATIONAL_SCHEMA)return tracker;
+ const events=Array.isArray(payload.events)?payload.events:[];
+ const feedback=Array.isArray(payload.feedback)?payload.feedback:[];
+ tracker.events=events.slice(-tracker.eventLimit).map(row=>normalizeSituationalEvent(row,Number(row?.at)||Date.now()));
+ tracker.feedback=feedback.slice(-tracker.feedbackLimit).map(row=>normalizeSituationalFeedback(row,Number(row?.at)||Date.now()));
+ return tracker;
+}
