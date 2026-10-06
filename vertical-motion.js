@@ -1460,9 +1460,8 @@ function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=n
  });
  const lyricEligible=Boolean(primaryMusic&&speechOrigin?.state!=='live');
  const remoteLyricEligible=Boolean(policy.allowRemoteDialogueLookup);
- // Remote exact recognition requires positively recorded audio; uncertain mixed
- // foreground/background windows remain local-only.
- const remoteExactEligible=Boolean(policy.allowRemoteExactRecognition);
+ // Remote exact recognition requires V2A to positively classify the sound as recorded.
+ const remoteExactEligible=Boolean(speechOrigin?.state==='recorded');
  const queued=musicRecognitionQueue.enqueue({
   category:'music',durationMs,sampleRate:Number(segment.sampleRate)||16000,
   samples:segment.samples,at:Number(segment.queuedAt)||Date.now(),
@@ -1664,7 +1663,8 @@ function queueMediaRecognitionWindow(segment,{speechOrigin=null,behaviorPolicy=n
  const policy=behaviorPolicy||roomAudioBehaviorPolicy({
   background:roomAudioIntelligence.snapshot(),speechOrigin
  });
- if(speechOrigin?.state!=='recorded'||!policy.allowRemoteDialogueLookup)return false;
+ if(speechOrigin?.state!=='recorded')return false;
+ if(!policy.allowRemoteDialogueLookup)return false;
  const durationMs=Number(segment.captureDurationMs)||
   Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
  const queued=mediaRecognitionQueue.enqueue({
@@ -4273,7 +4273,7 @@ async function processRoomSegment(segment) {
        classification:sameSegmentEnvironment?.classification||null,speechOrigin,
        behaviorPolicy
       });
-      queueMediaRecognitionWindow(segment,{speechOrigin,behaviorPolicy});
+      queueMediaRecognitionWindow(segment,{speechOrigin});
       state.voice.currentSpeakerId=null;
       state.voice.currentSpeakerName=speechOrigin.state==='recorded'
         ?'Recorded speech likely':'Speech origin uncertain';
