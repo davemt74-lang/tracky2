@@ -68,7 +68,7 @@ test('13I governor escalates immediately and recovers only after healthy hystere
 
 test('13I governor sample history is hard bounded',()=>{
  const g=new DevicePerformanceGovernor();
- for(let i=0;i<1000;i++)g.observe({at:i*10000,frameCount:100,stallCount:0});
+ for(let i=0;i<DEVICE_PERFORMANCE_MAX_SAMPLES+100;i++)g.observe({at:i*10000,frameCount:100,stallCount:0});
  assert.equal(g.snapshot().sampleCount,DEVICE_PERFORMANCE_MAX_SAMPLES);
 });
 

@@ -1,5 +1,5 @@
 export const DEVICE_PERFORMANCE_SCHEMA=1;
-export const DEVICE_PERFORMANCE_MAX_SAMPLES=360;
+export const DEVICE_PERFORMANCE_MAX_SAMPLES=1800;
 export const DEVICE_PERFORMANCE_SAMPLE_MS=10000;
 
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -134,7 +134,7 @@ export function summarizePerformanceTrend(samples=[]){
 
 export class DevicePerformanceGovernor{
  constructor({maxSamples=DEVICE_PERFORMANCE_MAX_SAMPLES,recoverySamples=3}={}){
-  this.maxSamples=Math.max(12,Math.min(720,Math.floor(Number(maxSamples)||DEVICE_PERFORMANCE_MAX_SAMPLES)));
+  this.maxSamples=Math.max(12,Math.min(2160,Math.floor(Number(maxSamples)||DEVICE_PERFORMANCE_MAX_SAMPLES)));
   this.recoverySamples=Math.max(2,Math.min(12,Math.floor(Number(recoverySamples)||3)));
   this.reset();
  }

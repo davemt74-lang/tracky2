@@ -133,8 +133,11 @@ import {
  RecoveryBudget,RuntimeBudget,storagePressure,queryMediaPermission,permissionState
 } from './src/runtime-resilience-core.js';
 import {
- DevicePerformanceGovernor,performanceSampleDelta
+ DevicePerformanceGovernor,performanceSampleDelta,DEVICE_PERFORMANCE_SAMPLE_MS
 } from './src/device-performance-core.js';
+import {
+ V0151LongSessionStabilityMonitor,v0151StabilityLabel
+} from './src/v0151-long-session-stability-core.js';
 import {
  reconcileParticipantMap,reconcileParticipantSet,reconcileTransientDialogueTurns
 } from './src/long-session-core.js';
@@ -391,7 +394,7 @@ let roomTimelineFilter='all';
 let lastRoomOccupancyCount=null;
 const runtimeBudget=new RuntimeBudget();
 const devicePerformanceGovernor=new DevicePerformanceGovernor();
-let lastDevicePerformanceRuntime=null;
+let lastDevicePerformanceRuntime=null,lastDevicePerformanceSampleAt=0;
 const cameraRecovery=new RecoveryBudget();
 const microphoneRecovery=new RecoveryBudget();
 let cameraRecoveryTimer=0,microphoneRecoveryTimer=0;
@@ -1162,6 +1165,35 @@ const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
 const v015AutonomyCertificationMonitor=new V015AutonomyCertificationMonitor({startedAt:Date.now()});
+const V0151_STABILITY_STATE_KEY='tracky2-v0151a-stability';
+const V0151_STABILITY_CLEAN_KEY='tracky2-v0151a-clean-exit';
+let v0151PersistedState=null,v0151PriorClean=true;
+try{
+ const raw=window.localStorage.getItem(V0151_STABILITY_STATE_KEY);
+ v0151PersistedState=raw?JSON.parse(raw):null;
+ v0151PriorClean=window.localStorage.getItem(V0151_STABILITY_CLEAN_KEY)!=='0';
+ window.localStorage.setItem(V0151_STABILITY_CLEAN_KEY,'0');
+}catch{}
+const v0151LongSessionStabilityMonitor=new V0151LongSessionStabilityMonitor({
+ startedAt:Date.now(),state:v0151PersistedState
+});
+if(v0151PersistedState)v0151LongSessionStabilityMonitor.noteRestart({clean:v0151PriorClean});
+function persistV0151Stability(clean=false){
+ try{
+  window.localStorage.setItem(V0151_STABILITY_STATE_KEY,
+   JSON.stringify(v0151LongSessionStabilityMonitor.exportState()));
+  window.localStorage.setItem(V0151_STABILITY_CLEAN_KEY,clean?'1':'0');
+  return true;
+ }catch{return false;}
+}
+function renderV0151StabilityStatus(now=Date.now()){
+ const result=v0151LongSessionStabilityMonitor.certify(now);
+ const mount=document.getElementById('v0151LongSessionStabilityStatus');
+ if(mount)mount.textContent=v0151StabilityLabel(result)+' · '+
+  Math.round(result.snapshot.durationMs/60000)+' min · '+
+  result.snapshot.sampleCount+' samples · '+result.failed.length+' gates pending/failed';
+ return result;
+}
 try{
  const priorCertSession=window.sessionStorage.getItem('tracky2-v015-cert-session-id');
  const priorCleanExit=window.sessionStorage.getItem('tracky2-v015-clean-exit');
@@ -3138,26 +3170,35 @@ function renderRuntimeHealth(force=false){
  const runtime=runtimeBudget.snapshot();
  const heap=globalThis.performance?.memory;
  const heapRatio=heap?.jsHeapSizeLimit>0?heap.usedJSHeapSize/heap.jsHeapSizeLimit:null;
- const performanceSample=performanceSampleDelta({
-  at:Date.now(),visible:!document.hidden,
-  frameCount:runtime.frames,stallCount:runtime.stalls,
-  meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
-  meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
-  audioQueueDepth:listeningController.snapshot().queueDepth,
-  heapRatio,storageRatio:storageHealth.ratio
- },lastDevicePerformanceRuntime);
- lastDevicePerformanceRuntime={
-  at:Date.now(),visible:!document.hidden,frameCount:runtime.frames,stallCount:runtime.stalls,
-  meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
-  meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
-  audioQueueDepth:listeningController.snapshot().queueDepth,heapRatio,storageRatio:storageHealth.ratio
- };
- const devicePerformance=devicePerformanceGovernor.observe(performanceSample);
  const certAt=Date.now();
- longSessionAutonomyMonitor.note('performance',{level:devicePerformance.level},certAt);
- v015AutonomyCertificationMonitor.note('performance',{level:devicePerformance.level},certAt);
- if(heap?.usedJSHeapSize)
-  v015AutonomyCertificationMonitor.note('resource-sample',{used:heap.usedJSHeapSize},certAt);
+ let devicePerformance=devicePerformanceGovernor.snapshot();
+ if(!lastDevicePerformanceSampleAt||
+    certAt-lastDevicePerformanceSampleAt>=DEVICE_PERFORMANCE_SAMPLE_MS){
+  const rawPerformanceSample={
+   at:certAt,visible:!document.hidden,
+   frameCount:runtime.frames,stallCount:runtime.stalls,
+   meanFrameGapMs:runtime.meanFrameGapMs,maxFrameGapMs:runtime.maxFrameGapMs,
+   meanScanMs:runtime.meanScanMs,maxScanMs:runtime.maxScanMs,
+   audioQueueDepth:listeningController.snapshot().queueDepth,
+   heapRatio,storageRatio:storageHealth.ratio
+  };
+  const performanceSample=performanceSampleDelta(rawPerformanceSample,lastDevicePerformanceRuntime);
+  lastDevicePerformanceRuntime=rawPerformanceSample;
+  lastDevicePerformanceSampleAt=certAt;
+  devicePerformance=devicePerformanceGovernor.observe(performanceSample);
+  longSessionAutonomyMonitor.note('performance',{level:devicePerformance.level},certAt);
+  v015AutonomyCertificationMonitor.note('performance',{level:devicePerformance.level},certAt);
+  if(heap?.usedJSHeapSize)
+   v015AutonomyCertificationMonitor.note('resource-sample',{used:heap.usedJSHeapSize},certAt);
+  v0151LongSessionStabilityMonitor.observe({
+   at:certAt,visible:!document.hidden,performanceLevel:devicePerformance.level,
+   frameGapMs:performanceSample.maxFrameGapMs,scanMs:performanceSample.meanScanMs,
+   audioQueueDepth:performanceSample.audioQueueDepth,
+   heapUsedBytes:heap?.usedJSHeapSize||0,heapLimitBytes:heap?.jsHeapSizeLimit||0,
+   storageRatio:storageHealth.ratio
+  });
+  persistV0151Stability(false);
+ }
  const camera=document.getElementById('roomCameraPermission');
  const microphone=document.getElementById('roomMicrophonePermission');
  const storage=document.getElementById('roomStorageHealth');
@@ -3178,6 +3219,7 @@ function renderRuntimeHealth(force=false){
   mRetry.attempts+'/'+mRetry.maxAttempts+' attempts in window';
  renderAutonomyCertificationStatus();
  renderV015CertificationStatus(certAt);
+ renderV0151StabilityStatus(certAt);
 }
 async function refreshStorageHealth({announce=true}={}){
  const prior=storageHealth.status;
@@ -6739,6 +6781,7 @@ function prepareRuntimeExit(reason='runtime-exit'){
  if(runtimeExitPrepared)return false;
  runtimeExitPrepared=true;
  try{window.sessionStorage.setItem('tracky2-v015-clean-exit','1');}catch{}
+ persistV0151Stability(true);
  environmentalAudioQueue.disable();
  cancelCameraRecovery();
  cancelMicrophoneRecovery();
