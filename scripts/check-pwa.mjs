@@ -1,4 +1,7 @@
-import fs from 'node:fs';import path from 'node:path';
+import fs from 'node:fs';
+import path from 'node:path';
+import {missingPwaImports} from './verify-pwa-cache-imports.mjs';
+
 const manifest=JSON.parse(fs.readFileSync('manifest.webmanifest','utf8'));
 for(const size of [192,512]){
   const file=path.join('assets','icon-'+size+'.png');
@@ -7,4 +10,12 @@ for(const size of [192,512]){
     throw new Error('Invalid icon '+size);
 }
 if(!manifest.icons.some(i=>i.purpose.includes('maskable')))throw new Error('No maskable icon');
-console.log('PWA manifest/icon verification: PASS');
+
+const sw=fs.readFileSync('sw.js','utf8');
+const missing=missingPwaImports(sw,'.');
+if(missing.length){
+  throw new Error('PWA cache missing local JS dependencies: '+
+    missing.map(row=>row.file+' -> '+row.target).join(', '));
+}
+
+console.log('PWA manifest/icon/import verification: PASS');
