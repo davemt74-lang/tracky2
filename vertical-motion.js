@@ -144,6 +144,9 @@ import {
 import {
  UnifiedCognitiveStateStore
 } from './src/unified-cognitive-state-core.js';
+import {
+ AttentionPriorityEngine
+} from './src/attention-priority-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -447,6 +450,17 @@ function updateUnifiedCognitiveState(now=Date.now()){
 }
 function cognitiveStateSnapshot(now=Date.now()){
  return updateUnifiedCognitiveState(now);
+}
+function updatePrimaryAttention(now=Date.now()){
+ const stateSnapshot=cognitiveStateSnapshot(now);
+ const decision=attentionPriorityEngine.evaluate(stateSnapshot,{now});
+ const status=document.getElementById('agentAttentionStatus');
+ if(status)status.textContent=decision.primary
+  ?'Attention · '+decision.primary.type.replaceAll('-',' ')+' · '+
+    Math.round(decision.primary.score*100)+'%'+
+    (decision.primary.participantId?' · '+decision.primary.participantId:'')
+  :'Attention · none · monitoring';
+ return decision;
 }
 
 function proactiveContext(now=Date.now()){
@@ -771,6 +785,7 @@ async function tickProactive(){
  if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
  const now=Date.now();
  updateUnifiedCognitiveState(now);
+ updatePrimaryAttention(now);
  settlePendingSituationalFeedback(now);
  considerContextualMediaEngagement(now);
  const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
@@ -935,6 +950,7 @@ const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
 const unifiedCognitiveState=new UnifiedCognitiveStateStore();
+const attentionPriorityEngine=new AttentionPriorityEngine();
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
@@ -2672,6 +2688,7 @@ function addRoomObservation(observation){
  if(!accepted.added)return;
  noteAutonomyCertificationObservation(accepted.event);
  updateUnifiedCognitiveState(accepted.event.at||Date.now());
+ updatePrimaryAttention(accepted.event.at||Date.now());
  roomHistory=roomLedger.entries();renderRoomObservations();
  const situationalEvent=situationalEventFromRoomEvent(accepted.event);
  if(situationalEvent)persistSituationalAwareness();
