@@ -15,7 +15,7 @@ function trackDirection(track){
  return 'center';
 }
 function audioDirection(audioSource){
- if(audioSource?.state!=='available'||clamp(audioSource?.confidence)<.6)return 'unavailable';
+ if(audioSource?.state!=='available'||clamp(audioSource?.confidence)<.8)return 'unavailable';
  return ['left','right','center'].includes(audioSource?.direction)?audioSource.direction:'unavailable';
 }
 function mediaKind(row){
@@ -64,7 +64,7 @@ export function currentRecordedMediaContext({
 
 export function resolveRoomSpeechOrigin({
  mediaActivity=null,recentEnvironmental=null,voiceMatch=null,association=null,
- roomTracks=[],audioSource=null,now=Date.now()
+ roomTracks=[],audioSource=null,continuousFusion=null,now=Date.now()
 }={}){
  const media=currentRecordedMediaContext({
   activity:mediaActivity,recentClassification:recentEnvironmental,now
@@ -79,8 +79,13 @@ export function resolveRoomSpeechOrigin({
  const verifiedLive=Boolean(voiceMatched&&(
   bodyConfirmed||(!media&&voiceConfidence>=.72)
  ));
- const spatialLive=Boolean(visible.length&&aligned);
+ const spatialLive=Boolean(visible.length===1&&aligned);
  const visualLive=Boolean(visible.length);
+ const continuousParticipantIds=Array.from(continuousFusion?.participantIds||[]);
+ const continuousLive=Boolean(
+  continuousParticipantIds.length&&
+  !(continuousFusion?.conflicts||[]).length
+ );
 
  let state='uncertain',reason='insufficient-live-vs-recorded-evidence';
  let allowConversation=true;
@@ -101,6 +106,10 @@ export function resolveRoomSpeechOrigin({
   state='live';
   reason='verified-live-speaker-over-recorded-media';
   allowParticipantAttribution=true;
+ }else if(continuousLive){
+  state='live';
+  reason='verified-window-level-live-speaker-over-recorded-media';
+  allowParticipantAttribution=false;
  }else if(spatialLive){
   state='live';
   reason='spatial-live-speaker-evidence-over-recorded-media';
@@ -120,7 +129,8 @@ export function resolveRoomSpeechOrigin({
   mediaContext:media,
   evidence:Object.freeze({
    visibleTrackCount:visible.length,voiceMatched,voiceConfidence,bodyConfirmed,
-   sourceDirection,spatialLive,verifiedLive
+   sourceDirection,spatialLive,verifiedLive,continuousLive,
+   continuousParticipantCount:continuousParticipantIds.length
   })
  });
 }
