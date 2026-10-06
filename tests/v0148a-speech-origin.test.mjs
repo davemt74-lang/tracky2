@@ -1,0 +1,183 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {
+ currentRecordedMediaContext,resolveRoomSpeechOrigin,
+ roomSpeechOriginMessage,RoomSpeechOriginTracker
+} from '../src/speech-origin-core.js';
+
+const tv=(at=1000)=>({
+ type:'active',category:'media-playback',subtype:'television',
+ peakConfidence:.92,lastAt:at
+});
+const music=(at=1000)=>({
+ type:'active',category:'music',subtype:'music',
+ peakConfidence:.9,lastAt:at
+});
+const matchedVoice=(similarity=.88)=>({
+ matched:true,participant:{id:'p1',name:'Dave'},similarity,
+ secondSimilarity:.3,margin:.58,ambiguous:false
+});
+const bodyAssociation=()=>({
+ participantId:'p1',trackId:'t1',bodyConfirmed:true,voiceConfidence:.88
+});
+const track=(cx=.5)=>({id:'t1',participantId:'p1',status:'matched',cx});
+
+test('V2A blocks likely TV dialogue before participant matching or Conversation',()=>{
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.2},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'recorded');
+ assert.equal(result.allowConversation,false);
+ assert.equal(result.allowParticipantAttribution,false);
+ assert.equal(result.mediaContext.kind,'television');
+ assert.match(roomSpeechOriginMessage(result),/Recorded speech likely/);
+ assert.match(roomSpeechOriginMessage(result),/excluded from participant matching and Conversation/);
+});
+
+test('V2A verified live participant speech wins even while television is active',()=>{
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:matchedVoice(),association:bodyAssociation(),
+  roomTracks:[track(.48)],audioSource:{state:'available',direction:'center',confidence:.8},
+  now:2000
+ });
+ assert.equal(result.state,'live');
+ assert.equal(result.allowConversation,true);
+ assert.equal(result.allowParticipantAttribution,true);
+ assert.equal(result.reason,'verified-live-speaker-over-recorded-media');
+});
+
+test('V2A strong spatial live evidence allows an unknown live speaker over media without assigning identity',()=>{
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.35},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[{id:'visitor-1',status:'new',cx:.18}],
+  audioSource:{state:'available',direction:'left',confidence:.86},now:2000
+ });
+ assert.equal(result.state,'live');
+ assert.equal(result.allowConversation,true);
+ assert.equal(result.allowParticipantAttribution,false);
+ assert.equal(result.reason,'spatial-live-speaker-evidence-over-recorded-media');
+});
+
+test('V2A visible person plus active media but no source corroboration stays uncertain and is quarantined',()=>{
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.32},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[{id:'visitor-1',status:'new',cx:.5}],
+  audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'uncertain');
+ assert.equal(result.allowConversation,false);
+ assert.equal(result.allowParticipantAttribution,false);
+ assert.match(roomSpeechOriginMessage(result),/held out of Conversation/);
+});
+
+test('V2A music vocals are treated as recorded-media risk unless live speech is corroborated',()=>{
+ const blocked=resolveRoomSpeechOrigin({
+  mediaActivity:music(1000),voiceMatch:{matched:false,similarity:.25},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(blocked.state,'recorded');
+ assert.equal(blocked.mediaContext.kind,'music');
+ assert.equal(blocked.allowConversation,false);
+
+ const live=resolveRoomSpeechOrigin({
+  mediaActivity:music(1000),voiceMatch:matchedVoice(.9),association:bodyAssociation(),
+  roomTracks:[track(.5)],audioSource:{state:'available',direction:'center',confidence:.85},
+  now:2000
+ });
+ assert.equal(live.state,'live');
+ assert.equal(live.allowParticipantAttribution,true);
+});
+
+test('V2A preserves ordinary unknown room speech when no recorded-media context exists',()=>{
+ const result=resolveRoomSpeechOrigin({
+  voiceMatch:{matched:false,similarity:.2},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'uncertain');
+ assert.equal(result.allowConversation,true);
+ assert.equal(result.allowParticipantAttribution,false);
+});
+
+test('V2A voice profile is sufficient live evidence when no media context exists',()=>{
+ const result=resolveRoomSpeechOrigin({
+  voiceMatch:matchedVoice(.84),
+  association:{participantId:'p1',trackId:null,bodyConfirmed:false,voiceConfidence:.84},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'live');
+ assert.equal(result.allowConversation,true);
+ assert.equal(result.allowParticipantAttribution,true);
+});
+
+test('V2A stale media context cannot suppress a later live-room turn',()=>{
+ assert.equal(currentRecordedMediaContext({activity:tv(1000),now:60000}),null);
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.1},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:60000
+ });
+ assert.equal(result.mediaContext,null);
+ assert.equal(result.allowConversation,true);
+});
+
+test('V2A recent classification can protect the first media speech segment before lifecycle grouping catches up',()=>{
+ const recent={category:'media-playback',subtype:'radio',confidence:.89,at:1900};
+ const result=resolveRoomSpeechOrigin({
+  recentEnvironmental:recent,voiceMatch:{matched:false,similarity:.2},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],audioSource:{state:'unavailable'},now:2000
+ });
+ assert.equal(result.state,'recorded');
+ assert.equal(result.mediaContext.kind,'radio');
+ assert.equal(result.mediaContext.source,'recent-environmental-classification');
+});
+
+test('V2A ROOM feed notices are deduplicated but state changes emit immediately',()=>{
+ const tracker=new RoomSpeechOriginTracker({repeatMs:30000});
+ const recorded=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.2},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[],now:2000
+ });
+ assert.equal(tracker.observe(recorded,2000).emit,true);
+ assert.equal(tracker.observe(recorded,5000).emit,false);
+ const live=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),voiceMatch:matchedVoice(),association:bodyAssociation(),
+  roomTracks:[track()],audioSource:{state:'available',direction:'center',confidence:.8},
+  now:6000
+ });
+ assert.equal(tracker.observe(live,6000).emit,true);
+});
+
+test('V2A runtime gate executes before participant continuity recovery and transcription persistence',()=>{
+ const runtime=fs.readFileSync('vertical-motion.js','utf8');
+ const resolveAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin');
+ const blockAt=runtime.indexOf('if(!speechOrigin.allowConversation)');
+ const recoverAt=runtime.indexOf('participantContinuity.recoverByVoice',resolveAt);
+ const transcriptAt=runtime.indexOf('ensureTranscriptionEngine()',resolveAt);
+ const persistAt=runtime.indexOf('saveDialogueTurn({',resolveAt);
+ assert.ok(resolveAt>0&&blockAt>resolveAt);
+ assert.ok(recoverAt>blockAt,'participant recovery must occur only after origin gate');
+ assert.ok(transcriptAt>blockAt,'transcription must occur only after origin gate');
+ assert.ok(persistAt>transcriptAt,'dialogue persistence must remain after transcription');
+ assert.match(runtime,/speechOriginState:speechOrigin\.state/);
+ assert.match(runtime,/speechOriginMediaKind:speechOrigin\.mediaContext\?\.kind\|\|null/);
+ assert.match(runtime,/speechOriginParticipantAttributionAllowed:speechOrigin\.allowParticipantAttribution/);
+});
+
+test('V2A deploy and PWA manifests include the resolver',()=>{
+ const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
+ const sw=fs.readFileSync('sw.js','utf8');
+ const pkg=fs.readFileSync('package.json','utf8');
+ assert.match(workflow,/src\/speech-origin-core\.js/);
+ assert.match(workflow,/resolveRoomSpeechOrigin/);
+ assert.match(sw,/\.\/src\/speech-origin-core\.js/);
+ assert.match(pkg,/node --check src\/speech-origin-core\.js/);
+});
