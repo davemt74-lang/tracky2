@@ -13,10 +13,11 @@ test('15.1B runtime owns one participant transition tracker',()=>{
 
 test('15.1B presence transitions are emitted through canonical ROOM observations',()=>{
  const runtime=read('vertical-motion.js');
- assert.match(runtime,/semantic:'participant-arrival'/);
- assert.match(runtime,/semantic:'participant-departure'/);
- assert.match(runtime,/semantic:'participant-reentry'/);
- assert.match(runtime,/semantic:'participant-identity-confidence'/);
+ assert.match(runtime,/arrival:'participant-arrival'/);
+ assert.match(runtime,/departure:'participant-departure'/);
+ assert.match(runtime,/reentry:'participant-reentry'/);
+ assert.match(runtime,/'confidence-change':'participant-identity-confidence'/);
+ assert.match(runtime,/semantic,message,/);
 });
 
 test('15.1B speaker attribution is guarded against stale/mistargeted participant state',()=>{
