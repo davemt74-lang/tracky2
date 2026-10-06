@@ -3366,9 +3366,14 @@ async function processRoomSegment(segment) {
     }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
     let association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    const sameSegmentEnvironment=segment.environmentEvidencePromise
+      ?await segment.environmentEvidencePromise:null;
+    if(!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
     const speechOrigin=resolveRoomSpeechOrigin({
       mediaActivity:environmentalActivityTracker.snapshot(),
-      recentEnvironmental:environmentalAudioLast,
+      recentEnvironmental:sameSegmentEnvironment?.mediaCue||
+        sameSegmentEnvironment?.classification?.recordedMediaCue||
+        environmentalAudioLast?.recordedMediaCue||environmentalAudioLast,
       voiceMatch,association,roomTracks,audioSource:segment.audioSource||null,
       now:Date.now()
     });
@@ -3876,11 +3881,16 @@ function roomTrackHistoryForSegment(segment) {
 }
 
 function onRoomAudioSegment(segment) {
+  const evidenceRequest=createEnvironmentalSpeechEvidenceRequest();
   const {separationInput,...environmentSegment}=segment;
-  queueEnvironmentalAudio(environmentSegment);
+  const environmentalQueued=queueEnvironmentalAudio({
+    ...environmentSegment,environmentCorrelationId:evidenceRequest.id
+  });
+  if(!environmentalQueued)resolveEnvironmentalSpeechEvidence(evidenceRequest.id,null);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
   const queued=listeningController.enqueue({
     ...segment,...meetingFields,
+    environmentEvidencePromise:evidenceRequest.promise,
     roomTrackHistory:roomTrackHistoryForSegment(segment)
   },{
     generation:state.voice.generation,
@@ -4116,6 +4126,7 @@ function stopRoomAudio() {
   roomAmbientAudit.reset();
   roomAcousticPatternTracker.reset();
   roomSpeechOriginTracker.reset();
+  clearEnvironmentalSpeechEvidence();
   // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
   environmentalActivityTracker.reset();
   state.voice.generation += 1;
