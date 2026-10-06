@@ -136,6 +136,31 @@ export class RoomMediaContinuityTracker{
    identity:state.identity||null,lastAt:at
   };
 
+  if(!this.active&&this.interstitialParent){
+   if(at>this.interstitialParent.resumeDeadline){
+    this.interstitialParent=null;
+   }else{
+    const parentCompatibility=mediaContinuityCompatibility(this.interstitialParent,next);
+    if(parentCompatibility.compatible){
+     const parent=this.interstitialParent;
+     this.interstitialParent=null;this.suspended=null;
+     this.active={
+      ...parent,status:'active',lastAt:at,suspendedAt:null,resumeDeadline:null,
+      lowLevelSessionId:next.lowLevelSessionId||parent.lowLevelSessionId,
+      identityKey:next.identityKey||parent.identityKey,
+      identity:next.identity||parent.identity,
+      interruption:null,provisionalInterstitial:false,
+      resumes:(parent.resumes||0)+1
+     };
+     this.lastTransition='interstitial-ended';this.lastReason='original-content-returned';
+     return Object.freeze({
+      emit:true,transition:'interstitial-ended',state:this.snapshot(),
+      continuity:publicState(this.active),reason:this.lastReason
+     });
+    }
+   }
+  }
+
   if(this.active){
    if(this.interstitialParent&&at>this.interstitialParent.resumeDeadline){
     this.interstitialParent=null;
