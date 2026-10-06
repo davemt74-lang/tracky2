@@ -84,12 +84,12 @@ test('V2D appliance-like sounds use start continue stop lifecycle instead of bur
  observed=tracker.observe(appliance(32000),32000);
  assert.deepEqual(observed.transitions.map(row=>row.type),['stop','start'],
   'evidence gap beyond stale threshold closes prior appliance state');
- const tracker2=new EnvironmentalMechanicalTracker({staleMs:30000,continueMs:15000});
+ const tracker2=new EnvironmentalMechanicalTracker({staleMs:60000,continueMs:30000});
  tracker2.observe(appliance(1000),1000);
- const continuing=tracker2.observe(appliance(17000),17000);
+ const continuing=tracker2.observe(appliance(32000),32000);
  assert.deepEqual(continuing.transitions.map(row=>row.type),['continue']);
  assert.match(environmentalMechanicalMessage(continuing.transitions[0]),/continues/);
- const stopped=tracker2.expire(48000);
+ const stopped=tracker2.expire(93000);
  assert.equal(stopped.type,'stop');
  assert.match(environmentalMechanicalMessage(stopped),/no longer detected/);
 });
