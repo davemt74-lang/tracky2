@@ -17,6 +17,8 @@ try{
  $db->exec("CREATE TABLE object_skills(object_id TEXT NOT NULL,skill TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(object_id,skill))");
  $db->exec("CREATE TABLE provider_credentials(provider TEXT PRIMARY KEY,ciphertext TEXT NOT NULL,updated_by INTEGER,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
  $db->exec("CREATE TABLE audit_log(id INTEGER PRIMARY KEY,actor_id INTEGER,action TEXT NOT NULL,subject TEXT NOT NULL,at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+ $db->exec("INSERT INTO users(id,username,password_hash,role) VALUES(1,'legacy-owner','legacy-hash','owner')");
+ $db->exec("INSERT INTO provider_credentials(provider,ciphertext,updated_by) VALUES('openai','legacy-provider-cipher',1)");
  $profile=json_encode(['id'=>'participant01','name'=>'Pat','embeddings'=>[[0.1,0.2]],'notes'=>'legacy'],JSON_THROW_ON_ERROR);
  $s=$db->prepare("INSERT INTO participants(id,name,profile_json,consent) VALUES(?,?,?,1)");$s->execute(['participant01','Pat',$profile]);
  file_put_contents($temp.'/secret.key',random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES));chmod($temp.'/secret.key',0600);
@@ -24,6 +26,8 @@ try{
  check(tracky_schema_version($db)===0,'Legacy database has no schema version');
  tracky_schema($db);
  check(tracky_schema_version($db)===TRACKY_SCHEMA_VERSION,'Upgrade records schema version');
+ check((string)$db->query("SELECT ciphertext FROM provider_credentials WHERE provider='openai'")->fetchColumn()==='legacy-provider-cipher',
+  'Provider constraint migration preserves existing encrypted credentials');
  $cols=tracky_table_columns($db,'participants');
  foreach(['profile_ciphertext','version','client_updated_at','server_updated_at','deleted_at'] as $col)
   check(in_array($col,$cols,true),'Participant column '.$col.' added');
