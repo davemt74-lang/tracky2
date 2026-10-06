@@ -48,14 +48,17 @@ test('main shutter advances guided enrollment and photo capture no longer forces
  assert.match(runtime,/function captureGuidedPhoto\(\)/);
  assert.match(runtime,/nextFaceCapturePose\(state\.gallery\)/);
  assert.match(runtime,/poseId:pose\.id/);
- assert.match(runtime,/ui\.capturePrimary\.addEventListener\('click', captureGuidedPhoto\)/);
+ assert.match(runtime,/ui\.capturePrimary\.addEventListener\('click',\(\)=>\{/);
+ assert.match(runtime,/status\.requiredComplete\)void saveForm\(\)/);
+ assert.match(runtime,/else void captureGuidedPhoto\(\)/);
  assert.match(runtime,/Required photo profile complete/);
  assert.match(stage,/event\.detail\?\.openGallery===true/);
  assert.doesNotMatch(stage,/participant-photo-captured',\(\)=>panel\('gallery',true\)/);
 });
 
-test('participant save accepts an incomplete face profile and reports storage failures without losing the draft',()=>{
- assert.doesNotMatch(runtime,/Capture at least three face samples, or disable recognition/);
+test('participant save requires the three-photo profile when recognition is enabled and preserves drafts on failure',()=>{
+ assert.match(runtime,/Capture the 3 required face photos before continuing to Voice/);
+ assert.match(runtime,/ui\.recognitionEnabled\.checked&&!galleryStatus\.requiredComplete/);
  assert.match(runtime,/const galleryFields=gallerySaveFields\(state\.gallery\)/);
  assert.match(runtime,/\.\.\.draftVoice/);
  assert.match(runtime,/Participant could not be saved:/);
