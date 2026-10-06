@@ -19,7 +19,7 @@ import {
 import {
  EnvironmentalActivityTracker,EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
  environmentalActivityMessage,environmentalFeedbackFromRoomEvent,environmentalV2Message,
- isPersistentEnvironmentalClassification,normalizeEnvironmentalV2Predictions
+ normalizeEnvironmentalV2Predictions
 } from './src/environmental-intelligence-core.js';
 import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
