@@ -344,16 +344,17 @@
           <small>AGENT can reason from labeled canonical evidence, but it cannot create or override participant identity. Unknown/conflicted speakers do not receive participant memory.</small>
           <label class="agent-check"><input type="checkbox" id="agentUseModel"> Enable AI model · send bounded conversation text only</label>
           <label>Provider <select id="agentModelProvider">
-            <option value="ollama" selected>Local Ollama</option>
+            <option value="auto" selected>Auto · configured API key</option>
             <option value="openai">OpenAI · self-hosted key</option>
             <option value="anthropic">Anthropic · self-hosted key</option>
+            <option value="ollama">Local Ollama</option>
           </select></label>
           <label>Local Ollama endpoint<input type="url" id="agentLocalEndpoint" value="http://127.0.0.1:11434" autocomplete="off"></label>
           <label>Model<input type="text" id="agentLocalModel" value="llama3.2" maxlength="80" autocomplete="off"></label>
           <button type="button" id="agentProviderRefresh">Refresh provider status</button>
           <small id="agentProviderBudget" role="status">Local Ollama has no Tracky2 server API budget.</small>
           <small id="agentModelStatus" role="status">Off. Local scripted conversation is active.</small>
-          <small>Ollama remains loopback-only. OpenAI, Anthropic and ElevenLabs requests are sent through the authenticated same-origin Tracky2 server; stored API keys are never returned to this browser. No images, raw audio or biometrics are included in chat requests.</small>
+          <small>Auto uses the configured OpenAI key first, otherwise Anthropic; an explicit provider selection is honored when available. Ollama remains loopback-only. OpenAI, Anthropic and ElevenLabs requests are sent through the authenticated same-origin Tracky2 server; stored API keys are never returned to this browser. No images, raw audio or biometrics are included in chat requests.</small>
         </details>
         <button type="button" id="agentClearHistory">Clear agent history</button>
         <button type="button" id="agentResumeAudio" hidden>Enable room audio</button>
