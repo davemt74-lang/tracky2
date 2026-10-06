@@ -103,3 +103,15 @@ test('V2B lyric search seed exposes only bounded working text for the later reso
  assert.ok(query.length>10&&query.length<=160);
  assert.equal(musicLyricSearchSeed('la la'), '');
 });
+
+
+test('V2B pending candidates are never described as identified when music stops',()=>{
+ const tracker=new MusicIdentificationTracker();
+ const candidate=normalizeMusicCandidate({
+  title:'Maybe Song',artist:'Maybe Artist',confidence:.7,provider:'mock'
+ },'fingerprint',1000);
+ tracker.observeCandidate(candidate,1000);
+ const stopped=tracker.clearConfirmed(5000);
+ assert.equal(stopped.track.status,'candidate');
+ assert.equal(musicIdentificationMessage(stopped),'');
+});
