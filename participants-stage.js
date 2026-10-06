@@ -45,6 +45,9 @@ ui.video.addEventListener('loadedmetadata',()=>{
 });
 ui.video.addEventListener('emptied',()=>{ui.videoDetails.textContent='Ready for capture';});
 window.addEventListener('tracky:participant-editing',()=>panel('settings',true));
-window.addEventListener('tracky:participant-photo-captured',()=>panel('gallery',true));
+window.addEventListener('tracky:participant-photo-captured',event=>{
+ // Guided capture stays camera-first; the gallery opens only when explicitly requested.
+ if(event.detail?.openGallery===true)panel('gallery',true);
+});
 window.addEventListener('tracky:participant-saved',()=>panel('settings',false));
 paint();
