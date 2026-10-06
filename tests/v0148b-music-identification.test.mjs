@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- MUSIC_ID_MIN_WINDOW_MS,MusicIdentificationTracker,MusicRecognitionQueue,
+ MUSIC_ID_MIN_WINDOW_MS,MusicIdentificationTracker,MusicLyricLookupGuard,MusicRecognitionQueue,
  identifyMusicFingerprint,musicIdentificationMessage,musicLyricSearchSeed,
  musicWindowEligibility,normalizeLyricWorkingText,normalizeMusicCandidate
 } from '../src/music-identification-core.js';
@@ -114,4 +114,44 @@ test('V2B pending candidates are never described as identified when music stops'
  const stopped=tracker.clearConfirmed(5000);
  assert.equal(stopped.track.status,'candidate');
  assert.equal(musicIdentificationMessage(stopped),'');
+});
+
+
+test('V2B3 distinct lyric clues can corroborate the same strong web candidate',()=>{
+ const tracker=new MusicIdentificationTracker();
+ const first=normalizeMusicCandidate({
+  title:'Same Song',artist:'Same Artist',confidence:.84,provider:'openai-web-search',
+  evidenceId:'segment-a',sourceUrls:['https://example.com/a']
+ },'lyrics',1000);
+ const second=normalizeMusicCandidate({
+  title:'Same Song',artist:'Same Artist',confidence:.86,provider:'openai-web-search',
+  evidenceId:'segment-b',sourceUrls:['https://example.com/b']
+ },'lyrics',25000);
+ assert.equal(tracker.observeCandidate(first,1000).transition,'candidate');
+ const result=tracker.observeCandidate(second,25000);
+ assert.equal(result.transition,'confirmed');
+ assert.equal(result.track.status,'confirmed');
+ assert.deepEqual(result.track.sourceUrls,['https://example.com/b']);
+});
+
+test('V2B3 repeating the same lyric evidence cannot self-confirm a track',()=>{
+ const tracker=new MusicIdentificationTracker();
+ const candidate=normalizeMusicCandidate({
+  title:'Same Song',artist:'Same Artist',confidence:.9,provider:'openai-web-search',
+  evidenceId:'same-window'
+ },'lyrics',1000);
+ assert.equal(tracker.observeCandidate(candidate,1000).transition,'candidate');
+ const repeat=tracker.observeCandidate(candidate,25000);
+ assert.equal(repeat.transition,'candidate-repeat');
+ assert.equal(repeat.track.status,'candidate');
+});
+
+test('V2B3 lyric lookup guard rate-limits and deduplicates outbound clues',()=>{
+ const guard=new MusicLyricLookupGuard({cooldownMs:5000,dedupeMs:60000});
+ assert.equal(guard.claim('hello darkness my old friend',10000).allow,true);
+ assert.equal(guard.claim('different lyric words from song',12000).reason,'lookup-cooldown');
+ assert.equal(guard.claim('hello darkness my old friend',16000).reason,'duplicate-lyric-clue');
+ assert.equal(guard.claim('different lyric words from song',17000).allow,true);
+ guard.reset();
+ assert.equal(guard.claim('hello darkness my old friend',18000).allow,true);
 });
