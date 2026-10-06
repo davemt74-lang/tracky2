@@ -12,7 +12,7 @@ test('15.1F stale transient proactive state is cleared after restart',()=>{
  assert.equal(r.pendingArrivalDecision,null);
  assert.equal(r.pendingSituationalEngagement,null);
  assert.equal(r.pendingContextualFollowThrough,null);
- assert.deepEqual(r.cleared.sort(),['arrival','context-followthrough','situational-engagement']);
+ assert.deepEqual([...r.cleared].sort(),['arrival','context-followthrough','situational-engagement']);
 });
 
 test('15.1F fresh confirmation-bound transient state may survive controlled reload reconciliation',()=>{
