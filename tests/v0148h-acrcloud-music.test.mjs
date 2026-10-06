@@ -14,7 +14,7 @@ function response(body,status=200){
  });
 }
 
-test('V2G PCM encoder creates bounded mono 16-bit RIFF/WAVE in memory',()=>{
+test('V2H PCM encoder creates bounded mono 16-bit RIFF/WAVE in memory',()=>{
  const wav=encodePcm16Wav(new Float32Array([0,.5,-.5,1,-1]),16000);
  assert.ok(wav instanceof Uint8Array);
  assert.equal(wav.length,44+10);
@@ -31,7 +31,16 @@ test('V2G PCM encoder creates bounded mono 16-bit RIFF/WAVE in memory',()=>{
  assert.equal(view.getUint32(40,true),10);
 });
 
-test('V2G exact recognition requires owner opt-in before any network request',async()=>{
+test('V2H high-rate input is downsampled to bounded 16 kHz mono PCM',()=>{
+ const input=new Float32Array(48000).fill(.1);
+ const wav=encodePcm16Wav(input,48000);
+ const view=new DataView(wav.buffer,wav.byteOffset,wav.byteLength);
+ assert.equal(view.getUint32(24,true),16000);
+ assert.equal(view.getUint32(40,true),16000*2);
+ assert.equal(wav.byteLength,44+16000*2);
+});
+
+test('V2H exact recognition requires owner opt-in before any network request',async()=>{
  let calls=0;
  await assert.rejects(recognizeMusicWithAcrCloud({
   samples:new Float32Array([.1,.2,.3]),ownerEnabled:false,
@@ -40,7 +49,7 @@ test('V2G exact recognition requires owner opt-in before any network request',as
  assert.equal(calls,0);
 });
 
-test('V2G ACRCloud client sends bounded WAV through same-origin governed endpoint',async()=>{
+test('V2H ACRCloud client sends bounded WAV through same-origin governed endpoint',async()=>{
  const calls=[];
  const fetcher=async(url,options={})=>{
   calls.push({url:String(url),options});
@@ -74,7 +83,7 @@ test('V2G ACRCloud client sends bounded WAV through same-origin governed endpoin
  assert.ok(body.byteLength<=768000);
 });
 
-test('V2G transport is ready for a future compatible ACRCloud fingerprint extractor',async()=>{
+test('V2H transport is ready for a future compatible ACRCloud fingerprint extractor',async()=>{
  const fingerprint=new Uint8Array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]);
  const calls=[];
  const fetcher=async(url,options={})=>{
@@ -92,7 +101,7 @@ test('V2G transport is ready for a future compatible ACRCloud fingerprint extrac
  assert.deepEqual(Array.from(calls[1].options.body),Array.from(fingerprint));
 });
 
-test('V2G provider adapter forwards evidence id through the existing fingerprint core',async()=>{
+test('V2H provider adapter forwards evidence id through the existing fingerprint core',async()=>{
  let seen=null;
  const provider=createAcrCloudMusicProvider({
   ownerEnabled:()=>true,
@@ -118,7 +127,7 @@ test('V2G provider adapter forwards evidence id through the existing fingerprint
  assert.match(seen.url,/evidenceId=window-77/);
 });
 
-test('V2G two strong ACRCloud observations confirm through the existing evidence tracker',()=>{
+test('V2H two strong ACRCloud observations confirm through the existing evidence tracker',()=>{
  const tracker=new MusicIdentificationTracker();
  const first={
   title:'Track',artist:'Artist',confidence:.95,provider:'acrcloud',
@@ -131,7 +140,7 @@ test('V2G two strong ACRCloud observations confirm through the existing evidence
  assert.equal(confirmed.track.provider,'acrcloud');
 });
 
-test('V2G server signs fixed-host ACRCloud requests without persisting samples',()=>{
+test('V2H server signs fixed-host ACRCloud requests without persisting samples',()=>{
  const php=fs.readFileSync('server/music-fingerprint-api.php','utf8');
  const providers=fs.readFileSync('server/providers.php','utf8');
  const admin=fs.readFileSync('server/admin.php','utf8');
@@ -153,7 +162,7 @@ test('V2G server signs fixed-host ACRCloud requests without persisting samples',
  assert.match(admin,/name="access_secret"/);
 });
 
-test('V2G ROOM UI keeps exact remote recognition opt-in and preserves local fallback',()=>{
+test('V2H ROOM UI keeps exact remote recognition opt-in and preserves local fallback',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  assert.match(html,/id="roomIdentifyMusicFingerprint"/);
