@@ -87,7 +87,7 @@ test('v0.14.7 Conversation controller loads saved history at startup instead of 
  const agent=read('agent-mode.js');
  assert.match(agent,/entries=loadAgentHistory\(localStorage\)/);
  assert.match(agent,/ui\.save\.checked=entries\.length>0/);
- assert.doesNotMatch(agent,/entries=\[\]/);
+ assert.doesNotMatch(agent,/ui\.save\.checked=false/);
  assert.match(agent,/saveAgentHistory\(localStorage,entries,true\)/);
 });
 
