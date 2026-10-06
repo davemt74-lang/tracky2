@@ -104,7 +104,7 @@ export class LiveCertificationHarness{
    snapshotCount:this.snapshots.length,
    notes:clean(notes,1200),
    privacy:Object.freeze({
-    rawMedia:false,transcripts:false,biometrics:false,providerPayloads:false,
+    rawMedia:false,conversationContent:false,biometrics:false,providerPayloads:false,
     scope:'aggregate-and-operator-confirmed-live-certification-evidence'
    })
   });
