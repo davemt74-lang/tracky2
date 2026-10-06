@@ -240,5 +240,5 @@ test('V2A deploy and PWA manifests include the resolver',()=>{
  assert.match(sw,/\.\/src\/speech-origin-core\.js/);
  assert.match(sw,/\.\/src\/participant-enrollment-core\.js/);
  assert.match(pkg,/node --check src\/speech-origin-core\.js/);
- assert.match(workflow,/package-smoke\/tracky2-v0\.14\.8\/src\/speech-origin-core\.js/);
+ assert.match(workflow,/package-smoke\/tracky2-v0\.\d+\.\d+\/src\/speech-origin-core\.js/);
 });
