@@ -64,7 +64,8 @@ export function activeRemoteProvider(selected,statuses=[]){
 export function providerFallbackPlan(selected,statuses=[]){
  const first=clean(selected).toLowerCase();
  const configured=new Set((Array.isArray(statuses)?statuses:[])
-  .filter(row=>row?.configured===true&&REMOTE_CHAT_PROVIDERS.includes(row.provider))
+  .filter(row=>row?.configured===true&&row?.transportAvailable!==false&&
+   REMOTE_CHAT_PROVIDERS.includes(row.provider))
   .map(row=>row.provider));
  const plan=[];
  if(REMOTE_CHAT_PROVIDERS.includes(first)&&configured.has(first))plan.push(first);
