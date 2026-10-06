@@ -728,7 +728,9 @@ async function ensureEnvironmentalAudioClassifier(){
  }
 }
 function reportEnvironmentalDrops(dropped=[]){
- if(!dropped.length||state.mode!=='agent')return;
+ if(!dropped.length)return;
+ for(const item of dropped)resolveEnvironmentalSpeechEvidence(item?.work?.correlationId,null);
+ if(state.mode!=='agent')return;
  environmentalAudioDecision='Discarded '+dropped.length+' stale/overflow classification window'+
   (dropped.length===1?'':'s');
  renderEnvironmentalAudio();
@@ -744,7 +746,11 @@ async function processEnvironmentalAudioWork(work){
    outcome='cancelled';return;
   }
   const detail=await environmentalAudioClassifier.classify(work.samples,{topK:8});
+  const sameSegmentMediaCue=recordedMediaCueFromPredictions(detail.predictions,work.queuedAt);
   if(!environmentalAudioQueue.current(work,Date.now())){
+   resolveEnvironmentalSpeechEvidence(work.correlationId,{
+    mediaCue:sameSegmentMediaCue,classification:null,completedAt:detail.completedAt
+   });
    outcome='cancelled';return;
   }
   const normalized=normalizeEnvironmentalV2Predictions(detail.predictions,{
@@ -752,6 +758,9 @@ async function processEnvironmentalAudioWork(work){
    at:work.queuedAt,durationMs:work.durationMs,audioSource:work.audioSource
   });
   if(!normalized.accepted){
+   resolveEnvironmentalSpeechEvidence(work.correlationId,{
+    mediaCue:sameSegmentMediaCue,classification:null,completedAt:detail.completedAt
+   });
    environmentalAudioDecision=normalized.reason==='speech-or-sensitive-filtered'
     ?'Speech / unsupported sensitive model label filtered'
     : normalized.reason.replaceAll('-',' ');
@@ -760,6 +769,10 @@ async function processEnvironmentalAudioWork(work){
   const classification=calibrateEnvironmentalClassification(
    normalized.classification,environmentalFeedback
   );
+  resolveEnvironmentalSpeechEvidence(work.correlationId,{
+   mediaCue:classification.recordedMediaCue||sameSegmentMediaCue,
+   classification,completedAt:detail.completedAt
+  });
   environmentalAudioLast=classification;
   environmentalAudioDecision='V2 environmental event classified locally';
   // Preserve the bounded V2 grouping for burst events and owner feedback.
@@ -797,6 +810,7 @@ async function processEnvironmentalAudioWork(work){
    }
   }
  }catch(error){
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   outcome='error';
   environmentalAudioState='error';
   environmentalAudioDecision='Classification failed; conversation audio unaffected';
@@ -872,6 +886,7 @@ function setEnvironmentalAudioEnabled(enabled){
   void ensureEnvironmentalAudioClassifier();
  }else{
   environmentalAudioQueue.disable();
+  clearEnvironmentalSpeechEvidence();
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
