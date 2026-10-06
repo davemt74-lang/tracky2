@@ -22,6 +22,9 @@ import {
  normalizeEnvironmentalV2Predictions
 } from './src/environmental-intelligence-core.js';
 import {
+ RoomSpeechOriginTracker,resolveRoomSpeechOrigin,roomSpeechOriginMessage
+} from './src/speech-origin-core.js';
+import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
 import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-core.js';
@@ -454,6 +457,7 @@ const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
 const environmentalActivityTracker=new EnvironmentalActivityTracker();
+const roomSpeechOriginTracker=new RoomSpeechOriginTracker();
 let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
@@ -3307,7 +3311,7 @@ async function processRoomSegment(segment) {
       continuousDisagreement||(continuousFusion.conflicts||[]).length
     );
     const diarizationUnsafe=!diarization.safeWholeTurnAttribution||continuousConflict;
-    const voiceMatch=diarizationUnsafe?{
+    let voiceMatch=diarizationUnsafe?{
       matched:false,participant:null,
       similarity:rawVoiceMatch.similarity,
       secondSimilarity:rawVoiceMatch.secondSimilarity,
@@ -3317,12 +3321,80 @@ async function processRoomSegment(segment) {
       continuousFusionSuppressed:continuousConflict
     }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
-    const association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    let association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    const speechOrigin=resolveRoomSpeechOrigin({
+      mediaActivity:environmentalActivityTracker.snapshot(),
+      recentEnvironmental:environmentalAudioLast,
+      voiceMatch,association,roomTracks,audioSource:segment.audioSource||null,
+      now:Date.now()
+    });
+    const originNotice=roomSpeechOriginTracker.observe(speechOrigin,Date.now());
+    if(originNotice.emit&&speechOrigin.mediaContext&&state.mode==='agent'){
+      logRoomMessage('audio',roomSpeechOriginMessage(speechOrigin),'speech-origin-resolver',{
+        semantic:'speech-origin',
+        confidence:Math.max(
+          Number(speechOrigin.mediaContext?.confidence)||0,
+          Number(speechOrigin.evidence?.voiceConfidence)||0
+        ),
+        evidence:{
+          durationMs:segment.captureDurationMs||
+            Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0)),
+          speechOrigin:{
+            state:speechOrigin.state,reason:speechOrigin.reason,
+            mediaKind:speechOrigin.mediaContext?.kind||null,
+            visibleTrackCount:speechOrigin.evidence.visibleTrackCount,
+            bodyConfirmed:speechOrigin.evidence.bodyConfirmed,
+            spatialLive:speechOrigin.evidence.spatialLive
+          }
+        }
+      });
+    }
+    if(!speechOrigin.allowConversation){
+      state.voice.currentSpeakerId=null;
+      state.voice.currentSpeakerName=speechOrigin.state==='recorded'
+        ?'Recorded speech likely':'Speech origin uncertain';
+      state.voice.currentVoiceConfidence=0;
+      state.voice.currentBodyLock=false;
+      state.voice.currentGroupId=null;
+      state.voice.currentAssociationState='unknown-speaker';
+      state.voice.currentAssociationProvenance=['speech-origin:'+speechOrigin.state];
+      state.voice.currentAssociationTransition=null;
+      state.voice.currentFusionState='unknown-speaker';
+      state.voice.currentFusionDecision='abstain';
+      state.voice.currentFusionConfidence=0;
+      state.voice.currentFusionProvenance=['speech-origin:'+speechOrigin.state];
+      state.voice.currentFusionConflicts=[];
+      state.voice.currentFusionAbstentionReason=speechOrigin.reason;
+      state.voice.currentFusionTransition=null;
+      state.voice.currentDiarizationState=diarization.state;
+      state.voice.currentDiarizationSpeakerCount=diarization.speakerCount;
+      state.voice.currentDiarizationOverlap=diarization.overlapObserved;
+      state.voice.currentDiarizationReason=diarization.reason;
+      state.voice.currentConversationAttention='room';
+      state.voice.currentConversationGroupSize=0;
+      state.voice.currentConversationLabel=speechOrigin.state==='recorded'
+        ?'RECORDED SPEECH · HELD OUT':'SPEECH ORIGIN UNCERTAIN · HELD OUT';
+      state.voice.lastDecision='speech-origin-'+speechOrigin.state;
+      renderParticipantCards();
+      renderVoiceHud();
+      return;
+    }
+    if(!speechOrigin.allowParticipantAttribution){
+      voiceMatch={
+        matched:false,participant:null,
+        similarity:rawVoiceMatch.similarity,
+        secondSimilarity:rawVoiceMatch.secondSimilarity,
+        margin:rawVoiceMatch.margin,
+        ambiguous:true,speechOriginSuppressed:true
+      };
+      association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    }
     const participant=association.participantId
       ? (voiceMatch.participant?.id===association.participantId
         ? voiceMatch.participant : participantById(association.participantId))
       : null;
-    if(voiceMatch.matched&&association.participantId&&association.trackId&&participant){
+    if(speechOrigin.allowParticipantAttribution&&
+       voiceMatch.matched&&association.participantId&&association.trackId&&participant){
       state.identity.tracks=Array.from(participantContinuity.recoverByVoice(
        state.identity.tracks,{
         participantId:participant.id,participantName:participant.nickname||participant.name,
@@ -3593,6 +3665,10 @@ async function processRoomSegment(segment) {
      roomId:captureRoom.id,
      roomName:captureRoom.name,
      ...roomHandoffFields,
+     speechOriginState:speechOrigin.state,
+     speechOriginReason:speechOrigin.reason,
+     speechOriginMediaKind:speechOrigin.mediaContext?.kind||null,
+     speechOriginParticipantAttributionAllowed:speechOrigin.allowParticipantAttribution,
      overlapEvidence:diarization.overlapObserved,
      diarizationAttributionSuppressed:diarizationUnsafe,
      diarizationAttributionReason:diarizationUnsafe
@@ -3958,6 +4034,7 @@ async function startRoomAudio() {
       agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
     roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
+    roomSpeechOriginTracker.reset();
     updateParticipantAudioMeters(true);
     if(state.mode==='agent')renderAmbientAudioMeter(true);
     agentRuntime?.setAudioActive(true);
@@ -3994,6 +4071,7 @@ function stopRoomAudio() {
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
   roomAcousticPatternTracker.reset();
+  roomSpeechOriginTracker.reset();
   // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
   environmentalActivityTracker.reset();
   state.voice.generation += 1;
