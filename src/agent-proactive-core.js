@@ -50,7 +50,7 @@ export function normalizeProactivePolicy(input={}){
 export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
  const p=normalizeProactivePolicy(policy);
  const type=String(input.type||'').trim();
- if(!['conversation-followup','task-status','meeting-followup','routine-status','environment-alert'].includes(type))
+ if(!['conversation-followup','task-status','meeting-followup','routine-status','environment-alert','media-context'].includes(type))
   throw new Error('Unsupported proactive opportunity type.');
  const sourceAt=finite(input.sourceAt)?input.sourceAt:now;
  const eligibleAt=finite(input.eligibleAt)?Math.max(sourceAt,input.eligibleAt):
@@ -74,6 +74,7 @@ export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROA
   confidence:scoring.confidence,priorityScore:scoring.score,
   relatedEventId:short(input.relatedEventId,96)||null,
   requiresNoActiveTasks:input.requiresNoActiveTasks===true,
+  generationPrompt:short(input.generationPrompt,1800)||null,
   source:String(input.source||'agent-proactive').slice(0,80)
  });
 }
