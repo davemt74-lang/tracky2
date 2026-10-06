@@ -603,7 +603,7 @@ ui.export.addEventListener('click',async()=>{
   const canonical=canonicalCertificationJson(report);
   const digest=await sha256Hex(canonical);
   const stamp=Date.now();
-  const filename='tracky2-installed-device-certification-'+stamp+'.json';
+  const filename='tracky2-hardware-certification-installed-device-'+stamp+'.json';
   const payload={...report,integrity:{
    algorithm:'SHA-256',digest,canonicalScope:'redacted-installed-device-certification'
   }};
