@@ -125,8 +125,7 @@ export class RoomMediaContinuityTracker{
    return Object.freeze({emit:false,transition:'ignored',state:this.snapshot()});
 
   if(result.transition==='stopped'){
-   const grace=result.reason==='stale-timeout'?this.resumeGraceMs:this.interstitialGraceMs;
-   return this.suspend(result.reason||'background-stop',at,grace);
+   return this.suspend(result.reason||'background-stop',at,this.resumeGraceMs);
   }
 
   if(!['started','continued','source-changed','identity-confirmed','identity-changed','identity-reconfirmed'].includes(result.transition))
@@ -138,8 +137,11 @@ export class RoomMediaContinuityTracker{
   };
 
   if(this.active){
-   if(this.interstitialParent&&at>this.interstitialParent.resumeDeadline)
+   if(this.interstitialParent&&at>this.interstitialParent.resumeDeadline){
     this.interstitialParent=null;
+    if(this.active?.provisionalInterstitial)
+     this.active={...this.active,provisionalInterstitial:false,interruption:null};
+   }
    if(this.interstitialParent&&at<=this.interstitialParent.resumeDeadline){
     const parentCompatibility=mediaContinuityCompatibility(this.interstitialParent,next);
     if(parentCompatibility.compatible){
