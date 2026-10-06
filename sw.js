@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while a match may be active.
-const CACHE='tracky2-static-v0.15.1';
+const CACHE='tracky2-static-v0.15.1-participant-save-r2';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
@@ -41,10 +41,16 @@ self.addEventListener('fetch',event=>{
  if(url.search || !ASSETS.some(path=>path.replace(/^\.\//,'')===relative) &&
     relative!=='')return;
  if(request.mode==='navigate'){
-   event.respondWith(fetch(request).then(response=>response.ok?response:
-     caches.match(request).then(cached=>cached||response)).catch(()=>
-       caches.match(request).then(cached=>cached||caches.match('./games.html'))));
+   event.respondWith(fetch(request).then(response=>{
+     if(response.ok)caches.open(CACHE).then(cache=>cache.put(request,response.clone())).catch(()=>{});
+     return response.ok?response:caches.match(request).then(cached=>cached||response);
+   }).catch(()=>caches.match(request).then(cached=>cached||caches.match('./games.html'))));
  }else{
-   event.respondWith(caches.match(request).then(cached=>cached||fetch(request)));
+   // Network-first for application code so deploys cannot stay pinned to stale
+   // participant/runtime JavaScript under an unchanged installed PWA.
+   event.respondWith(fetch(request).then(response=>{
+     if(response.ok)caches.open(CACHE).then(cache=>cache.put(request,response.clone())).catch(()=>{});
+     return response;
+   }).catch(()=>caches.match(request)));
  }
 });
