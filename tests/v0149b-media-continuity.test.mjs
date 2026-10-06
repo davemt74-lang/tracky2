@@ -74,3 +74,47 @@ test('14.9B incompatible source change starts a new continuity id',()=>{
  assert.notEqual(changed.continuity.continuityId,first.continuity.continuityId);
  assert.equal(changed.previous.status,'ended');
 });
+
+
+test('14.9B short unrelated TV identity is treated as provisional interstitial and original program can resume',()=>{
+ const t=new RoomMediaContinuityTracker({interstitialGraceMs:45000});
+ const original=t.observeBackground(bg('started','television',1000,{
+  identityKey:'episode:show::episode-1',identity:{series:'Show',title:'Episode 1'}
+ }),1000);
+ const id=original.continuity.continuityId;
+ const ad=t.observeBackground(bg('identity-changed','television',10000,{
+  identityKey:'television:brand::ad',identity:{series:'Brand',title:'Ad'}
+ }),10000);
+ assert.equal(ad.transition,'interstitial-started');
+ assert.equal(ad.continuity.provisionalInterstitial,true);
+ const resumed=t.observeBackground(bg('identity-changed','television',30000,{
+  identityKey:'episode:show::episode-1',identity:{series:'Show',title:'Episode 1'}
+ }),30000);
+ assert.equal(resumed.transition,'interstitial-ended');
+ assert.equal(resumed.continuity.continuityId,id);
+ assert.equal(resumed.continuity.provisionalInterstitial,false);
+});
+
+test('14.9B persistent interstitial is promoted to new content after grace',()=>{
+ const t=new RoomMediaContinuityTracker({interstitialGraceMs:15000});
+ t.observeBackground(bg('started','television',1000,{
+  identityKey:'episode:show::episode-1',identity:{series:'Show',title:'Episode 1'}
+ }),1000);
+ t.observeBackground(bg('identity-changed','television',5000,{
+  identityKey:'television:new::content',identity:{series:'Different',title:'Program'}
+ }),5000);
+ const promoted=t.expire(21000);
+ assert.equal(promoted.transition,'interstitial-promoted');
+ assert.equal(promoted.continuity.provisionalInterstitial,false);
+ assert.match(roomMediaContinuityMessage(promoted),/treating it as new content/);
+});
+
+test('14.9B repeated foreground speech over one background source is one interruption period',()=>{
+ const t=new RoomMediaContinuityTracker();
+ t.observeBackground(bg('started','music',1000),1000);
+ const first=t.observeForeground({mode:'foreground-conversation-over-background'},2000);
+ const second=t.observeForeground({mode:'foreground-conversation-over-background'},3000);
+ assert.equal(first.emit,true);
+ assert.equal(second.emit,false);
+ assert.equal(second.continuity.interruptions,1);
+});
