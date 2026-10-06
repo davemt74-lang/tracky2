@@ -19,6 +19,30 @@ const short=(v,n=120)=>String(v??'').replace(/[\r\n\t]+/g,' ').trim().slice(0,n)
 const id=()=>globalThis.crypto?.randomUUID?.()||
  'environment-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
 
+const RECORDED_MEDIA_CUE_RULES=Object.freeze([
+ ['television','media-playback',/(?:television|tv\b)/i,.3],
+ ['radio','media-playback',/\bradio\b/i,.3],
+ ['video-game','media-playback',/(?:video game|game soundtrack)/i,.32],
+ ['recorded-media','media-playback',/(?:soundtrack|recorded media)/i,.34],
+ ['music','music',/\bmusic\b|musical instrument|orchestra|choir/i,.42]
+]);
+
+export function recordedMediaCueFromPredictions(predictions=[],at=Date.now()){
+ const rows=predictionRows(predictions);
+ let best=null;
+ for(const row of rows){
+  for(const [subtype,category,pattern,minScore] of RECORDED_MEDIA_CUE_RULES){
+   if(!pattern.test(row.label)||row.score<minScore)continue;
+   const candidate={category,subtype,modelLabel:row.label,
+    confidence:Number(row.score.toFixed(4)),at:finite(at)?at:Date.now(),
+    participantId:null,speakerAttribution:'none',exactMediaId:null,
+    source:'local-audioset-secondary-media-cue'};
+   if(!best||candidate.confidence>best.confidence)best=candidate;
+  }
+ }
+ return best?Object.freeze(best):null;
+}
+
 const SUBTYPE_RULES=Object.freeze([
  ['television',/(?:television|tv\b)/i],
  ['radio',/\bradio\b/i],
@@ -64,6 +88,7 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
  const legacy=normalizeEnvironmentalPredictions(predictions,{
   at,durationMs,modelId:modelId||undefined,modelRevision:modelRevision||undefined
  });
+ const recordedMediaCue=recordedMediaCueFromPredictions(predictions,at);
  let classification=null;
  if(legacy.accepted){
   const base=legacy.classification;
@@ -71,7 +96,7 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
    ...base,schema:ENVIRONMENTAL_V2_SCHEMA,
    subtype:environmentalSubtypeForLabel(base.modelLabel,base.category),
    observableOnly:true,healthInference:'none',emotionInference:'none',
-   sourceContext:sourceContext(audioSource)
+   sourceContext:sourceContext(audioSource),recordedMediaCue
   };
  }else if(legacy.reason==='speech-or-sensitive-filtered'){
   const rows=predictionRows(predictions),top=rows[0],second=rows[1];
@@ -89,7 +114,8 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
     modelRevision:short(modelRevision,80)||null,
     participantId:null,speakerAttribution:'none',exactMediaId:null,
     observableOnly:true,healthInference:'none',emotionInference:'none',
-    sourceContext:sourceContext(audioSource)
+    sourceContext:sourceContext(audioSource),
+    recordedMediaCue
    };
   }else if(top&&/(?:^|\b)(?:speech|conversation|narration|human voice|male speech|female speech|child speech)(?:\b|$)/i.test(top.label)&&
      top.score>=ENVIRONMENTAL_V2_ROOM_VOICE_MIN_SCORE&&
@@ -105,7 +131,7 @@ export function normalizeEnvironmentalV2Predictions(predictions,{
     modelRevision:short(modelRevision,80)||null,
     participantId:null,speakerAttribution:'none',exactMediaId:null,
     observableOnly:true,contentInference:'none',healthInference:'none',emotionInference:'none',
-    sourceContext:sourceContext(audioSource)
+    sourceContext:sourceContext(audioSource),recordedMediaCue
    };
   }
  }

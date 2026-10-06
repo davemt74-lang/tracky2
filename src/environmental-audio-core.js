@@ -109,6 +109,8 @@ export function createEnvironmentalAudioWork(segment,{
    confidence:finite(segment.audioSource.confidence)?
     Math.max(0,Math.min(1,segment.audioSource.confidence)):0
   }):Object.freeze({state:'unavailable',direction:'unavailable',confidence:0}),
+  correlationId:segment.environmentCorrelationId
+   ?String(segment.environmentCorrelationId).slice(0,96):null,
   queuedAt,
   deadlineAt:queuedAt+ENVIRONMENT_AUDIO_MAX_AGE_MS
  };

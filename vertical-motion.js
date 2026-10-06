@@ -19,8 +19,11 @@ import {
 import {
  EnvironmentalActivityTracker,EnvironmentalEventGrouper,calibrateEnvironmentalClassification,
  environmentalActivityMessage,environmentalFeedbackFromRoomEvent,environmentalV2Message,
- normalizeEnvironmentalV2Predictions
+ normalizeEnvironmentalV2Predictions,recordedMediaCueFromPredictions
 } from './src/environmental-intelligence-core.js';
+import {
+ RoomSpeechOriginTracker,resolveRoomSpeechOrigin,roomSpeechOriginMessage
+} from './src/speech-origin-core.js';
 import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
@@ -454,10 +457,40 @@ const environmentalAudioQueue=new EnvironmentalAudioQueue();
 const environmentalAudioTracker=new EnvironmentalClassificationTracker();
 const environmentalEventGrouper=new EnvironmentalEventGrouper();
 const environmentalActivityTracker=new EnvironmentalActivityTracker();
+const roomSpeechOriginTracker=new RoomSpeechOriginTracker();
 let environmentalFeedback=[];
 let routineFeedback=[],routineCandidates=[],routineLastDeviation=null,routineHistoryRows=[];
 let environmentalAudioClassifier=null;
 let environmentalAudioState='off',environmentalAudioLast=null,environmentalAudioCurrentGroup=null;
+const environmentalSpeechEvidenceWaiters=new Map();
+let environmentalSpeechEvidenceSequence=0;
+function createEnvironmentalSpeechEvidenceRequest(){
+ const id='speech-env-'+Date.now().toString(36)+'-'+(++environmentalSpeechEvidenceSequence).toString(36);
+ let settle;
+ const promise=new Promise(resolve=>{settle=resolve;});
+ const timer=setTimeout(()=>{
+  const waiter=environmentalSpeechEvidenceWaiters.get(id);
+  if(!waiter)return;
+  environmentalSpeechEvidenceWaiters.delete(id);
+  waiter.resolve(null);
+ },900);
+ environmentalSpeechEvidenceWaiters.set(id,{
+  resolve:value=>{clearTimeout(timer);settle(value);}
+ });
+ return Object.freeze({id,promise});
+}
+function resolveEnvironmentalSpeechEvidence(id,value=null){
+ if(!id)return false;
+ const waiter=environmentalSpeechEvidenceWaiters.get(id);
+ if(!waiter)return false;
+ environmentalSpeechEvidenceWaiters.delete(id);
+ waiter.resolve(value);return true;
+}
+function clearEnvironmentalSpeechEvidence(){
+ for(const [id,waiter] of environmentalSpeechEvidenceWaiters){
+  environmentalSpeechEvidenceWaiters.delete(id);waiter.resolve(null);
+ }
+}
 let environmentalAudioDecision='Disabled by owner';
 let environmentalAudioLastErrorAt=-Infinity;
 let analyzeAmbientPatterns=false,advancedRoomMappingEnabled=false;
@@ -695,7 +728,9 @@ async function ensureEnvironmentalAudioClassifier(){
  }
 }
 function reportEnvironmentalDrops(dropped=[]){
- if(!dropped.length||state.mode!=='agent')return;
+ if(!dropped.length)return;
+ for(const item of dropped)resolveEnvironmentalSpeechEvidence(item?.work?.correlationId,null);
+ if(state.mode!=='agent')return;
  environmentalAudioDecision='Discarded '+dropped.length+' stale/overflow classification window'+
   (dropped.length===1?'':'s');
  renderEnvironmentalAudio();
@@ -703,6 +738,7 @@ function reportEnvironmentalDrops(dropped=[]){
 async function processEnvironmentalAudioWork(work){
  let outcome='classified';
  if(!environmentalAudioQueue.current(work,Date.now())){
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   environmentalAudioQueue.complete(work,'cancelled');renderEnvironmentalAudio();return;
  }
  try{
@@ -711,7 +747,11 @@ async function processEnvironmentalAudioWork(work){
    outcome='cancelled';return;
   }
   const detail=await environmentalAudioClassifier.classify(work.samples,{topK:8});
+  const sameSegmentMediaCue=recordedMediaCueFromPredictions(detail.predictions,work.queuedAt);
   if(!environmentalAudioQueue.current(work,Date.now())){
+   resolveEnvironmentalSpeechEvidence(work.correlationId,{
+    mediaCue:sameSegmentMediaCue,classification:null,completedAt:detail.completedAt
+   });
    outcome='cancelled';return;
   }
   const normalized=normalizeEnvironmentalV2Predictions(detail.predictions,{
@@ -719,6 +759,9 @@ async function processEnvironmentalAudioWork(work){
    at:work.queuedAt,durationMs:work.durationMs,audioSource:work.audioSource
   });
   if(!normalized.accepted){
+   resolveEnvironmentalSpeechEvidence(work.correlationId,{
+    mediaCue:sameSegmentMediaCue,classification:null,completedAt:detail.completedAt
+   });
    environmentalAudioDecision=normalized.reason==='speech-or-sensitive-filtered'
     ?'Speech / unsupported sensitive model label filtered'
     : normalized.reason.replaceAll('-',' ');
@@ -727,6 +770,10 @@ async function processEnvironmentalAudioWork(work){
   const classification=calibrateEnvironmentalClassification(
    normalized.classification,environmentalFeedback
   );
+  resolveEnvironmentalSpeechEvidence(work.correlationId,{
+   mediaCue:classification.recordedMediaCue||sameSegmentMediaCue,
+   classification,completedAt:detail.completedAt
+  });
   environmentalAudioLast=classification;
   environmentalAudioDecision='V2 environmental event classified locally';
   // Preserve the bounded V2 grouping for burst events and owner feedback.
@@ -764,6 +811,7 @@ async function processEnvironmentalAudioWork(work){
    }
   }
  }catch(error){
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   outcome='error';
   environmentalAudioState='error';
   environmentalAudioDecision='Classification failed; conversation audio unaffected';
@@ -776,6 +824,7 @@ async function processEnvironmentalAudioWork(work){
   }
   console.warn('Environmental audio classification failed',error);
  }finally{
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   environmentalAudioQueue.complete(work,outcome);
   void drainEnvironmentalAudioQueue();
  }
@@ -794,7 +843,7 @@ function queueEnvironmentalAudio(segment){
   environmentalAudioDecision='Paused by device performance policy; conversation audio continues';
   renderEnvironmentalAudio();return false;
  }
- if(environmentalAudioState!=='ready'||document.hidden)return false;
+ if(!['ready','loading'].includes(environmentalAudioState)||document.hidden)return false;
  const queued=environmentalAudioQueue.enqueue(segment,Date.now());
  reportEnvironmentalDrops(queued.dropped);
  renderEnvironmentalAudio();
@@ -827,6 +876,7 @@ function logEnvironmentalActivityTransition(transition,group=null){
 }
 function setEnvironmentalAudioEnabled(enabled){
  if(enabled){
+  clearEnvironmentalSpeechEvidence();
   environmentalAudioQueue.enable(Date.now());
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
@@ -839,6 +889,7 @@ function setEnvironmentalAudioEnabled(enabled){
   void ensureEnvironmentalAudioClassifier();
  }else{
   environmentalAudioQueue.disable();
+  clearEnvironmentalSpeechEvidence();
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   // Disabling the sensor does not prove that music/TV/voices stopped.
@@ -3307,7 +3358,7 @@ async function processRoomSegment(segment) {
       continuousDisagreement||(continuousFusion.conflicts||[]).length
     );
     const diarizationUnsafe=!diarization.safeWholeTurnAttribution||continuousConflict;
-    const voiceMatch=diarizationUnsafe?{
+    let voiceMatch=diarizationUnsafe?{
       matched:false,participant:null,
       similarity:rawVoiceMatch.similarity,
       secondSimilarity:rawVoiceMatch.secondSimilarity,
@@ -3317,12 +3368,86 @@ async function processRoomSegment(segment) {
       continuousFusionSuppressed:continuousConflict
     }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
-    const association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    let association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    const sameSegmentEnvironment=segment.environmentEvidencePromise
+      ?await segment.environmentEvidencePromise:null;
+    if(!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
+    const speechOrigin=resolveRoomSpeechOrigin({
+      mediaActivity:environmentalActivityTracker.snapshot(),
+      recentEnvironmental:sameSegmentEnvironment?.mediaCue||
+        sameSegmentEnvironment?.classification?.recordedMediaCue||
+        environmentalAudioLast?.recordedMediaCue||environmentalAudioLast,
+      voiceMatch,association,roomTracks,audioSource:segment.audioSource||null,
+      continuousFusion,
+      now:Date.now()
+    });
+    const originNotice=roomSpeechOriginTracker.observe(speechOrigin,Date.now());
+    if(originNotice.emit&&speechOrigin.mediaContext&&state.mode==='agent'){
+      logRoomMessage('audio',roomSpeechOriginMessage(speechOrigin),'speech-origin-resolver',{
+        semantic:'speech-origin',
+        confidence:Math.max(
+          Number(speechOrigin.mediaContext?.confidence)||0,
+          Number(speechOrigin.evidence?.voiceConfidence)||0
+        ),
+        evidence:{
+          durationMs:segment.captureDurationMs||
+            Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0)),
+          speechOrigin:{
+            state:speechOrigin.state,reason:speechOrigin.reason,
+            mediaKind:speechOrigin.mediaContext?.kind||null,
+            visibleTrackCount:speechOrigin.evidence.visibleTrackCount,
+            bodyConfirmed:speechOrigin.evidence.bodyConfirmed,
+            spatialLive:speechOrigin.evidence.spatialLive
+          }
+        }
+      });
+    }
+    if(!speechOrigin.allowConversation){
+      state.voice.currentSpeakerId=null;
+      state.voice.currentSpeakerName=speechOrigin.state==='recorded'
+        ?'Recorded speech likely':'Speech origin uncertain';
+      state.voice.currentVoiceConfidence=0;
+      state.voice.currentBodyLock=false;
+      state.voice.currentGroupId=null;
+      state.voice.currentAssociationState='unknown-speaker';
+      state.voice.currentAssociationProvenance=['speech-origin:'+speechOrigin.state];
+      state.voice.currentAssociationTransition=null;
+      state.voice.currentFusionState='unknown-speaker';
+      state.voice.currentFusionDecision='abstain';
+      state.voice.currentFusionConfidence=0;
+      state.voice.currentFusionProvenance=['speech-origin:'+speechOrigin.state];
+      state.voice.currentFusionConflicts=[];
+      state.voice.currentFusionAbstentionReason=speechOrigin.reason;
+      state.voice.currentFusionTransition=null;
+      state.voice.currentDiarizationState=diarization.state;
+      state.voice.currentDiarizationSpeakerCount=diarization.speakerCount;
+      state.voice.currentDiarizationOverlap=diarization.overlapObserved;
+      state.voice.currentDiarizationReason=diarization.reason;
+      state.voice.currentConversationAttention='room';
+      state.voice.currentConversationGroupSize=0;
+      state.voice.currentConversationLabel=speechOrigin.state==='recorded'
+        ?'RECORDED SPEECH · HELD OUT':'SPEECH ORIGIN UNCERTAIN · HELD OUT';
+      state.voice.lastDecision='speech-origin-'+speechOrigin.state;
+      renderParticipantCards();
+      renderVoiceHud();
+      return;
+    }
+    if(!speechOrigin.allowParticipantAttribution){
+      voiceMatch={
+        matched:false,participant:null,
+        similarity:rawVoiceMatch.similarity,
+        secondSimilarity:rawVoiceMatch.secondSimilarity,
+        margin:rawVoiceMatch.margin,
+        ambiguous:true,speechOriginSuppressed:true
+      };
+      association=resolveSpeakerAssociation({voiceMatch,roomTracks});
+    }
     const participant=association.participantId
       ? (voiceMatch.participant?.id===association.participantId
         ? voiceMatch.participant : participantById(association.participantId))
       : null;
-    if(voiceMatch.matched&&association.participantId&&association.trackId&&participant){
+    if(speechOrigin.allowParticipantAttribution&&
+       voiceMatch.matched&&association.participantId&&association.trackId&&participant){
       state.identity.tracks=Array.from(participantContinuity.recoverByVoice(
        state.identity.tracks,{
         participantId:participant.id,participantName:participant.nickname||participant.name,
@@ -3593,6 +3718,10 @@ async function processRoomSegment(segment) {
      roomId:captureRoom.id,
      roomName:captureRoom.name,
      ...roomHandoffFields,
+     speechOriginState:speechOrigin.state,
+     speechOriginReason:speechOrigin.reason,
+     speechOriginMediaKind:speechOrigin.mediaContext?.kind||null,
+     speechOriginParticipantAttributionAllowed:speechOrigin.allowParticipantAttribution,
      overlapEvidence:diarization.overlapObserved,
      diarizationAttributionSuppressed:diarizationUnsafe,
      diarizationAttributionReason:diarizationUnsafe
@@ -3756,11 +3885,16 @@ function roomTrackHistoryForSegment(segment) {
 }
 
 function onRoomAudioSegment(segment) {
+  const evidenceRequest=createEnvironmentalSpeechEvidenceRequest();
   const {separationInput,...environmentSegment}=segment;
-  queueEnvironmentalAudio(environmentSegment);
+  const environmentalQueued=queueEnvironmentalAudio({
+    ...environmentSegment,environmentCorrelationId:evidenceRequest.id
+  });
+  if(!environmentalQueued)resolveEnvironmentalSpeechEvidence(evidenceRequest.id,null);
   const meetingFields=meetingUI?.turnFields?.()||{meetingId:null,meetingSchemaVersion:null};
   const queued=listeningController.enqueue({
     ...segment,...meetingFields,
+    environmentEvidencePromise:evidenceRequest.promise,
     roomTrackHistory:roomTrackHistoryForSegment(segment)
   },{
     generation:state.voice.generation,
@@ -3958,6 +4092,8 @@ async function startRoomAudio() {
       agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
     roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
+    clearEnvironmentalSpeechEvidence();
+    roomSpeechOriginTracker.reset();
     updateParticipantAudioMeters(true);
     if(state.mode==='agent')renderAmbientAudioMeter(true);
     agentRuntime?.setAudioActive(true);
@@ -3994,6 +4130,8 @@ function stopRoomAudio() {
   if(state.mode==='agent')saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
   roomAmbientAudit.reset();
   roomAcousticPatternTracker.reset();
+  roomSpeechOriginTracker.reset();
+  clearEnvironmentalSpeechEvidence();
   // Microphone shutdown is an evidence gap, not proof that an active sound stopped.
   environmentalActivityTracker.reset();
   state.voice.generation += 1;

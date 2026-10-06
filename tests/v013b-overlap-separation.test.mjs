@@ -139,7 +139,13 @@ test('13B environmental classifier never receives transient stereo separation in
  const end=runtime.indexOf('function transcriptParticipantName',start);
  const block=runtime.slice(start,end);
  assert.match(block,/const \{separationInput,\.\.\.environmentSegment\}=segment/);
- assert.match(block,/queueEnvironmentalAudio\(environmentSegment\)/);
+ const envCallStart=block.indexOf('queueEnvironmentalAudio({');
+ const envCallEnd=block.indexOf('});',envCallStart)+3;
+ assert.ok(envCallStart>0&&envCallEnd>envCallStart);
+ const envCall=block.slice(envCallStart,envCallEnd);
+ assert.match(envCall,/\.\.\.environmentSegment/);
+ assert.match(envCall,/environmentCorrelationId:evidenceRequest\.id/);
+ assert.doesNotMatch(envCall,/separationInput/);
 });
 
 test('13B canonical transcript persistence/export excludes transient source PCM',()=>{
