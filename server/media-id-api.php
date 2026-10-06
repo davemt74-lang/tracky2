@@ -65,13 +65,13 @@ function tracky_media_id_clue(string $value,int $max,int $minWords,string $label
     return $value;
 }
 function tracky_media_id_instruction(string $dialogue,string $visual,string $mediaKind): string {
-    $parts=['Identify the TV, movie, episode, or streaming video from bounded room-media evidence.'];
+    $parts=['Identify the recorded media from bounded room-media evidence. This may be a TV program, movie, streaming video, podcast, podcast episode, radio show, or radio station.'];
     if($dialogue!=='')$parts[]='Possibly imperfect recorded dialogue clue: "'.$dialogue.'".';
     if($visual!=='')$parts[]='Optional visual metadata clue: "'.$visual.'".';
     $parts[]='Current acoustic media class: '.$mediaKind.'. Search the public web.';
     $parts[]='Return only a strong best candidate. Do not reproduce dialogue, subtitles, scripts, or copyrighted passages.';
-    $parts[]='Do not infer who is watching. Return JSON only with found, kind, title, series, season, episode, year, service, confidence.';
-    $parts[]='kind must be movie, tv-series, episode, streaming-video, or unknown. Use 0 for unknown season, episode, and year.';
+    $parts[]='Do not infer who is watching or listening. Return JSON only with found, kind, title, series, season, episode, year, service, confidence.';
+    $parts[]='kind must be movie, tv-series, episode, streaming-video, podcast, podcast-episode, radio-show, radio-station, or unknown. Use series for the podcast/show/program name when relevant. Use service for platform, network, or station metadata when supported. Use 0 for unknown season, episode, and year.';
     return implode(' ',$parts);
 }
 function tracky_media_id_openai(string $secret,string $model,string $instruction): array {
@@ -84,7 +84,10 @@ function tracky_media_id_openai(string $secret,string $model,string $instruction
         'type'=>'object','additionalProperties'=>false,
         'properties'=>[
           'found'=>['type'=>'boolean'],
-          'kind'=>['type'=>'string','enum'=>['movie','tv-series','episode','streaming-video','unknown']],
+          'kind'=>['type'=>'string','enum'=>[
+            'movie','tv-series','episode','streaming-video',
+            'podcast','podcast-episode','radio-show','radio-station','unknown'
+          ]],
           'title'=>['type'=>'string'],'series'=>['type'=>'string'],
           'season'=>['type'=>'integer','minimum'=>0,'maximum'=>200],
           'episode'=>['type'=>'integer','minimum'=>0,'maximum'=>2000],
@@ -108,7 +111,7 @@ function tracky_media_id_anthropic(string $secret,string $model,string $instruct
     $tools=[['type'=>'web_search_20250305','name'=>'web_search','max_uses'=>2]];
     $messages=[['role'=>'user','content'=>$instruction]];
     $payload=['model'=>$model,'max_tokens'=>280,
-      'system'=>'Use web search for this media-identification request. Return JSON only and do not reproduce dialogue or scripts.',
+      'system'=>'Use web search for this recorded-media identification request. Return JSON only and do not reproduce dialogue, scripts, podcast transcripts, or broadcast transcripts.',
       'messages'=>$messages,'tools'=>$tools];
     $res=tracky_provider_http('https://api.anthropic.com/v1/messages',$headers,
       json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14.7 media-id-runtime');
@@ -125,7 +128,10 @@ function tracky_media_id_anthropic(string $secret,string $model,string $instruct
 function tracky_media_id_candidate(array $row): array {
     $found=($row['found']??false)===true;
     $kind=(string)($row['kind']??'unknown');
-    if(!in_array($kind,['movie','tv-series','episode','streaming-video','unknown'],true))$kind='unknown';
+    if(!in_array($kind,[
+      'movie','tv-series','episode','streaming-video',
+      'podcast','podcast-episode','radio-show','radio-station','unknown'
+    ],true))$kind='unknown';
     $title=substr(trim((string)($row['title']??'')),0,140);
     $series=substr(trim((string)($row['series']??'')),0,140);
     $season=max(0,min(200,(int)($row['season']??0)));
@@ -149,7 +155,7 @@ try{
     $dialogue=tracky_media_id_clue((string)($data['dialogueQuery']??''),190,5,'Dialogue clue');
     $visual=tracky_media_id_clue((string)($data['visualClue']??''),220,2,'Visual clue');
     if($dialogue===''&&$visual==='')tracky_reply(['error'=>'A media clue is required'],422);
-    $mediaKind=in_array(($data['mediaKind']??''),['television','recorded-media'],true)
+    $mediaKind=in_array(($data['mediaKind']??''),['television','recorded-media','radio'],true)
       ?(string)$data['mediaKind']:'recorded-media';
     $evidenceId=substr(preg_replace('/[^A-Za-z0-9_-]/','',(string)($data['evidenceId']??''))??'',0,96);
     $preferred=strtolower(trim((string)($data['preferredProvider']??'auto')));
