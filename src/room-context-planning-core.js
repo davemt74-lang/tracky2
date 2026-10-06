@@ -31,8 +31,29 @@ function baseActionWeights(candidate={},situationalDecision={}){
  return common;
 }
 
+function actionFeedbackValue(outcome){
+ if(outcome==='expanded')return 1;
+ if(outcome==='positive')return .7;
+ if(outcome==='neutral')return 0;
+ if(outcome==='ignored')return -.35;
+ if(outcome==='topic-changed')return -.55;
+ if(outcome==='dismissed')return -.9;
+ return 0;
+}
+function actionFeedbackAdjustment(action,candidate,feedback=[],now=Date.now()){
+ let weighted=0,total=0;
+ for(const row of feedback||[]){
+  if(row?.action!==action)continue;
+  if(row.mediaKind&&candidate.mediaKind&&row.mediaKind!==candidate.mediaKind)continue;
+  const age=Math.max(0,now-(row.at||0));
+  const weight=Math.pow(.5,age/(14*24*60*60*1000));
+  weighted+=actionFeedbackValue(row.outcome)*weight;total+=weight;
+ }
+ return total?Math.max(-.3,Math.min(.3,weighted/total*.3)):0;
+}
+
 export function contextualActionPlan(candidate={},situationalDecision={},{
- recentPlans=[],recentDialogueTopicShift=false,now=Date.now()
+ recentPlans=[],actionFeedback=[],recentDialogueTopicShift=false,now=Date.now()
 }={}){
  const reasons=[];
  if(!candidate?.eligible)reasons.push('candidate-ineligible');
@@ -46,7 +67,10 @@ export function contextualActionPlan(candidate={},situationalDecision={},{
  for(const row of recentSame){
   if(row.action&&scores[row.action]!==undefined)scores[row.action]-=.2;
  }
- for(const key of Object.keys(scores))scores[key]=clamp(scores[key]);
+ for(const key of Object.keys(scores)){
+  scores[key]+=actionFeedbackAdjustment(key,candidate,actionFeedback,now);
+  scores[key]=clamp(scores[key]);
+ }
  const ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
  const [action,score]=ranked[0]||['silence',1];
  const abstain=Boolean(reasons.length||action==='silence'||score<.42);
@@ -64,13 +88,14 @@ export function contextualActionPlan(candidate={},situationalDecision={},{
 }
 
 export class RoomContextPlanner{
- constructor({maxHistory=40}={}){
+ constructor({maxHistory=40,maxFeedback=60}={}){
   this.maxHistory=Math.max(12,Math.min(120,Math.floor(maxHistory)||40));
-  this.history=[];this.lastPlan=null;
+  this.maxFeedback=Math.max(12,Math.min(160,Math.floor(maxFeedback)||60));
+  this.history=[];this.feedback=[];this.lastPlan=null;
  }
  plan(candidate,situationalDecision,context={}){
   const plan=contextualActionPlan(candidate,situationalDecision,{
-   ...context,recentPlans:this.history
+   ...context,recentPlans:this.history,actionFeedback:this.feedback
   });
   this.lastPlan=plan;
   return plan;
@@ -84,8 +109,21 @@ export class RoomContextPlanner{
   this.history=[...this.history,row].slice(-this.maxHistory);
   return row;
  }
+ noteFeedback(plan,{outcome='neutral',at=Date.now()}={}){
+  if(!plan?.action||plan.action==='silence')return null;
+  const allowed=['expanded','positive','neutral','ignored','dismissed','topic-changed'];
+  const row=Object.freeze({
+   at,action:plan.action,mediaKind:plan.mediaKind||null,topicKey:plan.topicKey||null,
+   outcome:allowed.includes(outcome)?outcome:'neutral'
+  });
+  this.feedback=[...this.feedback,row].slice(-this.maxFeedback);
+  return row;
+ }
  snapshot(){
-  return Object.freeze({lastPlan:this.lastPlan,recent:Object.freeze(this.history.slice(-12))});
+  return Object.freeze({
+   lastPlan:this.lastPlan,recent:Object.freeze(this.history.slice(-12)),
+   recentFeedback:Object.freeze(this.feedback.slice(-12))
+  });
  }
 }
 
