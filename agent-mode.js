@@ -492,7 +492,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
       if(responseToken!==responseGeneration||open)return;
       const controller=new AbortController();modelController=controller;
       const timeout=setTimeout(()=>controller.abort(),16000);
-      ui.modelStatus.textContent=candidate+' thinking…'+(candidate!==selected?' · fallback':'');
+      ui.modelStatus.textContent=candidate+' thinking…'+
+       (selected==='auto'?' · auto selected':candidate!==selected?' · fallback':'');
       try{
        const result=await querySelfHostedProvider({
         provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
@@ -504,7 +505,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
        say(result.reply,turn.participantId||null,turn.conversationScopeId||null);
        if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
        ui.modelStatus.textContent=candidate+' connected · scoped conversation'+
-        (candidate!==selected?' · fallback from '+selected:'');return;
+        (selected==='auto'?' · auto selected':candidate!==selected?' · fallback from '+selected:'');return;
       }catch(error){lastError=error;
       }finally{clearTimeout(timeout);if(modelController===controller)modelController=null;}
      }
@@ -653,7 +654,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
     ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
       ' · server-mediated text only · '+providerBudgetLabel(row.budget);
   });
-  void refreshProviderRuntime({announce:false});
+  void refreshProviderRuntime({announce:false}).then(()=>applyProviderSelection());
   refillVoices();
   if(speech?.addEventListener)speech.addEventListener('voiceschanged',refillVoices);
   ui.clear.addEventListener('click',()=>{
