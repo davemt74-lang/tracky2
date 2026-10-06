@@ -49,6 +49,9 @@ import {
  RoomMediaContinuityTracker,roomMediaContinuityMessage
 } from './src/room-media-continuity-core.js';
 import {
+ RoomContextualCognitionTracker,contextualMediaPrompt
+} from './src/room-contextual-cognition-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -361,7 +364,7 @@ let storageHealthTimer=0;
 let runtimeHealthLastPaint=0;
 const mediaPermissions={camera:'unsupported',microphone:'unsupported'};
 const permissionWatchers=[];
-let proactiveTimer=0,lastProactiveDecisionSignature='';
+let proactiveTimer=0,lastProactiveDecisionSignature='',proactiveComposePending=false;
 let lastRoomHandoffState=null,lastRoomIdentityId='';
 let runtimeExitPrepared=false;
 function activeAgentTaskCount(){
@@ -388,6 +391,47 @@ function proactiveContext(now=Date.now()){
   quietPolicy:cognitiveLoop.policy
  };
 }
+function considerContextualMediaEngagement(now=Date.now()){
+ if(state.mode!=='agent'||!agentRuntime||meetingUI?.activeMeeting()?.status==='active')return null;
+ const visible=state.running?publicRoomTracks().filter(track=>
+  !['occluded','reacquiring'].includes(track.status)&&track.participantId):[];
+ const ids=[...new Set(visible.map(track=>track.participantId).filter(Boolean))];
+ if(ids.length!==1)return null;
+ const participant=participantById(ids[0]);
+ if(!participant)return null;
+ const temporal=roomTemporal.summary(effectiveRoomScene(),now)
+  .find(row=>row.participantId===participant.id)||null;
+ const continuity=roomMediaContinuity.snapshot();
+ const audio=roomAudioIntelligence.snapshot();
+ const {candidate}=roomContextualCognition.observe({
+  participant,temporal,continuity,audio,lastDialogueAt:latestCanonicalDialogueAt()
+ },now);
+ if(!candidate?.eligible)return candidate||null;
+ const prompt=contextualMediaPrompt(candidate);
+ if(!prompt)return candidate;
+ const semanticKey='media-context:'+candidate.participantId+':'+candidate.topicKey;
+ const offered=proactiveGovernor.offer(proactiveOpportunity({
+  type:'media-context',
+  participantId:candidate.participantId,
+  scopeId:'media-context:'+candidate.participantId,
+  sourceAt:now,
+  eligibleAt:now,
+  expiresAt:now+120000,
+  text:'Contextual media engagement',
+  generationPrompt:prompt,
+  semanticKey,
+  dedupeKey:semanticKey,
+  usefulness:.68,
+  urgency:.12,
+  confidence:candidate.confidence,
+  requiresNoActiveTasks:true,
+  source:'room-contextual-media-cognition'
+ },now,proactiveGovernor.policy));
+ if(offered?.opportunity?.id)
+  contextualOpportunityCandidates.set(offered.opportunity.id,candidate);
+ return candidate;
+}
+
 function renderCognitiveStatus(){
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
@@ -410,9 +454,11 @@ function recordProactiveSourceEvent(category,message,source,options={}){
  }
  return event;
 }
-function tickProactive(){
- if(state.mode!=='agent'||!agentRuntime)return;
- const decision=proactiveGovernor.evaluateNext(proactiveContext(Date.now()));
+async function tickProactive(){
+ if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
+ const now=Date.now();
+ considerContextualMediaEngagement(now);
+ const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
  renderCognitiveStatus();
  if(!decision?.opportunityId)return;
  const signature=decision.opportunityId+':'+decision.action+':'+decision.reason;
@@ -424,10 +470,36 @@ function tickProactive(){
     participantId:decision.participantId,
     relatedEventId:decision.opportunity.relatedEventId||null
    });
-  const executed=agentRuntime.proactiveSpeak(decision.opportunity.text,{
-   participantId:decision.participantId,
-   scopeId:decision.opportunity.scopeId
-  })===true;
+  let executed=false;
+  if(decision.opportunity.type==='media-context'&&decision.opportunity.generationPrompt){
+   proactiveComposePending=true;
+   try{
+    const generated=await agentRuntime.composeProactive(decision.opportunity.generationPrompt,{
+     participantId:decision.participantId,scopeId:decision.opportunity.scopeId
+    });
+    if(generated?.ok&&generated.reply){
+     executed=agentRuntime.proactiveSpeak(generated.reply,{
+      participantId:decision.participantId,scopeId:decision.opportunity.scopeId
+     })===true;
+    }else{
+     logRoomMessage('decision','Contextual media engagement abstained · '+
+      String(generated?.reason||'model unavailable'),'room-contextual-media-cognition',{
+       kind:'decision',semantic:'agent-proactive-abstain',
+       participantId:decision.participantId,relatedEventId:decisionEvent?.id||null
+      });
+    }
+   }finally{proactiveComposePending=false;}
+  }else{
+   executed=agentRuntime.proactiveSpeak(decision.opportunity.text,{
+    participantId:decision.participantId,
+    scopeId:decision.opportunity.scopeId
+   })===true;
+  }
+  const contextualCandidate=contextualOpportunityCandidates.get(decision.opportunityId)||null;
+  if(contextualCandidate){
+   roomContextualCognition.record(contextualCandidate,{executed,at:Date.now()});
+   contextualOpportunityCandidates.delete(decision.opportunityId);
+  }
   const outcome=proactiveGovernor.recordOutcome(decision,{executed,at:Date.now()});
   if(outcome)logRoomMessage('decision',outcome.reason,'agent-proactive-governor',{
    kind:'outcome',semantic:'agent-proactive-outcome',
@@ -504,6 +576,8 @@ const roomMediaFusionTracker=new RoomMediaFusionTracker();
 const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
+const roomContextualCognition=new RoomContextualCognitionTracker();
+const contextualOpportunityCandidates=new Map();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -1264,6 +1338,7 @@ function setEnvironmentalAudioEnabled(enabled){
   roomAudioIntelligence.reset('environmental-audio-enabled');
   roomLiveValidation.reset();
   roomMediaContinuity.reset();
+  contextualOpportunityCandidates.clear();
   renderRoomAudioIntelligence();
   renderRoomLiveValidation();
   renderRoomMediaContinuity();
@@ -1293,6 +1368,7 @@ function setEnvironmentalAudioEnabled(enabled){
   roomAudioIntelligence.reset('environmental-audio-disabled');
   roomLiveValidation.reset();
   roomMediaContinuity.reset();
+  contextualOpportunityCandidates.clear();
   renderRoomAudioIntelligence();
   renderRoomLiveValidation();
   renderRoomMediaContinuity();
@@ -6195,8 +6271,8 @@ if(state.mode==='agent'){
   autoGreet.checked=true;proactiveEnabled.checked=true;followupsEnabled.checked=true;
   quietHours.checked=false;followupDelay.value='60000';interruptionBudget.value='3';
   refreshCognitivePolicy();
-  proactiveTimer=window.setInterval(tickProactive,1000);
-  tickProactive();
+  proactiveTimer=window.setInterval(()=>{void tickProactive();},1000);
+  void tickProactive();
   sceneUI=createRoomSceneUi({
    getTracks:()=>state.running?publicRoomTracks():[],
    mirror:()=>ui.mirror.checked,
