@@ -823,6 +823,7 @@ async function processEnvironmentalAudioWork(work){
   }
   console.warn('Environmental audio classification failed',error);
  }finally{
+  resolveEnvironmentalSpeechEvidence(work?.correlationId,null);
   environmentalAudioQueue.complete(work,outcome);
   void drainEnvironmentalAudioQueue();
  }
@@ -841,7 +842,7 @@ function queueEnvironmentalAudio(segment){
   environmentalAudioDecision='Paused by device performance policy; conversation audio continues';
   renderEnvironmentalAudio();return false;
  }
- if(environmentalAudioState!=='ready'||document.hidden)return false;
+ if(!['ready','loading'].includes(environmentalAudioState)||document.hidden)return false;
  const queued=environmentalAudioQueue.enqueue(segment,Date.now());
  reportEnvironmentalDrops(queued.dropped);
  renderEnvironmentalAudio();
@@ -874,6 +875,7 @@ function logEnvironmentalActivityTransition(transition,group=null){
 }
 function setEnvironmentalAudioEnabled(enabled){
  if(enabled){
+  clearEnvironmentalSpeechEvidence();
   environmentalAudioQueue.enable(Date.now());
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
@@ -3375,6 +3377,7 @@ async function processRoomSegment(segment) {
         sameSegmentEnvironment?.classification?.recordedMediaCue||
         environmentalAudioLast?.recordedMediaCue||environmentalAudioLast,
       voiceMatch,association,roomTracks,audioSource:segment.audioSource||null,
+      continuousFusion,
       now:Date.now()
     });
     const originNotice=roomSpeechOriginTracker.observe(speechOrigin,Date.now());
@@ -4088,6 +4091,7 @@ async function startRoomAudio() {
       agentSpeechActive?'agent-tts':state.voice.ttsPending>0?'acknowledgement-tts':'capture-active');
     roomSensorState('microphone','online','Room microphone online');
     roomAmbientAudit.reset();
+    clearEnvironmentalSpeechEvidence();
     roomSpeechOriginTracker.reset();
     updateParticipantAudioMeters(true);
     if(state.mode==='agent')renderAmbientAudioMeter(true);
