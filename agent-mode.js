@@ -13,6 +13,7 @@ import {
  conversationContextLabel
 } from './src/multi-conversation-core.js';
 import {conversationReplyOwnershipPolicy} from './src/conversation-ownership-core.js';
+import {ProviderRecoveryCoordinator} from './src/provider-recovery-core.js';
 import {meetingAgentReplyPolicy} from './src/meeting-core.js';
 import {buildAgentMultimodalContext} from './src/agent-multimodal-context.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
@@ -38,6 +39,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  let modelController=null,lastProximityVolume=.85,lastSpeakerId=null;
  let providerRuntime=null,remoteAudio=null,lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
+ const providerRecovery=new ProviderRecoveryCoordinator();
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
  async function refreshProviderRuntime({announce=true}={}){
   try{
@@ -484,6 +486,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
      catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
      if(endpoint){
+      const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:candidate,now:Date.now()});
+      if(!recoveryGate.allow){
+       if(recoveryGate.reason==='logical-request-already-completed')return;
+       continue;
+      }
       const controller=new AbortController();modelController=controller;
       const timeout=setTimeout(()=>controller.abort(),16000);ui.modelStatus.textContent='Local Ollama thinking…';
       try{
@@ -503,6 +510,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
      const plan=providerFallbackPlan(selected,runtime?.providers||[]);
      let lastError=null;
+     const logicalRequestKey='chat:'+(turn.id||turn.transcriptSegmentId||responseToken);
      for(const candidate of plan){
       if(responseToken!==responseGeneration||open)return;
       const controller=new AbortController();modelController=controller;
@@ -518,11 +526,13 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
        if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
        if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
        if(!conversationReplyOwnershipPolicy(turn,{participantId:turn.conversationOwnershipParticipantId,state:turn.conversationOwnershipState}).allow)return;
+       providerRecovery.success({requestKey:logicalRequestKey,provider:candidate,reason:'chat-success',now:Date.now()});
        say(result.reply,turn.participantId||null,turn.conversationScopeId||null);
        if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
        ui.modelStatus.textContent=candidate+' connected · scoped conversation'+
         (selected==='auto'?' · auto selected':candidate!==selected?' · fallback from '+selected:'');return;
       }catch(error){lastError=error;
+       providerRecovery.failure({requestKey:logicalRequestKey,provider:candidate,reason:error?.name==='AbortError'?'timeout':String(error?.message||'provider-failure'),now:Date.now()});
       }finally{clearTimeout(timeout);if(modelController===controller)modelController=null;}
      }
      if(responseToken!==responseGeneration)return;
@@ -720,19 +730,23 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    {role:'user',content:value}
   ];
   let lastError=null;
+  const logicalRequestKey='research:'+value.slice(0,120).toLowerCase();
   for(const candidate of plan){
+   const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:candidate,now:Date.now()});
+   if(!recoveryGate.allow){if(recoveryGate.reason==='logical-request-already-completed')break;continue;}
    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),24000);
    try{
     const result=await querySelfHostedResearch({
      provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
      messages,status:runtime,signal:controller.signal
     });
+    providerRecovery.success({requestKey:logicalRequestKey,provider:candidate,reason:'research-success',now:Date.now()});
     if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
     return Object.freeze({
      ok:true,reason:'researched',reply:String(result.reply||'').slice(0,1200),
      sources:Object.freeze([...(result.sources||[])]),provider:result.provider,model:result.model
     });
-   }catch(error){lastError=error;}
+   }catch(error){lastError=error;providerRecovery.failure({requestKey:logicalRequestKey,provider:candidate,reason:error?.name==='AbortError'?'timeout':String(error?.message||'provider-failure'),now:Date.now()});}
    finally{clearTimeout(timeout);}
   }
   return Object.freeze({
@@ -769,19 +783,23 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
   const plan=providerFallbackPlan(selected,runtime?.providers||[]);
   let lastError=null;
+  const logicalRequestKey='proactive:'+(scopeId||participantId||'room')+':'+value.slice(0,100).toLowerCase();
   for(const candidate of plan){
+   const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:candidate,now:Date.now()});
+   if(!recoveryGate.allow){if(recoveryGate.reason==='logical-request-already-completed')break;continue;}
    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),16000);
    try{
     const result=await querySelfHostedProvider({
      provider:candidate,model:candidate===selected?ui.modelName.value.trim():'',
      messages,status:runtime,signal:controller.signal
     });
+    providerRecovery.success({requestKey:logicalRequestKey,provider:candidate,reason:'proactive-success',now:Date.now()});
     if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
     return Object.freeze({
      ok:Boolean(result.reply),reason:result.reply?'generated':'empty-reply',
      reply:String(result.reply||'').slice(0,700),provider:candidate
     });
-   }catch(error){lastError=error;}
+   }catch(error){lastError=error;providerRecovery.failure({requestKey:logicalRequestKey,provider:candidate,reason:error?.name==='AbortError'?'timeout':String(error?.message||'provider-failure'),now:Date.now()});}
    finally{clearTimeout(timeout);}
   }
   return Object.freeze({ok:false,reason:lastError?.message||'no-configured-provider',reply:''});
