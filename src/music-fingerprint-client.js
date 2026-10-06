@@ -10,10 +10,27 @@ async function json(response,message){
  );
  return data;
 }
+function resampleMono(samples,inputRate,targetRate=16000){
+ const source=samples instanceof Float32Array?samples:Float32Array.from(samples||[]);
+ if(!source.length)throw new TypeError('PCM samples required.');
+ const from=Math.max(8000,Math.min(96000,Math.round(Number(inputRate)||16000)));
+ const to=Math.max(8000,Math.min(48000,Math.round(Number(targetRate)||16000)));
+ if(from===to)return source;
+ const length=Math.max(1,Math.round(source.length*to/from));
+ const output=new Float32Array(length);
+ const ratio=from/to;
+ for(let i=0;i<length;i++){
+  const position=i*ratio;
+  const left=Math.min(source.length-1,Math.floor(position));
+  const right=Math.min(source.length-1,left+1);
+  const mix=position-left;
+  output[i]=source[left]*(1-mix)+source[right]*mix;
+ }
+ return output;
+}
 export function encodePcm16Wav(samples,sampleRate=16000){
- const input=samples instanceof Float32Array?samples:Float32Array.from(samples||[]);
- if(!input.length)throw new TypeError('PCM samples required.');
- const rate=Math.max(8000,Math.min(48000,Math.round(Number(sampleRate)||16000)));
+ const rate=16000;
+ const input=resampleMono(samples,sampleRate,rate);
  const bytes=new Uint8Array(44+input.length*2);
  const view=new DataView(bytes.buffer);
  const text=(offset,value)=>{for(let i=0;i<value.length;i++)bytes[offset+i]=value.charCodeAt(i);};
