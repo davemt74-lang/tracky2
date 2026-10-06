@@ -320,8 +320,11 @@ function renderParticipantList() {
     copy.append(title, meta);
 
     const status = document.createElement('i');
-    status.className = participant.recognitionEnabled === false ? 'off' : 'on';
-    status.title = participant.recognitionEnabled === false ? 'Recognition disabled' : 'Recognition enabled';
+    const faceReady=(participant.embeddings?.length||0)>=3;
+    status.className = participant.recognitionEnabled === false ? 'off' : faceReady ? 'on' : 'pending';
+    status.title = participant.recognitionEnabled === false
+      ? 'Recognition disabled'
+      : faceReady ? 'Recognition enabled' : 'Recognition pending · 3 clean face samples required';
 
     button.append(photo, copy, status);
     button.addEventListener('click', () => loadParticipant(participant.id));
