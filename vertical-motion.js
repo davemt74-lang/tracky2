@@ -2437,42 +2437,44 @@ function createParticipantCard(track) {
     performance.now() - track.lastVoiceAt < 2600 && voiceReadiness.ready);
   if (recentlySpoke) card.classList.add('speaking');
 
-  if (participant?.primaryPhoto) {
-    const saved = document.createElement('img');
-    saved.className = 'participant-primary-badge';
-    saved.src = participant.primaryPhoto;
-    saved.alt = 'Saved primary profile photo';
-    saved.title = 'Saved primary profile photo';
-    body.append(saved);
+  card.append(top, body);
+
+  // AGENT participant cards stop at the verified Voice Profile/input meter.
+  // Detailed diagnostic rows and duplicate saved-photo data belong outside this compact sidebar.
+  if (state.mode !== 'agent') {
+    if (participant?.primaryPhoto) {
+      const saved = document.createElement('img');
+      saved.className = 'participant-primary-badge';
+      saved.src = participant.primaryPhoto;
+      saved.alt = 'Saved primary profile photo';
+      saved.title = 'Saved primary profile photo';
+      body.append(saved);
+    }
+
+    const voiceData = document.createElement('div');
+    voiceData.className = 'participant-voice-readout';
+
+    const voiceRows = [
+      ['VOICE PROFILE', participant ? (voiceReadiness.ready ? 'READY' : (voiceReadiness.embeddingCount + '/3')) : '—'],
+      ['VOICE MATCH', track.voiceMatchConfidence ? Math.round(track.voiceMatchConfidence * 100) + '%' : '—'],
+      ['AUDIO', recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET'],
+      ['SPEAKER LINK', recentlySpoke&&track.lastSpeakerAssociationState
+        ? speakerAssociationLabel(track.lastSpeakerAssociationState) : '—'],
+      ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
+      ['GROUP', track.conversationGroupId || '—']
+    ];
+
+    for (const [label, value] of voiceRows) {
+      const row = document.createElement('span');
+      const key = document.createElement('i');
+      const val = document.createElement('b');
+      key.textContent = label;
+      val.textContent = value;
+      row.append(key, val);
+      voiceData.append(row);
+    }
+    card.append(voiceData);
   }
-
-  const voiceData = document.createElement('div');
-  voiceData.className = 'participant-voice-readout';
-
-  const voiceRows = [
-    ['VOICE PROFILE', participant ? (voiceReadiness.ready ? 'READY' : (voiceReadiness.embeddingCount + '/3')) : '—'],
-    ['VOICE MATCH', track.voiceMatchConfidence ? Math.round(track.voiceMatchConfidence * 100) + '%' : '—'],
-    ['AUDIO', state.mode === 'agent'
-      ? (recentlySpoke ? 'VERIFIED SEGMENT' : !state.voice.active?'OFF':
-        voiceReadiness.ready?'AWAIT VOICE MATCH':'PROFILE REQUIRED')
-      : (recentlySpoke ? 'SPEAKER CONFIRMED' : 'QUIET')],
-    ['SPEAKER LINK', recentlySpoke&&track.lastSpeakerAssociationState
-      ? speakerAssociationLabel(track.lastSpeakerAssociationState) : '—'],
-    ['BODY', track.participantId ? (track.status === 'occluded' ? 'MEMORY' : 'LOCK') : '—'],
-    ['GROUP', track.conversationGroupId || '—']
-  ];
-
-  for (const [label, value] of voiceRows) {
-    const row = document.createElement('span');
-    const key = document.createElement('i');
-    const val = document.createElement('b');
-    key.textContent = label;
-    val.textContent = value;
-    row.append(key, val);
-    voiceData.append(row);
-  }
-
-  card.append(top, body, voiceData);
 
   const actions = document.createElement('div');
   actions.className = 'participant-card-actions';
