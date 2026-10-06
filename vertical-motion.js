@@ -40,6 +40,9 @@ import {
  normalizeMediaVisualObservation,roomMediaFusionMessage
 } from './src/room-media-fusion-core.js';
 import {
+ RoomAudioIntelligenceCoordinator,roomAudioIntelligenceMessage
+} from './src/room-audio-orchestration-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -492,6 +495,7 @@ const mediaIdentificationTracker=new MediaIdentificationTracker();
 const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
 const roomMediaFusionTracker=new RoomMediaFusionTracker();
+const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -1096,6 +1100,51 @@ function queueEnvironmentalAudio(segment){
  if(queued.accepted)drainEnvironmentalAudioQueue();
  return queued.accepted;
 }
+function renderRoomAudioIntelligence(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomAudioIntelligenceStatus');
+ if(!status)return;
+ const current=roomAudioIntelligence.snapshot();
+ if(current.status==='idle'){
+  status.textContent='Unified ROOM audio · idle · waiting for stable background audio';
+  return;
+ }
+ const identity=current.identity;
+ const name=identity
+  ?(current.kind==='music'
+    ?[identity.artist,identity.title].filter(Boolean).join(' — ')
+    :identity.series&&identity.title&&identity.series!==identity.title
+      ?identity.series+' · '+identity.title:(identity.title||identity.series||''))
+  :'';
+ status.textContent='Unified ROOM audio · '+current.kind.replaceAll('-',' ')+' · '+
+  current.status+(name?' · '+name:'')+' · '+current.observations+' observations';
+}
+function logRoomAudioIntelligence(result,at=Date.now()){
+ renderRoomAudioIntelligence();
+ if(!result?.emit||state.mode!=='agent')return null;
+ const message=roomAudioIntelligenceMessage(result);
+ if(!message)return null;
+ const current=result.state||{};
+ return logRoomMessage('audio',message,'room-audio-intelligence',{
+  at,semantic:'room-audio-intelligence',
+  confidence:Number(current.confidence)||null,
+  dedupeKey:'room-audio-intelligence:'+result.transition+':'+
+   String(current.sessionId||'none')+':'+String(current.identityKey||'none'),
+  evidence:{roomAudioIntelligence:{
+   schema:current.schema,status:current.status,sessionId:current.sessionId,
+   kind:current.kind,startedAt:current.startedAt,lastAt:current.lastAt,
+   observations:current.observations,sourceDirection:current.sourceDirection,
+   identity:current.identity,provider:current.provider,reason:current.reason,
+   participantId:null
+  }}
+ });
+}
+function observeRoomAudioIdentity(identity,at=Date.now()){
+ const result=roomAudioIntelligence.observeIdentity(identity,at);
+ logRoomAudioIntelligence(result,at);
+ return result;
+}
+
 function logEnvironmentalActivityTransition(transition,group=null){
  if(!transition||state.mode!=='agent')return null;
  if(transition.type==='stop'&&mediaKindForEnvironmentalState(transition))
@@ -1115,6 +1164,8 @@ function logEnvironmentalActivityTransition(transition,group=null){
   renderMediaIdentification();
  }
  observeAudioMediaDeviceContext(transition);
+ const unified=roomAudioIntelligence.observeEnvironmental(transition,transition.at||Date.now());
+ logRoomAudioIntelligence(unified,transition.at||Date.now());
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
  return logRoomMessage('audio',environmentalActivityMessage(transition),
@@ -1145,6 +1196,8 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
   roomMediaFusionTracker.reset();
+  roomAudioIntelligence.reset('environmental-audio-enabled');
+  renderRoomAudioIntelligence();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
   resetPersonalizedSoundRuntime();
@@ -1168,6 +1221,8 @@ function setEnvironmentalAudioEnabled(enabled){
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
   roomMediaFusionTracker.reset();
+  roomAudioIntelligence.reset('environmental-audio-disabled');
+  renderRoomAudioIntelligence();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
@@ -1207,6 +1262,13 @@ function renderMusicIdentification(){
  }
 }
 function logMusicIdentificationResult(result){
+ if(result?.track?.status==='confirmed'&&['confirmed','track-changed'].includes(result.transition)){
+  observeRoomAudioIdentity({
+   kind:'music',title:result.track.title,artist:result.track.artist,
+   album:result.track.album,confidence:result.track.confidence,
+   provider:result.track.provider,at:Date.now()
+  },Date.now());
+ }
  if(!result?.emit||state.mode!=='agent')return;
  const message=musicIdentificationMessage(result);
  if(!message)return;
@@ -1468,6 +1530,13 @@ function renderMediaIdentification(){
  }
 }
 function logMediaIdentificationResult(result){
+ if(result?.media?.status==='confirmed'&&['confirmed','content-changed'].includes(result.transition)){
+  observeRoomAudioIdentity({
+   kind:result.media.kind,title:result.media.title,series:result.media.series,
+   season:result.media.season,episode:result.media.episode,
+   confidence:result.media.confidence,provider:result.media.provider,at:Date.now()
+  },Date.now());
+ }
  if(!result?.emit||state.mode!=='agent')return;
  const message=mediaIdentificationMessage(result);
  if(!message)return;
@@ -1654,6 +1723,8 @@ function saveRoomAudioSummary(summary){
  if(!summary||state.mode!=='agent')return;
  const ended=environmentalActivityTracker.expire(summary.at);
  if(ended)logEnvironmentalActivityTransition(ended);
+ const unifiedEnded=roomAudioIntelligence.expire(summary.at);
+ if(unifiedEnded)logRoomAudioIntelligence(unifiedEnded,summary.at);
  const mechanicalEnded=environmentalMechanicalTracker.expire(summary.at);
  if(mechanicalEnded)logEnvironmentalMechanicalTransition(mechanicalEnded);
  // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
