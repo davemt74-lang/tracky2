@@ -1162,6 +1162,14 @@ const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
 const v015AutonomyCertificationMonitor=new V015AutonomyCertificationMonitor({startedAt:Date.now()});
+try{
+ const priorCertSession=window.sessionStorage.getItem('tracky2-v015-cert-session-id');
+ const priorCleanExit=window.sessionStorage.getItem('tracky2-v015-clean-exit');
+ if(priorCertSession&&priorCertSession!==canonicalSessionId)
+  v015AutonomyCertificationMonitor.note('restart',{clean:priorCleanExit==='1'},Date.now());
+ window.sessionStorage.setItem('tracky2-v015-cert-session-id',canonicalSessionId);
+ window.sessionStorage.setItem('tracky2-v015-clean-exit','0');
+}catch{}
 const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 const attentionPriorityEngine=new AttentionPriorityEngine();
 const goalIntentTracker=new GoalIntentTracker();
@@ -3145,7 +3153,11 @@ function renderRuntimeHealth(force=false){
   audioQueueDepth:listeningController.snapshot().queueDepth,heapRatio,storageRatio:storageHealth.ratio
  };
  const devicePerformance=devicePerformanceGovernor.observe(performanceSample);
- longSessionAutonomyMonitor.note('performance',{level:devicePerformance.level},Date.now());
+ const certAt=Date.now();
+ longSessionAutonomyMonitor.note('performance',{level:devicePerformance.level},certAt);
+ v015AutonomyCertificationMonitor.note('performance',{level:devicePerformance.level},certAt);
+ if(heap?.usedJSHeapSize)
+  v015AutonomyCertificationMonitor.note('resource-sample',{used:heap.usedJSHeapSize},certAt);
  const camera=document.getElementById('roomCameraPermission');
  const microphone=document.getElementById('roomMicrophonePermission');
  const storage=document.getElementById('roomStorageHealth');
@@ -3165,6 +3177,7 @@ function renderRuntimeHealth(force=false){
  if(microphoneRetry)microphoneRetry.textContent=(microphoneRecoveryPending?'Pending · ':'Idle · ')+
   mRetry.attempts+'/'+mRetry.maxAttempts+' attempts in window';
  renderAutonomyCertificationStatus();
+ renderV015CertificationStatus(certAt);
 }
 async function refreshStorageHealth({announce=true}={}){
  const prior=storageHealth.status;
@@ -6725,6 +6738,7 @@ window.addEventListener('resize', drawTrace);
 function prepareRuntimeExit(reason='runtime-exit'){
  if(runtimeExitPrepared)return false;
  runtimeExitPrepared=true;
+ try{window.sessionStorage.setItem('tracky2-v015-clean-exit','1');}catch{}
  environmentalAudioQueue.disable();
  cancelCameraRecovery();
  cancelMicrophoneRecovery();
