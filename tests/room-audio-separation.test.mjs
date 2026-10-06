@@ -34,13 +34,16 @@ test('suppressed, invalid and paused samples never imply silence or fabricate ba
  assert.equal(audit.update({db:-51,noiseFloorDb:-61,speaking:false},8000),null);
  audit.reset();assert.equal(audit.flush(10000),null);
 });
-test('AGENT room audit stores only bounded metadata via existing opt-in ROOM ledger',()=>{
+test('AGENT room audit keeps bounded metadata for diagnostics while ROOM feed logs only meaningful changes',()=>{
  const source=fs.readFileSync('vertical-motion.js','utf8');
  const module=fs.readFileSync('src/room-audio-audit.js','utf8');
  assert.match(source,/roomAmbientAudit\.update\(level,Date\.now\(\)\)/);
  assert.match(source,/if\(suppressed\)\{/);
  assert.match(source,/saveRoomAudioSummary\(roomAmbientAudit\.flush\(Date\.now\(\)\)\)/);
- assert.match(source,/logRoomMessage\('audio',roomAudioAuditMessage\(summary\),'shared-room-mic'/);
+ assert.doesNotMatch(source,/roomAudioAuditMessage/);
+ assert.match(source,/environmentalActivityTracker\.expire\(summary\.at\)/);
+ assert.match(source,/RoomAcousticPatternTracker/);
+ assert.match(source,/roomAcousticPatternTracker\.observe/);
  assert.match(source,/if\(saveRoomHistory&&storageHealth\.optionalPersistence\)\{/);
  assert.match(source,/epoch===roomPrivacyEpoch&&storageHealth\.optionalPersistence\?saveRoomObservation\(event\)/);
  assert.match(source,/await roomWrites\.catch/);
