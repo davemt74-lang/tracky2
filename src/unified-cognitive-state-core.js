@@ -58,6 +58,14 @@ function memoryRow(row={},now){
   freshness:row.expiresAt&&row.expiresAt<=now?'expired':'active'
  });
 }
+function goalRow(row={}){
+ return Object.freeze({
+  id:clean(row.id,120)||null,state:clean(row.state,48)||null,
+  source:clean(row.source,80)||null,participantId:clean(row.participantId,96)||null,
+  intent:clean(row.intent,360)||null,currentStep:clean(row.currentStep,160)||null,
+  expiresAt:finite(row.expiresAt)?row.expiresAt:null
+ });
+}
 function taskRow(row={}){
  return Object.freeze({
   id:clean(row.id,96)||null,
@@ -112,6 +120,9 @@ export function buildUnifiedCognitiveState(input={},now=Date.now()){
   .filter(row=>row.id&&row.status&&!['succeeded','failed','cancelled','invalidated'].includes(row.status))
   .slice(0,COGNITIVE_STATE_MAX_TASKS);
 
+ const goals=(Array.isArray(input.goals)?input.goals:[]).map(goalRow)
+  .filter(row=>row.id&&row.state&&!['completed','abandoned','expired'].includes(row.state))
+  .slice(0,24);
  const media=mediaRow(input.media||{});
  const meeting=input.meeting&&typeof input.meeting==='object'?Object.freeze({
   id:clean(input.meeting.id,96)||null,status:clean(input.meeting.status,48)||null,
@@ -155,6 +166,7 @@ export function buildUnifiedCognitiveState(input={},now=Date.now()){
   events:Object.freeze(events),
   memories:Object.freeze(memories),
   tasks:Object.freeze(tasks),
+  goals:Object.freeze(goals),
   meeting,
   followThrough,
   providers:Object.freeze({
