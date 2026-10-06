@@ -153,6 +153,9 @@ import {
 import {
  CognitiveOrchestrator
 } from './src/cognitive-orchestrator-core.js';
+import {
+ ConversationProactivityEngine
+} from './src/conversation-proactivity-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -462,6 +465,13 @@ function updateUnifiedCognitiveState(now=Date.now()){
 function cognitiveStateSnapshot(now=Date.now()){
  return updateUnifiedCognitiveState(now);
 }
+function renderConversationProactivityStatus(decision=conversationProactivityEngine.snapshot().lastDecision){
+ const mount=document.getElementById('agentConversationProactivityStatus');
+ if(!mount)return;
+ mount.textContent=decision
+  ?'Conversation timing · '+decision.disposition.replaceAll('-',' ')+' · '+decision.reason
+  :'Conversation timing · monitoring';
+}
 function renderOrchestratorStatus(plan=cognitiveOrchestrator.snapshot().lastPlan){
  const mount=document.getElementById('agentOrchestratorStatus');
  if(!mount)return;
@@ -529,6 +539,7 @@ function clearSituationalAwareness(){
  attentionPriorityEngine.reset();
  goalIntentTracker.reset();
  cognitiveOrchestrator.reset();
+ conversationProactivityEngine.reset();
  pendingArrivalDecision=null;
  pendingSituationalEngagement=null;pendingContextualFollowThrough=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
@@ -605,6 +616,10 @@ function settlePendingSituationalFeedback(now=Date.now()){
   mediaKind:pendingSituationalEngagement.mediaKind,
   topicKey:pendingSituationalEngagement.topicKey
  },{outcome:'ignored',at:now});
+ conversationProactivityEngine.noteOutcome({
+  participantId:pendingSituationalEngagement.participantId,
+  topicKey:pendingSituationalEngagement.topicKey,outcome:'ignored',at:now
+ });
  pendingSituationalEngagement=null;
  persistSituationalAwareness();
  return feedback;
@@ -711,6 +726,10 @@ function noteSituationalDialogueFeedback(turn,now=Date.now()){
   mediaKind:pendingSituationalEngagement.mediaKind,
   topicKey:pendingSituationalEngagement.topicKey
  },{outcome:classified.outcome,at:now});
+ conversationProactivityEngine.noteOutcome({
+  participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
+  outcome:classified.outcome,at:now
+ });
  pendingSituationalEngagement=null;
  persistSituationalAwareness();
  return feedback;
@@ -732,6 +751,12 @@ function considerContextualMediaEngagement(now=Date.now()){
   participant,temporal,continuity,audio,lastDialogueAt:latestCanonicalDialogueAt()
  },now);
  if(!candidate?.eligible)return candidate||null;
+ const conversationDecision=conversationProactivityEngine.evaluate({
+  state:unifiedCognitiveState.snapshot()||cognitiveStateSnapshot(now),
+  candidate,goal:goalIntentTracker.primary(),now
+ });
+ renderConversationProactivityStatus(conversationDecision);
+ if(!['mention-now','continue-thread'].includes(conversationDecision.disposition))return candidate;
  const situationalEvent=situationalMediaEvent(candidate,now);
  if(!situationalEvent)return candidate;
  const situationalDecision=roomSituationalAwareness.evaluate(situationalEvent,{
@@ -1013,6 +1038,7 @@ const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 const attentionPriorityEngine=new AttentionPriorityEngine();
 const goalIntentTracker=new GoalIntentTracker();
 const cognitiveOrchestrator=new CognitiveOrchestrator();
+const conversationProactivityEngine=new ConversationProactivityEngine();
 let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
