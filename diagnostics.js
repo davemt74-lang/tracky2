@@ -631,7 +631,7 @@ ui.export.addEventListener('click',async()=>{
   const canonical=canonicalFinalCertificationJson(report);
   const digest=await sha256Hex(canonical);
   const stamp=Date.now();
-  const filename='tracky2-final-installed-device-certification-'+stamp+'.json';
+  const filename='tracky2-hardware-certification-final-installed-device-'+stamp+'.json';
   const payload={...report,finalCertification:report.final,integrity:{
    algorithm:'SHA-256',digest,canonicalScope:'final-installed-device-certification'
   }};
