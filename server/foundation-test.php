@@ -27,7 +27,20 @@ try{
  check(tracky_provider_secret($db,'openai')===$secret,'Encrypted OpenAI key round-trips server-side');
  $data=$db->query("SELECT ciphertext FROM provider_credentials WHERE provider='openai'")->fetchColumn();
  check(!str_contains((string)$data,$secret),'Plaintext secret never stored');
- check(count(tracky_provider_status($db))===3,'Three configured provider choices');
+ $providerStatus=tracky_provider_status($db);
+ check(count($providerStatus)===4,'Four provider choices including ACRCloud recognition');
+ $acrStatus=array_values(array_filter($providerStatus,static fn($row)=>$row['provider']==='acrcloud'))[0]??null;
+ check(is_array($acrStatus)&&$acrStatus['configured']===false,'ACRCloud starts unconfigured');
+ tracky_store_acrcloud_provider(
+   $db,$id,'identify-us-west-2.acrcloud.com','testAccessKey01','testAccessSecret01'
+ );
+ $acrConfig=tracky_acrcloud_config($db);
+ check(is_array($acrConfig)&&$acrConfig['host']==='identify-us-west-2.acrcloud.com'&&
+   $acrConfig['accessKey']==='testAccessKey01'&&$acrConfig['accessSecret']==='testAccessSecret01',
+   'Encrypted ACRCloud project credentials round-trip server-side');
+ $acrCipher=(string)$db->query("SELECT ciphertext FROM provider_credentials WHERE provider='acrcloud'")->fetchColumn();
+ check(!str_contains($acrCipher,'testAccessSecret01')&&!str_contains($acrCipher,'testAccessKey01'),
+   'ACRCloud credentials are not stored as plaintext');
  check(tracky_provider_model_allowed('openai','gpt-6-luna'),'OpenAI default model allowlisted');
  check(!tracky_provider_model_allowed('openai','arbitrary-model'),'Unknown model rejected');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'")->fetchColumn(),'Provider usage budget table exists');
@@ -37,7 +50,7 @@ try{
  tracky_provider_note_failure($db,$id,'openai');tracky_provider_note_failure($db,$id,'openai');tracky_provider_note_failure($db,$id,'openai');
  check(tracky_provider_circuit_open('openai'),'Provider circuit opens after repeated failures');
  tracky_provider_note_success('openai');check(!tracky_provider_circuit_open('openai'),'Provider success resets circuit');
- check(count($db->query('SELECT * FROM audit_log')->fetchAll())===1,'Provider updates audited');
+ check(count($db->query('SELECT * FROM audit_log')->fetchAll())===2,'Provider updates audited');
  $encrypted=tracky_encrypt('participant-profile-test');
  check(!str_contains($encrypted,'participant-profile-test'),'Generic encrypted data is not plaintext');
  check(tracky_decrypt($encrypted)==='participant-profile-test','Generic encrypted data round-trips');
