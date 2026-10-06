@@ -52,3 +52,10 @@ test('15E engine bounds deferred opportunities and closes thread after topic cha
  e.noteOutcome({participantId:'p1',topicKey:'tv:show',outcome:'topic-changed',at:141000});
  assert.equal(e.snapshot(141000).thread.status,'closed');
 });
+
+
+test('15E conversation timing contains no hardcoded media examples',async()=>{
+ const fs=await import('node:fs');
+ const source=fs.readFileSync(new URL('../src/conversation-proactivity-core.js',import.meta.url),'utf8');
+ assert.doesNotMatch(source,/The Outpost|Eyes of the World|Grateful Dead|Greatful Dead/i);
+});
