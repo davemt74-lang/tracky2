@@ -40,7 +40,7 @@ test('V2C client sends bounded text clues and provider preference without raw au
  assert.equal(result.found,true);
  assert.equal(result.candidate.kind,'episode');
  assert.equal(result.candidate.series,'Example Series');
- assert.equal(result.candidate.source,'visual');
+ assert.equal(result.candidate.source,'dialogue');
  assert.deepEqual(result.candidate.sourceUrls,['https://example.com/show']);
  const body=JSON.parse(calls[1].options.body);
  assert.deepEqual(Object.keys(body).sort(),[
