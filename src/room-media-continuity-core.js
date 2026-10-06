@@ -97,10 +97,14 @@ export class RoomMediaContinuityTracker{
   const mode=clean(policy.mode,80);
   if(mode==='foreground-conversation-over-background'||mode==='mixed-uncertain'){
    if(this.active){
+    const changed=this.active.interruption!==mode;
     this.active={...this.active,lastAt:at,interruption:mode,
-     interruptions:(this.active.interruptions||0)+1};
-    this.lastTransition='interrupted';this.lastReason=mode;
-    return Object.freeze({emit:true,transition:'interrupted',state:this.snapshot(),continuity:publicState(this.active)});
+     interruptions:(this.active.interruptions||0)+(changed?1:0)};
+    this.lastTransition=changed?'interrupted':'interruption-continued';this.lastReason=mode;
+    return Object.freeze({
+     emit:changed,transition:this.lastTransition,state:this.snapshot(),
+     continuity:publicState(this.active)
+    });
    }
    if(this.suspended&&at<=this.suspended.resumeDeadline){
     this.suspended={...this.suspended,lastAt:at,interruption:mode,
