@@ -128,3 +128,34 @@ export async function querySelfHostedSpeech({
   budget:data?.budget&&typeof data.budget==='object'?Object.freeze({...data.budget}):null
  });
 }
+
+export async function querySelfHostedResearch({provider,model,messages,status=null,fetcher=fetch,signal}={}){
+ const selected=String(provider||'').toLowerCase();
+ if(!REMOTE_CHAT_PROVIDERS.includes(selected))throw new TypeError('Unsupported self-hosted research provider.');
+ const runtime=status||await fetchSelfHostedProviderStatus({fetcher,signal});
+ if(!runtime?.csrf)throw new Error('Authenticated provider session required.');
+ const row=runtime.providers.find(item=>item.provider===selected);
+ if(!row?.configured)throw new Error(selected+' provider is not configured.');
+ if(row.transportAvailable===false)throw new Error('Server provider transport is unavailable.');
+ const chosen=providerModelFor(selected,model);
+ const safeMessages=boundedProviderMessages(messages);
+ const response=await fetcher(PROVIDER_API,{
+  method:'POST',credentials:'same-origin',
+  headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':runtime.csrf},
+  signal,body:JSON.stringify({
+   action:'research',confirmed:true,provider:selected,model:chosen,messages:safeMessages
+  })
+ });
+ const data=await providerJson(response);
+ const reply=String(data?.reply||'').trim();
+ if(!reply)throw new Error('Research provider returned an empty reply.');
+ const sources=(Array.isArray(data?.sources)?data.sources:[]).slice(0,5)
+  .map(row=>Object.freeze({
+   url:/^https:\/\//i.test(String(row?.url||''))?String(row.url).slice(0,700):'',
+   title:String(row?.title||'').replace(/\s+/g,' ').trim().slice(0,160)
+  })).filter(row=>row.url);
+ return Object.freeze({
+  reply:reply.slice(0,1200),sources:Object.freeze(sources),provider:selected,
+  model:String(data?.model||chosen),budget:data?.budget||null,confirmed:data?.confirmed===true
+ });
+}

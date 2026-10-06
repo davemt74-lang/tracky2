@@ -45,6 +45,63 @@ function tracky_provider_anthropic(string $secret,string $model,array $messages)
     if($reply==='')throw new RuntimeException('Provider returned no text reply.');
     return substr($reply,0,700);
 }
+
+function tracky_provider_collect_sources(mixed $value,array &$sources,array &$seen,int $depth=0): void {
+    if($depth>8||count($sources)>=5)return;
+    if(!is_array($value))return;
+    $url=is_string($value['url']??null)?trim($value['url']):'';
+    if($url!==''&&preg_match('#^https://#i',$url)&&!isset($seen[$url])){
+        $seen[$url]=true;
+        $title=is_string($value['title']??null)?trim($value['title']):'';
+        $sources[]=['url'=>substr($url,0,700),'title'=>substr($title!==''?$title:$url,0,160)];
+        if(count($sources)>=5)return;
+    }
+    foreach($value as $child)if(is_array($child))tracky_provider_collect_sources($child,$sources,$seen,$depth+1);
+}
+function tracky_provider_openai_research(string $secret,string $model,array $messages): array {
+    $system=[];$input=[];
+    foreach($messages as $row){
+        if($row['role']==='system'){$system[]=$row['content'];continue;}
+        $input[]=['role'=>$row['role'],'content'=>$row['content']];
+    }
+    $payload=['model'=>$model,'input'=>$input,'max_output_tokens'=>500,'store'=>false,
+      'tools'=>[['type'=>'web_search']]];
+    if($system)$payload['instructions']=implode("\n",$system);
+    $res=tracky_provider_http('https://api.openai.com/v1/responses',[
+      'Authorization: Bearer '.$secret,'Content-Type: application/json','Accept: application/json'
+    ],json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14 provider-research');
+    $data=json_decode($res['body'],true,96,JSON_THROW_ON_ERROR);$reply=trim((string)($data['output_text']??''));
+    if($reply===''){
+        foreach((array)($data['output']??[]) as $item)
+          foreach((array)($item['content']??[]) as $part)
+            if(($part['type']??'')==='output_text'&&is_string($part['text']??null))$reply.=' '.$part['text'];
+        $reply=trim($reply);
+    }
+    if($reply==='')throw new RuntimeException('Research provider returned no text reply.');
+    $sources=[];$seen=[];tracky_provider_collect_sources($data,$sources,$seen);
+    return ['reply'=>substr($reply,0,1200),'sources'=>$sources];
+}
+function tracky_provider_anthropic_research(string $secret,string $model,array $messages): array {
+    $system=[];$input=[];
+    foreach($messages as $row){
+        if($row['role']==='system'){$system[]=$row['content'];continue;}
+        $input[]=['role'=>$row['role'],'content'=>$row['content']];
+    }
+    $payload=['model'=>$model,'max_tokens'=>500,'messages'=>$input,
+      'tools'=>[['type'=>'web_search_20250305','name'=>'web_search','max_uses'=>3]]];
+    if($system)$payload['system']=implode("\n",$system);
+    $res=tracky_provider_http('https://api.anthropic.com/v1/messages',[
+      'x-api-key: '.$secret,'anthropic-version: 2023-06-01',
+      'Content-Type: application/json','Accept: application/json'
+    ],json_encode($payload,JSON_THROW_ON_ERROR),false,'Tracky2/0.14 provider-research');
+    $data=json_decode($res['body'],true,96,JSON_THROW_ON_ERROR);$reply='';
+    foreach((array)($data['content']??[]) as $part)
+      if(($part['type']??'')==='text'&&is_string($part['text']??null))$reply.=' '.$part['text'];
+    $reply=trim($reply);
+    if($reply==='')throw new RuntimeException('Research provider returned no text reply.');
+    $sources=[];$seen=[];tracky_provider_collect_sources($data,$sources,$seen);
+    return ['reply'=>substr($reply,0,1200),'sources'=>$sources];
+}
 function tracky_provider_elevenlabs(string $secret,string $model,string $voiceId,string $text): array {
     if(!preg_match('/^[A-Za-z0-9_-]{8,64}$/D',$voiceId))throw new InvalidArgumentException('Invalid ElevenLabs voice ID.');
     $text=trim(preg_replace('/\s+/u',' ',$text)??'');
@@ -81,6 +138,29 @@ try{
     $model=(string)($data['model']??tracky_provider_default_model($provider));
     if(!tracky_provider_model_allowed($provider,$model))tracky_reply(['error'=>'Model is not allowlisted'],422);
 
+    if($action==='research'){
+        if(!in_array($provider,['openai','anthropic'],true))tracky_reply(['error'=>'Provider does not support web research'],422);
+        if(($data['confirmed']??false)!==true)tracky_reply(['error'=>'Explicit owner confirmation is required for web research'],403);
+        $messages=tracky_provider_messages($data['messages']??null);
+        $units=tracky_provider_request_units($messages,520);
+        try{$budget=tracky_provider_consume_budget($db,(int)$actor['id'],$provider,$units);}
+        catch(RuntimeException $e){tracky_reply(['error'=>$e->getMessage()],429);}
+        try{
+            $result=$provider==='openai'
+              ?tracky_provider_openai_research($secret,$model,$messages)
+              :tracky_provider_anthropic_research($secret,$model,$messages);
+            tracky_provider_note_success($provider);
+            tracky_provider_audit($db,(int)$actor['id'],'provider.research',$provider,$model,'success',$units);
+            tracky_reply([
+              'reply'=>$result['reply'],'sources'=>$result['sources'],
+              'provider'=>$provider,'model'=>$model,'budget'=>$budget,'confirmed'=>true
+            ]);
+        }catch(Throwable $e){
+            tracky_provider_note_failure($db,(int)$actor['id'],$provider);
+            tracky_provider_audit($db,(int)$actor['id'],'provider.research',$provider,$model,'failed',$units);
+            tracky_reply(['error'=>$e instanceof RuntimeException?$e->getMessage():'Research provider request failed.'],502);
+        }
+    }
     if($action==='chat'){
         if(!in_array($provider,['openai','anthropic'],true))tracky_reply(['error'=>'Provider does not support chat routing'],422);
         $messages=tracky_provider_messages($data['messages']??null);
