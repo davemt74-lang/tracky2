@@ -49,5 +49,8 @@ window.addEventListener('tracky:participant-photo-captured',event=>{
  // Guided capture stays camera-first; the gallery opens only when explicitly requested.
  if(event.detail?.openGallery===true)panel('gallery',true);
 });
-window.addEventListener('tracky:participant-saved',()=>panel('settings',false));
+window.addEventListener('tracky:participant-saved',event=>{
+ panel('settings',false);
+ if(event.detail?.openVoice){state.gallery=false;panel('voice',true);ui.toggleVoice?.focus?.();}
+});
 paint();
