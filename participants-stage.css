@@ -66,7 +66,12 @@
 .participants-page .participant-panel-body{overflow-y:auto;overscroll-behavior:contain;
   padding:11px 13px 13px;min-height:0;scrollbar-width:thin;scrollbar-color:#65aab099 transparent}
 .participants-page .participant-gallery-overlay{max-height:50%}
-.participants-page .participant-voice-overlay{max-height:calc(50% - 10px)}
+.participants-page .participant-overlay-stack .participant-voice-overlay{
+  position:fixed;z-index:40;left:50%;top:50%;right:auto;bottom:auto;
+  transform:translate(-50%,-50%);width:min(760px,calc(100vw - 40px));
+  max-height:min(760px,calc(100dvh - 44px));overflow:hidden;
+  box-shadow:0 28px 90px rgba(0,0,0,.62),0 0 0 9999px rgba(0,8,12,.46)
+}
 .participants-page .photo-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 7px}
 .participants-page .portrait-frame{aspect-ratio:4/3;border-radius:8px}
 .participants-page .photo-pair figcaption{font-size:.62rem}
@@ -86,7 +91,15 @@
 .participants-page .participant-voice-overlay .voice-data-grid{gap:6px}
 .participants-page .participant-voice-overlay .voice-meter-shell{margin-top:8px}
 .participants-page .participant-voice-overlay .voice-profile-console{margin-top:9px}
-.participants-page .participant-voice-overlay .voice-actions{margin-top:9px}
+.participants-page .participant-voice-overlay .voice-actions{margin-top:14px}
+.participants-page .participant-voice-overlay .participant-panel-body{padding:18px 20px 20px}
+.participants-page .participant-voice-overlay .voice-data-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.participants-page .voice-read-script{margin:14px 0 12px;padding:16px 18px;border-radius:14px;
+  border:1px solid rgba(100,229,241,.32);background:rgba(7,35,45,.72)}
+.participants-page .voice-read-script small{display:block;margin-bottom:7px;color:#76dce8;
+  font-size:.62rem;font-weight:900;letter-spacing:.13em}
+.participants-page .voice-read-script p{margin:0;color:#f7feff;font-size:1.02rem;line-height:1.55;font-weight:700}
+.participants-page .voice-read-script span{display:block;margin-top:7px;color:#a9cdd2;font-size:.7rem;line-height:1.4}
 .participants-page .participant-settings-sheet{position:absolute;z-index:20;left:clamp(18px,6%,85px);
   bottom:130px;width:min(430px,calc(100% - 44px));max-height:calc(100% - 180px);
   display:flex;flex-direction:column}
@@ -157,7 +170,12 @@
   .participants-page .participant-main-stage{height:max(780px,calc(100dvh - 166px))}
   .participants-page .participant-overlay-stack{top:65px;right:8px;bottom:132px;width:min(310px,calc(100% - 16px));gap:8px}
   .participants-page .participant-gallery-overlay{max-height:45%}
-  .participants-page .participant-voice-overlay{max-height:47%}
+  .participants-page .participant-overlay-stack .participant-voice-overlay{
+    width:calc(100vw - 16px);max-height:calc(100dvh - 20px)
+  }
+  .participants-page .participant-voice-overlay .participant-panel-body{padding:14px}
+  .participants-page .participant-voice-overlay .voice-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .participants-page .voice-read-script p{font-size:.92rem}
   .participants-page .participant-float-toggle-group{transform:none;opacity:1;pointer-events:auto;top:17px;right:10px}
   .participants-page .participant-camera-live{top:9px;left:9px;padding:7px 10px}
   .participants-page .face-capture-coach{left:8px;top:58px;width:min(250px,calc(100% - 16px));padding:8px 9px}

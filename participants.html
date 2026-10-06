@@ -76,7 +76,7 @@
         </div>
         <section id="faceCaptureCoach" class="face-capture-coach" aria-live="polite" hidden>
           <div class="face-capture-coach-head">
-            <div><small>GUIDED FACE CAPTURE</small><strong id="faceCaptureStep">1 / 9 · Straight forward</strong></div>
+            <div><small>GUIDED FACE CAPTURE</small><strong id="faceCaptureStep">1 / 3 required · Straight forward</strong></div>
             <span id="faceCaptureReady">Waiting for face lock</span>
           </div>
           <div id="faceAngleMap" class="face-angle-map" aria-label="Nine guided face angles">
@@ -112,10 +112,10 @@
             <div class="participant-panel-body">
           <div class="enrollment-block">
             <div class="enrollment-head">
-              <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 minimum · 9-angle profile</strong></div>
+              <div><small>FACE ENROLLMENT</small><strong><span id="sampleCount">0</span> / 3 required · 6 optional</strong></div>
               <button id="captureSample" class="hud-button" disabled>Capture face sample</button>
             </div>
-            <div id="faceSampleGuide" class="face-sample-guide" role="status">Use the main shutter to follow the guided 9-angle face capture.</div>
+            <div id="faceSampleGuide" class="face-sample-guide" role="status">Capture the 3 required photos first: straight forward, left, and right. Save the photo profile to continue to Voice; 6 additional angles are optional.</div>
             <div class="enrollment-dots" id="enrollmentDots" aria-label="Face enrollment samples">
               <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
             </div>
@@ -123,7 +123,7 @@
             <div class="face-gallery-header"><strong>Enrollment photo gallery</strong>
               <span>3 minimum · 9 guided angles</span></div>
             <div id="faceSampleGallery" class="face-sample-gallery" aria-label="Saved face sample photos and retake controls"></div>
-            <p class="face-gallery-footnote">The guided shutter walks through center, left, right, up, down and four diagonal face angles. Select any saved image as the primary photo, retake an individual angle or remove it. Changes are kept when you save the profile. Older enrollment descriptors may not have photos or angle labels because previous versions did not store them.</p>
+            <p class="face-gallery-footnote">The first 3 photos—straight forward, left, and right—are required. After those are saved, submit the photo profile and continue to Voice. Up, down, and four diagonal angles are optional refinements you can add later. Select any saved image as the primary photo, retake an angle, or remove it.</p>
           </div>
 
 
@@ -165,6 +165,11 @@
               <div><span>SPEAKER MODEL</span><b id="voiceModelState">Standby</b></div>
             </div>
 
+            <div class="voice-read-script" id="voiceReadScript" aria-live="polite">
+              <small>READ THIS ALOUD</small>
+              <p id="voiceReadScriptText">My voice is calm and clear. I am creating my Tracky voice profile so the system can recognize me when I speak naturally.</p>
+              <span>Read the full sentence at your normal speaking volume until recording stops.</span>
+            </div>
             <div class="voice-meter-shell">
               <div class="voice-wave-bars" id="voiceWaveBars" aria-hidden="true">
                 <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>

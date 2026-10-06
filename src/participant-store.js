@@ -23,7 +23,7 @@ import {
 } from './routine-intelligence-core.js';
 
 const DB_NAME = 'tracky-participants-v1';
-const DB_VERSION = 16;
+const DB_VERSION = 17;
 const PARTICIPANTS = 'participants';
 const PENDING = 'pending-captures';
 const DIALOGUE = 'dialogue-turns';
@@ -426,23 +426,33 @@ function notifyAccountParticipantChange(detail){
    globalThis.dispatchEvent(new CustomEvent('tracky:participant-account-change',{detail}));
  }catch{}
 }
-export async function saveParticipant(input,{accountSync=true}={}) {
-  const record = participantRecord(input),db=await openParticipantDb();
+async function queueAccountParticipantUpsert(record){
   try{
-    const tx=db.transaction([PARTICIPANTS,ACCOUNT_PARTICIPANT_SYNC],'readwrite');
-    const done=transactionToPromise(tx),participants=tx.objectStore(PARTICIPANTS);
-    const account=tx.objectStore(ACCOUNT_PARTICIPANT_SYNC);
-    await requestToPromise(participants.put(record));
-    if(accountSync){
+    await storeAction(ACCOUNT_PARTICIPANT_SYNC,'readwrite',async account=>{
       const prior=await requestToPromise(account.get(record.id));
       await requestToPromise(account.put(normalizeAccountParticipantSyncState({
         ...(prior||{}),participantId:record.id,pending:true,localDeletedAt:null,
         conflict:false,errorText:'',updatedAt:Date.now()
       })));
-    }
-    await done;
-  }finally{db.close();}
-  if(accountSync)notifyAccountParticipantChange({participantId:record.id,operation:'upsert'});
+    });
+    notifyAccountParticipantChange({participantId:record.id,operation:'upsert'});
+    return true;
+  }catch(error){
+    console.warn('Participant saved locally but account sync metadata could not be queued.',error);
+    notifyAccountParticipantChange({
+      participantId:record.id,operation:'upsert-local-only',
+      status:'error',error:String(error?.message||'Account sync metadata unavailable.')
+    });
+    return false;
+  }
+}
+export async function saveParticipant(input,{accountSync=true}={}) {
+  const record=participantRecord(input);
+  // Local participant durability is authoritative. Account-sync bookkeeping is a
+  // separate best-effort lane and must never abort an otherwise valid enrollment.
+  await storeAction(PARTICIPANTS,'readwrite',
+    participants=>requestToPromise(participants.put(record)));
+  if(accountSync)await queueAccountParticipantUpsert(record);
   return record;
 }
 

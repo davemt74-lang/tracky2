@@ -48,14 +48,17 @@ test('main shutter advances guided enrollment and photo capture no longer forces
  assert.match(runtime,/function captureGuidedPhoto\(\)/);
  assert.match(runtime,/nextFaceCapturePose\(state\.gallery\)/);
  assert.match(runtime,/poseId:pose\.id/);
- assert.match(runtime,/ui\.capturePrimary\.addEventListener\('click', captureGuidedPhoto\)/);
- assert.match(runtime,/Guided face capture complete: all 9 angles are saved/);
+ assert.match(runtime,/ui\.capturePrimary\.addEventListener\('click',\(\)=>\{/);
+ assert.match(runtime,/status\.requiredComplete\)void saveForm\(\)/);
+ assert.match(runtime,/else void captureGuidedPhoto\(\)/);
+ assert.match(runtime,/Required photo profile complete/);
  assert.match(stage,/event\.detail\?\.openGallery===true/);
  assert.doesNotMatch(stage,/participant-photo-captured',\(\)=>panel\('gallery',true\)/);
 });
 
-test('participant save accepts an incomplete face profile and reports storage failures without losing the draft',()=>{
- assert.doesNotMatch(runtime,/Capture at least three face samples, or disable recognition/);
+test('participant save requires the three-photo profile when recognition is enabled and preserves drafts on failure',()=>{
+ assert.match(runtime,/Capture the 3 required face photos before continuing to Voice/);
+ assert.match(runtime,/ui\.recognitionEnabled\.checked&&!galleryStatus\.requiredComplete/);
  assert.match(runtime,/const galleryFields=gallerySaveFields\(state\.gallery\)/);
  assert.match(runtime,/\.\.\.draftVoice/);
  assert.match(runtime,/Participant could not be saved:/);
@@ -78,4 +81,18 @@ test('participant save and voice recorder cannot race each other',()=>{
  assert.match(voice,/tracky:participant-voice-recording/);
  assert.match(runtime,/state\.voiceRecording/);
  assert.match(runtime,/Stop the active Voice Profile recording before saving this participant/);
+});
+
+
+test('voice enrollment opens as a larger centered modal with a read-aloud script',()=>{
+ assert.match(css,/participant-overlay-stack \.participant-voice-overlay\{[\s\S]*position:fixed/);
+ assert.match(css,/left:50%;top:50%/);
+ assert.match(css,/transform:translate\(-50%,-50%\)/);
+ assert.match(css,/width:min\(760px/);
+ assert.match(html,/id="voiceReadScript"/);
+ assert.match(html,/id="voiceReadScriptText"/);
+ assert.match(voice,/VOICE_READ_SCRIPTS/);
+ assert.match(voice,/AUTO_STOP_SECONDS = 10/);
+ assert.match(voice,/minSpeechFraction:\.12/);
+ assert.match(voice,/read the script aloud at your normal pace and volume/);
 });

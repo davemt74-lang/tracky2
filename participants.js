@@ -116,28 +116,39 @@ function updateCaptureCoach(){
   const captured=new Set(state.gallery.map(sample=>sample?.poseId).filter(Boolean));
   const ready=Boolean(state.currentFace?.embedding&&state.currentFace.quality>=0.55);
   if(ui.captureCoach)ui.captureCoach.hidden=!state.stream;
-  if(ui.captureReady)ui.captureReady.textContent=status.full?'Profile complete':ready?'Face lock ready':'Waiting for face lock';
+  if(ui.captureReady)ui.captureReady.textContent=status.requiredComplete?'Required profile ready':ready?'Face lock ready':'Waiting for face lock';
   for(const marker of ui.angleMap?.querySelectorAll?.('[data-pose]')||[]){
     const pose=marker.dataset.pose;
     marker.classList.toggle('complete',captured.has(pose));
     marker.classList.toggle('active',Boolean(next)&&pose===next.id&&!status.full);
   }
-  if(status.full||!next){
-    if(ui.captureStep)ui.captureStep.textContent=MAX_FACE_SAMPLES+' / '+MAX_FACE_SAMPLES+' · Complete';
-    if(ui.captureInstruction)ui.captureInstruction.textContent='Guided face profile complete. You can retake any angle from the Photos panel.';
-    if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent='Face Profile Complete';
-    ui.capturePrimary.title='Guided face profile complete';
-    ui.capturePrimary.setAttribute('aria-label','Guided face profile complete');
-    ui.capturePrimary.disabled=true;
+  if(status.requiredComplete){
+    if(ui.captureStep)ui.captureStep.textContent=status.required+' / '+status.required+' · Required profile complete';
+    if(ui.captureInstruction)ui.captureInstruction.textContent='Required face profile complete. Save the photo profile to continue to Voice. Additional angles are optional and can be added later from Photos.';
+    if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent='Save Photo Profile & Continue to Voice';
+    ui.capturePrimary.title='Save photo profile and continue to Voice';
+    ui.capturePrimary.setAttribute('aria-label','Save photo profile and continue to Voice');
+    ui.capturePrimary.disabled=state.saving||state.voiceRecording;
     return;
   }
   const poseIndex=FACE_CAPTURE_POSES.findIndex(pose=>pose.id===next.id);
-  if(ui.captureStep)ui.captureStep.textContent=(poseIndex+1)+' / '+MAX_FACE_SAMPLES+' · '+next.label;
+  if(ui.captureStep)ui.captureStep.textContent=(poseIndex+1)+' / '+status.required+' required · '+next.label;
   if(ui.captureInstruction)ui.captureInstruction.textContent=next.instruction;
   if(ui.capturePhotoLabel)ui.capturePhotoLabel.textContent=status.count?'Capture '+next.label:'Start Face Capture';
   ui.capturePrimary.title='Capture '+next.label+' face angle';
   ui.capturePrimary.setAttribute('aria-label','Capture '+next.label+' face angle');
   if(state.stream)ui.capturePrimary.disabled=!ready;
+}
+
+function updateSaveAction(){
+  const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  const faceRequired=ui.recognitionEnabled.checked&&!status.requiredComplete;
+  ui.save.disabled=state.saving||state.voiceRecording||faceRequired;
+  if(state.saving)ui.save.textContent='Saving…';
+  else if(faceRequired)ui.save.textContent='Capture 3 photos to continue';
+  else if(!state.editingId&&ui.recognitionEnabled.checked)
+    ui.save.textContent='Save photo profile & continue to Voice';
+  else ui.save.textContent='Save participant';
 }
 
 function updateEnrollmentUi() {
@@ -149,20 +160,15 @@ function updateEnrollmentUi() {
     dot.setAttribute('aria-label',index<status.count?'Sample '+(index+1)+' saved':'Sample '+(index+1)+' pending');
   });
   ui.enrollmentStatus.textContent=!ui.recognitionEnabled.checked?'Recognition off':
-    status.coverageComplete?'9-angle profile complete':status.ready?
-    'Recognition ready · '+status.count+'/'+status.maximum:status.count?
-    'Capture '+status.remaining+' more':'Not enrolled';
+    status.requiredComplete?'Photo profile ready · 3 required complete':status.count?
+    'Capture '+status.remaining+' more required photo'+(status.remaining===1?'':'s'):'Not enrolled';
   ui.enrollmentStatus.classList.toggle('ok',status.ready&&ui.recognitionEnabled.checked);
-  ui.sampleGuide.textContent=status.coverageComplete?
-    'Guided 9-angle profile complete. Retake any angle if you want a cleaner sample.':
-    status.ready?
-      'Recognition is ready. Continue the guided profile'+(next?' with '+next.label:'')+
-      ' for stronger pose coverage.':
-      'Capture '+status.remaining+' more clean face sample'+(status.remaining===1?'':'s')+
-      ' for recognition. The guided shutter will continue through all 9 angles.';
-  ui.galleryHint.textContent=status.count+' of '+status.maximum+' samples · '+
-    status.photographed+' photos · '+status.guidedCaptured+' guided angles · '+
-    status.required+' minimum for recognition';
+  ui.sampleGuide.textContent=status.requiredComplete?
+    'Required photo profile complete. Save now and continue to Voice. The remaining six angles are optional for stronger recognition and can be added later.':
+    'Capture '+status.remaining+' more required photo'+(status.remaining===1?'':'s')+
+      '. The required sequence is straight forward, left, and right.';
+  ui.galleryHint.textContent=status.count+' saved · '+status.required+' required · '+
+    Math.max(0,status.maximum-status.count)+' optional slots available · '+status.photographed+' photos';
   ui.captureSample.textContent=state.retakeIndex!==null?
     'Retake '+(state.gallery[state.retakeIndex]?.poseLabel||('sample '+(state.retakeIndex+1))):
     status.full?'Guided profile full · '+MAX_FACE_SAMPLES+'/'+MAX_FACE_SAMPLES:
@@ -170,6 +176,7 @@ function updateEnrollmentUi() {
   ui.captureSample.disabled=!state.currentFace?.embedding ||
     state.currentFace.quality<0.55 || (status.full&&state.retakeIndex===null);
   updateCaptureCoach();
+  updateSaveAction();
 }
 
 function renderFaceGallery() {
@@ -625,9 +632,9 @@ function captureFaceSample(){
   const next=nextFaceCapturePose(state.gallery);
   const savedPose=replacing!==null?(previous?.poseLabel||('Sample '+(replacing+1))):(pose?.label||('Sample '+status.count));
   setMessage(replacing!==null?savedPose+' retaken successfully.':
-    status.coverageComplete?'Guided face capture complete: all 9 angles are saved.':
-    savedPose+' saved · '+status.count+'/'+status.maximum+
-      (status.ready?' · recognition ready':' · '+status.remaining+' more required')+
+    status.requiredComplete?'Required photo profile complete. Save photo profile & continue to Voice. Additional angles are optional.':
+    savedPose+' saved · '+status.count+'/'+status.required+' required'+
+      (status.remaining?' · '+status.remaining+' more required':'')+
       (next?' · next '+next.label:''),'ok');
   requireFreshFaceLock();
   window.dispatchEvent(new CustomEvent('tracky:participant-photo-captured',{
@@ -648,13 +655,18 @@ async function saveForm() {
     return;
   }
 
+  const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+  if(ui.recognitionEnabled.checked&&!galleryStatus.requiredComplete){
+    setMessage('Capture the 3 required face photos before continuing to Voice.','error');
+    return;
+  }
+
   state.saving=true;
-  const idleLabel=ui.save.textContent;
   ui.save.disabled=true;
   ui.save.textContent='Saving…';
   try{
     const existing = state.editingId ? await getParticipant(state.editingId) : null;
-    const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+    const wasNew=!state.editingId;
     const galleryFields=gallerySaveFields(state.gallery);
     const draftVoice=voiceDraftSaveFields(state.voiceDraft);
     const record = await saveParticipant({
@@ -676,7 +688,7 @@ async function saveForm() {
     state.voiceDraft = {};
     document.body.dataset.participantId = record.id;
     try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,record.id);}catch{}
-    window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id } }));
+    window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id,openVoice:wasNew&&galleryStatus.requiredComplete } }));
     ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
     ui.formTitle.textContent = record.name;
     ui.delete.hidden = false;
@@ -689,8 +701,8 @@ async function saveForm() {
 
     await reloadParticipants();
     setMessage(
-      galleryStatus.ready
-        ? 'Participant saved. Face recognition is ready. Signed-in account sync will update automatically.'
+      galleryStatus.requiredComplete
+        ? 'Photo profile saved. Face recognition is ready. Continue with Voice Profile enrollment. Signed-in account sync will update automatically.'
         : 'Participant saved. Face recognition will become active after 3 clean face samples. You can continue face and voice enrollment now.',
       'ok'
     );
@@ -699,8 +711,7 @@ async function saveForm() {
     setMessage('Participant could not be saved: '+(error?.message||'local storage error')+'. Your unsaved enrollment remains on this page.','error');
   }finally{
     state.saving=false;
-    ui.save.disabled=state.voiceRecording;
-    ui.save.textContent=idleLabel||'Save participant';
+    updateSaveAction();
   }
 }
 
@@ -757,9 +768,13 @@ document.getElementById('switchParticipantCamera').addEventListener('click',asyn
   state.cameraDeviceId=list[(current+1)%list.length].deviceId;
   await startCamera();
 });
-ui.capturePrimary.addEventListener('click', captureGuidedPhoto);
+ui.capturePrimary.addEventListener('click',()=>{
+ const status=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+ if(status.requiredComplete)void saveForm();
+ else void captureGuidedPhoto();
+});
 ui.captureSample.addEventListener('click', captureFaceSample);
-ui.recognitionEnabled.addEventListener('change',()=>{updateEnrollmentUi();updateCaptureCoach();});
+ui.recognitionEnabled.addEventListener('change',()=>{updateEnrollmentUi();updateCaptureCoach();updateSaveAction();});
 ui.useLatestPrimary.addEventListener('click', () => {
   if (!state.latestPhoto) return;
   state.primaryPhoto = state.latestPhoto;
@@ -798,7 +813,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('tracky:participant-voice-recording',event=>{
  state.voiceRecording=Boolean(event.detail?.recording);
- if(!state.saving)ui.save.disabled=state.voiceRecording;
+ updateSaveAction();
  if(state.voiceRecording)setMessage('Voice Profile recording active · stop or finish the sample before saving.','ok');
 });
 

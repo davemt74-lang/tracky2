@@ -161,3 +161,12 @@ test('conversation groups ignore occluded stale body positions', () => {
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0].map((track) => track.id), ['T1']);
 });
+
+
+test('voice enrollment quality can accept natural speech with a lower sustained-frame ratio',()=>{
+ const levels=[-62,-61,-60,-59,-58,-55,-49,-42,-36,-33,-31,-35,-39,-44,-50,-56,-58,-60];
+ const quality=assessVoiceSampleLevels(levels,{minPeakDb:-52,minSignalDb:7,minSpeechFraction:.12});
+ assert.equal(quality.accept,true);
+ assert.ok(quality.signalDb>=7);
+ assert.ok(quality.speechFraction>=.12);
+});

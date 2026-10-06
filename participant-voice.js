@@ -24,7 +24,8 @@ const ui = {
   detail: $('#voiceStageDetail'),
   record: $('#recordVoiceSample'),
   stop: $('#stopVoiceSample'),
-  recognition: $('#voiceRecognitionEnabled')
+  recognition: $('#voiceRecognitionEnabled'),
+  script: $('#voiceReadScriptText')
 };
 
 const state = {
@@ -41,11 +42,20 @@ const state = {
   stage: 'idle'
 };
 
-const AUTO_STOP_SECONDS = 8;
-const MIN_SAMPLE_SECONDS = 4;
+const AUTO_STOP_SECONDS = 10;
+const MIN_SAMPLE_SECONDS = 3.5;
+const VOICE_READ_SCRIPTS=Object.freeze([
+ 'My voice is calm and clear. I am creating my Tracky voice profile so the system can recognize me when I speak naturally.',
+ 'Today I am speaking at my normal pace and volume. Tracky is learning the sound of my voice for accurate speaker recognition.',
+ 'This is another voice sample for my profile. I will keep speaking clearly and naturally so Tracky can tell when I am the person talking.'
+]);
 const DRAFT_ID='__participant-draft__';
 
 function activeProfile(){return state.participant||state.draft;}
+function currentReadScript(){
+ const count=activeProfile()?.voiceEmbeddings?.length||0;
+ return VOICE_READ_SCRIPTS[Math.min(count,VOICE_READ_SCRIPTS.length-1)];
+}
 
 function emitRecording(recording){
  window.dispatchEvent(new CustomEvent('tracky:participant-voice-recording',{detail:{recording:Boolean(recording)}}));
@@ -93,6 +103,7 @@ function render() {
   const sampleCount = profile?.voiceEmbeddings?.length || 0;
 
   ui.samples.textContent = sampleCount + ' / 3';
+  if(ui.script)ui.script.textContent=currentReadScript();
   ui.seconds.textContent = readiness.totalSeconds.toFixed(1) + 's';
   ui.recognition.disabled = state.recording;
   ui.record.disabled = state.recording;
@@ -191,7 +202,7 @@ function meterLoop() {
 
   const elapsed = Math.max(0, (performance.now() - state.recordStartedAt) / 1000);
   ui.progress.style.width = Math.min(100, elapsed / AUTO_STOP_SECONDS * 100) + '%';
-  setStage('capturing voice profile', elapsed.toFixed(1) + 's · speak naturally at your normal level');
+  setStage('capturing voice profile', elapsed.toFixed(1) + 's · read the script aloud at your normal pace and volume');
   setPipeline('capture');
   state.meterRaf = requestAnimationFrame(meterLoop);
 }
@@ -244,13 +255,13 @@ async function stopRecording() {
       return;
     }
 
-    const quality = assessVoiceSampleLevels(state.levels);
+    const quality = assessVoiceSampleLevels(state.levels,{minPeakDb:-52,minSignalDb:7,minSpeechFraction:.12});
     if (!quality.accept) {
       setStage(
         'sample rejected',
-        quality.signalDb < 9
-          ? 'Speech did not separate enough from the room noise floor. Move closer or reduce background noise.'
-          : 'Not enough sustained speech was captured. Speak naturally for most of the sample.'
+        quality.signalDb < 7
+          ? 'Your voice was too close to the room noise level. Move a little closer to the microphone and read the script again.'
+          : 'The sample did not contain enough clear speech. Read the full on-screen sentence at your normal pace until recording stops.'
       );
       return;
     }

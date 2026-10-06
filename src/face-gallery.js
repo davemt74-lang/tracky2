@@ -72,6 +72,7 @@ export function faceGalleryStatus(gallery,recognitionEnabled=true){
   const guidedCaptured=new Set(samples.map(sample=>poseId(sample?.poseId)).filter(Boolean)).size;
   return Object.freeze({
     count,required:MIN_FACE_SAMPLES,maximum:MAX_FACE_SAMPLES,
+    requiredComplete:count>=MIN_FACE_SAMPLES,
     remaining:Math.max(0,MIN_FACE_SAMPLES-count),
     guidedCaptured,guidedRemaining:Math.max(0,MAX_FACE_SAMPLES-guidedCaptured),
     coverageComplete:guidedCaptured>=MAX_FACE_SAMPLES,
