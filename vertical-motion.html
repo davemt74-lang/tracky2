@@ -838,7 +838,8 @@
             <small>Energy/VAD summaries stay local and unattributed. They do not identify a sound source.</small>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomClassifyEnvironmentalAudio" checked> Detect music, TV/video and other environmental audio locally (this session only)</label>
             <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusic" checked> Identify background music from short memory-only windows</label>
-            <small>The fingerprint-provider slot is ready but no external fingerprint provider is configured in this build. The active fallback uses local Whisper on selected music windows. Working lyric text stays memory-only, never becomes a participant Conversation turn, and is not written to ROOM history. Exact lyric/web candidate lookup is the next V2B stage.</small>
+            <label class="agent-check room-environment-consent"><input type="checkbox" id="roomIdentifyMusicWeb"> Search the public web with short lyric clues when local Music ID is uncertain</label>
+            <small>Remote lyric lookup is off by default and requires an authenticated configured OpenAI provider. When enabled, only a short bounded lyric clue is sent to the server-side governed web-search path; raw room audio and the full working transcription stay on this device. Working lyric text never becomes a participant Conversation turn and is not written to ROOM history. Track title/artist metadata and source URLs may be written only after candidate resolution.</small>
             <small id="roomEnvironmentalFeedbackStatus">Owner calibration feedback: 0 records.</small>
             <button type="button" id="roomClearEnvironmentalFeedback">Clear environmental calibration feedback</button>
             <div class="control-center-setting-row">
