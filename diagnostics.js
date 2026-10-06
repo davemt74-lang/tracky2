@@ -13,6 +13,7 @@ import {
  performanceCertificationOutcome,performanceSampleDelta
 } from './src/device-performance-core.js';
 import {LiveCertificationHarness,LIVE_CERT_SCENARIOS} from './src/live-certification-core.js';
+import {buildFinalCertificationReport,canonicalFinalCertificationJson,finalCertificationLabel} from './src/final-certification-core.js';
 
 const DIAGNOSTICS_RELEASE={version:'0.15.1'};
 const $ = selector => document.querySelector(selector);
@@ -30,7 +31,8 @@ const ui = {
  certNoiseLabel:$('#certNoiseLabel'),certCapabilityMatrix:$('#certCapabilityMatrix'),
  certificationStatus:$('#certificationStatus'),performanceTrend:$('#certPerformanceTrend'),
  compareReport:$('#compareCertificationReport'),compareStatus:$('#certCompareStatus'),
- liveScenarios:$('#liveCertificationScenarios'),liveStatus:$('#liveCertificationStatus')
+ liveScenarios:$('#liveCertificationScenarios'),liveStatus:$('#liveCertificationStatus'),
+ finalStatus:$('#finalCertificationStatus')
 };
 
 const context=ui.canvas.getContext('2d',{willReadFrequently:true});
@@ -205,6 +207,30 @@ function buildCurrentReport(measuredAt=new Date().toISOString()){
  });
 }
 
+function buildFinalCurrentReport(measuredAt=new Date().toISOString()){
+ const hardware=buildCurrentReport(measuredAt);
+ const live=liveCertificationHarness.report({
+  releaseVersion:DIAGNOSTICS_RELEASE.version,deviceProfile:ownerDeviceProfile(),
+  notes:ui.acceptanceNotes?.value||''
+ });
+ const snapshot=readLiveRuntimeSnapshot()||live.latestSnapshot||{};
+ return buildFinalCertificationReport({
+  hardwareReport:hardware,liveCertification:live,
+  autonomy:{status:snapshot.autonomyStatus||'failed',failed:snapshot.autonomyFailures||[]},
+  longSession:{status:snapshot.longSessionStatus||'failed',failed:snapshot.longSessionFailures||[],
+   snapshot:{durationMs:snapshot.longSessionDurationMs||0,heapGrowthRatio:snapshot.heapGrowthRatio??null,
+    maxHeapRatio:snapshot.maxHeapRatio??null}},
+  releaseVersion:DIAGNOSTICS_RELEASE.version,notes:ui.acceptanceNotes?.value||''
+ });
+}
+function renderFinalCertification(){
+ if(!ui.finalStatus)return null;
+ const report=buildFinalCurrentReport();
+ ui.finalStatus.textContent=finalCertificationLabel(report.final)+
+  (report.final.blockers.length?' · '+report.final.blockers.slice(0,6).join(' · '):'');
+ return report.final;
+}
+
 function renderCapabilityMatrix(){
  if(!ui.certCapabilityMatrix)return;
  const matrix=normalizeCapabilityMatrix(capabilityInput);
@@ -331,6 +357,7 @@ function render() {
  renderPerformanceTrend();
  renderCertificationStatus();
  renderLiveCertification();
+ renderFinalCertification();
 }
 
 function stopCamera({record=true}={}) {
@@ -599,17 +626,18 @@ ui.compareReport?.addEventListener('change',async()=>{
 ui.export.addEventListener('click',async()=>{
  ui.export.disabled=true;ui.exportStatus.textContent='Building redacted certification report…';
  try{
-  const report=buildCurrentReport(new Date().toISOString());
-  const canonical=canonicalCertificationJson(report);
+  const hardwareReport=buildCurrentReport(new Date().toISOString());
+  const report=buildFinalCurrentReport(new Date().toISOString());
+  const canonical=canonicalFinalCertificationJson(report);
   const digest=await sha256Hex(canonical);
   const stamp=Date.now();
-  const filename='tracky2-hardware-certification-installed-device-'+stamp+'.json';
-  const payload={...report,integrity:{
-   algorithm:'SHA-256',digest,canonicalScope:'redacted-installed-device-certification'
+  const filename='tracky2-final-installed-device-certification-'+stamp+'.json';
+  const payload={...report,finalCertification:report.final,integrity:{
+   algorithm:'SHA-256',digest,canonicalScope:'final-installed-device-certification'
   }};
   downloadText(filename,JSON.stringify(payload,null,2),'application/json');
   downloadText(filename+'.sha256',digest+'  '+filename+'\n');
-  ui.exportStatus.textContent='Certification '+report.summary.status.toUpperCase()+' / live '+report.liveCertification.summary.status.toUpperCase()+
+  ui.exportStatus.textContent='Final certification '+report.final.status.toUpperCase()+' · hardware '+hardwareReport.summary.status.toUpperCase()+' · live '+report.liveCertification.summary.status.toUpperCase()+
    ' exported locally with SHA-256 '+digest+'. No raw media, transcript or biometric sample is included.';
  }catch(error){
   ui.exportStatus.textContent='Certification export failed: '+String(error?.message||error);
