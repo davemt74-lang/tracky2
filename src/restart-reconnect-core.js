@@ -42,7 +42,7 @@ export class RestartReconnectCoordinator{
   this.completed=new Map(rows.filter(row=>Array.isArray(row)&&row.length===2&&finite(row[1]))
    .map(row=>[short(row[0],220),Number(row[1])]).filter(row=>row[0]));
   this.history=(Array.isArray(state.recent)?state.recent:[]).slice(-this.maxHistory).map(row=>Object.freeze({...row}));
-  this.prune(Date.now());return true;
+  return true;
  }
  exportState(now=Date.now()){
   this.prune(now);
