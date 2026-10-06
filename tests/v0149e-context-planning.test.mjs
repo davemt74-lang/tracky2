@@ -55,3 +55,22 @@ test('14.9E prompt carries action guidance but no hardcoded media example',()=>{
  assert.doesNotMatch(prompt,/The Outpost|Eyes of the World|Grateful Dead|Greatful Dead/i);
  assert.doesNotMatch(prompt,/confidence score|surveillance system/i);
 });
+
+
+test('14.9E action outcomes adapt future planning style',()=>{
+ const p=new RoomContextPlanner();
+ const c=candidate('music'),d=decision(.78,1,0,.1);
+ const initial=p.plan(c,d,{now:1000});
+ const target=initial.action==='recommendation'?'research':'recommendation';
+ for(let i=0;i<6;i++)p.noteFeedback({action:target,mediaKind:'music',topicKey:c.topicKey},{outcome:'expanded',at:2000+i});
+ for(let i=0;i<6;i++)p.noteFeedback({action:initial.action,mediaKind:'music',topicKey:c.topicKey},{outcome:'dismissed',at:3000+i});
+ const later=p.plan(c,d,{now:5000});
+ assert.notEqual(later.action,initial.action);
+ assert.equal(later.ranked[0].action,target);
+});
+
+test('14.9E action feedback remains bounded',()=>{
+ const p=new RoomContextPlanner({maxFeedback:12});
+ for(let i=0;i<30;i++)p.noteFeedback({action:'conversation',mediaKind:'music',topicKey:'x'},{outcome:'positive',at:i});
+ assert.equal(p.snapshot().recentFeedback.length,12);
+});
