@@ -2,7 +2,9 @@ import {facePreviewRect} from './src/face-preview.js';
 import {conversationTimeline} from './src/conversation-timeline.js';
 import {orbSpatialTarget} from './src/orb-spatial-core.js';
 import {queryLocalOllama,buildAgentMessages,validateLocalAgentEndpoint,fetchSelfHostedProviderStatus,querySelfHostedProvider,querySelfHostedSpeech} from './src/agent-provider.js';
-import {providerBudgetLabel,providerFallbackPlan,providerModelFor} from './src/provider-router-core.js';
+import {
+ activeRemoteProvider,normalizeProviderChoice,providerBudgetLabel,providerFallbackPlan,providerModelFor
+} from './src/provider-router-core.js';
 import {greetingForParticipant,localAgentReply,appendAgentHistory,shouldGreet,loadAgentHistory,saveAgentHistory} from './src/agent-conversation.js';
 import {replyEligibility} from './src/conversation-listening-core.js';
 import {speakerAssociationLabel} from './src/speaker-participant-core.js';
@@ -39,14 +41,15 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  async function refreshProviderRuntime({announce=true}={}){
   try{
    providerRuntime=await fetchSelfHostedProviderStatus();
-   const selected=ui.provider?.value||'ollama';
-   const row=providerRuntime.providers.find(item=>item.provider===selected);
+   const selected=ui.provider?.value||'auto';
+   const resolved=activeRemoteProvider(selected,providerRuntime.providers);
+   const row=providerRuntime.providers.find(item=>item.provider===resolved);
    if(ui.providerBudget)ui.providerBudget.textContent=row?.budget
-    ? providerBudgetLabel(row.budget)
-    : 'Server provider budget applies to OpenAI, Anthropic and ElevenLabs.';
-   if(announce&&selected!=='ollama')ui.modelStatus.textContent=row?.configured
-    ? selected+' configured · '+providerBudgetLabel(row.budget)
-    : selected+' is not configured or not permitted.';
+    ? (selected==='auto'?'Auto → '+resolved+' · ':'')+providerBudgetLabel(row.budget)
+    : 'No configured remote chat provider is available.';
+   if(announce&&selected!=='ollama')ui.modelStatus.textContent=resolved
+    ? (selected==='auto'?'Auto selected '+resolved:resolved)+' · configured · '+providerBudgetLabel(row?.budget)
+    : 'No configured OpenAI or Anthropic provider is available.';
    return providerRuntime;
   }catch(error){
    providerRuntime=null;
@@ -56,17 +59,21 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   }
  }
  function applyProviderSelection(){
-  const selected=ui.provider?.value||'ollama';
+  const selected=ui.provider?.value||'auto';
   if(selected==='ollama'){
    if(ui.modelName&&!ui.modelName.value.trim())ui.modelName.value='llama3.2';
-   ui.modelEndpoint.disabled=false;
+   ui.modelEndpoint.disabled=false;ui.modelName.disabled=false;
    if(ui.providerBudget)ui.providerBudget.textContent='Local Ollama has no Tracky2 server API budget.';
   }else{
    ui.modelEndpoint.disabled=true;
-   ui.modelName.value=providerModelFor(selected,ui.modelName.value);
-   const row=providerRuntime?.providers?.find(item=>item.provider===selected);
-   if(ui.providerBudget)ui.providerBudget.textContent=row?.budget?providerBudgetLabel(row.budget):
-    'Refresh server provider status to view budget.';
+   const resolved=activeRemoteProvider(selected,providerRuntime?.providers||[]);
+   ui.modelName.disabled=selected==='auto';
+   if(resolved)ui.modelName.value=providerModelFor(resolved,selected===resolved?ui.modelName.value:'');
+   else if(selected!=='auto')ui.modelName.value=providerModelFor(selected,ui.modelName.value);
+   const row=providerRuntime?.providers?.find(item=>item.provider===resolved);
+   if(ui.providerBudget)ui.providerBudget.textContent=row?.budget
+    ?(selected==='auto'?'Auto → '+resolved+' · ':'')+providerBudgetLabel(row.budget)
+    :'Refresh server provider status to detect configured API keys.';
   }
  }
   function scrollConversationToLatest(){
@@ -457,7 +464,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
      memoryContext,turn,reasoningContext
     );
-    const selected=ui.provider?.value||'ollama';
+    const selected=ui.provider?.value||'auto';
     if(selected==='ollama'){
      let endpoint;
      try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
@@ -617,16 +624,22 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   entries=loadAgentHistory(localStorage);
   ui.save.checked=entries.length>0;
   ui.useModel.checked=false;
+  if(ui.provider){
+   let savedProvider='auto';
+   try{savedProvider=normalizeProviderChoice(localStorage.getItem('tracky2-agent-provider')||'auto');}catch{}
+   if([...ui.provider.options].some(option=>option.value===savedProvider))ui.provider.value=savedProvider;
+  }
   applyProviderSelection();
   ui.provider?.addEventListener('change',()=>{
+   try{localStorage.setItem('tracky2-agent-provider',normalizeProviderChoice(ui.provider.value));}catch{}
    applyProviderSelection();
-   if(ui.provider.value!=='ollama')void refreshProviderRuntime();
+   if(ui.provider.value!=='ollama')void refreshProviderRuntime().then(()=>applyProviderSelection());
    else ui.modelStatus.textContent=ui.useModel.checked?'Local Ollama enabled.':'Off. Local scripted conversation is active.';
   });
   ui.providerRefresh?.addEventListener('click',()=>void refreshProviderRuntime());
   ui.useModel.addEventListener('change',async()=>{
     if(!ui.useModel.checked){ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;}
-    const selected=ui.provider?.value||'ollama';
+    const selected=ui.provider?.value||'auto';
     if(selected==='ollama'){
      try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
       ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
@@ -634,9 +647,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      return;
     }
     const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
-    const row=runtime?.providers?.find(item=>item.provider===selected);
-    if(!row?.configured){ui.useModel.checked=false;ui.modelStatus.textContent=selected+' is not configured or not permitted.';return;}
-    ui.modelStatus.textContent=selected+' enabled · server-mediated text only · '+providerBudgetLabel(row.budget);
+    const resolved=activeRemoteProvider(selected,runtime?.providers||[]);
+    const row=runtime?.providers?.find(item=>item.provider===resolved);
+    if(!row?.configured){ui.useModel.checked=false;ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';return;}
+    ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
+      ' · server-mediated text only · '+providerBudgetLabel(row.budget);
   });
   void refreshProviderRuntime({announce:false});
   refillVoices();
