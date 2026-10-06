@@ -561,10 +561,15 @@ export async function getParticipant(id) {
   return candidates.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0];
 }
 
+export const PARTICIPANT_CHANGE_KEY='tracky-participant-change-v1';
 function notifyAccountParticipantChange(detail){
  try{
   if(typeof globalThis.dispatchEvent==='function'&&typeof globalThis.CustomEvent==='function')
    globalThis.dispatchEvent(new CustomEvent('tracky:participant-account-change',{detail}));
+  if(globalThis.localStorage)
+   globalThis.localStorage.setItem(PARTICIPANT_CHANGE_KEY,JSON.stringify({
+    participantId:detail?.participantId||null,operation:detail?.operation||'change',at:Date.now()
+   }));
  }catch{}
 }
 async function queueAccountParticipantUpsert(record){
