@@ -36,6 +36,7 @@ function publicState(state){
   identityKey:state.identityKey||'',
   identity:state.identity?Object.freeze({...state.identity}):null,
   interruption:state.interruption||null,
+  provisionalInterstitial:Boolean(state.provisionalInterstitial),
   interruptions:state.interruptions||0,
   resumes:state.resumes||0,
   contentChanges:state.contentChanges||0,
@@ -71,12 +72,14 @@ export class RoomMediaContinuityTracker{
   this.reset();
  }
  reset(){
-  this.active=null;this.suspended=null;this.lastTransition='idle';this.lastReason='reset';
+  this.active=null;this.suspended=null;this.interstitialParent=null;
+  this.lastTransition='idle';this.lastReason='reset';
  }
  snapshot(){
   return Object.freeze({
    active:publicState(this.active),
    suspended:publicState(this.suspended),
+   interstitialParent:publicState(this.interstitialParent),
    transition:this.lastTransition,
    reason:this.lastReason
   });
@@ -135,6 +138,28 @@ export class RoomMediaContinuityTracker{
   };
 
   if(this.active){
+   if(this.interstitialParent&&at>this.interstitialParent.resumeDeadline)
+    this.interstitialParent=null;
+   if(this.interstitialParent&&at<=this.interstitialParent.resumeDeadline){
+    const parentCompatibility=mediaContinuityCompatibility(this.interstitialParent,next);
+    if(parentCompatibility.compatible){
+     const parent=this.interstitialParent;
+     this.interstitialParent=null;
+     this.active={
+      ...parent,status:'active',lastAt:at,suspendedAt:null,resumeDeadline:null,
+      lowLevelSessionId:next.lowLevelSessionId||parent.lowLevelSessionId,
+      identityKey:next.identityKey||parent.identityKey,
+      identity:next.identity||parent.identity,
+      interruption:null,provisionalInterstitial:false,
+      resumes:(parent.resumes||0)+1
+     };
+     this.lastTransition='interstitial-ended';this.lastReason='original-content-returned';
+     return Object.freeze({
+      emit:true,transition:'interstitial-ended',state:this.snapshot(),
+      continuity:publicState(this.active),reason:this.lastReason
+     });
+    }
+   }
    const compatibility=mediaContinuityCompatibility(this.active,next);
    if(compatibility.compatible){
     const priorKey=this.active.identityKey||'';
@@ -143,7 +168,9 @@ export class RoomMediaContinuityTracker{
     this.active={
      ...this.active,status:'active',lastAt:at,lowLevelSessionId:next.lowLevelSessionId||this.active.lowLevelSessionId,
      identityKey:nextKey,identity:next.identity||this.active.identity,
-     interruption:null,contentChanges:(this.active.contentChanges||0)+(contentChanged?1:0)
+     interruption:null,
+     provisionalInterstitial:Boolean(this.active.provisionalInterstitial),
+     contentChanges:(this.active.contentChanges||0)+(contentChanged?1:0)
     };
     this.lastTransition=contentChanged?'content-changed':'continued';
     this.lastReason=compatibility.reason;
@@ -152,8 +179,33 @@ export class RoomMediaContinuityTracker{
      continuity:publicState(this.active),reason:compatibility.reason
     });
    }
+   const sameKind=this.active.kind===next.kind;
+   const hasKnownIdentity=Boolean(this.active.identityKey&&next.identityKey);
+   if(sameKind&&hasKnownIdentity){
+    const parent={
+     ...this.active,status:'suspended',lastAt:at,suspendedAt:at,
+     resumeDeadline:at+this.interstitialGraceMs,
+     interruption:'possible-interstitial',
+     interruptions:(this.active.interruptions||0)+1
+    };
+    this.interstitialParent=parent;
+    const prior=publicState(parent);
+    this.active={
+     continuityId:continuityId(next.kind,at),status:'active',kind:next.kind,
+     startedAt:at,lastAt:at,suspendedAt:null,resumeDeadline:null,
+     lowLevelSessionId:next.lowLevelSessionId||null,
+     identityKey:next.identityKey||'',identity:next.identity||null,
+     interruption:'possible-interstitial',provisionalInterstitial:true,
+     interruptions:0,resumes:0,contentChanges:0
+    };
+    this.lastTransition='interstitial-started';this.lastReason='same-source-unrelated-content';
+    return Object.freeze({
+     emit:true,transition:'interstitial-started',state:this.snapshot(),
+     continuity:publicState(this.active),previous:prior,reason:this.lastReason
+    });
+   }
    const ended=publicState({...this.active,status:'ended',lastAt:at});
-   this.active=null;
+   this.active=null;this.interstitialParent=null;
    const created=this.start(next,at);
    return Object.freeze({
     ...created,transition:'source-changed',previous:ended,
@@ -194,7 +246,7 @@ export class RoomMediaContinuityTracker{
    startedAt:at,lastAt:at,suspendedAt:null,resumeDeadline:null,
    lowLevelSessionId:next.lowLevelSessionId||null,
    identityKey:next.identityKey||'',identity:next.identity||null,
-   interruption:null,interruptions:0,resumes:0,contentChanges:0
+   interruption:null,provisionalInterstitial:false,interruptions:0,resumes:0,contentChanges:0
   };
   this.lastTransition='started';this.lastReason='new-continuity-session';
   return Object.freeze({
@@ -203,6 +255,18 @@ export class RoomMediaContinuityTracker{
   });
  }
  expire(now=Date.now()){
+  if(this.interstitialParent&&finite(this.interstitialParent.resumeDeadline)&&
+    now>this.interstitialParent.resumeDeadline){
+   const prior=publicState({...this.interstitialParent,status:'ended',lastAt:now});
+   this.interstitialParent=null;
+   if(this.active?.provisionalInterstitial)
+    this.active={...this.active,provisionalInterstitial:false,interruption:null};
+   this.lastTransition='interstitial-promoted';this.lastReason='interstitial-window-expired';
+   return Object.freeze({
+    emit:true,transition:'interstitial-promoted',state:this.snapshot(),
+    continuity:publicState(this.active),previous:prior,reason:this.lastReason
+   });
+  }
   if(!this.suspended||!finite(this.suspended.resumeDeadline)||now<=this.suspended.resumeDeadline)return null;
   const ended=publicState({...this.suspended,status:'ended',lastAt:now});
   this.suspended=null;this.lastTransition='ended';this.lastReason='resume-grace-expired';
@@ -222,6 +286,9 @@ export function roomMediaContinuityMessage(result={}){
  if(result.transition==='resumed')return label+' resumed · same background session';
  if(result.transition==='interrupted')return label+' continues behind foreground conversation';
  if(result.transition==='content-changed')return label+' content changed within the same session';
+ if(result.transition==='interstitial-started')return label+' changed briefly · possible commercial or interstitial';
+ if(result.transition==='interstitial-ended')return label+' returned after a brief interruption · same background session';
+ if(result.transition==='interstitial-promoted')return label+' change persisted · treating it as new content';
  if(result.transition==='source-changed')return 'Background source changed · new continuity session';
  if(result.transition==='ended')return label+' continuity ended';
  return '';
