@@ -168,6 +168,7 @@ import {
 import {
  CognitiveOutcomeLedger
 } from './src/cognitive-outcome-core.js';
+import {ProactivityQualityTracker} from './src/proactivity-quality-core.js';
 import {
  buildAgentBrainSnapshot
 } from './src/agent-brain-core.js';
@@ -530,7 +531,11 @@ function proactiveContext(now=Date.now()){
   activeTaskCount:activeAgentTaskCount(),
   lastDialogueAt:latestCanonicalDialogueAt(),
   participantById,
-  quietPolicy:cognitiveLoop.policy
+  quietPolicy:cognitiveLoop.policy,
+  maxInterruptionsPerHour:proactivityQualityTracker.policy({
+   participantId:visible.length===1?visible[0].participantId:null,
+   now,baseMaxInterruptionsPerHour:proactiveGovernor.policy.maxInterruptionsPerHour
+  }).maxInterruptionsPerHour
  };
 }
 function loadSituationalAwareness(){
@@ -559,6 +564,7 @@ function clearSituationalAwareness(){
  cognitiveOrchestrator.reset();
  conversationProactivityEngine.reset();
  cognitiveOutcomeLedger.reset();
+ proactivityQualityTracker.reset();
  pendingArrivalDecision=null;
  pendingSituationalEngagement=null;pendingContextualFollowThrough=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
@@ -649,6 +655,12 @@ function settlePendingSituationalFeedback(now=Date.now()){
   participantId:pendingSituationalEngagement.participantId,
   topicKey:pendingSituationalEngagement.topicKey,outcome:'ignored',at:now
  });
+ proactivityQualityTracker.note({
+  participantId:pendingSituationalEngagement.participantId,
+  topicKey:pendingSituationalEngagement.topicKey,
+  action:pendingSituationalEngagement.action||'contextual',
+  outcome:'ignored'
+ },now);
  v015AutonomyCertificationMonitor.note('silence-window',{},now);
  recordUnifiedCognitiveOutcome({
   action:pendingSituationalEngagement.action||'contextual',
@@ -777,6 +789,12 @@ function noteSituationalDialogueFeedback(turn,now=Date.now()){
   participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
   outcome:classified.outcome,at:now
  });
+ proactivityQualityTracker.note({
+  participantId:turn.participantId,
+  topicKey:pendingSituationalEngagement.topicKey,
+  action:pendingSituationalEngagement.action||'contextual',
+  outcome:classified.outcome
+ },now);
  if(['positive','expanded'].includes(classified.outcome))
   v015AutonomyCertificationMonitor.note('proactive-accepted',{},now);
  else if(['dismissed','topic-changed'].includes(classified.outcome))
@@ -821,6 +839,24 @@ function considerContextualMediaEngagement(now=Date.now()){
   now
  });
  if(!situationalDecision.interesting)return candidate;
+ const adaptiveQuality=proactivityQualityTracker.shouldSpeak({
+  participantId:candidate.participantId,topicKey:candidate.topicKey,
+  semanticKey:'media-context:'+candidate.participantId+':'+candidate.topicKey,
+  interestingness:situationalDecision.score,
+  now,baseMaxInterruptionsPerHour:proactiveGovernor.policy.maxInterruptionsPerHour
+ });
+ const adaptiveMaxInterruptionsPerHour=adaptiveQuality.policy.maxInterruptionsPerHour;
+ if(!adaptiveQuality.allow){
+  proactivityQualityTracker.note({
+   participantId:candidate.participantId,topicKey:candidate.topicKey,
+   action:'silence',outcome:'silence-correct',reason:adaptiveQuality.reason
+  },now);
+  recordUnifiedCognitiveOutcome({
+   action:'adaptive-silence',participantId:candidate.participantId,
+   topicKey:candidate.topicKey,executed:false,intentionallyAbstained:true
+  },now);
+  return candidate;
+ }
  const awarenessContext=situationalPromptContext(
   roomSituationalAwareness,situationalEvent,situationalDecision
  );
@@ -1006,7 +1042,11 @@ async function tickProactive(){
  if(!['offer-contextual','process-proactive'].includes(orchestratorPlan.action)){
   renderCognitiveStatus();return;
  }
- const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
+ const proactiveState=proactiveContext(now);
+ const adaptiveMaxInterruptionsPerHour=proactiveState.maxInterruptionsPerHour;
+ const decision=proactiveGovernor.evaluateNext({
+  ...proactiveState,maxInterruptionsPerHour:adaptiveMaxInterruptionsPerHour
+ });
  renderCognitiveStatus();
  if(!decision?.opportunityId)return;
  const signature=decision.opportunityId+':'+decision.action+':'+decision.reason;
@@ -1214,6 +1254,7 @@ const goalIntentTracker=new GoalIntentTracker();
 const cognitiveOrchestrator=new CognitiveOrchestrator();
 const conversationProactivityEngine=new ConversationProactivityEngine();
 const cognitiveOutcomeLedger=new CognitiveOutcomeLedger();
+const proactivityQualityTracker=new ProactivityQualityTracker();
 let cognitionPaused=false;
 let pendingArrivalDecision=null;
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
