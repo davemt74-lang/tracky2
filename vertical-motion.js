@@ -803,7 +803,7 @@ function renderPersonalizedSounds(){
  if(status)status.textContent=(personalizedSoundsEnabled?'ON':'OFF')+' · '+
   personalizedSoundProfiles.length+' profile'+(personalizedSoundProfiles.length===1?'':'s')+
   ' · '+ready+' recognition-ready'+
-  (eligibility.allow?' · recent learnable sound available':'');
+  (eligibility.allow?' · latest: '+String(latestLearnableSound?.modelHint||'unclassified sound'):'');
  if(teach)teach.disabled=!personalizedSoundsEnabled||!eligibility.allow;
  if(!list)return;
  list.replaceChildren();
