@@ -43,6 +43,9 @@ import {
  RoomAudioIntelligenceCoordinator,roomAudioIntelligenceMessage
 } from './src/room-audio-orchestration-core.js';
 import {
+ RoomLiveValidationTracker,roomAudioBehaviorPolicy,roomLiveValidationMessage
+} from './src/room-audio-live-validation-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
@@ -496,6 +499,7 @@ const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
 const roomMediaFusionTracker=new RoomMediaFusionTracker();
 const roomAudioIntelligence=new RoomAudioIntelligenceCoordinator();
+const roomLiveValidation=new RoomLiveValidationTracker();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
 const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
@@ -1100,6 +1104,17 @@ function queueEnvironmentalAudio(segment){
  if(queued.accepted)drainEnvironmentalAudioQueue();
  return queued.accepted;
 }
+function renderRoomLiveValidation(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomLiveValidationStatus');
+ if(!status)return;
+ status.textContent=roomLiveValidationMessage(roomLiveValidation.snapshot(Date.now()));
+}
+function noteRoomProviderOutcome(provider,status,reason=''){
+ roomLiveValidation.observeProvider({provider,status,reason,at:Date.now()});
+ renderRoomLiveValidation();
+}
+
 function renderRoomAudioIntelligence(){
  if(state.mode!=='agent')return;
  const status=document.getElementById('roomAudioIntelligenceStatus');
@@ -1165,6 +1180,8 @@ function logEnvironmentalActivityTransition(transition,group=null){
  }
  observeAudioMediaDeviceContext(transition);
  const unified=roomAudioIntelligence.observeEnvironmental(transition,transition.at||Date.now());
+ roomLiveValidation.observeBackground(unified,transition.at||Date.now());
+ renderRoomLiveValidation();
  logRoomAudioIntelligence(unified,transition.at||Date.now());
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
@@ -1197,7 +1214,9 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalActivityTracker.reset();
   roomMediaFusionTracker.reset();
   roomAudioIntelligence.reset('environmental-audio-enabled');
+  roomLiveValidation.reset();
   renderRoomAudioIntelligence();
+  renderRoomLiveValidation();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
   resetPersonalizedSoundRuntime();
@@ -1222,7 +1241,9 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalActivityTracker.reset();
   roomMediaFusionTracker.reset();
   roomAudioIntelligence.reset('environmental-audio-disabled');
+  roomLiveValidation.reset();
   renderRoomAudioIntelligence();
+  renderRoomLiveValidation();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
@@ -1308,6 +1329,7 @@ async function processMusicRecognitionWork(job){
     });
    }catch(error){
     if(error?.name==='AbortError'){outcome='cancelled';return;}
+    noteRoomProviderOutcome('acrcloud','failure',String(error?.message||'recognition-error'));
     const status=Number(error?.status);
     musicRecognitionDecision=status===409
      ?'ACRCloud credentials are not configured · continuing with local lyric fallback'
@@ -1320,6 +1342,7 @@ async function processMusicRecognitionWork(job){
    }
    if(!current()){outcome='cancelled';return;}
    if(fingerprint.candidate){
+    noteRoomProviderOutcome('acrcloud','success','candidate');
     const observed=musicIdentificationTracker.observeCandidate(fingerprint.candidate,Date.now());
     logMusicIdentificationResult(observed);
     musicRecognitionDecision=observed.track.status==='confirmed'
@@ -1344,7 +1367,7 @@ async function processMusicRecognitionWork(job){
     if(!current()){outcome='cancelled';return;}
     const lyric=musicIdentificationTracker.noteLyrics(detail.text,Date.now());
     musicWorkingLyricQuery=lyric.usable?lyric.query:'';
-    if(lyric.usable&&musicLyricWebLookupEnabled){
+    if(lyric.usable&&musicLyricWebLookupEnabled&&job.remoteLyricEligible){
      const lookup=musicLyricLookupGuard.claim(lyric.query,Date.now());
      if(lookup.allow){
       musicRecognitionDecision='Searching public web with a short lyric clue';
@@ -1359,6 +1382,7 @@ async function processMusicRecognitionWork(job){
        });
        if(!current()){outcome='cancelled';return;}
        if(resolved.candidate){
+        noteRoomProviderOutcome('music-web','success','candidate');
         const observed=musicIdentificationTracker.observeCandidate(
          resolved.candidate,Date.now()
         );
@@ -1371,6 +1395,7 @@ async function processMusicRecognitionWork(job){
        }
       }catch(error){
        if(error?.name==='AbortError'){outcome='cancelled';return;}
+       noteRoomProviderOutcome('music-web','failure',String(error?.message||'lookup-error'));
        const status=Number(error?.status);
        musicRecognitionDecision=status===409
         ?'Remote lyric lookup unavailable · OpenAI provider not configured'
@@ -1388,9 +1413,11 @@ async function processMusicRecognitionWork(job){
      }
     }else{
      musicRecognitionDecision=lyric.usable
-      ?(musicLyricWebLookupEnabled
+      ?(musicLyricWebLookupEnabled&&job.remoteLyricEligible
         ?'Local lyric clue captured'
-        :'Local lyric clue captured · remote lyric lookup is off')
+        :musicLyricWebLookupEnabled
+          ?'Local lyric clue captured · web lookup held for mixed live/recorded speech'
+          :'Local lyric clue captured · remote lyric lookup is off')
       :'No usable lyric clue in this music window';
     }
    }else{
@@ -1421,21 +1448,25 @@ function drainMusicRecognitionQueue(){
  if(!job){renderMusicIdentification();return;}
  void processMusicRecognitionWork(job);
 }
-function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=null}={}){
+function queueMusicRecognitionWindow(segment,{classification=null,speechOrigin=null,behaviorPolicy=null}={}){
  if(!musicIdentificationEnabled||!segment?.samples?.length)return false;
  const mediaKind=speechOrigin?.mediaContext?.kind||null;
  const primaryMusic=classification?.category==='music';
  if(!primaryMusic&&mediaKind!=='music')return false;
  const durationMs=Number(segment.captureDurationMs)||
   Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
+ const policy=behaviorPolicy||roomAudioBehaviorPolicy({
+  background:roomAudioIntelligence.snapshot(),speechOrigin
+ });
  const lyricEligible=Boolean(primaryMusic&&speechOrigin?.state!=='live');
- // ACRCloud browser transport sends a short WAV, so require V2A to positively
- // classify the sound as recorded before any room audio may leave the device.
- const remoteExactEligible=Boolean(speechOrigin?.state==='recorded');
+ const remoteLyricEligible=Boolean(policy.allowRemoteDialogueLookup);
+ // Remote exact recognition requires positively recorded audio; uncertain mixed
+ // foreground/background windows remain local-only.
+ const remoteExactEligible=Boolean(policy.allowRemoteExactRecognition);
  const queued=musicRecognitionQueue.enqueue({
   category:'music',durationMs,sampleRate:Number(segment.sampleRate)||16000,
   samples:segment.samples,at:Number(segment.queuedAt)||Date.now(),
-  lyricEligible,remoteExactEligible,
+  lyricEligible,remoteLyricEligible,remoteExactEligible,
   evidenceId:String(segment.segmentId||('music-'+Date.now())).slice(0,96),
   generation:musicRecognitionGeneration,documentHidden:document.hidden
  },Date.now());
@@ -1593,6 +1624,7 @@ async function processMediaRecognitionWork(job){
   });
   if(!current()){outcome='cancelled';return;}
   if(resolved.candidate){
+   noteRoomProviderOutcome('media-web','success','candidate');
    const observed=mediaIdentificationTracker.observeCandidate(resolved.candidate,Date.now());
    logMediaIdentificationResult(observed);
    mediaRecognitionDecision=observed.media.status==='confirmed'
@@ -1601,6 +1633,7 @@ async function processMediaRecognitionWork(job){
   }else mediaRecognitionDecision='Public web search found no strong media candidate';
  }catch(error){
   if(error?.name==='AbortError'){outcome='cancelled';return;}
+  noteRoomProviderOutcome('media-web','failure',String(error?.message||'lookup-error'));
   outcome='error';
   const status=Number(error?.status);
   mediaRecognitionDecision=status===409
@@ -1624,11 +1657,14 @@ function drainMediaRecognitionQueue(){
  if(!job){renderMediaIdentification();return;}
  void processMediaRecognitionWork(job);
 }
-function queueMediaRecognitionWindow(segment,{speechOrigin=null}={}){
+function queueMediaRecognitionWindow(segment,{speechOrigin=null,behaviorPolicy=null}={}){
  if(!mediaIdentificationEnabled||!segment?.samples?.length)return false;
  const mediaKind=speechOrigin?.mediaContext?.kind||null;
  if(!['television','recorded-media','radio'].includes(mediaKind))return false;
- if(speechOrigin?.state!=='recorded')return false;
+ const policy=behaviorPolicy||roomAudioBehaviorPolicy({
+  background:roomAudioIntelligence.snapshot(),speechOrigin
+ });
+ if(speechOrigin?.state!=='recorded'||!policy.allowRemoteDialogueLookup)return false;
  const durationMs=Number(segment.captureDurationMs)||
   Math.max(0,Number(segment.endedAt||0)-Number(segment.startedAt||0));
  const queued=mediaRecognitionQueue.enqueue({
@@ -1724,7 +1760,11 @@ function saveRoomAudioSummary(summary){
  const ended=environmentalActivityTracker.expire(summary.at);
  if(ended)logEnvironmentalActivityTransition(ended);
  const unifiedEnded=roomAudioIntelligence.expire(summary.at);
- if(unifiedEnded)logRoomAudioIntelligence(unifiedEnded,summary.at);
+ if(unifiedEnded){
+  roomLiveValidation.observeBackground(unifiedEnded,summary.at);
+  renderRoomLiveValidation();
+  logRoomAudioIntelligence(unifiedEnded,summary.at);
+ }
  const mechanicalEnded=environmentalMechanicalTracker.expire(summary.at);
  if(mechanicalEnded)logEnvironmentalMechanicalTransition(mechanicalEnded);
  // Raw dB/noise-floor audit remains diagnostic state; it does not spam the ROOM feed.
@@ -4204,6 +4244,9 @@ async function processRoomSegment(segment) {
       continuousFusion,
       now:Date.now()
     });
+    const liveObservation=roomLiveValidation.observeSpeechOrigin(speechOrigin,Date.now());
+    const behaviorPolicy=liveObservation.policy||roomAudioBehaviorPolicy({speechOrigin});
+    renderRoomLiveValidation();
     const originNotice=roomSpeechOriginTracker.observe(speechOrigin,Date.now());
     if(originNotice.emit&&speechOrigin.mediaContext&&state.mode==='agent'){
       logRoomMessage('audio',roomSpeechOriginMessage(speechOrigin),'speech-origin-resolver',{
@@ -4227,9 +4270,10 @@ async function processRoomSegment(segment) {
     }
     if(!speechOrigin.allowConversation){
       queueMusicRecognitionWindow(segment,{
-       classification:sameSegmentEnvironment?.classification||null,speechOrigin
+       classification:sameSegmentEnvironment?.classification||null,speechOrigin,
+       behaviorPolicy
       });
-      queueMediaRecognitionWindow(segment,{speechOrigin});
+      queueMediaRecognitionWindow(segment,{speechOrigin,behaviorPolicy});
       state.voice.currentSpeakerId=null;
       state.voice.currentSpeakerName=speechOrigin.state==='recorded'
         ?'Recorded speech likely':'Speech origin uncertain';
