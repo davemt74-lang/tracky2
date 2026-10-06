@@ -191,7 +191,7 @@ export function musicIdentificationMessage(result){
   return 'Music identified · '+track.artist+' — '+track.title;
  if(result.transition==='track-changed')
   return 'Track changed · '+track.artist+' — '+track.title;
- if(result.transition==='stopped'&&track.title&&track.artist)
+ if(result.transition==='stopped'&&track.status==='confirmed'&&track.title&&track.artist)
   return 'Identified music stopped · '+track.artist+' — '+track.title;
  return '';
 }
