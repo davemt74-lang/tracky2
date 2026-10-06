@@ -77,7 +77,16 @@ if(($_SERVER['REQUEST_METHOD']??'GET')==='POST'){
     $subject=$role.'/'.$perm;
    }elseif($action==='provider-save'){
     $subject=(string)($_POST['provider']??'');
-    tracky_store_provider($db,(int)$actor['id'],$subject,(string)($_POST['secret']??''));
+    if($subject==='acrcloud'){
+     tracky_store_acrcloud_provider(
+      $db,(int)$actor['id'],
+      (string)($_POST['host']??''),
+      (string)($_POST['access_key']??''),
+      (string)($_POST['access_secret']??'')
+     );
+    }else{
+     tracky_store_provider($db,(int)$actor['id'],$subject,(string)($_POST['secret']??''));
+    }
    }elseif($action==='provider-delete'){
     $subject=(string)($_POST['provider']??'');
     if(!in_array($subject,TRACKY_PROVIDERS,true))throw new RuntimeException('Invalid provider.');
@@ -157,11 +166,17 @@ if(!$user){
   echo '</table></section>';
  }
  if(tracky_permission($db,$user,'providers.manage')){
-  echo '<section><h2>LLM & Voice Providers</h2><p>Encrypted server-side. Saved API keys are never displayed. Runtime use is separately governed by the <code>providers.use</code> permission and bounded daily/session budgets.</p>';
-  $names=['openai'=>'OpenAI / ChatGPT','anthropic'=>'Anthropic / Claude','elevenlabs'=>'ElevenLabs'];
+  echo '<section><h2>AI, Voice & Recognition Providers</h2><p>Encrypted server-side. Saved credentials are never displayed. Runtime use is separately governed by the <code>providers.use</code> permission and bounded daily/session budgets.</p>';
+  $names=['openai'=>'OpenAI / ChatGPT','anthropic'=>'Anthropic / Claude','elevenlabs'=>'ElevenLabs','acrcloud'=>'ACRCloud Music Recognition'];
   foreach(tracky_provider_status($db) as $p){
-   $provider=$p['provider'];echo '<h3>'.tracky_html($names[$provider]).' — '.($p['configured']?'Configured':'Not configured').'</h3><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-save"><input type="hidden" name="provider" value="'.$provider.'"><label>API key<input type="password" name="secret" autocomplete="off" maxlength="4096" required></label><button>Save or replace</button></form>';
-   if($p['configured'])echo '<form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-delete"><input type="hidden" name="provider" value="'.$provider.'"><button>Remove key</button></form>';
+   $provider=$p['provider'];
+   echo '<h3>'.tracky_html($names[$provider]??$provider).' — '.($p['configured']?'Configured':'Not configured').'</h3>';
+   if($provider==='acrcloud'){
+    echo '<p><small>Use the Host, Access Key and Access Secret from an ACRCloud Audio & Video Recognition project. The host is restricted to <code>*.acrcloud.com</code>. Saved values are never displayed.</small></p><form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-save"><input type="hidden" name="provider" value="acrcloud"><label>Recognition host<input name="host" placeholder="identify-us-west-2.acrcloud.com" autocomplete="off" maxlength="255" required></label><label>Access key<input type="password" name="access_key" autocomplete="off" maxlength="160" required></label><label>Access secret<input type="password" name="access_secret" autocomplete="off" maxlength="512" required></label><button>Save or replace</button></form>';
+   }else{
+    echo '<form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-save"><input type="hidden" name="provider" value="'.$provider.'"><label>API key<input type="password" name="secret" autocomplete="off" maxlength="4096" required></label><button>Save or replace</button></form>';
+   }
+   if($p['configured'])echo '<form method="post"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="provider-delete"><input type="hidden" name="provider" value="'.$provider.'"><button>Remove credentials</button></form>';
   }
   echo '</section>';
  }
