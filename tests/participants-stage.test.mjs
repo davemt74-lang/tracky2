@@ -4,6 +4,7 @@ const html=fs.readFileSync('participants.html','utf8');
 const css=fs.readFileSync('participants-stage.css','utf8');
 const runtime=fs.readFileSync('participants.js','utf8');
 const stage=fs.readFileSync('participants-stage.js','utf8');
+const voice=fs.readFileSync('participant-voice.js','utf8');
 test('Participants visual shell has no five-column status strip and only one main camera',()=>{
  assert.equal(html.includes('class="system-strip"'),false);
  assert.equal((html.match(/id="identityCameraStage"/g)||[]).length,1);
@@ -51,4 +52,30 @@ test('main shutter advances guided enrollment and photo capture no longer forces
  assert.match(runtime,/Guided face capture complete: all 9 angles are saved/);
  assert.match(stage,/event\.detail\?\.openGallery===true/);
  assert.doesNotMatch(stage,/participant-photo-captured',\(\)=>panel\('gallery',true\)/);
+});
+
+test('participant save accepts an incomplete face profile and reports storage failures without losing the draft',()=>{
+ assert.doesNotMatch(runtime,/Capture at least three face samples, or disable recognition/);
+ assert.match(runtime,/const galleryFields=gallerySaveFields\(state\.gallery\)/);
+ assert.match(runtime,/\.\.\.draftVoice/);
+ assert.match(runtime,/Participant could not be saved:/);
+ assert.match(runtime,/state\.saving=true/);
+ assert.match(runtime,/ui\.save\.disabled=true/);
+});
+
+test('create participant can capture a draft Voice Profile before final save',()=>{
+ assert.match(html,/Voice Profile ready to capture · saves with participant/);
+ assert.match(voice,/state\.participant\?\.id \|\| DRAFT_ID/);
+ assert.match(voice,/tracky:participant-voice-draft/);
+ assert.match(voice,/appendVoiceDraftSample/);
+ assert.doesNotMatch(voice,/if \(!state\.participant\?\.id \|\| state\.recording\) return/);
+ assert.doesNotMatch(voice,/ui\.record\.disabled = !saved/);
+ assert.match(runtime,/tracky:participant-voice-draft/);
+ assert.match(runtime,/voiceDraftSaveFields\(state\.voiceDraft\)/);
+});
+
+test('participant save and voice recorder cannot race each other',()=>{
+ assert.match(voice,/tracky:participant-voice-recording/);
+ assert.match(runtime,/state\.voiceRecording/);
+ assert.match(runtime,/Stop the active Voice Profile recording before saving this participant/);
 });
