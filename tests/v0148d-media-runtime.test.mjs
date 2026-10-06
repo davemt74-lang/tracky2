@@ -6,9 +6,9 @@ const read=path=>fs.readFileSync(path,'utf8');
 test('V2C runtime runs after V2A and only on recorded television or recorded-media speech',()=>{
  const runtime=read('vertical-motion.js');
  const originAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin');
- const queueAt=runtime.indexOf('queueMediaRecognitionWindow(segment',{fromIndex:originAt});
+ const queueAt=runtime.indexOf('queueMediaRecognitionWindow(segment',originAt);
  assert.ok(originAt>0);
- assert.ok(runtime.indexOf('queueMediaRecognitionWindow(segment',{fromIndex:originAt})>-1);
+ assert.ok(queueAt>originAt);
  assert.match(runtime,/if\(!\['television','recorded-media'\]\.includes\(mediaKind\)\)return false/);
  assert.match(runtime,/if\(speechOrigin\?\.state!=='recorded'\)return false/);
  assert.match(runtime,/queueMediaRecognitionWindow\(segment,\{speechOrigin\}\)/);
@@ -27,6 +27,7 @@ test('V2C visual hook accepts text metadata only and never uploads a camera fram
  assert.match(runtime,/tracky:media-visual-clue/);
  assert.match(runtime,/processMediaVisualClue/);
  assert.match(runtime,/visualClue:clue\.text/);
+ assert.match(runtime,/if\(!activeKind\)return false/);
  assert.doesNotMatch(runtime,/searchMediaByClues\(\{[^}]*image/s);
  assert.doesNotMatch(runtime,/searchMediaByClues\(\{[^}]*frame/s);
  assert.doesNotMatch(runtime,/searchMediaByClues\(\{[^}]*canvas/s);
