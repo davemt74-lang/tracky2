@@ -49,7 +49,7 @@ test('14A Auto provider UI prefers configured remote API keys while preserving e
 });
 
 
-test('V2G ACRCloud is a recognition provider, not an AGENT LLM provider',()=>{
+test('V2H ACRCloud is a recognition provider, not an AGENT LLM provider',()=>{
  const api=read('server/provider-api.php');
  const providers=read('server/providers.php');
  const admin=read('server/admin.php');
