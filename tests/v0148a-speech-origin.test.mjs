@@ -64,6 +64,24 @@ test('V2A strong spatial live evidence allows an unknown live speaker over media
  assert.equal(result.reason,'spatial-live-speaker-evidence-over-recorded-media');
 });
 
+test('V2A verified window-level overlap evidence keeps live multi-speaker speech out of the recorded-media quarantine',()=>{
+ const result=resolveRoomSpeechOrigin({
+  mediaActivity:tv(1000),
+  voiceMatch:{matched:false,similarity:.5,ambiguous:true},
+  association:{participantId:null,trackId:null,bodyConfirmed:false},
+  roomTracks:[{id:'t1',participantId:'p1',status:'matched',cx:.3},
+   {id:'t2',participantId:'p2',status:'matched',cx:.7}],
+  audioSource:{state:'unavailable'},
+  continuousFusion:{participantIds:['p1','p2'],conflicts:[],state:'multi-speaker'},
+  now:2000
+ });
+ assert.equal(result.state,'live');
+ assert.equal(result.allowConversation,true);
+ assert.equal(result.allowParticipantAttribution,false);
+ assert.equal(result.evidence.continuousLive,true);
+ assert.equal(result.reason,'verified-window-level-live-speaker-over-recorded-media');
+});
+
 test('V2A visible person plus active media but no source corroboration stays uncertain and is quarantined',()=>{
  const result=resolveRoomSpeechOrigin({
   mediaActivity:tv(1000),voiceMatch:{matched:false,similarity:.32},
@@ -209,6 +227,7 @@ test('V2A runtime gate executes before participant continuity recovery and trans
  assert.match(runtime,/environmentEvidencePromise:evidenceRequest\.promise/);
  assert.match(runtime,/await segment\.environmentEvidencePromise/);
  assert.match(runtime,/recordedMediaCueFromPredictions/);
+ assert.match(runtime,/continuousFusion,/);
  assert.match(runtime,/clearEnvironmentalSpeechEvidence\(\)/);
 });
 
