@@ -1107,6 +1107,7 @@ function logEnvironmentalActivityTransition(transition,group=null){
   mediaRecognitionDecision='Recorded media stopped · waiting for next program';
   renderMediaIdentification();
  }
+ observeAudioMediaDeviceContext(transition);
  const lifecycle=transition.type==='stop'?'environmental-audio-state':
   'environmental-audio-classification-v2';
  return logRoomMessage('audio',environmentalActivityMessage(transition),
