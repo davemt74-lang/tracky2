@@ -554,6 +554,14 @@ function captureCurrentPhoto() {
   return cropFacePhoto(ui.video, state.currentFace.box, { mirror: state.mirrorPreview, size: 360, quality: 0.9 });
 }
 
+function requireFreshFaceLock(){
+  state.currentFace=null;
+  ui.capturePrimary.disabled=true;
+  ui.captureSample.disabled=true;
+  updateCaptureCoach();
+  if(state.scanning)scheduleScan(120);
+}
+
 function captureGuidedPhoto(){
   if(!state.currentFace?.embedding || state.currentFace.quality<0.55)return;
   const statusBefore=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
@@ -579,6 +587,7 @@ function captureGuidedPhoto(){
   setMessage(status.coverageComplete?
     'Guided face capture complete: all 9 angles are saved.':
     pose.label+' saved · '+status.count+'/'+status.maximum+'. Next: '+(next?.label||'complete')+'.','ok');
+  requireFreshFaceLock();
   window.dispatchEvent(new CustomEvent('tracky:participant-photo-captured',{
     detail:{guided:true,poseId:pose.id,count:status.count,complete:status.coverageComplete}
   }));
@@ -611,6 +620,7 @@ function captureFaceSample(){
     savedPose+' saved · '+status.count+'/'+status.maximum+
       (status.ready?' · recognition ready':' · '+status.remaining+' more required')+
       (next?' · next '+next.label:''),'ok');
+  requireFreshFaceLock();
   window.dispatchEvent(new CustomEvent('tracky:participant-photo-captured',{
     detail:{guided:true,retake:replacing!==null,count:status.count,complete:status.coverageComplete}
   }));
