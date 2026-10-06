@@ -157,7 +157,7 @@ export function situationalPatternEvidence({events=[],feedback=[]}={}){
 }
 
 function situationalProposalCandidates(rows=[]){
- const proposals=[];
+ const proposals=[],now=Date.now(),maxAgeMs=60*24*60*60*1000;
  const byTopic=new Map();
  for(const row of rows){
   if(!row?.participantId||!row?.topicKey)continue;
@@ -165,10 +165,11 @@ function situationalProposalCandidates(rows=[]){
   const bucket=byTopic.get(key)||[];bucket.push(row);byTopic.set(key,bucket);
  }
  for(const bucket of byTopic.values()){
-  const feedback=bucket.filter(row=>row.outcome);
+  const fresh=bucket.filter(row=>row.at&&now-row.at>=0&&now-row.at<=maxAgeMs);
+  const feedback=fresh.filter(row=>row.outcome);
   const positive=feedback.filter(row=>['positive','expanded'].includes(row.outcome));
   const negative=feedback.filter(row=>['ignored','dismissed','topic-changed'].includes(row.outcome));
-  const events=bucket.filter(row=>!row.outcome);
+  const events=fresh.filter(row=>!row.outcome);
   if(positive.length<3||events.length<2||negative.length>1)continue;
   const representative=[...events].sort((a,b)=>b.at-a.at)[0]||positive[positive.length-1];
   const label=short(representative.text||representative.topicKey,180);
@@ -199,8 +200,9 @@ function situationalProposalCandidates(rows=[]){
   const bucket=byAction.get(key)||[];bucket.push(row);byAction.set(key,bucket);
  }
  for(const bucket of byAction.values()){
-  const positive=bucket.filter(row=>['positive','expanded'].includes(row.outcome));
-  const negative=bucket.filter(row=>['ignored','dismissed','topic-changed'].includes(row.outcome));
+  const fresh=bucket.filter(row=>row.at&&now-row.at>=0&&now-row.at<=maxAgeMs);
+  const positive=fresh.filter(row=>['positive','expanded'].includes(row.outcome));
+  const negative=fresh.filter(row=>['ignored','dismissed','topic-changed'].includes(row.outcome));
   if(positive.length<4||negative.length>1)continue;
   const representative=positive[positive.length-1];
   const action=short(representative.action,32);
