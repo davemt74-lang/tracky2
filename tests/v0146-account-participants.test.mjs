@@ -30,7 +30,7 @@ test('v0.14.6 account sync is automatic foreground page sync, not a hidden backg
 
 test('v0.14.6 participant storage has a separate offline account-sync state lane',()=>{
  const store=read('src/participant-store.js');
- const schemaVersion=Number(store.match(/const DB_VERSION = (\\d+)/)?.[1]||0);
+ const schemaVersion=Number(store.match(/const DB_VERSION = ([0-9]+)/)?.[1]||0);
  assert.ok(schemaVersion>=15,'v0.14.6 sync stores must survive later additive browser schemas');
  assert.match(store,/account-participant-sync-state/);
  assert.match(store,/markAccountParticipantPending/);
