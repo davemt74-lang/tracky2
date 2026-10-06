@@ -125,3 +125,20 @@ test('V2E Control Center is opt-in and documents two-example local-only learning
  assert.match(runtime,/savedPersonalized==='yes'/);
  assert.match(runtime,/teachLatestPersonalizedSound/);
 });
+
+
+test('V2E IndexedDB schema stores only bounded personalized profiles in its own local store',()=>{
+ const store=fs.readFileSync('src/participant-store.js','utf8');
+ assert.match(store,/const DB_VERSION = 16/);
+ assert.match(store,/const PERSONALIZED_SOUNDS = 'personalized-sounds'/);
+ assert.match(store,/MAX_PERSISTED_PERSONALIZED_SOUNDS=32/);
+ assert.match(store,/normalizePersonalizedSoundProfile/);
+ assert.match(store,/listPersonalizedSoundProfiles/);
+ assert.match(store,/savePersonalizedSoundProfile/);
+ assert.match(store,/deletePersonalizedSoundProfile/);
+ assert.match(store,/clearPersonalizedSoundProfiles/);
+ const start=store.indexOf('/* V0.14.8F owner-labeled local acoustic profiles.');
+ const end=store.indexOf('/* V0.13G owner review metadata only.',start);
+ const block=store.slice(start,end);
+ assert.doesNotMatch(block,/MediaRecorder|getUserMedia|Blob|ArrayBuffer|transcript:/);
+});
