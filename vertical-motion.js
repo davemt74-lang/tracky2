@@ -926,6 +926,15 @@ function setEnvironmentalAudioEnabled(enabled){
   renderEnvironmentalAudio();
  }
 }
+function musicRemoteProviderPreference(){
+ const selected=String(document.getElementById('agentModelProvider')?.value||'').toLowerCase();
+ if(['openai','anthropic'].includes(selected))return selected;
+ try{
+  const saved=String(window.localStorage.getItem('tracky2-agent-provider')||'').toLowerCase();
+  if(['openai','anthropic'].includes(saved))return saved;
+ }catch{}
+ return 'auto';
+}
 function renderMusicIdentification(){
  if(state.mode!=='agent')return;
  const status=document.getElementById('roomMusicIdStatus');
@@ -1006,7 +1015,8 @@ async function processMusicRecognitionWork(job){
       try{
        const resolved=await searchMusicByLyricClue({
         query:lyric.query,evidenceId:job.evidenceId,
-        ownerEnabled:true,signal:musicLyricWebAbortController.signal
+        ownerEnabled:true,preferredProvider:musicRemoteProviderPreference(),
+        signal:musicLyricWebAbortController.signal
        });
        if(!current()){outcome='cancelled';return;}
        if(resolved.candidate){
