@@ -169,6 +169,7 @@ test('V2H ROOM UI keeps exact remote recognition opt-in and preserves local fall
  assert.doesNotMatch(html,/id="roomIdentifyMusicFingerprint" checked/);
  assert.match(html,/short bounded in-memory WAV/);
  assert.match(html,/does not persist that sample/);
+ assert.match(html,/skipped when live-room speech may be present or the origin is uncertain/);
  assert.match(runtime,/tracky2-room-music-acrcloud/);
  assert.match(runtime,/createAcrCloudMusicProvider/);
  assert.match(runtime,/ACRCloud recognition failed safely · continuing with local lyric fallback/);
