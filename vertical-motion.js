@@ -485,6 +485,11 @@ function settlePendingSituationalFeedback(now=Date.now()){
   topicKey:pendingSituationalEngagement.topicKey,
   eventType:'media-context',outcome:'ignored',weight:.7
  },now);
+ roomContextPlanner.noteFeedback({
+  action:pendingSituationalEngagement.action,
+  mediaKind:pendingSituationalEngagement.mediaKind,
+  topicKey:pendingSituationalEngagement.topicKey
+ },{outcome:'ignored',at:now});
  pendingSituationalEngagement=null;
  persistSituationalAwareness();
  return feedback;
@@ -499,6 +504,11 @@ function noteSituationalDialogueFeedback(turn,now=Date.now()){
   participantId:turn.participantId,topicKey:pendingSituationalEngagement.topicKey,
   eventType:'media-context',outcome:classified.outcome,weight:classified.weight
  },now);
+ roomContextPlanner.noteFeedback({
+  action:pendingSituationalEngagement.action,
+  mediaKind:pendingSituationalEngagement.mediaKind,
+  topicKey:pendingSituationalEngagement.topicKey
+ },{outcome:classified.outcome,at:now});
  pendingSituationalEngagement=null;
  persistSituationalAwareness();
  return feedback;
@@ -651,6 +661,7 @@ async function tickProactive(){
      participantId:contextualCandidate.participantId,
      topicKey:contextualCandidate.topicKey,
      action:contextualPlan?.action||null,
+     mediaKind:contextualCandidate.mediaKind||null,
      at:outcomeAt
     };
    }else{
