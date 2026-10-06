@@ -486,11 +486,6 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      try{endpoint=validateLocalAgentEndpoint(ui.modelEndpoint.value);}
      catch(error){ui.modelStatus.textContent=error.message;endpoint=null;}
      if(endpoint){
-      const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:candidate,now:Date.now()});
-      if(!recoveryGate.allow){
-       if(recoveryGate.reason==='logical-request-already-completed')return;
-       continue;
-      }
       const controller=new AbortController();modelController=controller;
       const timeout=setTimeout(()=>controller.abort(),16000);ui.modelStatus.textContent='Local Ollama thinking…';
       try{
@@ -513,6 +508,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
      const logicalRequestKey='chat:'+(turn.id||turn.transcriptSegmentId||responseToken);
      for(const candidate of plan){
       if(responseToken!==responseGeneration||open)return;
+      const recoveryGate=providerRecovery.begin({requestKey:logicalRequestKey,provider:candidate,now:Date.now()});
+      if(!recoveryGate.allow){
+       if(recoveryGate.reason==='logical-request-already-completed')return;
+       continue;
+      }
       const controller=new AbortController();modelController=controller;
       const timeout=setTimeout(()=>controller.abort(),16000);
       ui.modelStatus.textContent=candidate+' thinking…'+
