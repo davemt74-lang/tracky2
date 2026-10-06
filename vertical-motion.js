@@ -39,6 +39,12 @@ import {
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
 import {
+ PersonalizedSoundRecognitionTracker,acousticFeatureSignature,
+ appendPersonalizedSoundExample,createPersonalizedSoundProfile,
+ matchPersonalizedSound,personalizedSoundCategoryEligible,
+ personalizedSoundLearningEligibility,personalizedSoundMessage
+} from './src/personalized-sound-core.js';
+import {
  deriveRoutineCandidates,normalizeRoutineFeedback,routineDeviation,routineLabel
 } from './src/routine-intelligence-core.js';
 import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-core.js';
@@ -156,6 +162,8 @@ import {
   savePendingCapture,
   listRoomObservations,saveRoomObservation,clearRoomObservations,
   listEnvironmentalFeedback,saveEnvironmentalFeedback,clearEnvironmentalFeedback,
+  listPersonalizedSoundProfiles,savePersonalizedSoundProfile,
+  deletePersonalizedSoundProfile,clearPersonalizedSoundProfiles,
   listRoutineFeedback,saveRoutineFeedback,clearRoutineFeedback,
   startSessionIdentity,endStoredSessionIdentity
 } from './src/participant-store.js';
@@ -480,7 +488,11 @@ const mediaRecognitionQueue=new MediaRecognitionQueue();
 const mediaLookupGuard=new MediaLookupGuard();
 const environmentalAlertTracker=new EnvironmentalAlertTracker();
 const environmentalMechanicalTracker=new EnvironmentalMechanicalTracker();
+const personalizedSoundRecognitionTracker=new PersonalizedSoundRecognitionTracker();
 let importantEnvironmentalEventsEnabled=true;
+let personalizedSoundsEnabled=false;
+let personalizedSoundProfiles=[];
+let latestLearnableSound=null;
 let musicIdentificationEnabled=true;
 let musicLyricWebLookupEnabled=false;
 let musicFingerprintProvider=null;
@@ -773,6 +785,125 @@ function reportEnvironmentalDrops(dropped=[]){
   (dropped.length===1?'':'s');
  renderEnvironmentalAudio();
 }
+function personalizedSoundProfileId(){
+ return globalThis.crypto?.randomUUID?.()
+  ?'ps-'+globalThis.crypto.randomUUID()
+  :'ps-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+}
+function renderPersonalizedSounds(){
+ if(state.mode!=='agent')return;
+ const status=document.getElementById('roomPersonalizedSoundStatus');
+ const list=document.getElementById('roomPersonalizedSoundProfiles');
+ const teach=document.getElementById('roomTeachLatestSound');
+ const ready=personalizedSoundProfiles.filter(profile=>profile.ready).length;
+ const eligibility=personalizedSoundLearningEligibility({
+  signature:latestLearnableSound?.signature,
+  at:latestLearnableSound?.at,now:Date.now(),speechSensitive:false
+ });
+ if(status)status.textContent=(personalizedSoundsEnabled?'ON':'OFF')+' · '+
+  personalizedSoundProfiles.length+' profile'+(personalizedSoundProfiles.length===1?'':'s')+
+  ' · '+ready+' recognition-ready'+
+  (eligibility.allow?' · recent learnable sound available':'');
+ if(teach)teach.disabled=!personalizedSoundsEnabled||!eligibility.allow;
+ if(!list)return;
+ list.replaceChildren();
+ for(const profile of personalizedSoundProfiles){
+  const row=document.createElement('div');row.className='room-temporal-entry';
+  const label=document.createElement('strong');label.textContent=profile.label;
+  const meta=document.createElement('span');
+  meta.textContent=profile.examples.length+' / 5 examples · '+
+   (profile.ready?'READY':'needs '+Math.max(0,2-profile.examples.length)+' more example'+
+    (2-profile.examples.length===1?'':'s'));
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Delete';
+  remove.addEventListener('click',async()=>{
+   if(!window.confirm('Delete personalized sound profile “'+profile.label+'”?'))return;
+   try{
+    await deletePersonalizedSoundProfile(profile.id);
+    await refreshPersonalizedSoundProfiles();
+    personalizedSoundRecognitionTracker.reset();
+   }catch(error){console.warn('Unable to delete personalized sound profile',error);}
+  });
+  row.append(label,meta,remove);list.append(row);
+ }
+ if(!personalizedSoundProfiles.length){
+  const empty=document.createElement('small');
+  empty.textContent='No owner-labeled sounds yet. Enable learning, make the sound, then label the latest sound.';
+  list.append(empty);
+ }
+}
+async function refreshPersonalizedSoundProfiles(){
+ try{personalizedSoundProfiles=await listPersonalizedSoundProfiles();}
+ catch(error){console.warn('Personalized sound profiles unavailable',error);personalizedSoundProfiles=[];}
+ renderPersonalizedSounds();return personalizedSoundProfiles;
+}
+function resetPersonalizedSoundRuntime(){
+ latestLearnableSound=null;personalizedSoundRecognitionTracker.reset();
+ renderPersonalizedSounds();
+}
+function logPersonalizedSoundMatch(result){
+ if(!result?.emit||state.mode!=='agent')return null;
+ const match=result.match||{},profile=match.profile;
+ if(!profile)return null;
+ return logRoomMessage('audio',personalizedSoundMessage(result),
+  'personalized-sound-runtime',{
+   semantic:'personalized-sound-recognized',
+   confidence:Number(match.similarity)||null,
+   dedupeKey:'personalized-sound:'+profile.id+':'+Date.now(),
+   evidence:{personalizedSound:{
+    profileId:profile.id,label:profile.label,
+    similarity:Number(match.similarity)||0,
+    exampleCount:profile.examples.length,
+    ownerLabeled:true,localOnly:true,rawAudioStored:false
+   }}
+  });
+}
+function evaluatePersonalizedSound(signature,{
+ classification=null,speechSensitive=false,at=Date.now()
+}={}){
+ if(!personalizedSoundsEnabled||!signature||speechSensitive)
+  return {matched:false,reason:speechSensitive?'speech-sensitive-window':'disabled-or-missing'};
+ if(classification&&!personalizedSoundCategoryEligible(classification))
+  return {matched:false,reason:'category-reserved-for-canonical-handler'};
+ latestLearnableSound={
+  signature,at,modelHint:String(classification?.modelLabel||'unclassified sound').slice(0,96)
+ };
+ const match=matchPersonalizedSound(signature,personalizedSoundProfiles);
+ const tracked=personalizedSoundRecognitionTracker.observe(match,Date.now());
+ if(tracked.emit)logPersonalizedSoundMatch(tracked);
+ renderPersonalizedSounds();return match;
+}
+async function teachLatestPersonalizedSound(){
+ if(!personalizedSoundsEnabled)return false;
+ const eligibility=personalizedSoundLearningEligibility({
+  signature:latestLearnableSound?.signature,at:latestLearnableSound?.at,now:Date.now()
+ });
+ if(!eligibility.allow){renderPersonalizedSounds();return false;}
+ const raw=window.prompt('Label this sound (for example: Coffee grinder or Garage door):');
+ const label=String(raw||'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,48);
+ if(label.length<2)return false;
+ const now=Date.now();
+ const existing=personalizedSoundProfiles.find(profile=>
+  profile.label.toLowerCase()===label.toLowerCase());
+ const next=existing
+  ?appendPersonalizedSoundExample(existing,latestLearnableSound.signature,now)
+  :createPersonalizedSoundProfile({
+    id:personalizedSoundProfileId(),label,
+    signature:latestLearnableSound.signature,at:now
+   });
+ try{
+  await savePersonalizedSoundProfile(next);
+  latestLearnableSound=null;personalizedSoundRecognitionTracker.reset();
+  await refreshPersonalizedSoundProfiles();
+  logRoomMessage('system','Owner labeled a local sound profile · '+next.label+
+   ' · '+next.examples.length+' example'+(next.examples.length===1?'':'s')+
+   (next.ready?' · recognition ready':' · one more example recommended'),
+   'owner-sound-learning',{semantic:'personalized-sound-profile-updated'});
+  return true;
+ }catch(error){
+  console.warn('Unable to save personalized sound profile',error);return false;
+ }
+}
+
 function logEnvironmentalAlertResult(result,classification){
  if(!result?.accepted||!result.emit||state.mode!=='agent')return null;
  const event=result.event||{};
@@ -826,6 +957,9 @@ async function processEnvironmentalAudioWork(work){
    outcome='cancelled';return;
   }
   const detail=await environmentalAudioClassifier.classify(work.samples,{topK:8});
+  const personalizedSignature=personalizedSoundsEnabled
+   ?acousticFeatureSignature(work.samples,{sampleRate:work.sampleRate,at:work.queuedAt})
+   :null;
   const sameSegmentMediaCue=recordedMediaCueFromPredictions(detail.predictions,work.queuedAt);
   if(!environmentalAudioQueue.current(work,Date.now())){
    resolveEnvironmentalSpeechEvidence(work.correlationId,{
@@ -841,9 +975,14 @@ async function processEnvironmentalAudioWork(work){
    resolveEnvironmentalSpeechEvidence(work.correlationId,{
     mediaCue:sameSegmentMediaCue,classification:null,completedAt:detail.completedAt
    });
-   environmentalAudioDecision=normalized.reason==='speech-or-sensitive-filtered'
-    ?'Speech / unsupported sensitive model label filtered'
-    : normalized.reason.replaceAll('-',' ');
+   const speechSensitive=normalized.reason==='speech-or-sensitive-filtered';
+   const personalized=evaluatePersonalizedSound(personalizedSignature,{
+    classification:null,speechSensitive,at:work.queuedAt
+   });
+   environmentalAudioDecision=personalized.matched
+    ?'Owner-labeled personalized sound recognized locally'
+    :speechSensitive?'Speech / unsupported sensitive model label filtered'
+    :normalized.reason.replaceAll('-',' ');
    renderEnvironmentalAudio();return;
   }
   const classification=calibrateEnvironmentalClassification(
@@ -861,15 +1000,18 @@ async function processEnvironmentalAudioWork(work){
   const legacyEmission=environmentalAudioTracker.observe(classification,Date.now());
   const grouped=environmentalEventGrouper.observe(classification,Date.now());
   const activity=environmentalActivityTracker.observe(classification,Date.now());
-  const important=importantEnvironmentalEventsEnabled
+  const personalized=evaluatePersonalizedSound(personalizedSignature,{
+   classification,at:work.queuedAt
+  });
+  const important=importantEnvironmentalEventsEnabled&&!personalized.matched
    ?environmentalAlertTracker.observe(classification,Date.now())
    :{accepted:false,emit:false,proactiveEligible:false,event:null};
-  const mechanical=importantEnvironmentalEventsEnabled
+  const mechanical=importantEnvironmentalEventsEnabled&&!personalized.matched
    ?environmentalMechanicalTracker.observe(classification,Date.now())
    :{accepted:false,transitions:[]};
   environmentalAudioCurrentGroup=grouped.group;
   renderEnvironmentalAudio();
-  let specialized=false;
+  let specialized=personalized.matched===true;
   if(important.accepted){
    specialized=true;
    if(important.emit)logEnvironmentalAlertResult(important,classification);
@@ -991,6 +1133,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalActivityTracker.reset();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
+  resetPersonalizedSoundRuntime();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='loading';
@@ -1007,6 +1150,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalEventGrouper.reset();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
+  resetPersonalizedSoundRuntime();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
   roomSpeechOriginTracker.reset();
@@ -4629,6 +4773,7 @@ function stopRoomAudio() {
   roomSpeechOriginTracker.reset();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
+  resetPersonalizedSoundRuntime();
   clearEnvironmentalSpeechEvidence();
   resetMusicIdentification('Room microphone stopped');
   resetMediaIdentification('Room microphone stopped');
@@ -6026,6 +6171,33 @@ if(state.mode==='agent'){
   window.addEventListener('tracky:media-visual-clue',event=>{
    const detail=event?.detail&&typeof event.detail==='object'?event.detail:{};
    void processMediaVisualClue(detail);
+  });
+  const personalizedSoundsToggle=document.getElementById('roomPersonalizedSounds');
+  if(personalizedSoundsToggle){
+   let savedPersonalized=null;try{savedPersonalized=window.localStorage.getItem('tracky2-room-personalized-sounds');}catch{}
+   personalizedSoundsEnabled=savedPersonalized==='yes';
+   personalizedSoundsToggle.checked=personalizedSoundsEnabled;
+   void refreshPersonalizedSoundProfiles();
+   personalizedSoundsToggle.addEventListener('change',()=>{
+    personalizedSoundsEnabled=personalizedSoundsToggle.checked;
+    resetPersonalizedSoundRuntime();
+    try{window.localStorage.setItem('tracky2-room-personalized-sounds',
+     personalizedSoundsEnabled?'yes':'no');}catch{}
+    logRoomMessage('system','Owner '+(personalizedSoundsEnabled?'enabled':'disabled')+
+     ' local personalized sound learning and recognition',
+     'audio-consent',{semantic:'personalized-sound-consent'});
+   });
+  }
+  document.getElementById('roomTeachLatestSound')?.addEventListener('click',()=>
+   void teachLatestPersonalizedSound());
+  document.getElementById('roomClearPersonalizedSounds')?.addEventListener('click',async()=>{
+   if(!window.confirm('Clear all owner-labeled personalized sound profiles on this device?'))return;
+   try{
+    await clearPersonalizedSoundProfiles();personalizedSoundProfiles=[];
+    resetPersonalizedSoundRuntime();renderPersonalizedSounds();
+    logRoomMessage('system','Owner cleared personalized sound profiles',
+     'owner-sound-learning',{semantic:'personalized-sound-profiles-cleared'});
+   }catch(error){console.warn('Unable to clear personalized sound profiles',error);}
   });
   const importantSoundsToggle=document.getElementById('roomImportantSoundEvents');
   if(importantSoundsToggle){
