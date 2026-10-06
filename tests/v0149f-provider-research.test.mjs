@@ -20,7 +20,7 @@ test('14.9F OpenAI and Anthropic research use provider-native web search tools',
 test('14.9F research source collection is bounded to HTTPS provenance',()=>{
  const php=fs.readFileSync('server/provider-api.php','utf8');
  assert.match(php,/count\(\$sources\)>=5/);
- assert.match(php,/preg_match\('#\^https:\/\/#i,\$url\)/);
+ assert.ok(php.includes("preg_match('#^https://#i',$url)"));
 });
 
 test('14.9F browser research client sends explicit confirmed action and bounded messages',()=>{
