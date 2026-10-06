@@ -525,6 +525,11 @@ function persistSituationalAwareness(){
 function clearSituationalAwareness(){
  roomSituationalAwareness=new RoomSituationalAwarenessTracker();
  roomContextPlanner=new RoomContextPlanner();
+ unifiedCognitiveState.reset();
+ attentionPriorityEngine.reset();
+ goalIntentTracker.reset();
+ cognitiveOrchestrator.reset();
+ pendingArrivalDecision=null;
  pendingSituationalEngagement=null;pendingContextualFollowThrough=null;
  lastSituationalMediaKey='';lastSituationalMediaAt=0;
  try{window.localStorage.removeItem('tracky2-room-situational-awareness-v1');}catch{}
