@@ -94,6 +94,7 @@ const state = {
   initStartedAt:0,
   cameraGeneration: 0,
   voiceDraft: {},
+  voiceRecording: false,
   saving: false
 };
 
@@ -633,6 +634,10 @@ function captureFaceSample(){
 
 async function saveForm() {
   if(state.saving)return;
+  if(state.voiceRecording){
+    setMessage('Stop the active Voice Profile recording before saving this participant.','error');
+    return;
+  }
   const name = ui.name.value.trim();
   if (!name) {
     setMessage('Enter a participant name before saving.', 'error');
@@ -691,7 +696,7 @@ async function saveForm() {
     setMessage('Participant could not be saved: '+(error?.message||'local storage error')+'. Your unsaved enrollment remains on this page.','error');
   }finally{
     state.saving=false;
-    ui.save.disabled=false;
+    ui.save.disabled=state.voiceRecording;
     ui.save.textContent=idleLabel||'Save participant';
   }
 }
@@ -788,6 +793,12 @@ document.addEventListener('visibilitychange',()=>{
    void startCameraIfPreviouslyApproved();
  }
 });
+window.addEventListener('tracky:participant-voice-recording',event=>{
+ state.voiceRecording=Boolean(event.detail?.recording);
+ if(!state.saving)ui.save.disabled=state.voiceRecording;
+ if(state.voiceRecording)setMessage('Voice Profile recording active · stop or finish the sample before saving.','ok');
+});
+
 window.addEventListener('tracky:participant-voice-draft',event=>{
  state.voiceDraft=voiceDraftSaveFields(event.detail?.profile||{});
  const count=state.voiceDraft.voiceEmbeddings?.length||0;
