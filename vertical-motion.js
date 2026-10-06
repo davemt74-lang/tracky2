@@ -2167,7 +2167,7 @@ async function processMusicRecognitionWork(job){
      evidenceId:job.evidenceId,signal:musicFingerprintAbortController.signal
     });
    }catch(error){
-    if(error?.name==='AbortError'){outcome='cancelled';return;}
+    if(error?.name==='AbortError'){providerRecoveryCoordinator.cancel({requestKey:musicFingerprintRequestKey});outcome='cancelled';return;}
     noteRoomProviderOutcome('acrcloud','failure',String(error?.message||'recognition-error'),musicFingerprintRequestKey);
     const status=Number(error?.status);
     musicRecognitionDecision=status===409
@@ -2191,6 +2191,7 @@ async function processMusicRecognitionWork(job){
      musicWorkingLyricQuery='';renderMusicIdentification();return;
     }
    }else if(fingerprint.available&&fingerprint.reason==='no-match'){
+    noteRoomProviderOutcome('acrcloud','success','no-match',musicFingerprintRequestKey);
     musicRecognitionDecision='ACRCloud found no match · trying local lyric fallback';
    }
    }
@@ -2203,7 +2204,9 @@ async function processMusicRecognitionWork(job){
   if(job.lyricEligible){
    const ready=await ensureTranscriptionEngine();
    if(ready){
+    const whisperRequestKey='local-whisper:music:'+job.evidenceId;
     const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+    noteRoomProviderOutcome('local-whisper','success','music-transcription',whisperRequestKey);
     if(!current()){outcome='cancelled';return;}
     const lyric=musicIdentificationTracker.noteLyrics(detail.text,Date.now());
     musicWorkingLyricQuery=lyric.usable?lyric.query:'';
@@ -2239,10 +2242,11 @@ async function processMusicRecognitionWork(job){
          ?'Track confirmed from corroborated lyric/web evidence'
          :'Web lyric candidate received · waiting for another independent clue';
        }else{
+        noteRoomProviderOutcome('music-web','success','no-match',musicWebRequestKey);
         musicRecognitionDecision='Public web search found no strong song candidate';
        }
       }catch(error){
-       if(error?.name==='AbortError'){outcome='cancelled';return;}
+       if(error?.name==='AbortError'){providerRecoveryCoordinator.cancel({requestKey:musicWebRequestKey});outcome='cancelled';return;}
        noteRoomProviderOutcome('music-web','failure',String(error?.message||'lookup-error'),musicWebRequestKey);
        const status=Number(error?.status);
        musicRecognitionDecision=status===409
@@ -2277,6 +2281,8 @@ async function processMusicRecognitionWork(job){
     :'Music window retained no identity evidence · live-room speech risk avoided';
   }
  }catch(error){
+  if(String(error?.message||'').toLowerCase().includes('transcrib'))
+   noteRoomProviderOutcome('local-whisper','failure',String(error?.message||'transcription-error'),'local-whisper:music:'+job.evidenceId);
   outcome='error';
   musicRecognitionState='error';
   musicRecognitionDecision='Music identification window failed safely';
@@ -2434,7 +2440,7 @@ function logMediaIdentificationResult(result){
  });
 }
 async function processMediaRecognitionWork(job){
- let outcome='complete';
+ let outcome='complete',mediaWebRequestKey=null;
  const generation=job.generation;
  const current=()=>generation===mediaRecognitionGeneration&&mediaIdentificationEnabled;
  try{
@@ -2442,7 +2448,9 @@ async function processMediaRecognitionWork(job){
   renderMediaIdentification();
   const ready=await ensureTranscriptionEngine();
   if(!ready){mediaRecognitionDecision='Local recorded-media transcription unavailable';return;}
+  const whisperRequestKey='local-whisper:media:'+job.evidenceId;
   const detail=await state.voice.transcriber.transcribeDetailed(job.samples);
+  noteRoomProviderOutcome('local-whisper','success','media-transcription',whisperRequestKey);
   if(!current()){outcome='cancelled';return;}
   const clue=mediaIdentificationTracker.noteDialogue(detail.text,Date.now());
   mediaWorkingDialogueQuery=clue.usable?clue.query:'';
@@ -2463,7 +2471,7 @@ async function processMediaRecognitionWork(job){
   renderMediaIdentification();
   mediaWebAbortController?.abort();
   mediaWebAbortController=new AbortController();
-  const mediaWebRequestKey='media-web:'+job.evidenceId+':'+clue.query.toLowerCase();
+  mediaWebRequestKey='media-web:'+job.evidenceId+':'+clue.query.toLowerCase();
   const recoveryGate=providerRecoveryCoordinator.begin({
    requestKey:mediaWebRequestKey,provider:'media-web',now:Date.now()
   });
@@ -2487,10 +2495,15 @@ async function processMediaRecognitionWork(job){
    mediaRecognitionDecision=observed.media.status==='confirmed'
     ?'Recorded media title confirmed from corroborated evidence'
     :'Media candidate received · waiting for another independent clue';
-  }else mediaRecognitionDecision='Public web search found no strong media candidate';
+  }else{
+   noteRoomProviderOutcome('media-web','success','no-match',mediaWebRequestKey);
+   mediaRecognitionDecision='Public web search found no strong media candidate';
+  }
  }catch(error){
-  if(error?.name==='AbortError'){outcome='cancelled';return;}
-  noteRoomProviderOutcome('media-web','failure',String(error?.message||'lookup-error'),typeof mediaWebRequestKey==='string'?mediaWebRequestKey:null);
+  if(error?.name==='AbortError'){if(mediaWebRequestKey)providerRecoveryCoordinator.cancel({requestKey:mediaWebRequestKey});outcome='cancelled';return;}
+  if(String(error?.message||'').toLowerCase().includes('transcrib'))
+   noteRoomProviderOutcome('local-whisper','failure',String(error?.message||'transcription-error'),'local-whisper:media:'+job.evidenceId);
+  else noteRoomProviderOutcome('media-web','failure',String(error?.message||'lookup-error'),mediaWebRequestKey);
   outcome='error';
   const status=Number(error?.status);
   mediaRecognitionDecision=status===409
