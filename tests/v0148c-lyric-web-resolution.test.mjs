@@ -36,7 +36,7 @@ test('V2B3 lyric client sends only bounded clue metadata to governed server endp
  };
  const result=await searchMusicByLyricClue({
   query:'hello darkness my old friend',
-  evidenceId:'segment-1',ownerEnabled:true,fetcher
+  evidenceId:'segment-1',ownerEnabled:true,preferredProvider:'anthropic',fetcher
  });
  assert.equal(result.found,true);
  assert.equal(result.candidate.source,'lyrics');
@@ -45,9 +45,10 @@ test('V2B3 lyric client sends only bounded clue metadata to governed server endp
  assert.equal(calls.length,2);
  const body=JSON.parse(calls[1].options.body);
  assert.deepEqual(Object.keys(body).sort(),
-  ['action','evidenceId','ownerEnabled','query'].sort());
+  ['action','evidenceId','ownerEnabled','preferredProvider','query'].sort());
  assert.equal(body.action,'lyric_search');
  assert.equal(body.ownerEnabled,true);
+ assert.equal(body.preferredProvider,'anthropic');
  assert.equal('samples' in body,false);
  assert.equal('audio' in body,false);
 });
@@ -59,13 +60,16 @@ test('V2B3 lyric client requires provider permission from authenticated session'
  }),/Provider use permission required/);
 });
 
-test('V2B3 server endpoint uses governed OpenAI web search + structured output and never audits lyric text',()=>{
+test('V2B3 server endpoint routes through configured OpenAI or Anthropic web search and never audits lyric text',()=>{
  const php=fs.readFileSync('server/music-id-api.php','utf8');
  assert.match(php,/tracky_require\(\$db,'providers\.use'\)/);
  assert.match(php,/tracky_check_csrf\(\)/);
  assert.match(php,/ownerEnabled/);
  assert.match(php,/'type'=>'web_search'/);
+ assert.match(php,/'type'=>'web_search_20250305'/);
  assert.match(php,/'type'=>'json_schema'/);
+ assert.match(php,/tracky_chat_provider_plan/);
+ assert.match(php,/https:\/\/api\.anthropic\.com\/v1\/messages/);
  assert.match(php,/Do not reproduce lyrics/);
  assert.match(php,/provider\.music-lyric-search/);
  assert.doesNotMatch(php,/tracky_provider_audit\([^;]*\$query/s);
