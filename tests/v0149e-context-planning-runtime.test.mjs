@@ -16,7 +16,7 @@ test('14.9E runtime places contextual planner between interest gate and proactiv
 
 test('14.9E chosen action becomes part of semantic dedupe identity',()=>{
  const runtime=read('vertical-motion.js');
- assert.match(runtime,/candidate\.topicKey\+'\:'+plan\.action/);
+ assert.ok(runtime.includes("candidate.topicKey+':'+plan.action"));
 });
 
 test('14.9E successful proactive outcomes record planner action and later user feedback',()=>{
