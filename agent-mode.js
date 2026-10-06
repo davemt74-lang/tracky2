@@ -192,12 +192,6 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(entry.role==='participant'){
     const note=document.createElement('small');
     note.className=entry.verified?'agent-chat-verified':'agent-chat-unverified';
-    if(entry.source==='legacy-agent-history'){
-     note.textContent='Legacy local conversation · speaker attribution not revalidated';
-     bubble.append(note);
-     row.append(avatar,bubble);ui.thread.append(row);
-     continue;
-    }
     note.textContent=entry.verified
       ? 'Speaker link · '+speakerAssociationLabel(entry.associationState)
       : 'Speaker unverified · '+speakerAssociationLabel(entry.associationState);
