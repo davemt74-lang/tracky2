@@ -12,6 +12,7 @@ import {
  multiParticipantReplyPolicy,groupConversationContext,agentHistoryForScope,
  conversationContextLabel
 } from './src/multi-conversation-core.js';
+import {conversationReplyOwnershipPolicy} from './src/conversation-ownership-core.js';
 import {meetingAgentReplyPolicy} from './src/meeting-core.js';
 import {buildAgentMultimodalContext} from './src/agent-multimodal-context.js';
 // Controller receives the existing game camera, recognition and room-audio hooks.
@@ -444,6 +445,19 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    }
    return;
   }
+  const ownershipPolicy=conversationReplyOwnershipPolicy(turn,{
+   participantId:turn.conversationOwnershipParticipantId||null,
+   state:turn.conversationOwnershipState||null,
+   scopeId:turn.conversationOwnershipScopeId||turn.conversationScopeId||null
+  });
+  if(!ownershipPolicy.allow||turn.conversationOwnershipReplyAllowed===false){
+   if(responsePending){
+    responseGeneration+=1;responsePending=false;modelController?.abort();
+   }
+   ui.modelStatus.textContent='Conversation ownership blocked reply · '+
+    (turn.conversationOwnershipReplyReason||ownershipPolicy.reason);
+   return;
+  }
   if(policy.action==='replace-pending-reply'){
    responseGeneration+=1;
    responsePending=false;
@@ -477,6 +491,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
        if(responseToken!==responseGeneration||open)return;
        if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
        if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
+       if(!conversationReplyOwnershipPolicy(turn,{participantId:turn.conversationOwnershipParticipantId,state:turn.conversationOwnershipState}).allow)return;
        say(reply,turn.participantId||null,turn.conversationScopeId||null);
        ui.modelStatus.textContent='Local Ollama connected · scoped conversation';return;
       }catch(error){
@@ -502,6 +517,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
        if(responseToken!==responseGeneration||open)return;
        if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
        if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
+       if(!conversationReplyOwnershipPolicy(turn,{participantId:turn.conversationOwnershipParticipantId,state:turn.conversationOwnershipState}).allow)return;
        say(result.reply,turn.participantId||null,turn.conversationScopeId||null);
        if(ui.providerBudget&&result.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
        ui.modelStatus.textContent=candidate+' connected · scoped conversation'+
@@ -516,6 +532,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(responseToken!==responseGeneration||open)return;
    if(!replyEligibility({turn,now:Date.now(),minGapMs:0,lastReplyAt:0}).allow)return;
    if(!meetingAgentReplyPolicy(getMeeting(),turn).allow)return;
+   if(!conversationReplyOwnershipPolicy(turn,{participantId:turn.conversationOwnershipParticipantId,state:turn.conversationOwnershipState}).allow)return;
    const recent=prior.filter(x=>x.role==='participant').slice(-4).map(x=>x.text);
    const reply=localAgentReply(turn.transcript,{
     name:reasoningContext.mayUseParticipantName?(reasoningContext.participantName||known?.name||''):'',
