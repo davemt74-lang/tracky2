@@ -50,7 +50,7 @@ export function normalizeProactivePolicy(input={}){
 export function proactiveOpportunity(input={},now=Date.now(),policy=DEFAULT_PROACTIVE_POLICY){
  const p=normalizeProactivePolicy(policy);
  const type=String(input.type||'').trim();
- if(!['conversation-followup','task-status','meeting-followup','routine-status'].includes(type))
+ if(!['conversation-followup','task-status','meeting-followup','routine-status','environment-alert'].includes(type))
   throw new Error('Unsupported proactive opportunity type.');
  const sourceAt=finite(input.sourceAt)?input.sourceAt:now;
  const eligibleAt=finite(input.eligibleAt)?Math.max(sourceAt,input.eligibleAt):
@@ -109,6 +109,22 @@ export function statusOpportunity(event,now=Date.now(),policy=DEFAULT_PROACTIVE_
  if(!event?.semantic)return null;
  const p=normalizeProactivePolicy(policy);
  if(!p.enabled||!p.statusNoticesEnabled)return null;
+ if(event.semantic==='environmental-alert'){
+  const meta=event?.evidence?.environmentalAlert||{};
+  if(meta.proactiveEligible!==true||!String(meta.agentNotice||'').trim())return null;
+  return proactiveOpportunity({
+   type:'environment-alert',
+   sourceAt:finite(event.at)?event.at:now,
+   text:String(meta.agentNotice).slice(0,500),
+   dedupeKey:'environment-alert:'+(meta.key||event.id||now),
+   semanticKey:'environment-alert:'+(meta.key||'important-sound'),
+   usefulness:meta.severity==='urgent'?.94:.78,
+   urgency:meta.severity==='urgent'?.94:.62,
+   confidence:Math.max(0,Math.min(1,Number(event.confidence)||0)),
+   relatedEventId:event.id||null,
+   source:'environmental-alert-runtime'
+  },now,p);
+ }
  if(event.semantic==='agent-task-outcome'){
   if(String(event.message||'').toLowerCase().includes('retry scheduled'))return null;
   return proactiveOpportunity({
