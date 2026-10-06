@@ -581,10 +581,12 @@ function renderCognitiveStatus(){
  if(awarenessLabel&&state.mode==='agent'){
   const awareness=roomSituationalAwareness.snapshot();
   const last=awareness.lastDecision;
+  const planning=roomContextPlanner.snapshot();
   awarenessLabel.textContent='Situational learning · '+awareness.eventCount+' events · '+
    awareness.feedbackCount+' feedback signals · '+
    (saveRoomHistory?'saved locally':'session only')+
-   (last?' · last interest '+Math.round(last.score*100)+'%':'');
+   (last?' · last interest '+Math.round(last.score*100)+'%':'')+
+   (planning.lastPlan?' · plan '+planning.lastPlan.action:'');
  }
  const label=document.getElementById('agentCognitiveStatus');
  if(!label||state.mode!=='agent')return;
