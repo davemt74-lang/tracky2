@@ -1,4 +1,5 @@
 import { voiceProfileReadiness } from './src/voice-core.js';
+import {voiceDraftSaveFields} from './src/participant-enrollment-core.js';
 import {LAST_PARTICIPANT_KEY,loadCameraPreference,saveCameraPreference,cameraAutostartEligible,cameraPermissionState} from './src/camera-preference.js';
 import {
   loadFaceGallery,captureFaceGallerySample,removeFaceGallerySample,faceGalleryStatus,gallerySaveFields,
@@ -91,7 +92,9 @@ const state = {
   mirrorPreview: true,
   completeScans: 0,
   initStartedAt:0,
-  cameraGeneration: 0
+  cameraGeneration: 0,
+  voiceDraft: {},
+  saving: false
 };
 
 function setMessage(message = '', kind = '') {
@@ -242,6 +245,7 @@ function updatePhotos() {
 
 function clearForm() {
   state.editingId = null;
+  state.voiceDraft = {};
   document.body.dataset.participantId = '';
   window.dispatchEvent(new CustomEvent('tracky:participant-cleared'));
   state.primaryPhoto = null;
@@ -339,6 +343,7 @@ async function loadParticipant(id) {
   if (!participant) return;
 
   state.editingId = participant.id;
+  state.voiceDraft = {};
   document.body.dataset.participantId = participant.id;
   window.dispatchEvent(new CustomEvent('tracky:participant-loaded', { detail: { participantId: participant.id } }));
   state.primaryPhoto = participant.primaryPhoto || null;
@@ -627,6 +632,7 @@ function captureFaceSample(){
 }
 
 async function saveForm() {
+  if(state.saving)return;
   const name = ui.name.value.trim();
   if (!name) {
     setMessage('Enter a participant name before saving.', 'error');
@@ -634,45 +640,60 @@ async function saveForm() {
     return;
   }
 
-  const existing = state.editingId ? await getParticipant(state.editingId) : null;
-  const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
-  const accountOnlyExisting=Boolean(existing)&&!(existing.embeddings?.length||0)&&
-    existing.accountBiometricSyncEnabled!==true;
-  if (!galleryStatus.ready && !accountOnlyExisting) {
-    setMessage('Capture at least three face samples, or disable recognition for this participant.', 'error');
-    return;
+  state.saving=true;
+  const idleLabel=ui.save.textContent;
+  ui.save.disabled=true;
+  ui.save.textContent='Saving…';
+  try{
+    const existing = state.editingId ? await getParticipant(state.editingId) : null;
+    const galleryStatus=faceGalleryStatus(state.gallery,ui.recognitionEnabled.checked);
+    const galleryFields=gallerySaveFields(state.gallery);
+    const draftVoice=voiceDraftSaveFields(state.voiceDraft);
+    const record = await saveParticipant({
+      ...(existing || {}),
+      id: state.editingId || undefined,
+      name,
+      nickname: ui.nickname.value,
+      notes: ui.notes.value,
+      primaryPhoto: state.primaryPhoto,
+      latestPhoto: state.latestPhoto || state.primaryPhoto,
+      ...galleryFields,
+      ...draftVoice,
+      recognitionEnabled: ui.recognitionEnabled.checked,
+      agentProactiveEnabled: ui.agentProactiveEnabled.checked,
+      accountBiometricSyncEnabled: ui.accountBiometricSyncEnabled.checked
+    });
+
+    state.editingId = record.id;
+    state.voiceDraft = {};
+    document.body.dataset.participantId = record.id;
+    try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,record.id);}catch{}
+    window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id } }));
+    ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
+    ui.formTitle.textContent = record.name;
+    ui.delete.hidden = false;
+
+    if (state.pendingId) {
+      await deletePendingCapture(state.pendingId).catch(() => {});
+      state.pendingId = null;
+      history.replaceState(null, '', './participants.html');
+    }
+
+    await reloadParticipants();
+    setMessage(
+      galleryStatus.ready
+        ? 'Participant saved. Face recognition is ready. Signed-in account sync will update automatically.'
+        : 'Participant saved. Face recognition will become active after 3 clean face samples. You can continue face and voice enrollment now.',
+      'ok'
+    );
+  }catch(error){
+    console.error('Participant save failed',error);
+    setMessage('Participant could not be saved: '+(error?.message||'local storage error')+'. Your unsaved enrollment remains on this page.','error');
+  }finally{
+    state.saving=false;
+    ui.save.disabled=false;
+    ui.save.textContent=idleLabel||'Save participant';
   }
-  const galleryFields=gallerySaveFields(state.gallery);
-  const record = await saveParticipant({
-    ...(existing || {}),
-    id: state.editingId || undefined,
-    name,
-    nickname: ui.nickname.value,
-    notes: ui.notes.value,
-    primaryPhoto: state.primaryPhoto,
-    latestPhoto: state.latestPhoto || state.primaryPhoto,
-    ...galleryFields,
-    recognitionEnabled: ui.recognitionEnabled.checked,
-    agentProactiveEnabled: ui.agentProactiveEnabled.checked,
-    accountBiometricSyncEnabled: ui.accountBiometricSyncEnabled.checked
-  });
-
-  state.editingId = record.id;
-  document.body.dataset.participantId = record.id;
-  try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,record.id);}catch{}
-  window.dispatchEvent(new CustomEvent('tracky:participant-saved', { detail: { participantId: record.id } }));
-  ui.formModeLabel.textContent = 'PARTICIPANT PROFILE';
-  ui.formTitle.textContent = record.name;
-  ui.delete.hidden = false;
-
-  if (state.pendingId) {
-    await deletePendingCapture(state.pendingId).catch(() => {});
-    state.pendingId = null;
-    history.replaceState(null, '', './participants.html');
-  }
-
-  await reloadParticipants();
-  setMessage('Participant saved. Signed-in account sync will update automatically.', 'ok');
 }
 
 async function removeCurrentParticipant() {
@@ -767,6 +788,12 @@ document.addEventListener('visibilitychange',()=>{
    void startCameraIfPreviouslyApproved();
  }
 });
+window.addEventListener('tracky:participant-voice-draft',event=>{
+ state.voiceDraft=voiceDraftSaveFields(event.detail?.profile||{});
+ const count=state.voiceDraft.voiceEmbeddings?.length||0;
+ if(count)setMessage('Voice Profile draft captured · '+count+'/3 samples. It will be stored when you save the participant.','ok');
+});
+
 window.addEventListener('tracky:participant-voice-updated', async () => {
   await reloadParticipants();
 });
