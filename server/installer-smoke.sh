@@ -34,8 +34,8 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -b "$temp/cookies" -c "$temp/cook
  --data-urlencode "username=first-owner" --data-urlencode "password=correct horse battery stable" \
  "http://127.0.0.1:$port/server/admin.php")"
 [[ "$code" == 303 ]] || { cat "$temp/php.log"; echo "login returned $code";exit 1; }
-curl -sf -b "$temp/cookies" "http://127.0.0.1:$port/server/admin.php" | grep -F 'LLM &amp; Voice Providers' >/dev/null || \
- curl -sf -b "$temp/cookies" "http://127.0.0.1:$port/server/admin.php" | grep -F 'LLM & Voice Providers' >/dev/null
+curl -sf -b "$temp/cookies" "http://127.0.0.1:$port/server/admin.php" | grep -F 'AI, Voice &amp; Recognition Providers' >/dev/null || \
+ curl -sf -b "$temp/cookies" "http://127.0.0.1:$port/server/admin.php" | grep -F 'AI, Voice & Recognition Providers' >/dev/null
 # V0.10H sync contract: explicit authenticated write, encrypted profile, optimistic conflict.
 curl -sf -b "$temp/cookies" "http://127.0.0.1:$port/server/admin.php" -o "$temp/admin.html"
 sync_token="$(sed -n 's/.*name="csrf" value="\([^"]*\)".*/\1/p' "$temp/admin.html" | head -1)"
