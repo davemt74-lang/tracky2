@@ -173,6 +173,9 @@ test('V2H ROOM UI keeps exact remote recognition opt-in and preserves local fall
  assert.match(runtime,/createAcrCloudMusicProvider/);
  assert.match(runtime,/ACRCloud recognition failed safely · continuing with local lyric fallback/);
  assert.match(runtime,/musicFingerprintAbortController\?\.abort\(\)/);
+ assert.match(runtime,/const remoteExactEligible=Boolean\(speechOrigin\?\.state==='recorded'\)/);
+ assert.match(runtime,/musicFingerprintLookupEnabled&&job\.remoteExactEligible/);
+ assert.match(runtime,/ACRCloud audio skipped · live-room speech may be present/);
  assert.doesNotMatch(runtime,/logRoomMessage\([^)]*job\.samples/s);
  assert.doesNotMatch(runtime,/saveDialogueTurn\([^)]*job\.samples/s);
 });
