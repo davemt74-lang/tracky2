@@ -1093,6 +1093,8 @@ function queueEnvironmentalAudio(segment){
 }
 function logEnvironmentalActivityTransition(transition,group=null){
  if(!transition||state.mode!=='agent')return null;
+ if(transition.type==='stop'&&mediaKindForEnvironmentalState(transition))
+  roomMediaFusionTracker.reset();
  if(transition.category==='music'&&transition.type==='stop'){
   const stopped=musicIdentificationTracker.clearConfirmed(transition.at);
   logMusicIdentificationResult(stopped);
@@ -1137,6 +1139,7 @@ function setEnvironmentalAudioEnabled(enabled){
   environmentalAudioTracker.reset();
   environmentalEventGrouper.reset();
   environmentalActivityTracker.reset();
+  roomMediaFusionTracker.reset();
   environmentalAlertTracker.reset();
   environmentalMechanicalTracker.reset();
   resetPersonalizedSoundRuntime();
@@ -1159,6 +1162,7 @@ function setEnvironmentalAudioEnabled(enabled){
   resetPersonalizedSoundRuntime();
   // Disabling the sensor does not prove that music/TV/voices stopped.
   environmentalActivityTracker.reset();
+  roomMediaFusionTracker.reset();
   roomSpeechOriginTracker.reset();
   environmentalAudioLast=null;environmentalAudioCurrentGroup=null;
   environmentalAudioState='off';
@@ -1589,6 +1593,7 @@ async function processMediaVisualClue(detail={}){
 }
 function resetMediaIdentification(reason='Waiting for recorded TV / video dialogue'){
  mediaRecognitionGeneration++;
+ roomMediaFusionTracker.reset();
  mediaWebAbortController?.abort();mediaWebAbortController=null;
  mediaRecognitionQueue.clear();mediaIdentificationTracker.reset();mediaLookupGuard.reset();
  mediaWorkingDialogueQuery='';mediaWorkingVisualClue='';
