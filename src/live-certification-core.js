@@ -42,6 +42,9 @@ export function normalizeLiveRuntimeSnapshot(input={},now=Date.now()){
   longSessionDurationMs:Math.max(0,Number(input.longSessionDurationMs)||0),
   longSessionFailures:Object.freeze((Array.isArray(input.longSessionFailures)?input.longSessionFailures:[])
    .map(x=>clean(x,80)).filter(Boolean).slice(0,24)),
+  autonomyStatus:clean(input.autonomyStatus,32)||null,
+  autonomyFailures:Object.freeze((Array.isArray(input.autonomyFailures)?input.autonomyFailures:[])
+   .map(x=>clean(x,96)).filter(Boolean).slice(0,64)),
   performanceLevel:clean(input.performanceLevel,32)||null,
   heapGrowthRatio:finite(input.heapGrowthRatio)?Number(input.heapGrowthRatio):null,
   maxHeapRatio:finite(input.maxHeapRatio)?Number(input.maxHeapRatio):null
