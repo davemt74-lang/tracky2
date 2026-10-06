@@ -2,11 +2,13 @@
 // calibration; no images, biometrics, participants or sensor frames are stored.
 import {normalizeFloorCalibration,calibratedTrackPosition} from './spatial-calibration-core.js';
 import {normalizeEnabledSkills} from './governed-skill-core.js';
-export const ROOM_SCENE_SCHEMA=4;
+export const ROOM_SCENE_SCHEMA=5;
 export const MAX_ROOM_AREAS=16;
 export const MAX_ROOM_OBJECTS=32;
 export const AREA_KINDS=Object.freeze(['zone','entrance','desk','seat','other']);
 export const OBJECT_KINDS=Object.freeze(['furniture','device','other']);
+export const OBJECT_ROLES=Object.freeze(['display','speaker','media-device','appliance','door','other']);
+export const OBJECT_AUDIO_DIRECTIONS=Object.freeze(['left','center','right','unavailable']);
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const label=(v,max=64)=>String(v??'').trim().slice(0,max);
 const id=()=>globalThis.crypto?.randomUUID?.()||
@@ -40,9 +42,13 @@ export function normalizeRoomScene(input={}){
   const objectId=label(row.id,96),name=label(row.name);
   if(!objectId||!name||objectIds.has(objectId))continue;
   objectIds.add(objectId);
-  objects.push(Object.freeze({id:objectId,name,kind:OBJECT_KINDS.includes(row.kind)?row.kind:'other',
+  objects.push(Object.freeze({
+   id:objectId,name,kind:OBJECT_KINDS.includes(row.kind)?row.kind:'other',
+   role:OBJECT_ROLES.includes(row.role)?row.role:'other',
+   audioDirection:OBJECT_AUDIO_DIRECTIONS.includes(row.audioDirection)?row.audioDirection:'unavailable',
    areaId:ids.has(row.areaId)?row.areaId:null,skills:normalizeEnabledSkills(row.skills,true),
-   provenance:'owner-defined'}));
+   provenance:'owner-defined'
+  }));
  }
  const calibration=normalizeFloorCalibration(input.calibration);
  const roomIdentityId=label(input.roomIdentityId,96)||'room-local';
@@ -84,8 +90,12 @@ export function upsertRoomObject(scene,input){
  if(at<0&&base.objects.length>=MAX_ROOM_OBJECTS)throw Error('Maximum '+MAX_ROOM_OBJECTS+' objects.');
  const prior=at>=0?base.objects[at]:null;
  const skills=input?.skills===undefined?(prior?.skills||['describe_object']):normalizeEnabledSkills(input.skills,true);
+ const role=input?.role===undefined?(prior?.role||'other'):
+  OBJECT_ROLES.includes(input.role)?input.role:'other';
+ const audioDirection=input?.audioDirection===undefined?(prior?.audioDirection||'unavailable'):
+  OBJECT_AUDIO_DIRECTIONS.includes(input.audioDirection)?input.audioDirection:'unavailable';
  const obj={id:objectId,name,kind:OBJECT_KINDS.includes(input?.kind)?input.kind:'other',
-  areaId:input?.areaId||null,skills,provenance:'owner-defined'};
+  role,audioDirection,areaId:input?.areaId||null,skills,provenance:'owner-defined'};
  const objects=[...base.objects];if(at<0)objects.push(obj);else objects[at]=obj;
  return normalizeRoomScene({...base,objects});
 }
