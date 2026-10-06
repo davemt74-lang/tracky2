@@ -20,7 +20,8 @@ test('14F server API is authenticated CSRF protected encrypted and allowlisted',
 
 test('14F server schema v6 creates device scopes encrypted records journal and receipts',()=>{
  const boot=read('server/bootstrap.php');
- assert.match(boot,/TRACKY_SCHEMA_VERSION=6/);
+ const serverVersion=Number(boot.match(/TRACKY_SCHEMA_VERSION=([0-9]+)/)?.[1]||0);
+ assert.ok(serverVersion>=6,'14F resource-sync schema must survive later additive upgrades');
  for(const table of ['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'])
   assert.match(boot,new RegExp('CREATE TABLE IF NOT EXISTS '+table));
  assert.match(boot,/resource_type TEXT NOT NULL CHECK\(resource_type IN \('memory','task','scene'\)\)/);

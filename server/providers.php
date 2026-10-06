@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/bootstrap.php';
 
-const TRACKY_PROVIDERS=['openai','anthropic','elevenlabs'];
+const TRACKY_PROVIDERS=['openai','anthropic','elevenlabs','acrcloud'];
 const TRACKY_PROVIDER_DAILY_REQUESTS=200;
 const TRACKY_PROVIDER_DAILY_UNITS=200000;
 const TRACKY_PROVIDER_SESSION_REQUESTS=60;
@@ -29,6 +29,48 @@ function tracky_provider_default_model(string $provider): string {
 function tracky_provider_model_allowed(string $provider,string $model): bool {
     return in_array($model,tracky_provider_models($provider),true);
 }
+
+function tracky_acrcloud_host(string $value): string {
+    $value=strtolower(trim($value));
+    if(str_starts_with($value,'https://')){
+        $parts=parse_url($value);
+        if(!is_array($parts)||($parts['scheme']??'')!=='https'||isset($parts['user'])||isset($parts['pass'])||
+           isset($parts['port'])||(($parts['path']??'')!==''&&($parts['path']??'')!=='/')||
+           isset($parts['query'])||isset($parts['fragment']))
+            throw new InvalidArgumentException('Invalid ACRCloud host.');
+        $value=(string)($parts['host']??'');
+    }
+    $value=rtrim($value,'/');
+    if(!preg_match('/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.acrcloud\.com$/D',$value))
+        throw new InvalidArgumentException('ACRCloud host must be an acrcloud.com identification host.');
+    return $value;
+}
+function tracky_store_acrcloud_provider(
+    PDO $db,int $actor,string $host,string $accessKey,string $accessSecret
+): void {
+    $host=tracky_acrcloud_host($host);
+    $accessKey=trim($accessKey);$accessSecret=trim($accessSecret);
+    if(!preg_match('/^[A-Za-z0-9_-]{8,160}$/D',$accessKey)||
+       strlen($accessSecret)<8||strlen($accessSecret)>512)
+        throw new InvalidArgumentException('Invalid ACRCloud project credentials.');
+    $bundle=json_encode([
+      'host'=>$host,'accessKey'=>$accessKey,'accessSecret'=>$accessSecret
+    ],JSON_THROW_ON_ERROR);
+    tracky_store_provider($db,$actor,'acrcloud',$bundle);
+}
+function tracky_acrcloud_config(PDO $db): ?array {
+    $secret=tracky_provider_secret($db,'acrcloud');
+    if($secret===null)return null;
+    try{$row=json_decode($secret,true,8,JSON_THROW_ON_ERROR);}
+    catch(Throwable){return null;}
+    if(!is_array($row))return null;
+    try{$host=tracky_acrcloud_host((string)($row['host']??''));}
+    catch(Throwable){return null;}
+    $accessKey=trim((string)($row['accessKey']??''));
+    $accessSecret=trim((string)($row['accessSecret']??''));
+    if(!preg_match('/^[A-Za-z0-9_-]{8,160}$/D',$accessKey)||strlen($accessSecret)<8)return null;
+    return ['host'=>$host,'accessKey'=>$accessKey,'accessSecret'=>$accessSecret];
+}
 function tracky_store_provider(PDO $db,int $actor,string $provider,string $secret): void {
     if(!in_array($provider,TRACKY_PROVIDERS,true)) throw new InvalidArgumentException('Unknown provider.');
     $secret=trim($secret);
@@ -46,13 +88,17 @@ function tracky_provider_secret(PDO $db,string $provider): ?string {
 function tracky_provider_status(PDO $db): array {
     $rows=$db->query('SELECT provider,updated_at FROM provider_credentials')->fetchAll();
     $configured=[];foreach($rows as $r)$configured[$r['provider']]=$r['updated_at'];
-    return array_map(static fn($name)=>[
-        'provider'=>$name,'configured'=>isset($configured[$name]),
-        'updatedAt'=>$configured[$name]??null,
-        'models'=>tracky_provider_models($name),
-        'defaultModel'=>tracky_provider_default_model($name),
-        'transportAvailable'=>extension_loaded('curl')
-    ],TRACKY_PROVIDERS);
+    return array_map(static function($name) use($configured,$db){
+        $isConfigured=isset($configured[$name]);
+        if($name==='acrcloud'&&$isConfigured)$isConfigured=tracky_acrcloud_config($db)!==null;
+        return [
+          'provider'=>$name,'configured'=>$isConfigured,
+          'updatedAt'=>$configured[$name]??null,
+          'models'=>tracky_provider_models($name),
+          'defaultModel'=>tracky_provider_default_model($name),
+          'transportAvailable'=>extension_loaded('curl')
+        ];
+    },TRACKY_PROVIDERS);
 }
 function tracky_chat_provider_plan(PDO $db,string $preferred='auto'): array {
     $preferred=strtolower(trim($preferred));

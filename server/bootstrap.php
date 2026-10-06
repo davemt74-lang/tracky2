@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const TRACKY_SCHEMA_VERSION=6;
+const TRACKY_SCHEMA_VERSION=7;
 // Self-hosted Tracky2 foundation. Requires PHP 8.1+ with PDO SQLite.
 // Keep credentials and SQLite outside the served repository/document root.
 // Default three levels above server/ so shared-hosted public_html is never the data directory.
@@ -124,6 +124,56 @@ function tracky_ensure_column(PDO $db,string $table,string $column,string $defin
     if(!preg_match('/^[a-z_]+$/D',$column))throw new InvalidArgumentException('Invalid column name.');
     $db->exec('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition);
 }
+function tracky_provider_table_allows_acrcloud(PDO $db,string $table): bool {
+    if(!in_array($table,['provider_credentials','provider_usage_daily'],true))
+        throw new InvalidArgumentException('Invalid provider table.');
+    $s=$db->prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?");
+    $s->execute([$table]);$sql=(string)($s->fetchColumn()?:'');
+    return str_contains(strtolower($sql),"'acrcloud'");
+}
+function tracky_migrate_provider_constraints(PDO $db): void {
+    $credentialsExists=(bool)$db->query(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_credentials'"
+    )->fetchColumn();
+    $usageExists=(bool)$db->query(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'"
+    )->fetchColumn();
+    $migrateCredentials=$credentialsExists&&!tracky_provider_table_allows_acrcloud($db,'provider_credentials');
+    $migrateUsage=$usageExists&&!tracky_provider_table_allows_acrcloud($db,'provider_usage_daily');
+    if(!$migrateCredentials&&!$migrateUsage)return;
+    $db->beginTransaction();
+    try{
+        if($migrateCredentials){
+            $db->exec("CREATE TABLE provider_credentials_v7(
+              provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs','acrcloud')),
+              ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id),
+              updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )");
+            $db->exec("INSERT INTO provider_credentials_v7(provider,ciphertext,updated_by,updated_at)
+              SELECT provider,ciphertext,updated_by,updated_at FROM provider_credentials");
+            $db->exec('DROP TABLE provider_credentials');
+            $db->exec('ALTER TABLE provider_credentials_v7 RENAME TO provider_credentials');
+        }
+        if($migrateUsage){
+            $db->exec("CREATE TABLE provider_usage_daily_v7(
+              actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              provider TEXT NOT NULL CHECK(provider IN ('openai','anthropic','elevenlabs','acrcloud')),
+              usage_day TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+              units INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
+              PRIMARY KEY(actor_id,provider,usage_day)
+            )");
+            $db->exec("INSERT INTO provider_usage_daily_v7(actor_id,provider,usage_day,requests,units,failures)
+              SELECT actor_id,provider,usage_day,requests,units,failures FROM provider_usage_daily");
+            $db->exec('DROP TABLE provider_usage_daily');
+            $db->exec('ALTER TABLE provider_usage_daily_v7 RENAME TO provider_usage_daily');
+        }
+        $db->commit();
+    }catch(Throwable $e){
+        if($db->inTransaction())$db->rollBack();
+        throw $e;
+    }
+}
+
 function tracky_migrate_participant_profiles(PDO $db): void {
     if(!is_file(TRACKY_DATA.'/installed.lock'))return; // fresh installer has no live rows yet
     $rows=$db->query("SELECT id,profile_json FROM participants WHERE profile_ciphertext IS NULL AND profile_json<>'{}'")->fetchAll();
@@ -176,12 +226,12 @@ CREATE TABLE IF NOT EXISTS object_skills(
  PRIMARY KEY(object_id,skill)
 );
 CREATE TABLE IF NOT EXISTS provider_credentials(
- provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs')),
+ provider TEXT PRIMARY KEY CHECK(provider IN ('openai','anthropic','elevenlabs','acrcloud')),
  ciphertext TEXT NOT NULL, updated_by INTEGER REFERENCES users(id), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS provider_usage_daily(
  actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- provider TEXT NOT NULL CHECK(provider IN ('openai','anthropic','elevenlabs')),
+ provider TEXT NOT NULL CHECK(provider IN ('openai','anthropic','elevenlabs','acrcloud')),
  usage_day TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
  units INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(actor_id,provider,usage_day)
@@ -246,6 +296,7 @@ SQL);
     $now=(int)floor(microtime(true)*1000);
     $q=$db->prepare('UPDATE participants SET server_updated_at=? WHERE server_updated_at=0');$q->execute([$now]);
     tracky_migrate_participant_profiles($db);
+    tracky_migrate_provider_constraints($db);
     $meta=$db->prepare('INSERT INTO schema_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');
     $meta->execute(['schema_version',(string)TRACKY_SCHEMA_VERSION]);
     $seed=[

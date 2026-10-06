@@ -175,10 +175,13 @@ test('11F approved classification metadata may use ROOM opt-in persistence but r
  assert.doesNotMatch(messageBlock,/samples|Float32Array|pcm/i);
 });
 
-test('11F exact media identification remains out of scope until a separately approved provider exists',()=>{
+test('11F local environmental classifier never performs exact media ID; later providers stay separate and opt-in',()=>{
  const core=fs.readFileSync('src/environmental-audio-core.js','utf8');
  const providers=fs.readFileSync('server/providers.php','utf8');
+ const runtime=fs.readFileSync('vertical-motion.html','utf8');
  assert.match(core,/exactMediaId:null/);
- assert.doesNotMatch(core,/shazam|song title|movie title/i);
- assert.doesNotMatch(providers,/shazam|acrcloud|audible magic/i);
+ assert.doesNotMatch(core,/shazam|song title|movie title|acrcloud/i);
+ assert.match(providers,/acrcloud/);
+ assert.match(runtime,/id="roomIdentifyMusicFingerprint"/);
+ assert.doesNotMatch(runtime,/id="roomIdentifyMusicFingerprint" checked/);
 });

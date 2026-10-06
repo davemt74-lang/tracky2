@@ -73,6 +73,8 @@ try{
     $actor=tracky_require($db,'providers.use');tracky_check_csrf();$data=tracky_json();
     $action=(string)($data['action']??'chat');$provider=(string)($data['provider']??'');
     if(!in_array($provider,TRACKY_PROVIDERS,true))tracky_reply(['error'=>'Unsupported provider'],422);
+    if($provider==='acrcloud')
+        tracky_reply(['error'=>'ACRCloud is available only through the governed music fingerprint runtime'],422);
     if(tracky_provider_circuit_open($provider))tracky_reply(['error'=>'Provider temporarily paused after repeated failures'],503);
     $secret=tracky_provider_secret($db,$provider);
     if(!$secret)tracky_reply(['error'=>'Provider is not configured'],409);

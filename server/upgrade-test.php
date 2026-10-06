@@ -4,7 +4,7 @@ function check(bool $ok,string $name):void{if(!$ok)throw new RuntimeException('F
 $temp=sys_get_temp_dir().'/tracky2-upgrade-'.bin2hex(random_bytes(5));
 if(!mkdir($temp,0700))throw new RuntimeException('Cannot prepare upgrade test.');
 putenv('TRACKY2_DATA_DIR='.$temp);
-require __DIR__.'/bootstrap.php';
+require __DIR__.'/providers.php';
 try{
  $db=new PDO('sqlite:'.$temp.'/tracky.sqlite',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
  $db->exec('PRAGMA foreign_keys=ON');
@@ -17,6 +17,8 @@ try{
  $db->exec("CREATE TABLE object_skills(object_id TEXT NOT NULL,skill TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(object_id,skill))");
  $db->exec("CREATE TABLE provider_credentials(provider TEXT PRIMARY KEY,ciphertext TEXT NOT NULL,updated_by INTEGER,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
  $db->exec("CREATE TABLE audit_log(id INTEGER PRIMARY KEY,actor_id INTEGER,action TEXT NOT NULL,subject TEXT NOT NULL,at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+ $db->exec("INSERT INTO users(id,username,password_hash,role) VALUES(1,'legacy-owner','legacy-hash','owner')");
+ $db->exec("INSERT INTO provider_credentials(provider,ciphertext,updated_by) VALUES('openai','legacy-provider-cipher',1)");
  $profile=json_encode(['id'=>'participant01','name'=>'Pat','embeddings'=>[[0.1,0.2]],'notes'=>'legacy'],JSON_THROW_ON_ERROR);
  $s=$db->prepare("INSERT INTO participants(id,name,profile_json,consent) VALUES(?,?,?,1)");$s->execute(['participant01','Pat',$profile]);
  file_put_contents($temp.'/secret.key',random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES));chmod($temp.'/secret.key',0600);
@@ -24,6 +26,8 @@ try{
  check(tracky_schema_version($db)===0,'Legacy database has no schema version');
  tracky_schema($db);
  check(tracky_schema_version($db)===TRACKY_SCHEMA_VERSION,'Upgrade records schema version');
+ check((string)$db->query("SELECT ciphertext FROM provider_credentials WHERE provider='openai'")->fetchColumn()==='legacy-provider-cipher',
+  'Provider constraint migration preserves existing encrypted credentials');
  $cols=tracky_table_columns($db,'participants');
  foreach(['profile_ciphertext','version','client_updated_at','server_updated_at','deleted_at'] as $col)
   check(in_array($col,$cols,true),'Participant column '.$col.' added');
@@ -39,6 +43,14 @@ try{
  check(tracky_permission($db,['role'=>'operator'],'skills.execute'),'Operator receives governed skill execution permission after upgrade');
  check(!tracky_permission($db,['role'=>'viewer'],'skills.execute'),'Viewer remains unable to execute governed skills after upgrade');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_usage_daily'")->fetchColumn(),'Upgrade creates provider usage budget table');
+ check(tracky_provider_table_allows_acrcloud($db,'provider_credentials'),
+  'Upgrade expands encrypted provider credentials for ACRCloud');
+ check(tracky_provider_table_allows_acrcloud($db,'provider_usage_daily'),
+  'Upgrade expands provider usage budgets for ACRCloud');
+ tracky_store_acrcloud_provider(
+  $db,1,'identify-us-west-2.acrcloud.com','upgradeAccessKey01','upgradeAccessSecret01'
+ );
+ check(tracky_acrcloud_config($db)!==null,'Upgraded database accepts encrypted ACRCloud credentials');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_nodes'")->fetchColumn(),'Upgrade creates room node registry');
  check((bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='room_node_observations'")->fetchColumn(),'Upgrade creates room observation relay');
  foreach(['sync_devices','sync_device_scopes','sync_resources','sync_resource_changes','sync_change_receipts'] as $table)
