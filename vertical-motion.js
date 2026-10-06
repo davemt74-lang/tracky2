@@ -141,6 +141,9 @@ import {
 import {
  LongSessionAutonomyMonitor,certificationLabel
 } from './src/long-session-autonomy-core.js';
+import {
+ UnifiedCognitiveStateStore
+} from './src/unified-cognitive-state-core.js';
 import {createAgentTaskUi} from './src/agent-task-ui.js';
 import {createAgentWorkflowUi} from './src/agent-workflow-ui.js';
 import {createAgentMemoryUi} from './src/agent-memory-ui.js';
@@ -390,6 +393,62 @@ function latestCanonicalDialogueAt(){
  if(!last)return 0;
  return Number.isFinite(last.at)?last.at:(Date.parse(last.createdAt||'')||0);
 }
+function updateUnifiedCognitiveState(now=Date.now()){
+ const tracks=state.running?publicRoomTracks():[];
+ const temporalRows=roomTemporal.summary(effectiveRoomScene(),now);
+ const temporalById=new Map(temporalRows.map(row=>[String(row.participantId||''),row]));
+ const participants=[];
+ for(const person of state.identity.participants||[]){
+  const track=tracks.find(row=>String(row.participantId||'')===String(person.id));
+  const temporal=temporalById.get(String(person.id))||null;
+  participants.push({
+   id:person.id,name:person.nickname||person.name||person.id,
+   visible:Boolean(track&&!['occluded','reacquiring'].includes(track.status)),
+   speaking:String(state.voice.currentSpeakerId||'')===String(person.id)&&state.voice.vad===true,
+   stationaryMs:Number(temporal?.stationaryMs)||0,
+   activity:temporal?.visibility||null,
+   lastObservedAt:Number(temporal?.lastObservedAt||temporal?.lastAt)||null
+  });
+ }
+ const tasks=taskUI?.getTasks?.()||[];
+ const workflows=workflowUI?.getWorkflows?.()||[];
+ const memories=memoryUI?.getMemories?.()||[];
+ const proactive=proactiveGovernor.snapshot(now);
+ const performance=devicePerformanceGovernor.snapshot();
+ const meeting=meetingUI?.activeMeeting?.()||null;
+ const snapshot=unifiedCognitiveState.update({
+  sessionId:roomSessionId,pageVisible:!document.hidden,
+  room:{...currentRoomIdentity(),cameraActive:state.running,microphoneActive:state.voice.active},
+  participants,
+  conversation:{
+   userSpeaking:state.voice.vad===true,processing:state.voice.processing===true,
+   lastDialogueAt:latestCanonicalDialogueAt()
+  },
+  media:roomMediaContinuity.snapshot(),
+  events:(roomHistory||[]).slice(-24),
+  memories,tasks,workflows,meeting,
+  followThrough:pendingContextualFollowThrough,
+  providers:{available:[],degraded:[]},
+  agent:{
+   busy:Boolean(state.voice.processing||agentSpeechActive||state.voice.ttsPending>0||agentRuntime?.isBusy?.()),
+   speaking:agentSpeechActive||state.voice.ttsPending>0,
+   pendingProactive:proactive.pending,interruptionsThisHour:proactive.interruptionsThisHour
+  },
+  runtime:{
+   performanceLevel:performance.level||'normal',storageStatus:storageHealth.status,
+   cameraRecoveryPending,microphoneRecoveryPending
+  }
+ },now);
+ const status=document.getElementById('unifiedCognitiveStateStatus');
+ if(status)status.textContent='Unified cognitive state · #'+unifiedCognitiveState.transition().sequence+
+  ' · '+snapshot.visibleParticipantIds.length+' visible · '+snapshot.tasks.length+' active work · '+
+  snapshot.conflicts.length+' conflict'+(snapshot.conflicts.length===1?'':'s');
+ return snapshot;
+}
+function cognitiveStateSnapshot(now=Date.now()){
+ return updateUnifiedCognitiveState(now);
+}
+
 function proactiveContext(now=Date.now()){
  const visible=state.running?publicRoomTracks().filter(track=>
   !['occluded','reacquiring'].includes(track.status)&&track.participantId):[];
@@ -711,6 +770,7 @@ function recordProactiveSourceEvent(category,message,source,options={}){
 async function tickProactive(){
  if(state.mode!=='agent'||!agentRuntime||proactiveComposePending)return;
  const now=Date.now();
+ updateUnifiedCognitiveState(now);
  settlePendingSituationalFeedback(now);
  considerContextualMediaEngagement(now);
  const decision=proactiveGovernor.evaluateNext(proactiveContext(now));
@@ -874,6 +934,7 @@ const roomLiveValidation=new RoomLiveValidationTracker();
 const roomMediaContinuity=new RoomMediaContinuityTracker();
 const roomContextualCognition=new RoomContextualCognitionTracker();
 const longSessionAutonomyMonitor=new LongSessionAutonomyMonitor({startedAt:Date.now()});
+const unifiedCognitiveState=new UnifiedCognitiveStateStore();
 let roomSituationalAwareness=new RoomSituationalAwarenessTracker();
 let roomContextPlanner=new RoomContextPlanner();
 const contextualOpportunityCandidates=new Map();
@@ -2610,6 +2671,7 @@ function addRoomObservation(observation){
  const accepted=roomLedger.append(scoped);
  if(!accepted.added)return;
  noteAutonomyCertificationObservation(accepted.event);
+ updateUnifiedCognitiveState(accepted.event.at||Date.now());
  roomHistory=roomLedger.entries();renderRoomObservations();
  const situationalEvent=situationalEventFromRoomEvent(accepted.event);
  if(situationalEvent)persistSituationalAwareness();
