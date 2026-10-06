@@ -1,3 +1,4 @@
+import {normalizeMusicCandidate} from './music-identification-core.js';
 const SESSION='./server/session.php';
 const MUSIC_ID_API='./server/music-id-api.php';
 
@@ -49,7 +50,7 @@ export async function searchMusicByLyricClue({
  const found=data?.found===true;
  return Object.freeze({
   found,
-  candidate:found?Object.freeze({
+  candidate:found?normalizeMusicCandidate({
    title:String(data?.title||'').replace(/\s+/g,' ').trim().slice(0,120),
    artist:String(data?.artist||'').replace(/\s+/g,' ').trim().slice(0,120),
    album:String(data?.album||'').replace(/\s+/g,' ').trim().slice(0,120)||null,
@@ -57,7 +58,7 @@ export async function searchMusicByLyricClue({
    provider:String(data?.provider||'openai-web-search').slice(0,64),
    externalId:null,evidenceId:String(data?.evidenceId||evidenceId||'').slice(0,96),
    sourceUrls:boundedSources(data?.sources).map(row=>row.url)
-  }):null,
+  },'lyrics',Date.now()):null,
   sources:boundedSources(data?.sources),
   provider:String(data?.provider||'openai-web-search').slice(0,64),
   model:String(data?.model||'').slice(0,80),
