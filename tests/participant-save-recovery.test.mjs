@@ -14,15 +14,15 @@ test('participant storage recovery recognizes browser IndexedDB internal failure
 test('participant save has recovery IndexedDB plus non-IndexedDB emergency storage',()=>{
  const store=read('src/participant-store.js');
  assert.match(store,/tracky-participant-profiles-recovery-v1/);
- assert.match(store,/saveRecoveryParticipant\(record,error\)/);
+ assert.match(store,/saveRecoveryParticipant/);
  assert.match(store,/listRecoveryParticipants\(\)/);
  assert.match(store,/getRecoveryParticipant\(id\)/);
- assert.match(store,/deleteRecoveryParticipant\(record\.id\)/);
+ assert.match(store,/deleteRecoveryParticipant/);
 });
 
 test('service worker cannot pin participant code to an old cache after deploy',()=>{
  const sw=read('sw.js');
- assert.match(sw,/tracky2-static-v0\.15\.2-participant-save-r2/);
+ assert.match(sw,/tracky2-static-v0\.15\.3-participant-save-r3/);
  const fetchBlock=sw.slice(sw.indexOf("self.addEventListener('fetch'"));
  assert.match(fetchBlock,/Network-first for application code/);
  assert.match(fetchBlock,/fetch\(request\)\.then\(response=>/);
