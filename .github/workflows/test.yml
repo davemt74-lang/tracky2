@@ -344,17 +344,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Documentation-only merges must not try to recreate an existing immutable release.
+          RELEASE_TITLE="Tracky2 v0.15.1 — Installed Runtime Hardening"
+          RELEASE_NOTES="V0.15.1A adds installed-runtime long-session stability hardening with bounded four-hour evidence, 10-second performance sampling, restart-persistent aggregate certification state, resource-growth budgets, and deploy verification. Certification evidence remains aggregate-only and does not retain raw media or transcripts."
+          # Preserve immutable release assets on later main merges, but keep release metadata accurate.
           if gh release view v0.15.1 >/dev/null 2>&1; then
-            echo 'v0.15.1 already published; leaving its original assets untouched.'
-            exit 0
+            gh release edit v0.15.1 --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES"
+          else
+            gh release create v0.15.1 \
+              tracky2-v0.15.1-deploy.zip \
+              tracky2-v0.15.1-deploy.zip.sha256 \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes "$RELEASE_NOTES"
           fi
-          gh release create v0.15.1 \
-            tracky2-v0.15.1-deploy.zip \
-            tracky2-v0.15.1-deploy.zip.sha256 \
-            --target "$GITHUB_SHA" \
-            --title "Tracky2 v0.15.1 — Installed Runtime Hardening" \
-            --notes "V0.14.8 closes the ROOM audio intelligence sequence through unified background-audio orchestration, exact ACRCloud recognition, recorded-media identification, conservative important-sound handling, personalized local sound learning, and release hardening. Remote recognition remains owner-controlled; certification evidence is metadata-only and representative-device scoped."
           gh release view v0.15.1 --json assets \
             --jq '.assets[].name' | grep -Fx 'tracky2-v0.15.1-deploy.zip'
           gh release view v0.15.1 --json assets \
