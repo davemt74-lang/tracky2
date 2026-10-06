@@ -1350,6 +1350,44 @@ function resetMusicIdentification(reason='Waiting for stable music'){
  renderMusicIdentification();
 }
 
+function mediaKindForEnvironmentalState(row={}){
+ if(row.category==='music')return 'music';
+ if(row.category==='media-playback'&&row.subtype==='television')return 'television';
+ if(row.category==='media-playback'&&row.subtype==='media-playback')return 'recorded-media';
+ return null;
+}
+function logRoomMediaFusion(fusion,at=Date.now()){
+ const tracked=roomMediaFusionTracker.observe(fusion,at);
+ if(!tracked.emit||state.mode!=='agent')return tracked;
+ const message=roomMediaFusionMessage(fusion);
+ if(!message)return tracked;
+ logRoomMessage('media',message,'room-media-fusion',{
+  at,semantic:'room-media-fusion',confidence:Number(fusion.confidence)||null,
+  dedupeKey:'room-media-fusion:'+fusion.state+':'+String(fusion.objectId||'unmapped')+
+   ':'+String(fusion.mediaKind||'unknown')+':'+Math.floor(at/30000),
+  evidence:{roomMediaFusion:{
+   state:fusion.state,mediaKind:fusion.mediaKind,objectId:fusion.objectId,
+   objectName:fusion.objectName,objectRole:fusion.objectRole,
+   objectAudioDirection:fusion.objectAudioDirection,
+   audioDirection:fusion.audioDirection,audioConfidence:fusion.audioConfidence,
+   visualConfidence:fusion.visualConfidence,agreement:fusion.agreement,
+   sourceVerified:fusion.sourceVerified,reason:fusion.reason
+  }}
+ });
+ return tracked;
+}
+function observeAudioMediaDeviceContext(transition){
+ const mediaKind=mediaKindForEnvironmentalState(transition);
+ if(!mediaKind||!['start','continue'].includes(transition?.type))return null;
+ const fusion=fuseRoomMediaEvidence({
+  scene:effectiveRoomScene(),mediaKind,
+  audioDirection:transition.sourceDirection,
+  audioConfidence:transition.peakConfidence
+ });
+ logRoomMediaFusion(fusion,transition.at||Date.now());
+ return fusion;
+}
+
 function mediaResultLabel(media={}){
  if(media.kind==='episode'){
   const series=media.series||media.title||'Unknown series';
