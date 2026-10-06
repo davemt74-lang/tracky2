@@ -137,7 +137,12 @@
     <p id="liveCertificationStatus" role="status">Installed-device certification is incomplete until every scenario is resolved.</p>
     <small>Exported evidence contains aggregate runtime/cognitive state, explicit pass/fail outcomes and notes only. Raw camera/audio, transcript bodies, embeddings and provider payloads are excluded.</small>
   </section>
-  <section class="panel"><h2>7. Export &amp; compare certification evidence</h2>
+  <section class="panel"><h2>7. FINAL INSTALLED-DEVICE RELEASE GATE</h2>
+    <p>This gate combines representative-device hardware evidence, all required live scenarios, V0.15 unified autonomy certification, and the four-hour long-session stability result. Any failed, partial, or required-not-run item blocks release certification.</p>
+    <p id="finalCertificationStatus" role="status">V0.15.1 final installed-device certification · BLOCKED · evidence incomplete.</p>
+    <small>A PASS means this tested device/session satisfies the Tracky2 V0.15.1 certification gate. It is not a universal hardware claim.</small>
+  </section>
+  <section class="panel"><h2>8. Export &amp; compare certification evidence</h2>
     <p>Review measured FPS, marker confidence, four-zone coverage, dropout/jump counts, permission/storage state, aggregate runtime budget and the explicit real-device checklist. No raw camera, microphone, transcript, face or voice samples are exported.</p>
     <button id="exportTestReport" disabled>Export certification JSON + SHA-256</button>
     <label>Compare prior certification report <input id="compareCertificationReport" type="file" accept="application/json,.json"></label>
