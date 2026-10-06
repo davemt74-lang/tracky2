@@ -192,6 +192,12 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    if(entry.role==='participant'){
     const note=document.createElement('small');
     note.className=entry.verified?'agent-chat-verified':'agent-chat-unverified';
+    if(entry.source==='legacy-agent-history'){
+     note.textContent='Legacy local conversation · speaker attribution not revalidated';
+     bubble.append(note);
+     row.append(avatar,bubble);ui.thread.append(row);
+     continue;
+    }
     note.textContent=entry.verified
       ? 'Speaker link · '+speakerAssociationLabel(entry.associationState)
       : 'Speaker unverified · '+speakerAssociationLabel(entry.associationState);
@@ -603,7 +609,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  function init(){
   ui.box.hidden=false;ui.badge.hidden=false;ui.camControls.hidden=false;ui.accordion.hidden=false;
-  ui.heading.hidden=false;ui.thread.hidden=false;
+  if(ui.heading)ui.heading.hidden=false;
+  ui.thread.hidden=false;
   $('dialogueTurns').hidden=true;$('roomEvents').hidden=true;
   $('agentLeftControls').hidden=false;
   // Dialogue and agent conversation remain in the dedicated Conversation tab.
@@ -613,7 +620,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(live)$('roomAudioDiagnosticsMount').append(live);
   const sharedStatus=$('agentLiveStatusAccordion');
   if(sharedStatus)sharedStatus.hidden=true;
-  ui.save.checked=false;
+  entries=loadAgentHistory(localStorage);
+  ui.save.checked=entries.length>0;
   ui.useModel.checked=false;
   applyProviderSelection();
   ui.provider?.addEventListener('change',()=>{
@@ -646,9 +654,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   });
   ui.save.addEventListener('change',()=>{
     if(ui.save.checked){
-     entries=(entries.length?entries:loadAgentHistory(localStorage))
-      .filter(item=>item.role!=='participant');
-     // Migration purges old duplicated participant speech stored in AGENT history.
+     if(!entries.length)entries=loadAgentHistory(localStorage);
      saveAgentHistory(localStorage,entries,true);
     }
     showThread();
