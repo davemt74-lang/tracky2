@@ -58,6 +58,18 @@ export function attentionCandidatesFromState(state={},now=Date.now()){
   }));
  }
 
+ for(const goal of state.goals||[]){
+  rows.push(candidate({
+   id:'goal:'+goal.id,type:'active-goal',participantId:goal.participantId,
+   sourceId:goal.id,createdAt:now,expiresAt:goal.expiresAt||now+120000,
+   urgency:goal.state==='blocked'?.78:
+    goal.state==='waiting-for-user'?.74:
+    goal.state==='waiting-for-provider'?.7:.62,
+   confidence:1,salience:.82,
+   description:goal.intent+' · '+goal.state
+  }));
+ }
+
  for(const work of state.tasks||[]){
   rows.push(candidate({
    id:'work:'+work.id,type:'active-work',participantId:work.participantId,
