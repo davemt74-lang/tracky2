@@ -1,7 +1,6 @@
 // V0.14.9D bounded persistent situational awareness with adaptive interest scoring.
 const clamp=v=>Math.max(0,Math.min(1,Number(v)||0));
 const clean=(v,n=220)=>String(v??'').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim().slice(0,n);
-	]+/g,' ').replace(/s+/g,' ').trim().slice(0,n);
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 
 export const ROOM_SITUATIONAL_SCHEMA=1;
