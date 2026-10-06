@@ -358,8 +358,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          RELEASE_TITLE="Tracky2 v0.15.2 — Installed Runtime Hardening"
-          RELEASE_NOTES="V0.15.2A adds installed-runtime long-session stability hardening with bounded four-hour evidence, 10-second performance sampling, restart-persistent aggregate certification state, resource-growth budgets, and deploy verification. Certification evidence remains aggregate-only and does not retain raw media or transcripts."
+          RELEASE_TITLE="Tracky2 v0.15.2 — Participant Save & Voice Enrollment Hotfix"
+          RELEASE_NOTES="V0.15.2 fixes participant creation failures by adding IndexedDB recovery storage and forcing fresh PWA application code after deployment. It also includes the three-photo face enrollment flow, automatic handoff to the larger centered Voice modal, guided read-aloud scripts, and the revised voice-sample acceptance gate."
           # Preserve immutable release assets on later main merges, but keep release metadata accurate.
           if gh release view v0.15.2 >/dev/null 2>&1; then
             gh release edit v0.15.2 --title "$RELEASE_TITLE" --notes "$RELEASE_NOTES"
