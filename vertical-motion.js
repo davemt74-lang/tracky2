@@ -35,6 +35,10 @@ import {
 } from './src/media-identification-core.js';
 import {searchMediaByClues} from './src/media-identification-client.js';
 import {
+ RoomMediaFusionTracker,fuseRoomMediaEvidence,mediaVisualLookupAllowed,
+ normalizeMediaVisualObservation,roomMediaFusionMessage
+} from './src/room-media-fusion-core.js';
+import {
  EnvironmentalAlertTracker,EnvironmentalMechanicalTracker,
  environmentalAlertAgentNotice,environmentalAlertMessage,environmentalMechanicalMessage
 } from './src/environmental-alert-core.js';
