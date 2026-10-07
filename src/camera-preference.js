@@ -20,6 +20,14 @@ export function cameraPreferenceState(store){
   return 'unset';
  }catch{return 'unset';}
 }
+export function cameraStartupAction({preference='unset',permission='unsupported',supported=true,sessionStopped=false}={}){
+ if(sessionStopped||preference==='disabled')return 'manual';
+ if(!supported)return 'unsupported';
+ if(permission==='denied')return 'blocked';
+ if(preference==='enabled'&&permission==='granted')return 'start';
+ if(preference==='enabled'||preference==='unset')return 'onboard';
+ return 'manual';
+}
 export function loadCameraPreference(store){
  return cameraPreferenceState(store)==='enabled';
 }
