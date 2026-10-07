@@ -3252,6 +3252,11 @@ const state = {
     micDb: -100,
     noiseFloorDb: -60,
     vad: false,
+    liveSpeakerParticipantId: null,
+    liveSpeakerConfidence: 0,
+    liveSpeakerAt: 0,
+    liveSpeakerFilterPending: false,
+    liveSpeakerFilterState: 'idle',
     turns: [],
     events: [],
     announcedParticipants: new Set(),
@@ -4410,16 +4415,18 @@ function createParticipantCard(track) {
   const meter = document.createElement('div');
   const fill = document.createElement('i');
   if (state.mode === 'agent') {
-    // All cards show the shared room mic. Live VAD does not establish speaker identity.
+    // This is a live participant input meter. The saved Voice Profile is only
+    // used as a speaker/background filter; it does not gate the meter itself.
     const audio = document.createElement('div');
     audio.className = 'participant-audio-block';
     const heading = document.createElement('span');
     heading.className = 'participant-audio-title';
-    heading.textContent = 'VERIFIED VOICE PROFILE';
+    heading.textContent = 'VOICE INPUT';
     meter.className = 'participant-audio-meter';
     meter.dataset.trackId = String(track.id);
+    if(track.participantId)meter.dataset.participantId=String(track.participantId);
     meter.setAttribute('role', 'meter');
-    meter.setAttribute('aria-label', 'Recent post-verified speech segment for this participant only');
+    meter.setAttribute('aria-label', 'Live participant voice input filtered from room and background audio');
     meter.setAttribute('aria-valuemin', '0');
     meter.setAttribute('aria-valuemax', '100');
     meter.setAttribute('aria-valuenow', '0');
@@ -4672,8 +4679,9 @@ function renderParticipantCards() {
   }
 }
 
-// Identity cards only show previously verified profile-matched speech segments.
-// Raw room VAD/dB must NEVER animate or label any participant-specific input meter.
+// Participant input is live. Room VAD/noise gating provides the immediate level;
+// the saved Voice Profile only filters background/other speakers once a rolling
+// speaker window is available.
 let lastAudioMeterPaint = -Infinity;
 function updateParticipantAudioMeters(force = false) {
   if(state.mode !== 'agent')return;
@@ -4681,21 +4689,42 @@ function updateParticipantAudioMeters(force = false) {
   if(!force && now-lastAudioMeterPaint<70)return;
   lastAudioMeterPaint=now;
   const tracks=new Map(publicRoomTracks(now).map(t=>[String(t.id),t]));
+  const participantIds=Array.from(new Set(
+    Array.from(tracks.values()).map(track=>track.participantId).filter(Boolean)
+  ));
+  const soleCandidateId=participantIds.length===1?String(participantIds[0]):null;
+  const liveSpeakerId=state.voice.liveSpeakerFilterState==='matched'
+    ?state.voice.liveSpeakerParticipantId:null;
   const shared={
     active:state.voice.active,
     suppressed:Boolean(state.voice.audio?.suppressed || agentSpeechActive || state.voice.ttsPending>0),
-    now
+    now,
+    liveDb:state.voice.micDb,
+    noiseFloorDb:state.voice.noiseFloorDb,
+    speaking:state.voice.vad,
+    liveSpeakerParticipantId:liveSpeakerId,
+    liveSpeakerConfidence:state.voice.liveSpeakerConfidence
   };
   for(const el of ui.participantCards.querySelectorAll('.participant-audio-meter')){
     const track=tracks.get(el.dataset.trackId);
-    const enrolled=track?.participantId?voiceProfileReadiness(participantById(track.participantId)||{}).ready:false;
-    const result=roomMeterState({...shared,track,voiceProfileReady:enrolled});
+    const participantId=el.dataset.participantId||track?.participantId||null;
+    const participant=participantId?participantById(participantId):null;
+    const profileReady=Boolean(participant&&participant.voiceRecognitionEnabled!==false&&
+      voiceProfileReadiness(participant).ready);
+    const result=roomMeterState({
+      ...shared,track,participantId,voiceProfileReady:profileReady,
+      soleCandidate:Boolean(
+        participantId&&soleCandidateId===String(participantId)&&
+        state.voice.liveSpeakerFilterState==='pending'
+      )
+    });
     const fill=el.querySelector('.participant-audio-fill');
     if(fill)fill.style.width=result.level+'%';
     el.dataset.mode=result.mode;
     el.setAttribute('aria-valuenow',String(result.level));
     const caption=el.parentElement?.querySelector('.participant-audio-caption');
     if(caption && caption.textContent!==result.text)caption.textContent=result.text;
+    el.closest('.participant-scan-card')?.classList.toggle('speaking',result.level>0);
   }
 }
 
@@ -5102,10 +5131,64 @@ async function ensureTranscriptionEngine() {
   }
 }
 
+async function onRoomVoiceWindow(window) {
+  if(!state.voice.active||!window?.samples?.length)return;
+  if(state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0)return;
+  if(state.voice.liveSpeakerFilterPending)return;
+
+  const profiles=state.identity.participants.filter(participant=>
+    participant.voiceRecognitionEnabled!==false&&voiceProfileReadiness(participant).ready
+  );
+  // Without an enrolled profile there is nothing to filter against. The live
+  // meter still works; it simply relies on the room noise/VAD gate.
+  if(!profiles.length)return;
+
+  state.voice.liveSpeakerFilterPending=true;
+  const generation=state.voice.generation;
+  try{
+    const speakerReady=await ensureSpeakerEngine();
+    if(!speakerReady||generation!==state.voice.generation||!state.voice.active)return;
+    const embedding=await state.voice.engine.embedding(window.samples);
+    if(generation!==state.voice.generation||!state.voice.active)return;
+    const match=bestVoiceMatch(embedding,profiles);
+    state.voice.liveSpeakerAt=performance.now();
+    if(match.matched&&match.participant?.id){
+      state.voice.liveSpeakerParticipantId=match.participant.id;
+      state.voice.liveSpeakerConfidence=Number(match.similarity)||0;
+      state.voice.liveSpeakerFilterState='matched';
+    }else{
+      state.voice.liveSpeakerParticipantId=null;
+      state.voice.liveSpeakerConfidence=0;
+      state.voice.liveSpeakerFilterState='rejected';
+    }
+    updateParticipantAudioMeters(true);
+  }catch(error){
+    console.warn('Live Voice Profile filter unavailable.',error);
+    // A filter failure must not kill microphone capture or the conversation.
+    state.voice.liveSpeakerParticipantId=null;
+    state.voice.liveSpeakerConfidence=0;
+    state.voice.liveSpeakerFilterState='pending';
+  }finally{
+    state.voice.liveSpeakerFilterPending=false;
+  }
+}
+
 function onRoomAudioLevel(level) {
+  const wasSpeaking=Boolean(state.voice.vad);
   state.voice.micDb = level.db;
   state.voice.noiseFloorDb = level.noiseFloorDb;
   state.voice.vad = level.speaking;
+  if(state.voice.vad&&!wasSpeaking){
+    state.voice.liveSpeakerParticipantId=null;
+    state.voice.liveSpeakerConfidence=0;
+    state.voice.liveSpeakerAt=performance.now();
+    state.voice.liveSpeakerFilterState='pending';
+  }else if(!state.voice.vad&&wasSpeaking){
+    state.voice.liveSpeakerParticipantId=null;
+    state.voice.liveSpeakerConfidence=0;
+    state.voice.liveSpeakerAt=performance.now();
+    state.voice.liveSpeakerFilterState='idle';
+  }
   state.voice.captureMode = level.captureMode || state.voice.captureMode;
   state.voice.inputChannelCount=Math.max(1,Number(level.inputChannelCount)||state.voice.inputChannelCount||1);
   listeningController.setVad(Boolean(level.speaking));
@@ -5240,14 +5323,23 @@ function noteLiveVoiceProfileMatch(match,segment){
  if(!match?.matched||!match.participant?.id)return false;
  const participant=state.identity.participants.find(person=>person.id===match.participant.id);
  if(!participant||!voiceProfileReadiness(participant).ready)return false;
+
+ // Voice identity is participant-level evidence and must not depend on a live
+ // camera/body track. A visual track may receive the same metadata when present.
+ state.voice.liveSpeakerParticipantId=participant.id;
+ state.voice.liveSpeakerConfidence=Number(match.similarity)||0;
+ state.voice.liveSpeakerAt=performance.now();
+ state.voice.liveSpeakerFilterState='matched';
+
  const liveTrack=state.identity.tracks.find(candidate=>
   candidate.participantId===participant.id&&
   !['occluded','reacquiring'].includes(candidate.status));
- if(!liveTrack)return false;
- liveTrack.voiceProfileMatchedSegment=true;
- liveTrack.voiceProfileMatchConfidence=Number(match.similarity)||0;
- liveTrack.lastVoiceProfileMatchAt=performance.now();
- liveTrack.voiceLevelDb=Number.isFinite(segment?.avgDb)?segment.avgDb:state.voice.micDb;
+ if(liveTrack){
+  liveTrack.voiceProfileMatchedSegment=true;
+  liveTrack.voiceProfileMatchConfidence=Number(match.similarity)||0;
+  liveTrack.lastVoiceProfileMatchAt=performance.now();
+  liveTrack.voiceLevelDb=Number.isFinite(segment?.avgDb)?segment.avgDb:state.voice.micDb;
+ }
  updateParticipantAudioMeters(true);
  return true;
 }
@@ -6039,6 +6131,7 @@ async function startRoomAudio() {
       minSegmentSeconds: 1.05,
       hangoverMs: 650,
       onLevel: onRoomAudioLevel,
+      onVoiceWindow: async (window) => onRoomVoiceWindow(window),
       onSegment: async (segment) => onRoomAudioSegment(segment),
       onUnavailable:()=>{
         if(state.voice.audio!==capture||!state.voice.active)return;
@@ -6054,6 +6147,11 @@ async function startRoomAudio() {
     state.voice.inputChannelCount=state.voice.audio.inputChannelCount||1;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
+    state.voice.liveSpeakerParticipantId=null;
+    state.voice.liveSpeakerConfidence=0;
+    state.voice.liveSpeakerAt=0;
+    state.voice.liveSpeakerFilterPending=false;
+    state.voice.liveSpeakerFilterState='idle';
     speakerAssociationTracker.reset();
     multimodalFusionTracker.reset();
     diarizationSession.reset();
@@ -6138,6 +6236,11 @@ function stopRoomAudio() {
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
+  state.voice.liveSpeakerParticipantId=null;
+  state.voice.liveSpeakerConfidence=0;
+  state.voice.liveSpeakerAt=0;
+  state.voice.liveSpeakerFilterPending=false;
+  state.voice.liveSpeakerFilterState='idle';
   updateParticipantAudioMeters(true);
   agentRuntime?.setAudioActive(false);
   state.voice.vad = false;
