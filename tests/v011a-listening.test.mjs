@@ -130,10 +130,12 @@ test('11A live AGENT conversation cannot be vetoed by dialogue persistence',()=>
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  const helper=runtime.indexOf('function dispatchLiveAgentConversationTurn');
  const agent=runtime.indexOf('agentRuntime?.onDialogue(turn)',helper);
- const save=runtime.indexOf('void saveDialogueTurn(turn)',helper);
+ const save=runtime.indexOf('void queueConversationPersistence(turn)',helper);
  assert.ok(helper>0);
  assert.ok(agent>helper);
  assert.ok(save>agent,'live AGENT handoff must happen before best-effort persistence');
+ assert.match(runtime,/liveConversationPersistence=new Map\(\)/);
+ assert.match(runtime,/previous\.catch\(\(\)=>null\)\.then\(\(\)=>saveDialogueTurn\(turn\)\)/);
  assert.match(runtime,/Conversation is live, but this turn could not be saved locally\./);
  assert.doesNotMatch(runtime,/Speech turn was not saved; AGENT reply skipped\./);
 });
