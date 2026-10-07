@@ -7,7 +7,7 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('V0.17.0 exposes only Conversation, Participant Activity, AGENT and ROOM as primary tabs',()=>{
  const html=read('vertical-motion.html');
  const left=html.slice(html.indexOf('id="roomLeftPanel"'),html.indexOf('</aside>',html.indexOf('id="roomLeftPanel"')));
- const ids=[...left.matchAll(/role="tab"[^>]*id="([^"]+)"/g)].map(m=>m[1]);
+ const ids=[...left.matchAll(/<button[^>]*id="([^"]+)"[^>]*role="tab"/g)].map(m=>m[1]);
  assert.deepEqual(ids,['roomDialogueTab','playerActivityTab','roomAgentTab','roomTab']);
  assert.doesNotMatch(left,/Meeting|roomMeeting/);
 });
