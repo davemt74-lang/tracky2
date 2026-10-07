@@ -136,7 +136,7 @@ test('12D runtime derives interval attribution from 12B/12C canonical evidence b
  assert.match(runtime,/multiPersonAttributionTurnFields\(/);
  assert.match(runtime,/\.\.\.multiPersonFields/);
  const build=runtime.indexOf('buildTurnAttribution({');
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn');
+ const save=runtime.indexOf('savedTurn = await queueConversationPersistence({');
  assert.ok(build>0&&save>build);
 });
 
