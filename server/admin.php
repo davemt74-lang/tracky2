@@ -218,7 +218,7 @@ if(!$user){
    }
    echo '<small>Revocation stops future metadata sync for that device ID. A revoked ID cannot silently re-register itself. Metadata payloads are encrypted with the instance key and subject to per-resource quotas.</small></section><script type="module" src="./sync.js"></script><script type="module" src="./resource-sync.js"></script>';
   }
- echo '<section><h2>Meetings</h2><p>Meeting controls are administrative tools, not a fifth AGENT workspace tab. They reuse the single AGENT camera, microphone, speaker-association and canonical transcript runtime.</p><p><a href="../vertical-motion.html?admin=meeting">Open meeting controls</a></p></section>';
+ echo '<section><h2>Meetings</h2><p>Meeting controls are administrative tools, not a fifth AGENT workspace tab. They reuse the single AGENT camera, microphone, speaker-association and canonical transcript runtime.</p><p><a href="../vertical-motion.html?mode=agent&amp;admin=meeting">Open meeting controls</a></p></section>';
  echo '<section><h2>Storage & privacy</h2><p>Participant profile JSON is encrypted at rest with the same private instance key used for provider credentials. Back up both the SQLite database and secret.key together. Manual CLI backup/verification/recovery is available through <code>php server/backup.php</code>. Do not synchronize biometric records without participant consent.</p></section>';
 }
 echo '</main></html>';
