@@ -63,7 +63,8 @@ test('V0.15.7 participant card exposes the meter and then stops before profile c
 test('V0.15.7 microphone startup remains independent of camera state',()=>{
  const runtime=read('vertical-motion.js');
  const start=runtime.indexOf('async function maybeStartApprovedMicrophone');
- const end=runtime.indexOf('void maybeStartApprovedCamera',start);
+ const end=runtime.indexOf('}\nvoid maybeStartApprovedMicrophone();',start)+2;
+ assert.ok(start>=0&&end>start,'microphone startup function must remain present');
  const block=runtime.slice(start,end);
  assert.match(block,/return startRoomAudio\(\)/);
  assert.doesNotMatch(block,/state\.running|camera/);
