@@ -1,4 +1,7 @@
-import { zoneForY } from './movement-core.js';
+function diagnosticZoneForY(y,zoneCount=4){
+ const value=Math.max(0,Math.min(0.999999,Number(y)||0));
+ return Math.min(zoneCount-1,Math.floor(value*zoneCount));
+}
 
 // Hardware results retain aggregated counters only; never an input frame, transcript or face.
 export function createHardwareDiagnostics() {
@@ -30,7 +33,7 @@ export function createHardwareDiagnostics() {
         if (event?.accepted && Number.isFinite(event.sample?.y) &&
             event.sample.y>=0 && event.sample.y<=1) {
           item.stableFrames+=1;
-          item.zones.add(zoneForY(event.sample.y,4));
+          item.zones.add(diagnosticZoneForY(event.sample.y,4));
         }
       }
       return true;
