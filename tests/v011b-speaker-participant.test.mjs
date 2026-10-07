@@ -159,7 +159,7 @@ test('11B runtime uses live-only body evidence, canonical transition commit and 
  assert.doesNotMatch(runtime,/const bodyConfirmed = Boolean\(track\)/);
  assert.match(runtime,/speakerAssociationTracker\.preview\(association/);
  assert.match(runtime,/speakerAssociationTracker\.commit\(association\)/);
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn');
+ const save=runtime.indexOf('savedTurn = await queueConversationPersistence({');
  const commit=runtime.indexOf('speakerAssociationTracker.commit(association)',save);
  assert.ok(save>0&&commit>save,'association transition must commit only after canonical save/current check');
  assert.match(runtime,/prior identity not carried forward/);
