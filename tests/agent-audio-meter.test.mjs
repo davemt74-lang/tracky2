@@ -3,70 +3,56 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {roomMeterState} from '../src/participant-audio-meter.js';
 
-test('participant meter follows live user microphone input before a Voice Profile is required',()=>{
+test('participant meter is driven directly by the live microphone',()=>{
  const result=roomMeterState({
-  active:true,participantId:'person-a',speaking:true,
-  liveDb:-30,noiseFloorDb:-58,voiceProfileReady:false,soleCandidate:true
+  active:true,db:-30,noiseFloorDb:-58,vad:true
  });
- assert.equal(result.mode,'live');
+ assert.equal(result.mode,'speech');
  assert.ok(result.level>0);
- assert.equal(result.profileFiltered,false);
+ assert.match(result.text,/VOICE INPUT/);
 });
 
-test('Voice Profile is a speaker/background filter, not a meter gate',()=>{
- const matched=roomMeterState({
-  active:true,participantId:'alice',speaking:true,
-  liveDb:-28,noiseFloorDb:-58,voiceProfileReady:true,
-  liveSpeakerParticipantId:'alice',liveSpeakerConfidence:.92
+test('participant meter does not depend on profile enrollment or participant identity',()=>{
+ const a=roomMeterState({active:true,db:-34,noiseFloorDb:-60,vad:true});
+ const b=roomMeterState({
+  active:true,db:-34,noiseFloorDb:-60,vad:true,
+  participantId:'dave',voiceProfileReady:false,
+  liveSpeakerParticipantId:'someone-else'
  });
- assert.equal(matched.mode,'speaker');
- assert.ok(matched.level>0);
- assert.equal(matched.profileFiltered,true);
+ assert.deepEqual(b,a);
+ assert.ok(a.level>0);
+});
 
- const other=roomMeterState({
-  active:true,participantId:'alice',speaking:true,
-  liveDb:-24,noiseFloorDb:-58,voiceProfileReady:true,
-  liveSpeakerParticipantId:'bob',liveSpeakerConfidence:.94
+test('suppression and microphone stop are the only hard meter stops',()=>{
+ assert.equal(roomMeterState({
+  active:true,suppressed:true,db:-18,noiseFloorDb:-58,vad:true
+ }).level,0);
+ assert.equal(roomMeterState({
+  active:false,db:-18,noiseFloorDb:-58,vad:true
+ }).level,0);
+});
+
+test('quiet microphone level can still be visible without claiming speech',()=>{
+ const result=roomMeterState({
+  active:true,db:-48,noiseFloorDb:-55,vad:false
  });
- assert.equal(other.mode,'background-filtered');
- assert.equal(other.level,0);
+ assert.equal(result.mode,'quiet');
+ assert.ok(result.level>0);
 });
 
-test('suppression and room-level noise below the speech gate do not animate participant input',()=>{
- assert.equal(roomMeterState({
-  active:true,suppressed:true,participantId:'p',speaking:true,
-  liveDb:-18,noiseFloorDb:-58,soleCandidate:true
- }).level,0);
- assert.equal(roomMeterState({
-  active:true,participantId:'p',speaking:false,
-  liveDb:-44,noiseFloorDb:-47,soleCandidate:true
- }).level,0);
- assert.equal(roomMeterState({
-  active:false,participantId:'p',speaking:true,
-  liveDb:-18,noiseFloorDb:-58,soleCandidate:true
- }).level,0);
-});
-
-test('AGENT sidebar consumes live mic level while ROOM retains ambient monitoring',()=>{
+test('AGENT sidebar consumes RoomAudioCapture live dB/VAD directly',()=>{
  const source=fs.readFileSync('vertical-motion.js','utf8');
  const capture=fs.readFileSync('src/room-audio-engine.js','utf8');
  const css=fs.readFileSync('agent-presence.css','utf8');
- const html=fs.readFileSync('vertical-motion.html','utf8');
- const agent=fs.readFileSync('agent-mode.js','utf8');
 
- assert.match(source,/liveDb:state\.voice\.micDb/);
+ assert.match(source,/db:state\.voice\.micDb/);
  assert.match(source,/noiseFloorDb:state\.voice\.noiseFloorDb/);
- assert.match(source,/speaking:state\.voice\.vad/);
- assert.match(source,/liveSpeakerFilterState==='matched'/);
- assert.match(source,/onVoiceWindow: async \(window\) => onRoomVoiceWindow\(window\)/);
- assert.match(capture,/pushVoicePreview\(frame, db, now\)/);
- assert.doesNotMatch(source,/Raw room VAD\/dB must NEVER animate/);
- assert.doesNotMatch(source,/heading\.textContent = 'ROOM MIC · SHARED INPUT'/);
-
- assert.match(agent,/\$\('roomAudioDiagnosticsMount'\)\.append\(live\)/);
- assert.match(html,/id="roomAmbientAudioMeter"/);
- assert.match(css,/participant-audio-meter\[data-mode="speaker"\]/);
- assert.match(css,/participant-audio-meter\[data-mode="filtering"\]/);
- assert.match(html,/id="roomAgentTab"/);
- assert.match(html,/id="agentLeftControls"(?! hidden)/);
+ assert.match(source,/vad:state\.voice\.vad/);
+ assert.match(source,/const result=roomMeterState\(shared\)/);
+ assert.match(source,/function onRoomAudioLevel\(level\)/);
+ assert.match(source,/updateParticipantAudioMeters\(\)/);
+ assert.doesNotMatch(source,/onRoomVoiceWindow/);
+ assert.doesNotMatch(source,/liveSpeakerFilterState/);
+ assert.doesNotMatch(capture,/onVoiceWindow|pushVoicePreview|voiceWindowIntervalMs/);
+ assert.match(css,/participant-audio-meter\[data-mode="speech"\]/);
 });
