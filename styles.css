@@ -14,7 +14,8 @@ a{color:inherit}button,input,select{font:inherit}button,select,.button-link{min-
 
 @media(max-width:1000px){.motion-section{grid-template-columns:1fr}.game-card{grid-template-columns:1fr}.game-card-preview{min-height:300px}}
 @media(max-width:900px){.hero{align-items:flex-start;flex-direction:column}.stage-grid,.lower-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(4,1fr)}.game-playfield{min-height:650px}}
-@media(max-width:680px){.game-topbar{align-items:flex-start;flex-direction:column;padding-bottom:10px}.game-playfield{min-height:620px}.motion-metrics{grid-template-columns:repeat(2,1fr)}.live-strip{right:18px}.live-strip div{flex:1;min-width:60px}.game-instructions{right:22px}@media(max-width:600px){.controls{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.calibrate{align-items:stretch;flex-direction:column}.actions{justify-content:stretch}.actions button{flex:1}.game-card{padding:12px}}
+@media(max-width:680px){.game-topbar{align-items:flex-start;flex-direction:column;padding-bottom:10px}.game-playfield{min-height:620px}.motion-metrics{grid-template-columns:repeat(2,1fr)}.live-strip{right:18px}.live-strip div{flex:1;min-width:60px}.game-instructions{right:22px}}
+@media(max-width:600px){.controls{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.calibrate{align-items:stretch;flex-direction:column}.actions{justify-content:stretch}.actions button{flex:1}.game-card{padding:12px}}
 
 /* V0.4 — futuristic room identity system */
 :root{
