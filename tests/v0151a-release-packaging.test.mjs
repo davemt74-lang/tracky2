@@ -8,7 +8,7 @@ test('15.1A package, PWA cache and deploy artifact versions stay aligned',()=>{
  const pkg=JSON.parse(read('package.json'));
  const sw=read('sw.js');
  const workflow=read('.github/workflows/test.yml');
- assert.equal(pkg.version,'0.16.0');
+ assert.equal(pkg.version,'0.17.0');
  assert.match(sw,/tracky2-static-v0\.16\.0/);
  assert.match(workflow,/tracky2-v0\.16\.0-deploy\.zip/);
  assert.match(workflow,/gh release create v0\.16\.0/);
