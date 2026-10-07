@@ -210,22 +210,22 @@ test('V2A ROOM feed notices are deduplicated but state changes emit immediately'
  assert.equal(tracker.observe(live,6000).emit,true);
 });
 
-test('V2A runtime gate executes before participant continuity recovery and transcription persistence',()=>{
+test('V2A runtime enriches live Conversation after transcription instead of gating it',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
- const resolveAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin');
- const blockAt=runtime.indexOf('if(!speechOrigin.allowConversation)');
+ const processAt=runtime.indexOf('async function processRoomSegment');
+ const transcriptAt=runtime.indexOf('await transcribeLiveConversationSegment(segment)',processAt);
+ const dispatchAt=runtime.indexOf('dispatchLiveAgentConversationTurn(liveConversationTurn)',transcriptAt);
+ const resolveAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin',dispatchAt);
  const recoverAt=runtime.indexOf('participantContinuity.recoverByVoice',resolveAt);
- const transcriptAt=runtime.indexOf('ensureTranscriptionEngine()',resolveAt);
- const persistAt=runtime.indexOf('saveDialogueTurn({',resolveAt);
- assert.ok(resolveAt>0&&blockAt>resolveAt);
- assert.ok(recoverAt>blockAt,'participant recovery must occur only after origin gate');
- assert.ok(transcriptAt>blockAt,'transcription must occur only after origin gate');
- assert.ok(persistAt>transcriptAt,'dialogue persistence must remain after transcription');
+ assert.ok(processAt>0&&transcriptAt>processAt);
+ assert.ok(dispatchAt>transcriptAt,'AGENT receives the live transcript before ROOM origin enrichment');
+ assert.ok(resolveAt>dispatchAt,'speech-origin remains a post-transcription ROOM/attribution sidecar');
+ assert.ok(recoverAt>resolveAt,'participant continuity recovery remains downstream of origin analysis');
+ assert.match(runtime,/!speechOrigin\.allowConversation&&!\(state\.mode==='agent'&&transcript\.trim\(\)\)/);
  assert.match(runtime,/speechOriginState:speechOrigin\.state/);
  assert.match(runtime,/speechOriginMediaKind:speechOrigin\.mediaContext\?\.kind\|\|null/);
  assert.match(runtime,/speechOriginParticipantAttributionAllowed:speechOrigin\.allowParticipantAttribution/);
  assert.match(runtime,/environmentEvidencePromise:evidenceRequest\.promise/);
- assert.match(runtime,/await segment\.environmentEvidencePromise/);
  assert.match(runtime,/recordedMediaCueFromPredictions/);
  assert.match(runtime,/continuousFusion,/);
  assert.match(runtime,/clearEnvironmentalSpeechEvidence\(\)/);
