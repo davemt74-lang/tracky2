@@ -76,5 +76,10 @@ window.addEventListener('tracky:agent-speech-cadence',event=>{
 window.addEventListener('tracky:agent-speech-state',event=>{
  speaking=event.detail?.speaking===true;render();
 });
+window.addEventListener('tracky:agent-show-conversation',()=>{
+ panelsHidden=false;
+ mobilePanel=window.matchMedia?.('(max-width:760px)')?.matches?'left':null;
+ render();
+});
 // Available immediately, even if camera/model initialization fails.
 render();

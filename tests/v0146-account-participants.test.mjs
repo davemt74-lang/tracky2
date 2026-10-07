@@ -62,7 +62,7 @@ test('v0.14.6 participant editor supports account biometric consent and mobile b
 test('CCC is a centralized triple-key shortcut that opens Control Center',()=>{
  const shortcuts=read('src/agent-shortcuts.js'),presence=read('agent-presence.js');
  const html=read('vertical-motion.html'),center=read('control-center.js');
- assert.match(shortcuts,/\['x','z','c'\]/);
+ assert.match(shortcuts,/TRIPLE_SHORTCUT_KEYS=Object\.freeze\(\['x','z','c','v','b'\]\)/);
  assert.match(presence,/tracky:control-center-toggle/);
  assert.match(html,/id="agentControlCenter"/);
  assert.doesNotMatch(html,/CCC ◎|ZZZ ⇄|XXX ⇔|agent-shortcut-hint/);

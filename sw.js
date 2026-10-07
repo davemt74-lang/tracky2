@@ -1,11 +1,11 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while an AGENT session may be active.
-const CACHE='tracky2-static-v0.17.2-css-shell-r1';
+const CACHE='tracky2-static-v0.17.3-agent-onboarding-r1';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
   './app.js','./participants.js','./participants-sidebar.js','./participants-stage.js','./participant-voice.js',
-  './vertical-motion.js','./room-tabs-controller.js','./agent-mode.js','./agent-presence.js','./account-participants.js','./control-center.js','./diagnostics.js','./pwa.js','./participants-stage.css','./scene-analysis.css','./room-tabs.css','./agent-mode.css','./agent-presence.css','./manifest.webmanifest',
+  './vertical-motion.js','./app-shortcuts.js','./room-tabs-controller.js','./agent-mode.js','./agent-presence.js','./account-participants.js','./control-center.js','./diagnostics.js','./pwa.js','./participants-stage.css','./scene-analysis.css','./room-tabs.css','./agent-mode.css','./agent-presence.css','./manifest.webmanifest',
   './assets/tracky-mark.svg','./assets/icon-192.png','./assets/icon-512.png',
   './src/launch-core.js','./src/tracker-core.js',
   
