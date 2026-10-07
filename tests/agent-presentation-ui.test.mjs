@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
-test('fullscreen AGENT keeps four separate sidebar tabs; transcripts never move to settings',()=>{
+
+test('fullscreen AGENT keeps exactly four primary sidebar tabs; transcripts never move to settings',()=>{
  const h=fs.readFileSync('vertical-motion.html','utf8');
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const css=fs.readFileSync('agent-presence.css','utf8');
@@ -7,6 +8,8 @@ test('fullscreen AGENT keeps four separate sidebar tabs; transcripts never move 
   'roomTab','roomObservationsPanel','agentConversationThread','agentViewChooser','agentOrbStage','agentVoiceOrb']){
   assert.equal(h.split('id="'+id+'"').length,2,id);
  }
+ assert.equal(h.includes('id="roomMeetingTab"'),false);
+ assert.equal(h.includes('id="controlCenterMeetingTab"'),true);
  const d=h.indexOf('id="roomDialoguePanel"'),p=h.indexOf('id="playerActivityPanel"');
  const a=h.indexOf('id="roomAgentPanel"');
  const thread=h.indexOf('id="agentConversationThread"');
@@ -17,6 +20,7 @@ test('fullscreen AGENT keeps four separate sidebar tabs; transcripts never move 
  assert.ok(css.includes('.live-strip{display:none!important}'));
  assert.ok(css.includes('agent-orb-view #cameraVideo'));
 });
+
 test('orb glows only from real text-to-speech start/end, without touching media APIs',()=>{
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const stage=fs.readFileSync('agent-presence.js','utf8');
@@ -25,24 +29,24 @@ test('orb glows only from real text-to-speech start/end, without touching media 
  assert.match(stage,/tracky:agent-speech-state/);
  assert.doesNotMatch(stage,/getUserMedia|stopCamera\(/);
 });
+
 test('clicking third tab opens AGENT without moving conversation or requiring camera',async()=>{
- const ids=['roomDialogueTab','playerActivityTab','roomAgentTab','roomDialoguePanel',
-   'playerActivityPanel','roomAgentPanel'];
- const entries=new Map(ids.map(id=>[id,{id,hidden:id==='roomAgentTab'||id==='roomAgentPanel',
+ const ids=['roomDialogueTab','playerActivityTab','roomAgentTab','roomTab','roomDialoguePanel',
+   'playerActivityPanel','roomAgentPanel','roomObservationsPanel'];
+ const entries=new Map(ids.map(id=>[id,{id,hidden:false,
   style:{},tabIndex:0,attributes:{},handlers:{},setAttribute(k,v){this.attributes[k]=v;},
   addEventListener(k,fn){this.handlers[k]=fn;},focus(){this.focused=true;}}]));
- const events={};
  globalThis.document={getElementById:id=>entries.get(id)};
- globalThis.window={addEventListener:(type,fn)=>{events[type]=fn;}};
+ globalThis.window={location:{search:''},dispatchEvent:()=>{}};
+ globalThis.CustomEvent=class CustomEvent{constructor(type){this.type=type;}};
  try{
   await import('../room-tabs-controller.js?agent-tab-test=1');
-  assert.equal(entries.get('roomAgentTab').hidden,true);
-  events['tracky:agent-tab-ready']();
-  assert.equal(entries.get('roomAgentTab').hidden,false);
-  // Opening AGENT settings must not displace the dedicated Conversation tab.
   assert.equal(entries.get('roomDialoguePanel').hidden,false);
   assert.equal(entries.get('roomAgentPanel').hidden,true);
   entries.get('roomAgentTab').handlers.click();
   assert.equal(entries.get('roomAgentPanel').hidden,false);
- }finally{delete globalThis.window;delete globalThis.document;}
+  assert.equal(entries.get('roomDialoguePanel').hidden,true);
+ }finally{
+  delete globalThis.CustomEvent;delete globalThis.window;delete globalThis.document;
+ }
 });

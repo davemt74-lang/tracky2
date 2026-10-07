@@ -3432,13 +3432,10 @@ const IDENTITY_SCAN_INTERVAL = 650;
 const TRACK_GRACE_MS = BODY_OCCLUSION_GRACE_MS;
 const PHOTO_REFRESH_INTERVAL_MS = 5000;
 
-const requestedMode=new URL(window.location.href).searchParams.get('mode')==='meeting'
- ?'meeting':'agent';
-
 function renderMode(){
  state.mode='agent';
  document.body.classList.add('agent-mode');
- document.body.classList.toggle('meeting-mode',requestedMode==='meeting');
+ document.body.classList.remove('meeting-mode');
  document.body.classList.remove('multiplayer-mode','pattern-mode','reaction-mode');
  ui.video.hidden=false;
  ui.video.classList.toggle('agent-mirror',ui.mirror.checked);

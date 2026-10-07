@@ -10,27 +10,37 @@ const ui={
  open:$('agentControlCenterButton'),refresh:$('agentControlCenterRefresh'),
  status:$('agentControlCenterStatus'),username:$('agentAccountUsername'),role:$('agentAccountRole'),
  participants:$('agentAccountParticipants'),sync:$('agentAccountSyncState'),syncDetail:$('agentAccountSyncDetail'),
- accountTab:$('controlCenterAccountTab'),roomTab:$('controlCenterRoomTab'),
- accountPanel:$('controlCenterAccountPanel'),roomPanel:$('controlCenterRoomPanel'),
+ accountTab:$('controlCenterAccountTab'),roomTab:$('controlCenterRoomTab'),meetingTab:$('controlCenterMeetingTab'),
+ accountPanel:$('controlCenterAccountPanel'),roomPanel:$('controlCenterRoomPanel'),meetingPanel:$('controlCenterMeetingPanel'),
  roomOpen:$('roomOpenControlCenter')
 };
+const PANES=Object.freeze(['account','room','meeting']);
 let lastFocus=null,open=false,activePane='account';
 
 function setStatus(text){if(ui.status)ui.status.textContent=text;}
 function selectPane(name='account'){
- activePane=name==='room'?'room':'account';
- if(ui.accountPanel)ui.accountPanel.hidden=activePane!=='account';
- if(ui.roomPanel)ui.roomPanel.hidden=activePane!=='room';
- if(ui.accountTab){ui.accountTab.setAttribute('aria-selected',String(activePane==='account'));ui.accountTab.tabIndex=activePane==='account'?0:-1;}
- if(ui.roomTab){ui.roomTab.setAttribute('aria-selected',String(activePane==='room'));ui.roomTab.tabIndex=activePane==='room'?0:-1;}
+ activePane=PANES.includes(name)?name:'account';
+ for(const [pane,node] of [['account',ui.accountPanel],['room',ui.roomPanel],['meeting',ui.meetingPanel]])
+  if(node)node.hidden=activePane!==pane;
+ for(const [pane,node] of [['account',ui.accountTab],['room',ui.roomTab],['meeting',ui.meetingTab]]){
+  if(!node)continue;
+  const selected=activePane===pane;
+  node.setAttribute('aria-selected',String(selected));
+  node.tabIndex=selected?0:-1;
+ }
 }
 function setOpen(value,pane=activePane){
  open=value===true;if(!ui.modal)return;
  selectPane(pane);
- if(open){lastFocus=document.activeElement;ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
-  document.body.classList.add('control-center-open');void refresh();requestAnimationFrame(()=>ui.close?.focus());}
- else{ui.modal.hidden=true;ui.modal.setAttribute('aria-hidden','true');document.body.classList.remove('control-center-open');
-  lastFocus?.focus?.();}
+ if(open){
+  lastFocus=document.activeElement;ui.modal.hidden=false;ui.modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('control-center-open');
+  if(activePane==='account')void refresh();
+  requestAnimationFrame(()=>ui.close?.focus());
+ }else{
+  ui.modal.hidden=true;ui.modal.setAttribute('aria-hidden','true');document.body.classList.remove('control-center-open');
+  lastFocus?.focus?.();
+ }
 }
 async function session(){
  const response=await fetch('./server/session.php',{credentials:'same-origin',headers:{Accept:'application/json'}});
@@ -82,8 +92,9 @@ async function refresh(){
 }
 ui.open?.addEventListener('click',()=>setOpen(true,'account'));
 ui.roomOpen?.addEventListener('click',()=>setOpen(true,'room'));
-ui.accountTab?.addEventListener('click',()=>selectPane('account'));
+ui.accountTab?.addEventListener('click',()=>{selectPane('account');if(open)void refresh();});
 ui.roomTab?.addEventListener('click',()=>selectPane('room'));
+ui.meetingTab?.addEventListener('click',()=>selectPane('meeting'));
 ui.close?.addEventListener('click',()=>setOpen(false));
 ui.backdrop?.addEventListener('click',()=>setOpen(false));
 ui.refresh?.addEventListener('click',()=>void (async()=>{await window.trackyAccountParticipants?.syncNow?.();await refresh();})());
@@ -91,7 +102,7 @@ window.addEventListener('tracky:control-center-toggle',event=>{
  const pane=event.detail?.pane||activePane;
  setOpen(!open,pane);
 });
-window.addEventListener('tracky:account-participant-sync',()=>{if(open)void refresh();});
+window.addEventListener('tracky:account-participant-sync',()=>{if(open&&activePane==='account')void refresh();});
 document.addEventListener('keydown',event=>{
  if(!open)return;
  if(event.key==='Escape'){event.preventDefault();setOpen(false);return;}
@@ -103,3 +114,5 @@ document.addEventListener('keydown',event=>{
  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
+const requestedAdminPane=new URLSearchParams(window.location.search).get('admin');
+if(requestedAdminPane==='meeting')setOpen(true,'meeting');

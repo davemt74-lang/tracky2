@@ -109,9 +109,8 @@
       <div class="room-left-tabs" role="tablist" aria-label="Room information">
         <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Conversation</button>
         <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Participant Activity</button>
-        <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1" hidden>AGENT</button>
-        <button type="button" id="roomMeetingTab" role="tab" aria-controls="roomMeetingPanel" aria-selected="false" tabindex="-1" hidden>Meeting</button>
-        <button type="button" id="roomTab" role="tab" aria-controls="roomObservationsPanel" aria-selected="false" tabindex="-1" hidden>ROOM</button>
+        <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1">AGENT</button>
+        <button type="button" id="roomTab" role="tab" aria-controls="roomObservationsPanel" aria-selected="false" tabindex="-1">ROOM</button>
       </div>
       <section id="roomDialoguePanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomDialogueTab">
 
@@ -360,8 +359,74 @@
 
         <p class="agent-tab-note">Conversation and transcript history remain in the Conversation tab. Voice, model and history controls are configured here.</p>
       </section>
-      <section id="roomMeetingPanel" class="room-left-tabpanel meeting-panel" role="tabpanel" aria-labelledby="roomMeetingTab" hidden>
-        <div class="agent-tab-heading"><strong>MEETING</strong><span>Standalone session · canonical transcript references</span></div>
+      <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
+        <div class="agent-tab-heading room-feed-heading">
+          <div><strong>ROOM</strong><span>One live room-level feed · environment, hearing, background actions & system events</span></div>
+          <button type="button" id="roomOpenControlCenter" class="room-settings-link">ROOM Settings</button>
+        </div>
+        <p class="room-feed-intro">ROOM tracks the overall environment. Person-specific identity, movement, dwell and voice-profile activity stays in Participant views.</p>
+        <div class="room-timeline-toolbar">
+          <div class="room-timeline-filters" role="group" aria-label="Filter unified ROOM feed">
+            <button type="button" data-room-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-room-filter="presence" aria-pressed="false">Occupancy</button>
+            <button type="button" data-room-filter="audio" aria-pressed="false">Hearing</button>
+            <button type="button" data-room-filter="decision" aria-pressed="false">Actions</button>
+            <button type="button" data-room-filter="activity" aria-pressed="false">Room activity</button>
+            <button type="button" data-room-filter="system" aria-pressed="false">System</button>
+          </div>
+          <small id="roomTimelineCount" aria-live="polite">0 room events shown</small>
+        </div>
+        <div id="roomObservationsTimeline" class="room-observations-timeline room-unified-feed" aria-live="off" aria-label="Unified ROOM activity feed"></div>
+        <small class="room-privacy-notice">ROOM shows aggregate/environmental activity only. Individual participant tracking remains in Participant views. Existing camera/mic permission and privacy boundaries still apply.</small>
+      </section>
+    </aside>
+  </section>
+
+
+  <section id="agentRuntimeControls" hidden aria-hidden="true">
+    <button id="startCamera" type="button">Start camera</button>
+    <button id="stopCamera" type="button" disabled>Stop camera</button>
+    <button id="startRoomAudio" type="button">Enable room audio</button>
+    <button id="stopRoomAudio" type="button" disabled>Disable room audio</button>
+    <button id="clearDialogue" type="button">Clear saved dialogue</button>
+    <select id="cameraSelect" disabled><option value="">Default camera</option></select>
+    <input id="cameraAutostart" type="checkbox">
+    <span id="cameraPreferenceStatus">Camera starts manually until approved.</span>
+    <input id="mirrorCamera" type="checkbox" checked>
+    <input id="liveTranscription" type="checkbox" checked>
+    <input id="voiceAcknowledgements" type="checkbox" checked>
+  </section>
+</main>
+<div id="agentControlCenter" class="control-center-modal" hidden aria-hidden="true">
+  <button type="button" id="agentControlCenterBackdrop" class="control-center-backdrop" aria-label="Close Control Center"></button>
+  <section class="control-center-shell" role="dialog" aria-modal="true" aria-labelledby="agentControlCenterTitle" tabindex="-1">
+    <header class="control-center-head">
+      <div><small>CONTROL CENTER</small><h2 id="agentControlCenterTitle">Tracky2 Control Center</h2></div>
+      <button type="button" id="agentControlCenterClose" aria-label="Close Control Center">×</button>
+    </header>
+    <nav class="control-center-tabs" role="tablist" aria-label="Control Center sections">
+      <button type="button" id="controlCenterAccountTab" role="tab" aria-controls="controlCenterAccountPanel" aria-selected="true">Account</button>
+      <button type="button" id="controlCenterRoomTab" role="tab" aria-controls="controlCenterRoomPanel" aria-selected="false" tabindex="-1">ROOM</button>
+      <button type="button" id="controlCenterMeetingTab" role="tab" aria-controls="controlCenterMeetingPanel" aria-selected="false" tabindex="-1">Meetings</button>
+    </nav>
+    <section id="controlCenterAccountPanel" class="control-center-pane" role="tabpanel" aria-labelledby="controlCenterAccountTab">
+      <div id="agentControlCenterStatus" class="control-center-status" role="status">Checking account session…</div>
+      <div class="control-center-grid">
+        <article><span>SIGNED IN</span><strong id="agentAccountUsername">—</strong><small id="agentAccountRole">Session unavailable</small></article>
+        <article><span>PARTICIPANTS</span><strong id="agentAccountParticipants">—</strong><small>Account-backed + local offline cache</small></article>
+        <article><span>ACCOUNT SYNC</span><strong id="agentAccountSyncState">Checking…</strong><small id="agentAccountSyncDetail">Desktop/mobile participant continuity</small></article>
+        <article><span>BIOMETRICS</span><strong>Consent gated</strong><small>Face/voice cross-device sync is participant-controlled</small></article>
+      </div>
+      <nav class="control-center-actions" aria-label="Account dashboard links">
+        <a href="./participants.html">Participants</a>
+        <a href="./server/admin.php">Admin</a>
+        <a href="./diagnostics.html">Diagnostics</a>
+        <button type="button" id="agentControlCenterRefresh">Refresh account</button>
+      </nav>
+      <p class="control-center-note">Account controls do not start camera, microphone, recording, provider calls, or background synchronization.</p>
+    </section>
+      <section id="controlCenterMeetingPanel" class="control-center-pane meeting-panel" role="tabpanel" aria-labelledby="controlCenterMeetingTab" hidden>
+        <div class="agent-tab-heading"><strong>MEETINGS</strong><span>Administrative session controls · shared AGENT camera, audio and canonical transcript runtime</span></div>
         <div class="meeting-status-row">
           <strong id="meetingStatus">No active meeting</strong>
           <span id="meetingElapsed">—</span>
@@ -433,71 +498,7 @@
         <div id="meetingMessage" class="meeting-message" role="status">Meeting runtime ready.</div>
         <small>Post-meeting summary is deterministic metadata derived from the meeting record plus canonical dialogue turns. It does not invent decisions or action items.</small>
       </section>
-      <section id="roomObservationsPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomTab" hidden>
-        <div class="agent-tab-heading room-feed-heading">
-          <div><strong>ROOM</strong><span>One live room-level feed · environment, hearing, background actions & system events</span></div>
-          <button type="button" id="roomOpenControlCenter" class="room-settings-link">ROOM Settings</button>
-        </div>
-        <p class="room-feed-intro">ROOM tracks the overall environment. Person-specific identity, movement, dwell and voice-profile activity stays in Participant views.</p>
-        <div class="room-timeline-toolbar">
-          <div class="room-timeline-filters" role="group" aria-label="Filter unified ROOM feed">
-            <button type="button" data-room-filter="all" aria-pressed="true">All</button>
-            <button type="button" data-room-filter="presence" aria-pressed="false">Occupancy</button>
-            <button type="button" data-room-filter="audio" aria-pressed="false">Hearing</button>
-            <button type="button" data-room-filter="decision" aria-pressed="false">Actions</button>
-            <button type="button" data-room-filter="activity" aria-pressed="false">Room activity</button>
-            <button type="button" data-room-filter="system" aria-pressed="false">System</button>
-          </div>
-          <small id="roomTimelineCount" aria-live="polite">0 room events shown</small>
-        </div>
-        <div id="roomObservationsTimeline" class="room-observations-timeline room-unified-feed" aria-live="off" aria-label="Unified ROOM activity feed"></div>
-        <small class="room-privacy-notice">ROOM shows aggregate/environmental activity only. Individual participant tracking remains in Participant views. Existing camera/mic permission and privacy boundaries still apply.</small>
-      </section>
-    </aside>
-  </section>
 
-
-  <section id="agentRuntimeControls" hidden aria-hidden="true">
-    <button id="startCamera" type="button">Start camera</button>
-    <button id="stopCamera" type="button" disabled>Stop camera</button>
-    <button id="startRoomAudio" type="button">Enable room audio</button>
-    <button id="stopRoomAudio" type="button" disabled>Disable room audio</button>
-    <button id="clearDialogue" type="button">Clear saved dialogue</button>
-    <select id="cameraSelect" disabled><option value="">Default camera</option></select>
-    <input id="cameraAutostart" type="checkbox">
-    <span id="cameraPreferenceStatus">Camera starts manually until approved.</span>
-    <input id="mirrorCamera" type="checkbox" checked>
-    <input id="liveTranscription" type="checkbox" checked>
-    <input id="voiceAcknowledgements" type="checkbox" checked>
-  </section>
-</main>
-<div id="agentControlCenter" class="control-center-modal" hidden aria-hidden="true">
-  <button type="button" id="agentControlCenterBackdrop" class="control-center-backdrop" aria-label="Close Control Center"></button>
-  <section class="control-center-shell" role="dialog" aria-modal="true" aria-labelledby="agentControlCenterTitle" tabindex="-1">
-    <header class="control-center-head">
-      <div><small>CONTROL CENTER</small><h2 id="agentControlCenterTitle">Tracky2 Control Center</h2></div>
-      <button type="button" id="agentControlCenterClose" aria-label="Close Control Center">×</button>
-    </header>
-    <nav class="control-center-tabs" role="tablist" aria-label="Control Center sections">
-      <button type="button" id="controlCenterAccountTab" role="tab" aria-controls="controlCenterAccountPanel" aria-selected="true">Account</button>
-      <button type="button" id="controlCenterRoomTab" role="tab" aria-controls="controlCenterRoomPanel" aria-selected="false" tabindex="-1">ROOM</button>
-    </nav>
-    <section id="controlCenterAccountPanel" class="control-center-pane" role="tabpanel" aria-labelledby="controlCenterAccountTab">
-      <div id="agentControlCenterStatus" class="control-center-status" role="status">Checking account session…</div>
-      <div class="control-center-grid">
-        <article><span>SIGNED IN</span><strong id="agentAccountUsername">—</strong><small id="agentAccountRole">Session unavailable</small></article>
-        <article><span>PARTICIPANTS</span><strong id="agentAccountParticipants">—</strong><small>Account-backed + local offline cache</small></article>
-        <article><span>ACCOUNT SYNC</span><strong id="agentAccountSyncState">Checking…</strong><small id="agentAccountSyncDetail">Desktop/mobile participant continuity</small></article>
-        <article><span>BIOMETRICS</span><strong>Consent gated</strong><small>Face/voice cross-device sync is participant-controlled</small></article>
-      </div>
-      <nav class="control-center-actions" aria-label="Account dashboard links">
-        <a href="./participants.html">Participants</a>
-        <a href="./server/admin.php">Admin</a>
-        <a href="./diagnostics.html">Diagnostics</a>
-        <button type="button" id="agentControlCenterRefresh">Refresh account</button>
-      </nav>
-      <p class="control-center-note">Account controls do not start camera, microphone, recording, provider calls, or background synchronization.</p>
-    </section>
     <section id="controlCenterRoomPanel" class="control-center-pane control-center-room-pane" role="tabpanel" aria-labelledby="controlCenterRoomTab" hidden>
       <div class="control-center-section-heading">
         <div><small>ROOM CONTROL PLANE</small><strong>Mapping, observation policy & federation</strong></div>

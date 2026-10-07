@@ -3,7 +3,7 @@
 export const AGENT_VIEWS=Object.freeze(['camera','orb']);
 export function normalizeAgentView(value){return AGENT_VIEWS.includes(value)?value:'camera';}
 export function nextAgentTab(current,action){
- const tabs=['dialogue','activity','agent','meeting','room'];
+ const tabs=['dialogue','activity','agent','room'];
  const index=tabs.indexOf(current);
  if(tabs.includes(action))return action;
  if(action==='Home')return tabs[0];
