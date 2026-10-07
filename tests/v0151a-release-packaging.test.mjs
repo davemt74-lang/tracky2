@@ -13,7 +13,7 @@ test('15.1A package, PWA cache and deploy artifact versions stay aligned',()=>{
  assert.match(workflow,/tracky2-v0\.17\.1-deploy\.zip/);
  assert.match(workflow,/gh release create v0\.17\.1/);
  assert.match(workflow,/gh release edit v0\.17\.1/);
- assert.match(workflow,/V0\.17\.1 simplifies the live AGENT workspace to exactly four primary tabs/);
+ assert.match(workflow,/V0\.17\.1 repairs the simplified four-tab AGENT shell/);
  assert.doesNotMatch(workflow,/V0\.14\.8 closes the ROOM audio intelligence sequence/);
  assert.doesNotMatch(workflow,/tracky2-v0\.14\.8-deploy\.zip/);
 });
