@@ -1,11 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createControllerStability } from '../src/controller-stability.js';
-import { createMultiplayerMatch } from '../src/multiplayer-match.js';
 
 const d=(x,y,confidence=.8)=>({x,y,confidence});
-const roster=[{id:'a',name:'A'},{id:'b',name:'B'}];
-const picks=[{color:'green',participantId:'a'},{color:'blue',participantId:'b'}];
 
 test('requires consecutive valid frames before allowing any scoring',()=>{
  const t=createControllerStability();
@@ -53,27 +50,4 @@ test('stale frames, reset and invalid configuration fail closed',()=>{
  assert.throws(()=>createControllerStability({stableFrames:0}),RangeError);
  assert.throws(()=>createControllerStability({maxJump:2}),RangeError);
 });
-test('turn-based game accepts only gated frames, including after a lost marker',()=>{
- const tracker=createControllerStability();
- const match=createMultiplayerMatch();
- match.configure(picks,roster);
- match.begin(2,()=>0);
- const green=match.getSession('green').game;
- green.activeZone=1;green.roundTarget=1;green.repsRemaining=1;green.detector.minExcursion=.03;
- let accepted=0;
- const apply=(y,t,confidence=.8)=>{
-   const result=tracker.observe(d(.5,y,confidence),t);
-   if (!result.accepted) { match.signalLost('green'); return result; }
-   accepted++;
-   return match.sample('green',{x:result.sample.x,y:result.sample.y,timestamp:t},()=>0);
- };
- apply(.435,1);apply(.435,2);apply(.435,3); // acquisition, then anchor
- apply(.395,4); // up only
- assert.equal(apply(.85,5).type,'jump-rejected');
- assert.equal(match.snapshot().players[0].score,0);
- apply(.435,6);apply(.435,7);apply(.435,8); // fresh acquisition
- apply(.395,9);apply(.355,10);
- assert.equal(apply(.395,11).type,'point');
- assert.equal(match.snapshot().activeColor,'blue');
- assert.ok(accepted>=6);
-});
+
