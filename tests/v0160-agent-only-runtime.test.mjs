@@ -43,13 +43,13 @@ test('retired gameplay source modules remain absent while AGENT descriptor remai
  assert.equal(exists('src/games/agent.js'),true);
 });
 
-test('V0.17.0 packages the refined AGENT runtime',()=>{
+test('V0.17.1 packages the refined AGENT runtime',()=>{
  const pkg=JSON.parse(read('package.json'));
  const sw=read('sw.js');
  const workflow=read('.github/workflows/test.yml');
- assert.equal(pkg.version,'0.17.0');
- assert.match(sw,/tracky2-static-v0\.17\.0-agent-refinement-r1/);
- assert.match(workflow,/tracky2-v0\.17\.0-deploy\.zip/);
+ assert.equal(pkg.version,'0.17.1');
+ assert.match(sw,/tracky2-static-v0\.17\.1-agent-refinement-r1/);
+ assert.match(workflow,/tracky2-v0\.17\.1-deploy\.zip/);
  assert.match(workflow,/src\/games\/agent\.js/);
 });
 
