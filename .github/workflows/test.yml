@@ -171,8 +171,8 @@ jobs:
           grep -F 'tracky2-v0.17.0/docs/V010-MASTER-PLAN.md' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/docs/DEVELOPMENT-STATUS.md' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/src/room-audio-audit.js' /tmp/tracky2-v0170-files.txt
-          grep -F "tracky2-v0.17.0/src/model-config.js"
-          grep -F "tracky2-v0.17.0/src/room-audio-worklet.js"
+          grep -F "tracky2-v0.17.0/src/model-config.js" /tmp/tracky2-v0170-files.txt
+          grep -F "tracky2-v0.17.0/src/room-audio-worklet.js" /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/src/face-gallery.js' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/participants-sidebar.js' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/participants-stage.js' /tmp/tracky2-v0170-files.txt
