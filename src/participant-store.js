@@ -1,5 +1,4 @@
 import { participantRecord, cryptoRandomId } from './participant-core.js';
-import { browserMatchStorage, deleteParticipantMatchHistory } from './match-history.js';
 import {normalizeRoomScene,emptyRoomScene} from './room-scene-graph.js';
 import {reviseTranscriptRecord} from './transcript-correction.js';
 import {
@@ -46,6 +45,25 @@ const RECORDING_MEDIA = 'recording-media';
 const ENVIRONMENTAL_FEEDBACK = 'environmental-feedback';
 const ROUTINE_FEEDBACK = 'routine-feedback';
 const PERSONALIZED_SOUNDS = 'personalized-sounds';
+const LEGACY_MATCH_HISTORY_KEY='tracky2-match-history-v1';
+
+function scrubLegacyMatchHistoryParticipant(participantId){
+ try{
+  if(typeof participantId!=='string'||!participantId||!globalThis.localStorage)return false;
+  const raw=globalThis.localStorage.getItem(LEGACY_MATCH_HISTORY_KEY);
+  if(!raw)return true;
+  const parsed=JSON.parse(raw);
+  if(!Array.isArray(parsed)){globalThis.localStorage.removeItem(LEGACY_MATCH_HISTORY_KEY);return true;}
+  const rows=parsed.map(match=>{
+   if(!match||!Array.isArray(match.players))return null;
+   const players=match.players.filter(player=>String(player?.participantId||'')!==participantId);
+   return players.length?{...match,players}:null;
+  }).filter(Boolean);
+  if(rows.length)globalThis.localStorage.setItem(LEGACY_MATCH_HISTORY_KEY,JSON.stringify(rows));
+  else globalThis.localStorage.removeItem(LEGACY_MATCH_HISTORY_KEY);
+  return true;
+ }catch{return false;}
+}
 export const MAX_PERSISTED_ROOM_OBSERVATIONS=500;
 export const MAX_PERSISTED_ENVIRONMENTAL_FEEDBACK=200;
 export const MAX_PERSISTED_ROUTINE_FEEDBACK=160;
@@ -814,7 +832,7 @@ export async function deleteParticipant(id,{remoteSyncState=null,accountSync=tru
     }
     await done;
     // Follow participant deletion with local game-history cleanup on the same device.
-    deleteParticipantMatchHistory(browserMatchStorage(), id);
+    scrubLegacyMatchHistoryParticipant(id);
     if(accountSync)notifyAccountParticipantChange({participantId:id,operation:'delete'});
     return true;
   } finally {
