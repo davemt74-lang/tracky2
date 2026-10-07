@@ -48,7 +48,7 @@ test('V0.17.1 packages the refined AGENT runtime',()=>{
  const sw=read('sw.js');
  const workflow=read('.github/workflows/test.yml');
  assert.equal(pkg.version,'0.17.1');
- assert.match(sw,/tracky2-static-v0\.17\.1-agent-refinement-r1/);
+ assert.match(sw,/tracky2-static-v0\.17\.1-agent-shell-r1/);
  assert.match(workflow,/tracky2-v0\.17\.1-deploy\.zip/);
  assert.match(workflow,/src\/games\/agent\.js/);
 });
@@ -61,6 +61,6 @@ test('Meeting remains functional but is no longer an AGENT mode or primary tab',
  assert.doesNotMatch(html,/id="roomMeetingTab"|id="roomMeetingPanel"/);
  assert.match(html,/id="controlCenterMeetingTab"/);
  assert.match(html,/id="controlCenterMeetingPanel"/);
- assert.match(admin,/vertical-motion\.html\?admin=meeting/);
+ assert.match(admin,/vertical-motion\.html\?mode=agent&amp;admin=meeting/);
  assert.match(runtime,/createMeetingUi\(/);
 });
