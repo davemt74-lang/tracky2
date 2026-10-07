@@ -22,7 +22,7 @@ test('participant save has recovery IndexedDB plus non-IndexedDB emergency stora
 
 test('service worker cannot pin participant code to an old cache after deploy',()=>{
  const sw=read('sw.js');
- assert.match(sw,/tracky2-static-v0\.17\.1-agent-refinement-r1/);
+ assert.match(sw,/tracky2-static-v0\.17\.1-agent-shell-r1/);
  const fetchBlock=sw.slice(sw.indexOf("self.addEventListener('fetch'"));
  assert.match(fetchBlock,/Network-first for application code/);
  assert.match(fetchBlock,/fetch\(request\)\.then\(response=>/);
