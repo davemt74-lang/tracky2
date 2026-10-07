@@ -1,6 +1,6 @@
 // Install static application shell; installed models remain explicit network dependencies.
 // Do not skipWaiting automatically while an AGENT session may be active.
-const CACHE='tracky2-static-v0.17.3-agent-onboarding-r1';
+const CACHE='tracky2-static-v0.17.4-flat-deploy-r1';
 const ASSETS=[
   './','./index.html','./tracker.html','./games.html','./participants.html',
   './vertical-motion.html','./diagnostics.html','./styles.css','./launch.js',
