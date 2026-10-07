@@ -1,6 +1,6 @@
 {
   "name": "tracky2",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "private": true,
   "type": "module",
   "description": "Tracky2 local-first AGENT runtime with camera presence, participant identity, room intelligence, voice profiles and conversation",
