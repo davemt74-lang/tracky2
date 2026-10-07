@@ -388,7 +388,7 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.16\.0-deploy\.zip/.test(workflow)) {
+if (!/tracky2-v0\.17\.0-deploy\.zip/.test(workflow)) {
   fail('CI must build Tracky2 V0.17.0 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
