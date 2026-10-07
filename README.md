@@ -34,7 +34,7 @@ V0.16.0 removes the former gameplay product and runtime:
 
 `src/games/agent.js` remains as a small compatibility description of AGENT. It does not create a board, scoring session or independent camera/microphone stack.
 
-Hardware Diagnostics still retains its camera/color-stability utilities because those are diagnostic probes, not gameplay.
+Hardware Diagnostics now measures generic camera performance, microphone transport and runtime resilience only; marker/color gameplay probes are removed.
 
 ## Conversation runtime
 
