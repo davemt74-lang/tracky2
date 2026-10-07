@@ -4,9 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0b0f0c">
-  <title>Tracky2 — Random Follow Pattern / Classic Vertical Motion</title>
+  <title>Tracky2 — AGENT</title>
   <link rel="stylesheet" href="./styles.css">
-<link rel="stylesheet" href="./game-stage.css">
 <link rel="stylesheet" href="./scene-analysis.css">
 <link rel="stylesheet" href="./room-tabs.css">
 <link rel="stylesheet" href="./agent-mode.css">
@@ -20,8 +19,8 @@
 <main class="game-shell">
   <header class="game-topbar">
     <div class="game-title-row">
-      <a class="back-link" href="./games.html">← Games</a>
-      <div><small id="activeGameKicker">GAME 01 · LIVE ROOM</small><strong id="activeGameTitle">Random Follow Pattern</strong></div>
+      <a class="back-link" href="./index.html">← Home</a>
+      <div><small id="activeGameKicker">TRACKY2 · LIVE ROOM</small><strong id="activeGameTitle">AGENT</strong></div>
     </div>
     <div class="game-top-actions">
       <a class="button-link" href="./participants.html">Participants</a>
@@ -106,10 +105,10 @@
       </div>
     </aside>
 
-    <aside id="roomLeftPanel" class="room-left-panel" aria-label="Conversation, player activity, agent and room observations">
+    <aside id="roomLeftPanel" class="room-left-panel" aria-label="Conversation, participant activity, agent and room observations">
       <div class="room-left-tabs" role="tablist" aria-label="Room information">
         <button type="button" id="roomDialogueTab" role="tab" aria-controls="roomDialoguePanel" aria-selected="true" tabindex="0">Conversation</button>
-        <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Player Activity</button>
+        <button type="button" id="playerActivityTab" role="tab" aria-controls="playerActivityPanel" aria-selected="false" tabindex="-1">Participant Activity</button>
         <button type="button" id="roomAgentTab" role="tab" aria-controls="roomAgentPanel" aria-selected="false" tabindex="-1" hidden>AGENT</button>
         <button type="button" id="roomMeetingTab" role="tab" aria-controls="roomMeetingPanel" aria-selected="false" tabindex="-1" hidden>Meeting</button>
         <button type="button" id="roomTab" role="tab" aria-controls="roomObservationsPanel" aria-selected="false" tabindex="-1" hidden>ROOM</button>
@@ -124,7 +123,7 @@
     
       </section>
       <section id="playerActivityPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="playerActivityTab" hidden>
-        <div class="player-activity-intro"><strong>Live player history</strong><span>Confirmed presence and assigned game actions. Marker ownership is not inferred.</span></div>
+        <div class="player-activity-intro"><strong>Participant activity</strong><span>Confirmed participant presence and camera-relative activity.</span></div>
         <section id="roomTemporalPanel" class="room-temporal-panel" aria-label="Conservative temporal movement observations">
           <strong>PARTICIPANT MOVEMENT · CAMERA RELATIVE</strong>
           <div id="roomTemporalSummary" class="room-temporal-summary" aria-live="off">Waiting for stable camera observations</div>
@@ -133,32 +132,7 @@
         <div id="playerActivityTimeline" class="player-activity-timeline" aria-live="off">
           <p class="player-activity-empty">Activity appears here as enrolled participants are confirmed or play.</p>
         </div>
-        <section id="gamePlayerHud" class="game-player-hud" aria-label="Current scores and game state" hidden>
 
-      <div class="game-player-hud-title">PLAYER STATUS</div>
-      <div id="roundTimer" class="pattern-round-timer" aria-live="off">Select players, interval and rounds</div>
-      <div id="multiTurnLabel" class="multi-turn-label" role="status" aria-live="polite">Assign two players and start the match</div>
-      <div id="stabilityStatus" class="stability-status" role="status" aria-live="polite">Waiting for a stable marker</div>
-      <div id="boardInstruction" class="multi-instruction">One four-section board for both players. Green takes the first turn.</div>
-      <div class="multi-scorecards" id="classicPatternScorecards" aria-label="Individual player scores">
-        <article class="multi-scorecard" data-player-color="green">
-          <strong class="multi-name">Green player</strong><b class="multi-score">0 / 5</b>
-          <span class="multi-reps">Ready</span><span class="multi-travel">0.000 in tracked</span>
-          <small class="multi-presence">Marker assignment only · identity unverified</small>
-          <small class="multi-marker-status">Marker holder not verified</small>
-          <small class="multi-voice">Voice Profile not enrolled</small>
-        </article>
-        <article class="multi-scorecard" data-player-color="blue">
-          <strong class="multi-name">Blue player</strong><b class="multi-score">0 / 5</b>
-          <span class="multi-reps">Ready</span><span class="multi-travel">0.000 in tracked</span>
-          <small class="multi-presence">Marker assignment only · identity unverified</small>
-          <small class="multi-marker-status">Marker holder not verified</small>
-          <small class="multi-voice">Voice Profile not enrolled</small>
-        </article>
-      </div>
-      <div id="patternRosterScoreboard" class="pattern-roster-scoreboard" aria-label="Timed pattern player roster" hidden></div>
-    
-        </section>
       </section>
       <section id="roomAgentPanel" class="room-left-tabpanel" role="tabpanel" aria-labelledby="roomAgentTab" hidden>
         <div class="agent-tab-heading"><strong>AGENT</strong><span>Voice, model and history preferences</span></div>
@@ -464,7 +438,7 @@
           <div><strong>ROOM</strong><span>One live room-level feed · environment, hearing, background actions & system events</span></div>
           <button type="button" id="roomOpenControlCenter" class="room-settings-link">ROOM Settings</button>
         </div>
-        <p class="room-feed-intro">ROOM tracks the overall environment. Person-specific identity, movement, dwell and voice-profile activity stays in Player / Participant views.</p>
+        <p class="room-feed-intro">ROOM tracks the overall environment. Person-specific identity, movement, dwell and voice-profile activity stays in Participant views.</p>
         <div class="room-timeline-toolbar">
           <div class="room-timeline-filters" role="group" aria-label="Filter unified ROOM feed">
             <button type="button" data-room-filter="all" aria-pressed="true">All</button>
@@ -477,17 +451,10 @@
           <small id="roomTimelineCount" aria-live="polite">0 room events shown</small>
         </div>
         <div id="roomObservationsTimeline" class="room-observations-timeline room-unified-feed" aria-live="off" aria-label="Unified ROOM activity feed"></div>
-        <small class="room-privacy-notice">ROOM shows aggregate/environmental activity only. Individual participant tracking remains in Player / Participant views. Existing camera/mic permission and privacy boundaries still apply.</small>
+        <small class="room-privacy-notice">ROOM shows aggregate/environmental activity only. Individual participant tracking remains in Participant views. Existing camera/mic permission and privacy boundaries still apply.</small>
       </section>
     </aside>
-    <section id="multiplayerStage" class="multiplayer-stage" aria-label="Shared four-section turn-based gameboard" hidden>
-      <div id="sharedBoard" class="shared-board" data-active-color="idle" aria-label="One shared four-section vertical gameboard">
-        <div data-board-zone="0"><b>1</b></div><div data-board-zone="1"><b>2</b></div>
-        <div data-board-zone="2"><b>3</b></div><div data-board-zone="3"><b>4</b></div>
-        <div id="boardCursor" class="multi-cursor" hidden></div>
-      </div>
-
-    </section>
+  </section>
 
 
     <div class="movement-lane" id="movementLane" aria-label="Three-zone vertical movement lane">
@@ -512,149 +479,22 @@
     </aside>
   </section>
 
-  <section class="multiplayer-setup panel" aria-label="Game mode and player assignments">
-    <label>Game mode
-      <select id="gameMode"><option value="pattern" selected>Random Follow Pattern · timed rounds</option>
-        <option value="reaction">Reaction Challenge · target speed</option>
-        <option value="agent">AGENT · live room conversation</option>
-        <option value="meeting">MEETING · video meeting + canonical transcript</option>
-        <option value="solo">Classic solo · green controller</option>
-        <option value="multiplayer">Classic two-player · point goal</option></select>
-    </label>
-    <div id="multiplayerSettings" class="multiplayer-settings" hidden>
-      <fieldset id="patternSetup" class="pattern-setup">
-        <legend>Random Follow Pattern · game settings</legend>
-        <label>Number of players
-          <select id="patternPlayerCount"><option value="1">1 player</option><option value="2" selected>2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option></select>
-        </label>
-        <label>Player interval (one timed round)
-          <select id="patternInterval"><option value="30" selected>30 seconds</option>
-            <option value="60">60 seconds</option><option value="90">90 seconds</option>
-            <option value="120">120 seconds</option></select>
-        </label>
-        <label>Rounds per game
-          <select id="patternRounds"><option value="5" selected>5 rounds</option>
-            <option value="10">10 rounds</option><option value="15">15 rounds</option>
-            <option value="20">20 rounds</option></select>
-        </label>
-        <p>Players take turns for each timed round. For 3–6 players, pass the same green marker between turns. Follow random zone and rep targets until
-          the timer expires. With two players, green starts and blue follows using separate controllers.</p>
-      </fieldset>
-      <label>Green controller player<select id="greenPlayer"><option value="">Select enrolled player…</option></select></label>
-      <label id="bluePlayerWrap">Blue controller player<select id="bluePlayer"><option value="">Select enrolled player…</option></select></label>
-      <div id="patternExtraPlayers" class="pattern-extra-players" hidden aria-label="Additional player selections"></div>
-      <p id="multiplayerSetupStatus" role="status" aria-live="polite">
-        Select all enrolled participants. In Random Follow Pattern, the turn changes at the timed interval, not after each target.
-        Camera or voice recognition does not prove who holds a colored marker.
-      </p>
-      <fieldset class="calibration-panel" aria-label="Camera marker calibration">
-        <legend>Camera calibration · green and blue markers</legend>
-        <label>Lighting preset<select id="calibrationPreset"><option value="normal">Normal</option>
-          <option value="lowLight">Low light</option><option value="bright">Bright light</option></select></label>
-        <label>Green hue start <input id="greenHueMin" type="number" min="60" max="175" value="70"></label>
-        <label>Green hue end <input id="greenHueMax" type="number" min="70" max="185" value="170"></label>
-        <label>Green saturation <input id="greenSatMin" type="number" min="15" max="90" value="35"></label>
-        <label>Blue hue start <input id="blueHueMin" type="number" min="190" max="275" value="195"></label>
-        <label>Blue hue end <input id="blueHueMax" type="number" min="200" max="285" value="260"></label>
-        <label>Blue saturation <input id="blueSatMin" type="number" min="15" max="90" value="40"></label>
-        <label>Minimum marker area<select id="markerArea">
-          <option value="0.0005">Small</option><option value="0.001">Small-medium</option>
-          <option value="0.002" selected>Normal</option><option value="0.0025">Medium</option>
-          <option value="0.005">Large</option><option value="0.01">Very large</option></select></label>
-        <button type="button" id="saveCalibration">Apply and save</button>
-        <button type="button" id="resetCalibration">Restore defaults</button>
-        <span id="calibrationStatus" role="status">Calibration ready.</span>
-        <span id="greenDetection">GREEN marker not found</span>
-        <span id="blueDetection">BLUE marker not found</span>
-      </fieldset>
-      <label class="match-consent"><input id="historySaveOption" type="checkbox">
-        Save scores and match progress locally on this device (optional)</label>
-    </div>
+
+  <section id="agentRuntimeControls" hidden aria-hidden="true">
+    <button id="startCamera" type="button">Start camera</button>
+    <button id="stopCamera" type="button" disabled>Stop camera</button>
+    <button id="resetSession" type="button">Reset session</button>
+    <button id="startRoomAudio" type="button">Enable room audio</button>
+    <button id="stopRoomAudio" type="button" disabled>Disable room audio</button>
+    <button id="clearDialogue" type="button">Clear saved dialogue</button>
+    <select id="cameraSelect" disabled><option value="">Default camera</option></select>
+    <input id="cameraAutostart" type="checkbox">
+    <span id="cameraPreferenceStatus">Camera starts manually until approved.</span>
+    <input id="mirrorCamera" type="checkbox" checked>
+    <input id="liveTranscription" type="checkbox" checked>
+    <input id="voiceAcknowledgements" type="checkbox" checked>
+    <select id="motionSensitivity"><option value="0" selected>Default</option></select>
   </section>
-
-  <section id="matchHistoryPanel" class="panel match-history-panel" aria-label="Local match results" hidden>
-    <div class="match-history-heading"><strong>Local match history &amp; player progress</strong>
-      <button type="button" id="clearMatchHistory">Clear saved history</button></div>
-    <p id="matchHistoryStatus" role="status" aria-live="polite">Match results are never saved unless enabled above.</p>
-    <div id="playerProgress" class="player-progress" aria-label="Individual player statistics"></div>
-    <div id="recentMatches" class="recent-matches" aria-label="Recent saved matches"></div>
-  </section>
-
-  <section class="game-controls panel">
-    <button id="startCamera" class="primary">Start camera</button>
-    <button id="stopCamera" disabled>Stop</button>
-    <button id="resetSession">Reset session</button>
-    <button id="startRoomAudio">Enable room audio</button>
-    <button id="stopRoomAudio" disabled>Disable room audio</button>
-    <button id="clearDialogue">Clear saved dialogue</button>
-    <label class="points-goal">Points to win
-      <input id="pointGoal" type="number" min="1" max="50" step="1" value="5" inputmode="numeric">
-    </label>
-    <button id="startGame" class="primary">Start game</button>
-    <button id="endGame" disabled>End game</button>
-    <label>Camera<select id="cameraSelect" disabled><option value="">Default camera</option></select></label>
-    <label class="check camera-autostart-option"><input id="cameraAutostart" type="checkbox"> Remember approved camera · auto-start on game pages</label>
-    <span id="cameraPreferenceStatus" class="camera-preference-status" role="status">Camera starts manually until approved.</span>
-    <label class="check"><input id="mirrorCamera" type="checkbox" checked> Mirror</label>
-    <label class="check"><input id="liveTranscription" type="checkbox" checked> Live transcription</label>
-    <label class="check"><input id="voiceAcknowledgements" type="checkbox" checked> Voice acknowledgements</label>
-    <label>Micro sensitivity
-      <select id="motionSensitivity">
-        <option value="0" selected>Maximum — every delta</option>
-        <option value="0.0002">High</option>
-        <option value="0.0005">Normal</option>
-        <option value="0.001">Filtered</option>
-      </select>
-    </label>
-  </section>
-
-  <section class="motion-section">
-    <article class="panel">
-      <div class="section-head">
-        <div><small>HIGH-VOLUME STREAM</small><h2>Overall movement</h2></div>
-        <button id="pauseStats">Pause stats</button>
-      </div>
-      <div class="metrics motion-metrics">
-        <div><span>Samples</span><b id="statSamples">0</b></div>
-        <div><span>Sample rate</span><b id="statRate">0.0 Hz</b></div>
-        <div><span>Total travel</span><b id="statTravel">0.000 in</b></div>
-        <div><span>Range</span><b id="statRange">0.000 in</b></div>
-        <div><span>Up travel</span><b id="statUp">0.000 in</b></div>
-        <div><span>Down travel</span><b id="statDown">0.000 in</b></div>
-        <div><span>Micro travel</span><b id="statMicro">0.000 in</b></div>
-        <div><span>Micro events</span><b id="statMicroEvents">0</b></div>
-        <div><span>Reversals</span><b id="statReversals">0</b></div>
-        <div><span>Micro reversals</span><b id="statMicroReversals">0</b></div>
-        <div><span>Oscillation rate</span><b id="statOscillation">0.0/min</b></div>
-        <div><span>Session</span><b id="statTime">0.0s</b></div>
-      </div>
-      <div class="trace-wrap">
-        <div class="trace-label"><span>Recent raw vertical micro-movement</span><span>raw analytics · display cursor smoothed · ~10 seconds</span></div>
-        <canvas id="motionTrace" width="1000" height="180"></canvas>
-      </div>
-    </article>
-
-    <article class="panel">
-      <div class="section-head"><div><small>3 EQUAL SECTIONS</small><h2>Movement by zone</h2></div></div>
-      <div class="zone-stats">
-        <section data-zone="0"><h3>Zone 1 <span>Top</span></h3><div class="zone-grid"><b data-k="travel">0.000 in</b><small>Total travel</small><b data-k="micro">0.000 in</b><small>Micro travel</small><b data-k="up">0.000 in</b><small>Up</small><b data-k="down">0.000 in</b><small>Down</small><b data-k="reversals">0</b><small>Reversals</small><b data-k="microEvents">0</b><small>Micro events</small><b data-k="microReversals">0</b><small>Micro reversals</small><b data-k="dwell">0.0s</b><small>Dwell</small></div></section>
-        <section data-zone="1"><h3>Zone 2 <span>Middle</span></h3><div class="zone-grid"><b data-k="travel">0.000 in</b><small>Total travel</small><b data-k="micro">0.000 in</b><small>Micro travel</small><b data-k="up">0.000 in</b><small>Up</small><b data-k="down">0.000 in</b><small>Down</small><b data-k="reversals">0</b><small>Reversals</small><b data-k="microEvents">0</b><small>Micro events</small><b data-k="microReversals">0</b><small>Micro reversals</small><b data-k="dwell">0.0s</b><small>Dwell</small></div></section>
-        <section data-zone="2"><h3>Zone 3 <span>Bottom</span></h3><div class="zone-grid"><b data-k="travel">0.000 in</b><small>Total travel</small><b data-k="micro">0.000 in</b><small>Micro travel</small><b data-k="up">0.000 in</b><small>Up</small><b data-k="down">0.000 in</b><small>Down</small><b data-k="reversals">0</b><small>Reversals</small><b data-k="microEvents">0</b><small>Micro events</small><b data-k="microReversals">0</b><small>Micro reversals</small><b data-k="dwell">0.0s</b><small>Dwell</small></div></section>
-      </div>
-    </article>
-  </section>
-
-  <section class="panel game-rules">
-    <small>HOW TO PLAY</small>
-    <p><strong>Random Follow Pattern:</strong> select 1 or 2 enrolled players, choose a
-      30/60/90/120-second interval and 5/10/15/20 total rounds. Each interval is one round.
-      The active player follows random zones on the shared four-section board, completing
-      3–6 up/down reps per target. Each finished target earns a point, and new targets
-      continue until the timer expires. The next timed round passes to the next player.
-      Classic three-zone solo and two-player point-goal games remain available in Game mode.</p>
-  </section>
-
-  <footer>The 1″ × 5″ lane uses CSS physical units. Exact physical size depends on display scaling and monitor calibration.</footer>
 </main>
 <div id="agentControlCenter" class="control-center-modal" hidden aria-hidden="true">
   <button type="button" id="agentControlCenterBackdrop" class="control-center-backdrop" aria-label="Close Control Center"></button>
