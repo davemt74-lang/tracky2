@@ -78,7 +78,7 @@ test('10D single-capture integration: owner edit, suppression gap and bounded ac
  const store=fs.readFileSync('src/participant-store.js','utf8');
  const html=fs.readFileSync('vertical-motion.html','utf8');
  assert.match(runtime,/roomAmbientAudit\.flush\(Date\.now\(\)\)/);
- assert.match(runtime,/if\(suppressed\)\{/);
+ assert.match(runtime,/if\(captureSuppressed\)\{/);
  assert.match(runtime,/describeAcousticPattern\(summary\)/);
  assert.match(runtime,/analyzeAmbientPatterns=ambientAnalysis\.checked/);
  assert.match(runtime,/ambientAnalysis\.checked=savedAmbient!=='no'/);
