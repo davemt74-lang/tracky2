@@ -41,6 +41,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const providerRecovery=new ProviderRecoveryCoordinator();
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
+ const speechBusy=()=>Boolean(speech?.speaking||speechController||remoteAudio);
  async function refreshProviderRuntime({announce=true}={}){
   try{
    providerRuntime=await fetchSelfHostedProviderStatus();
@@ -404,6 +405,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
+  // A newer heard turn invalidates a remote voice response that is still only
+  // being generated. Active playback remains protected by microphone suppression.
+  if(speechController&&!remoteAudio)stopSpeech();
   // Canonical participant context is scoped to the current conversation membership.
   // AGENT history is separately scoped; no participant transcript is duplicated there.
   const people=participants();
@@ -437,7 +441,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const now=Date.now();
   const policy=replyEligibility({
    turn,now,lastReplyAt:lastTurnAt,responsePending,modalOpen:open,
-   agentSpeaking:Boolean(speech?.speaking)
+   agentSpeaking:speechBusy()
   });
   if(policy.action==='cancel-agent-speech'){
    responseGeneration+=1;
