@@ -11,7 +11,6 @@ const SHELL=Object.freeze([
   './agent-presence.css','./manifest.webmanifest',
   './assets/tracky-mark.svg','./assets/icon-192.png','./assets/icon-512.png',
   './src/launch-core.js','./src/tracker-core.js','./src/camera-preference.js',
-  './src/color-controllers.js','./src/controller-stability.js','./src/player-presence.js',
   './src/hardware-diagnostics.js','./src/participant-core.js','./src/face-gallery.js',
   './src/roster-layout.js','./src/face-preview.js','./src/participant-store.js',
   './src/identity-engine.js','./src/room-tracking-core.js','./src/scene-analysis.js',
