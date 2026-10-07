@@ -3252,11 +3252,6 @@ const state = {
     micDb: -100,
     noiseFloorDb: -60,
     vad: false,
-    liveSpeakerParticipantId: null,
-    liveSpeakerConfidence: 0,
-    liveSpeakerAt: 0,
-    liveSpeakerFilterPending: false,
-    liveSpeakerFilterState: 'idle',
     turns: [],
     events: [],
     announcedParticipants: new Set(),
@@ -4426,7 +4421,7 @@ function createParticipantCard(track) {
     meter.dataset.trackId = String(track.id);
     if(track.participantId)meter.dataset.participantId=String(track.participantId);
     meter.setAttribute('role', 'meter');
-    meter.setAttribute('aria-label', 'Live participant voice input filtered from room and background audio');
+    meter.setAttribute('aria-label', 'Live microphone voice input level');
     meter.setAttribute('aria-valuemin', '0');
     meter.setAttribute('aria-valuemax', '100');
     meter.setAttribute('aria-valuenow', '0');
@@ -4679,52 +4674,32 @@ function renderParticipantCards() {
   }
 }
 
-// Participant input is live. Room VAD/noise gating provides the immediate level;
-// the saved Voice Profile only filters background/other speakers once a rolling
-// speaker window is available.
+// RoomAudioCapture owns the microphone. Participant Voice Input mirrors that
+// live signal directly; identity/profile/transcript state must never gate it.
 let lastAudioMeterPaint = -Infinity;
 function updateParticipantAudioMeters(force = false) {
   if(state.mode !== 'agent')return;
-  const now = performance.now();
-  if(!force && now-lastAudioMeterPaint<70)return;
+  const now=performance.now();
+  if(!force&&now-lastAudioMeterPaint<70)return;
   lastAudioMeterPaint=now;
-  const tracks=new Map(publicRoomTracks(now).map(t=>[String(t.id),t]));
-  const participantIds=Array.from(new Set(
-    Array.from(tracks.values()).map(track=>track.participantId).filter(Boolean)
-  ));
-  const soleCandidateId=participantIds.length===1?String(participantIds[0]):null;
-  const liveSpeakerId=state.voice.liveSpeakerFilterState==='matched'
-    ?state.voice.liveSpeakerParticipantId:null;
+
   const shared={
     active:state.voice.active,
-    suppressed:Boolean(state.voice.audio?.suppressed || agentSpeechActive || state.voice.ttsPending>0),
-    now,
-    liveDb:state.voice.micDb,
+    suppressed:Boolean(state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0),
+    db:state.voice.micDb,
     noiseFloorDb:state.voice.noiseFloorDb,
-    speaking:state.voice.vad,
-    liveSpeakerParticipantId:liveSpeakerId,
-    liveSpeakerConfidence:state.voice.liveSpeakerConfidence
+    vad:state.voice.vad
   };
+
   for(const el of ui.participantCards.querySelectorAll('.participant-audio-meter')){
-    const track=tracks.get(el.dataset.trackId);
-    const participantId=el.dataset.participantId||track?.participantId||null;
-    const participant=participantId?participantById(participantId):null;
-    const profileReady=Boolean(participant&&participant.voiceRecognitionEnabled!==false&&
-      voiceProfileReadiness(participant).ready);
-    const result=roomMeterState({
-      ...shared,track,participantId,voiceProfileReady:profileReady,
-      soleCandidate:Boolean(
-        participantId&&soleCandidateId===String(participantId)&&
-        state.voice.liveSpeakerFilterState==='pending'
-      )
-    });
+    const result=roomMeterState(shared);
     const fill=el.querySelector('.participant-audio-fill');
     if(fill)fill.style.width=result.level+'%';
     el.dataset.mode=result.mode;
     el.setAttribute('aria-valuenow',String(result.level));
     const caption=el.parentElement?.querySelector('.participant-audio-caption');
-    if(caption && caption.textContent!==result.text)caption.textContent=result.text;
-    el.closest('.participant-scan-card')?.classList.toggle('speaking',result.level>0);
+    if(caption&&caption.textContent!==result.text)caption.textContent=result.text;
+    el.closest('.participant-scan-card')?.classList.toggle('speaking',result.mode==='speech');
   }
 }
 
@@ -5131,85 +5106,30 @@ async function ensureTranscriptionEngine() {
   }
 }
 
-async function onRoomVoiceWindow(window) {
-  if(!state.voice.active||!window?.samples?.length)return;
-  if(state.voice.audio?.suppressed||agentSpeechActive||state.voice.ttsPending>0)return;
-  if(state.voice.liveSpeakerFilterPending)return;
-
-  const profiles=state.identity.participants.filter(participant=>
-    participant.voiceRecognitionEnabled!==false&&voiceProfileReadiness(participant).ready
-  );
-  // Without an enrolled profile there is nothing to filter against. The live
-  // meter still works; it simply relies on the room noise/VAD gate.
-  if(!profiles.length)return;
-
-  state.voice.liveSpeakerFilterPending=true;
-  const generation=state.voice.generation;
-  try{
-    const speakerReady=await ensureSpeakerEngine();
-    if(!speakerReady||generation!==state.voice.generation||!state.voice.active)return;
-    const embedding=await state.voice.engine.embedding(window.samples);
-    if(generation!==state.voice.generation||!state.voice.active)return;
-    const match=bestVoiceMatch(embedding,profiles);
-    state.voice.liveSpeakerAt=performance.now();
-    if(match.matched&&match.participant?.id){
-      state.voice.liveSpeakerParticipantId=match.participant.id;
-      state.voice.liveSpeakerConfidence=Number(match.similarity)||0;
-      state.voice.liveSpeakerFilterState='matched';
-    }else{
-      state.voice.liveSpeakerParticipantId=null;
-      state.voice.liveSpeakerConfidence=0;
-      state.voice.liveSpeakerFilterState='rejected';
-    }
-    updateParticipantAudioMeters(true);
-  }catch(error){
-    console.warn('Live Voice Profile filter unavailable.',error);
-    // A filter failure must not kill microphone capture or the conversation.
-    state.voice.liveSpeakerParticipantId=null;
-    state.voice.liveSpeakerConfidence=0;
-    state.voice.liveSpeakerFilterState='pending';
-  }finally{
-    state.voice.liveSpeakerFilterPending=false;
-  }
-}
-
 function onRoomAudioLevel(level) {
-  const wasSpeaking=Boolean(state.voice.vad);
-  state.voice.micDb = level.db;
-  state.voice.noiseFloorDb = level.noiseFloorDb;
-  state.voice.vad = level.speaking;
-  if(state.voice.vad&&!wasSpeaking){
-    state.voice.liveSpeakerParticipantId=null;
-    state.voice.liveSpeakerConfidence=0;
-    state.voice.liveSpeakerAt=performance.now();
-    state.voice.liveSpeakerFilterState='pending';
-  }else if(!state.voice.vad&&wasSpeaking){
-    state.voice.liveSpeakerParticipantId=null;
-    state.voice.liveSpeakerConfidence=0;
-    state.voice.liveSpeakerAt=performance.now();
-    state.voice.liveSpeakerFilterState='idle';
-  }
-  state.voice.captureMode = level.captureMode || state.voice.captureMode;
+  state.voice.micDb=level.db;
+  state.voice.noiseFloorDb=level.noiseFloorDb;
+  state.voice.vad=level.speaking;
+  state.voice.captureMode=level.captureMode||state.voice.captureMode;
   state.voice.inputChannelCount=Math.max(1,Number(level.inputChannelCount)||state.voice.inputChannelCount||1);
   listeningController.setVad(Boolean(level.speaking));
   const captureSuppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
-   agentSpeechActive||state.voice.ttsPending>0);
+    agentSpeechActive||state.voice.ttsPending>0);
   listeningController.setSuppressed(captureSuppressed,
-   captureSuppressed?(agentSpeechActive?'agent-tts':'capture-suppressed'):'capture-active');
+    captureSuppressed?(agentSpeechActive?'agent-tts':'capture-suppressed'):'capture-active');
+
   renderVoiceHud();
   updateParticipantAudioMeters();
+
   if(state.mode==='agent'&&state.voice.active){
-   renderAmbientAudioMeter();
-   const suppressed=Boolean(level.suppressed||state.voice.audio?.suppressed||
-    agentSpeechActive||state.voice.ttsPending>0);
-   if(suppressed){
-    // Close partial windows before TTS/permissions gaps; suppressed duration is unknown.
-    saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
-    roomAmbientAudit.reset();
-   }else{
-    const summary=roomAmbientAudit.update(level,Date.now());
-    if(summary)saveRoomAudioSummary(summary);
-   }
+    renderAmbientAudioMeter();
+    if(captureSuppressed){
+      saveRoomAudioSummary(roomAmbientAudit.flush(Date.now()));
+      roomAmbientAudit.reset();
+    }else{
+      const summary=roomAmbientAudit.update(level,Date.now());
+      if(summary)saveRoomAudioSummary(summary);
+    }
   }
 }
 
@@ -5324,13 +5244,8 @@ function noteLiveVoiceProfileMatch(match,segment){
  const participant=state.identity.participants.find(person=>person.id===match.participant.id);
  if(!participant||!voiceProfileReadiness(participant).ready)return false;
 
- // Voice identity is participant-level evidence and must not depend on a live
- // camera/body track. A visual track may receive the same metadata when present.
- state.voice.liveSpeakerParticipantId=participant.id;
- state.voice.liveSpeakerConfidence=Number(match.similarity)||0;
- state.voice.liveSpeakerAt=performance.now();
- state.voice.liveSpeakerFilterState='matched';
-
+ // Voice-profile evidence belongs to post-segment attribution/diagnostics.
+ // It must never control the live input meter.
  const liveTrack=state.identity.tracks.find(candidate=>
   candidate.participantId===participant.id&&
   !['occluded','reacquiring'].includes(candidate.status));
@@ -6131,7 +6046,6 @@ async function startRoomAudio() {
       minSegmentSeconds: 1.05,
       hangoverMs: 650,
       onLevel: onRoomAudioLevel,
-      onVoiceWindow: async (window) => onRoomVoiceWindow(window),
       onSegment: async (segment) => onRoomAudioSegment(segment),
       onUnavailable:()=>{
         if(state.voice.audio!==capture||!state.voice.active)return;
@@ -6147,11 +6061,6 @@ async function startRoomAudio() {
     state.voice.inputChannelCount=state.voice.audio.inputChannelCount||1;
     if (state.voice.ttsPending > 0 || agentSpeechActive) state.voice.audio.setSuppressed(true);
     state.voice.active = true;
-    state.voice.liveSpeakerParticipantId=null;
-    state.voice.liveSpeakerConfidence=0;
-    state.voice.liveSpeakerAt=0;
-    state.voice.liveSpeakerFilterPending=false;
-    state.voice.liveSpeakerFilterState='idle';
     speakerAssociationTracker.reset();
     multimodalFusionTracker.reset();
     diarizationSession.reset();
@@ -6236,11 +6145,6 @@ function stopRoomAudio() {
   void state.voice.audio?.stop();
   state.voice.audio = null;
   state.voice.active = false;
-  state.voice.liveSpeakerParticipantId=null;
-  state.voice.liveSpeakerConfidence=0;
-  state.voice.liveSpeakerAt=0;
-  state.voice.liveSpeakerFilterPending=false;
-  state.voice.liveSpeakerFilterState='idle';
   updateParticipantAudioMeters(true);
   agentRuntime?.setAudioActive(false);
   state.voice.vad = false;

@@ -38,7 +38,7 @@ test('AGENT room audit keeps bounded metadata for diagnostics while ROOM feed lo
  const source=fs.readFileSync('vertical-motion.js','utf8');
  const module=fs.readFileSync('src/room-audio-audit.js','utf8');
  assert.match(source,/roomAmbientAudit\.update\(level,Date\.now\(\)\)/);
- assert.match(source,/if\(suppressed\)\{/);
+ assert.match(source,/if\(captureSuppressed\)\{/);
  assert.match(source,/saveRoomAudioSummary\(roomAmbientAudit\.flush\(Date\.now\(\)\)\)/);
  assert.doesNotMatch(source,/roomAudioAuditMessage/);
  assert.match(source,/environmentalActivityTracker\.expire\(summary\.at\)/);
