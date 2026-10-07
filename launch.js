@@ -1,6 +1,6 @@
 import { startupReport,shouldAutoEnter } from './src/launch-core.js';
 const status=document.getElementById('launchStatus'),progress=document.getElementById('launchProgress');
-const link=document.getElementById('launchGames'),opt=document.getElementById('launchAuto');
+const link=document.getElementById('launchAgent'),opt=document.getElementById('launchAuto');
 let optedOut=false, timer=null, available=false, seen=false;
 try {seen=window.sessionStorage.getItem('tracky2-launch-seen')==='1';} catch {}
 try {
@@ -21,12 +21,12 @@ function cancel(){
   if(timer!==null){clearTimeout(timer);timer=null;}
   opt.textContent='Splash retained';
   opt.disabled=true;
-  status.textContent=report.message+' Choose Enter game lobby when ready.';
+  status.textContent=report.message+' Choose Enter AGENT when ready.';
 }
 opt.addEventListener('click',cancel);
 link.addEventListener('click',()=>{if(timer!==null)clearTimeout(timer);});
 if(shouldAutoEnter({seenThisTab:seen,optedOut,reducedMotion:reduce})&&report.ready){
   opt.textContent='Stay on splash';
-  timer=window.setTimeout(()=>{if(!optedOut)window.location.assign('./games.html');},2200);
+  timer=window.setTimeout(()=>{if(!optedOut)window.location.assign('./vertical-motion.html?mode=agent');},2200);
 } else {opt.textContent='Stay on splash';}
-// The Enter game lobby link remains usable even if startup checks or navigation timers fail.
+// The Enter AGENT link remains usable even if startup checks or navigation timers fail.
