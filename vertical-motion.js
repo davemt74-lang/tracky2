@@ -363,7 +363,7 @@ platform.register(randomFollowPatternGame);
 platform.register(reactionChallengeGame);
 
 const ctx = ui.trackingCanvas.getContext('2d', { willReadFrequently: true });
-const traceCtx = ui.trace.getContext('2d');
+const traceCtx = ui.trace?.getContext('2d')||null;
 
 let agentRuntime=null,sceneUI=null,taskUI=null,workflowUI=null,memoryUI=null,meetingUI=null,recallUI=null,recordingUI=null;
 let multiRoomRuntime=null;
@@ -3209,7 +3209,7 @@ const state = {
   displayY: 0.5,
   stats: createMotionStats(),
   gameplay: createGameSession({ pointGoal: 5 }),
-  mode: 'pattern',
+  mode: 'agent',
   pattern: null,
   multiplayer: createMultiplayerMatch({ pointGoal: 5 }),
   multiMotion: { green: createMotionStats(4), blue: createMotionStats(4) },
@@ -3670,38 +3670,13 @@ function updatePatternSetup() {
 }
 
 function renderMode(){
-  const agent=state.mode==='agent';
-  const meetingEntry=agent&&ui.gameMode.value==='meeting';
-  document.body.classList.toggle('agent-mode',agent);
-  document.body.classList.toggle('meeting-mode',meetingEntry);
-  if(agent){
-    ui.video.hidden=false;
-    ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
-    ui.playerHud.hidden=true;
-    ui.multiplayerStage.hidden=true;
-    ui.multiplayerSettings.hidden=true;
-    ui.matchHistoryPanel.hidden=true;
-    return;
-  }
-  ui.video.hidden=true;
-  const multi = state.mode !== 'solo';
-  ui.playerHud.hidden=!multi;
-  document.body.classList.toggle('multiplayer-mode', multi);
-  document.body.classList.toggle('pattern-mode', timedMode());
-  document.body.classList.toggle('reaction-mode', state.mode === 'reaction');
-  ui.multiplayerSettings.hidden = !multi;
-  ui.multiplayerStage.hidden = !multi;
-  ui.matchHistoryPanel.hidden = state.mode !== 'multiplayer';
-  updatePatternSetup();
-  if (timedMode()) renderPattern();
-  else if (state.mode === 'multiplayer') {
-    ui.board.dataset.playerSlot='-1';
-    ui.board.dataset.controllerMode='individual';
-    ui.classicPatternScorecards.hidden=false;
-    ui.patternRosterScoreboard.hidden=true;
-    renderMultiplayer();renderMatchHistory();
-  }
-  else renderGame();
+  state.mode='agent';
+  document.body.classList.add('agent-mode');
+  document.body.classList.toggle('meeting-mode',
+    new URL(window.location.href).searchParams.get('mode')==='meeting');
+  document.body.classList.remove('multiplayer-mode','pattern-mode','reaction-mode');
+  ui.video.hidden=false;
+  ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
 }
 
 function playerScoreCard(color) {
@@ -4220,7 +4195,7 @@ async function reloadIdentityParticipants() {
   }
 }
 
-function logPlayerActivity(participantId,kind,detail='',source='assigned-player'){
+function logPlayerActivity(participantId,kind,detail='',source='participant-activity'){
  const person=state.identity.participants.find(x=>x.id===participantId);
  if(!person)return;
  const event=activityEvent({participantId,name:person.name,kind,detail,source,at:Date.now()});
@@ -6743,8 +6718,7 @@ function resetSession() {
   state.trace = [];
   state.rawY = null;
   state.lastUiUpdate = 0;
-  renderStats(performance.now());
-  drawTrace();
+    drawTrace();
 }
 
 async function beginGameplay() {
@@ -6920,172 +6894,22 @@ function loop(now) {
   if (!state.running) return;
   runtimeBudget.recordFrame(now,{hidden:document.hidden});
   renderRuntimeHealth();
-  if (timedMode() && patternActive()) {
-    const beforeRound=state.pattern.snapshot(now);
-    const advance=state.pattern.tick(now);
-    if (advance.advanced || advance.type === 'game-complete') {
-      if(beforeRound.activeParticipantId)
-        logPlayerActivity(beforeRound.activeParticipantId,
-          advance.type==='game-complete'?'complete':'round',
-          advance.type==='game-complete'?'All rounds finished':'Round '+beforeRound.round+' finished');
-      state.activity.lastZones.clear();
-      state.markerTracker.reset();
-      setBoardCursor(null);
-      renderPattern(now);
-    }
-  }
-  if (ui.video.readyState < 2) {
-    state.raf = requestAnimationFrame(loop);
-    return;
-  }
 
-  const videoWidth = ui.video.videoWidth || 1280;
-  const videoHeight = ui.video.videoHeight || 720;
-  const aspect = videoWidth / videoHeight;
-  const trackingWidth = 320;
-  const trackingHeight = Math.max(180, Math.round(trackingWidth / aspect));
-  if (ui.trackingCanvas.width !== trackingWidth) ui.trackingCanvas.width = trackingWidth;
-  if (ui.trackingCanvas.height !== trackingHeight) ui.trackingCanvas.height = trackingHeight;
-
-  ctx.drawImage(ui.video, 0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
-  const image = ctx.getImageData(0, 0, ui.trackingCanvas.width, ui.trackingCanvas.height);
-  if (timedMode()) {
-    loopPattern(image, now);
+  if (ui.video.readyState >= 2) {
+    const videoWidth=ui.video.videoWidth||1280;
+    const videoHeight=ui.video.videoHeight||720;
+    const aspect=videoWidth/videoHeight;
+    const trackingWidth=320;
+    const trackingHeight=Math.max(180,Math.round(trackingWidth/aspect));
+    if(ui.trackingCanvas.width!==trackingWidth)ui.trackingCanvas.width=trackingWidth;
+    if(ui.trackingCanvas.height!==trackingHeight)ui.trackingCanvas.height=trackingHeight;
+    ctx.drawImage(ui.video,0,0,ui.trackingCanvas.width,ui.trackingCanvas.height);
     maybeScanRoom(now);
-    state.raf = requestAnimationFrame(loop);
-    return;
-  }
-  if (state.mode === 'multiplayer') {
-    loopMultiplayer(image, now);
-    maybeScanRoom(now);
-    state.raf = requestAnimationFrame(loop);
-    return;
-  }
-  const detection = detectColorBlob(image, detectOptions());
-  const input = toColorControllerInput(detection, ui.mirror.checked, now);
-
-  if (!input) {
-    const loss = state.gameplay.signalLost();
-    if (loss.type === 'signal-lost') renderGame();
-    ui.trackingStatus.textContent = 'Searching for green…';
-    ui.liveY.textContent = '—';
-    ui.liveDelta.textContent = '—';
-    ui.liveZone.textContent = '—';
-    setCursor(state.displayX, state.displayY, false);
-  } else {
-    const rawX = input.x;
-    const rawY = input.y;
-    state.displayX += (rawX - state.displayX) * 0.28;
-    state.displayY += (rawY - state.displayY) * 0.28;
-    setCursor(state.displayX, state.displayY, true);
-    ui.trackingStatus.textContent = 'Object tracked';
-
-    let motionEvent = { delta: 0, zone: zoneForY(rawY), micro: false };
-    if (!state.paused) {
-      motionEvent = recordMotion(state.stats, rawY, now, {
-        noiseFloor: Number(ui.sensitivity.value),
-        microThreshold: MICRO_THRESHOLD
-      });
-      pushTrace(motionEvent.delta, motionEvent.micro);
-    }
-
-    if (state.gameplay.game.active) {
-      const gameEvent = state.gameplay.sample(input);
-      if(ui.greenPlayer.value && ['rep','point','game-over'].includes(gameEvent.type))
-        logPlayerActivity(ui.greenPlayer.value,gameEvent.type==='rep'?'rep':
-          gameEvent.type==='point'?'point':'complete');
-      if (gameEvent.type === 'rep' || gameEvent.type === 'point' || gameEvent.type === 'game-over' || gameEvent.type === 'outside-zone') {
-        renderGame();
-      }
-    }
-
-    state.rawY = rawY;
-    ui.liveY.textContent = rawY.toFixed(4);
-    ui.liveDelta.textContent = signed(motionEvent.delta);
-    ui.liveZone.textContent = String(zoneForY(rawY) + 1);
   }
 
-  maybeScanRoom(now);
-
-  if (now - state.lastUiUpdate >= 100) {
-    renderStats(now);
-    if (state.gameplay.game.active) renderGame();
-    drawTrace();
-    state.lastUiUpdate = now;
-  }
-
-  state.raf = requestAnimationFrame(loop);
+  state.raf=requestAnimationFrame(loop);
 }
 
-ui.gameMode.addEventListener('change', () => {
-  if(['agent','meeting'].includes(ui.gameMode.value)){
-    window.location.assign('./vertical-motion.html?mode='+encodeURIComponent(ui.gameMode.value));return;
-  }
-  if (state.gameplay.game.active || state.multiplayer.snapshot().active || patternActive()) return;
-  state.mode = ['solo','multiplayer','pattern','reaction'].includes(ui.gameMode.value) ? ui.gameMode.value : 'pattern';
-  state.pattern=null;
-  state.latestMarkerDetections = { green: null, blue: null };
-  state.markerTracker.reset();
-  renderMode();
-});
-ui.calibrationPreset.addEventListener('change', () => {
-  if (state.multiplayer.snapshot().active || patternActive()) return;
-  state.calibration = createColorCalibration(ui.calibrationPreset.value);
-  state.markerTracker.reset();
-  populateCalibration(state.calibration);
-  ui.calibrationStatus.textContent = 'Preset active. Verify live detection and save if satisfied.';
-});
-ui.saveCalibration.addEventListener('click', () => {
-  if (state.multiplayer.snapshot().active || patternActive()) return;
-  try {
-    const candidate = calibrationFromControls();
-    state.calibration = candidate;
-    state.markerTracker.reset();
-    try {
-      window.localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(candidate));
-      ui.calibrationStatus.textContent = 'Color calibration saved on this device.';
-    } catch {
-      ui.calibrationStatus.textContent = 'Calibration applied; browser storage unavailable.';
-    }
-  } catch (error) {
-    ui.calibrationStatus.textContent = error.message;
-  }
-});
-ui.resetCalibration.addEventListener('click', () => {
-  if (state.multiplayer.snapshot().active || patternActive()) return;
-  state.calibration = createColorCalibration();
-  state.markerTracker.reset();
-  ui.calibrationPreset.value = 'normal';
-  populateCalibration(state.calibration);
-  try { window.localStorage.removeItem(CALIBRATION_STORAGE_KEY); } catch {}
-  ui.calibrationStatus.textContent = 'Default calibration restored.';
-});
-ui.greenPlayer.addEventListener('change', () => {
- if(ui.greenPlayer.value){
-  retainedPlayerId=ui.greenPlayer.value;
-  try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,retainedPlayerId);}catch{}
- }
-  if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
-  else if (timedMode()) renderPattern();
-});
-ui.bluePlayer.addEventListener('change', () => {
-  if (state.mode === 'multiplayer') { renderMultiplayer(); renderMatchHistory(); }
-  else if (timedMode()) renderPattern();
-});
-ui.playerCount.addEventListener('change', () => {updatePatternSetup();renderPattern();});
-ui.patternExtraPlayers.addEventListener('change',event=>{
-  if(event.target.tagName!=='SELECT'||patternActive())return;
-  extraPlayerIds[Number(event.target.dataset.extraPosition)-3]=event.target.value;
-  renderPattern();
-});
-ui.interval.addEventListener('change', () => renderPattern());
-ui.rounds.addEventListener('change', () => renderPattern());
-ui.clearMatchHistory.addEventListener('click', () => {
-  const cleared = clearMatchHistory(browserMatchStorage());
-  ui.matchHistoryStatus.textContent = cleared ? 'Local match history cleared.' :
-    'Browser storage unavailable; could not clear local history.';
-  renderMatchHistory();
-});
 ui.start.addEventListener('click', () => {
  cameraStoppedThisPage=false;
  cameraRecovery.reset();cancelCameraRecovery();
@@ -7116,28 +6940,12 @@ ui.stop.addEventListener('click', () => {
   cameraStoppedThisPage=true;
   roomAudioManuallyStopped=true;
   cancelCameraRecovery();cancelMicrophoneRecovery();
-  if (state.gameplay.game.active) endGameplay();
   stopCamera();
-});
-ui.reset.addEventListener('click', resetSession);
-ui.startGame.addEventListener('click', beginGameplay);
-ui.endGame.addEventListener('click', endGameplay);
-ui.pointGoal.addEventListener('change', () => {
-  if (!state.gameplay.game.active) {
-    state.gameplay.game.pointGoal = pointGoalValue();
-    if (state.mode === 'multiplayer') renderMultiplayer();
-    else if (timedMode()) renderPattern();
-    else renderGame();
-  }
 });
 ui.select.addEventListener('change', () => state.running && startCamera(ui.select.value));
 ui.mirror.addEventListener('change',()=>{
   ui.video.classList.toggle('agent-mirror',ui.mirror.checked);
   renderParticipantCards();
-});
-ui.pause.addEventListener('click', () => {
-  state.paused = !state.paused;
-  ui.pause.textContent = state.paused ? 'Resume stats' : 'Pause stats';
 });
 ui.liveTranscription.addEventListener('change', renderVoiceHud);
 ui.voiceAcknowledgements.addEventListener('change', () => {
@@ -7146,7 +6954,6 @@ ui.voiceAcknowledgements.addEventListener('change', () => {
     'system'
   );
 });
-window.addEventListener('resize', drawTrace);
 function prepareRuntimeExit(reason='runtime-exit'){
  if(runtimeExitPrepared)return false;
  runtimeExitPrepared=true;
@@ -7210,52 +7017,13 @@ async function captureGovernedSceneImage({target}={}){
  });
 }
 
-restoreCalibration();
 await reloadIdentityParticipants();
 ui.cameraAutostart.checked=loadCameraPreference(window.localStorage);
 ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
   'Saved preference · checking browser permission…':'Camera starts manually until approved.';
-// Handoff is consumed once and every participant ID is rechecked against live local enrollment.
-// Camera autostart requires saved opt-in AND a pre-existing browser permission grant.
-// No timed game ever starts automatically.
-try {
-  const requestedMode=new URL(window.location.href).searchParams.get('mode');
-  if(requestedMode==='meeting'){
-    // Dedicated meeting entry point, but reuse the exact AGENT/camera/audio runtime.
-    state.mode='agent';
-    ui.gameMode.value='meeting';
-  }else if(['solo','multiplayer','agent'].includes(requestedMode)){
-    state.mode=requestedMode;
-    ui.gameMode.value=requestedMode;
-  } else {
-    const handoff=consumeLobbyTicket(window.sessionStorage,state.identity.participants);
-    if(handoff.status==='ready'){
-      const setup=handoff.setup;
-      state.mode=setup.gameId==='reaction-challenge'?'reaction':'pattern';
-      ui.gameMode.value=state.mode;
-      ui.playerCount.value=String(setup.players.length);
-      ui.interval.value=String(setup.intervalSeconds);
-      ui.rounds.value=String(setup.rounds);
-      ui.greenPlayer.value=setup.players[0].participantId;
-      retainedPlayerId=setup.players[0].participantId;
-      try{window.localStorage.setItem(LAST_PARTICIPANT_KEY,retainedPlayerId);}catch{}
-      if(setup.players.length>1)ui.bluePlayer.value=setup.players[1].participantId;
-      extraPlayerIds=setup.players.slice(2).map(p=>p.participantId);
-      ui.multiplayerSetupStatus.textContent='Lobby setup loaded. Check player assignments and start when ready.';
-    } else if(handoff.status==='invalid'){
-      ui.multiplayerSetupStatus.textContent='Lobby setup is invalid or enrollment changed. Please select your players again.';
-    }
-  }
-} catch {
-  ui.multiplayerSetupStatus.textContent='Lobby handoff unavailable; use the game setup controls directly.';
-}
-if(state.identity.participants.length===1 && !ui.greenPlayer.value){
-  ui.greenPlayer.value=state.identity.participants[0].id;
-}
-if(state.identity.participants.length===1 && timedMode() && !extraPlayerIds.length){
-  ui.playerCount.value='1';
-  ui.bluePlayer.value='';
-}
+// AGENT is the canonical Tracky2 runtime. Legacy game/lobby parameters are ignored.
+state.mode='agent';
+renderMode();
 await loadSavedDialogue();
 updateConversationGroups();
 renderParticipantCards();
@@ -7263,7 +7031,6 @@ renderRoomEvents();
 renderDialogueTurns();
 renderVoiceHud();
 renderStats(performance.now());
-renderMode();
 for(const button of document.querySelectorAll('[data-room-filter]')){
  button.addEventListener('click',()=>{
   roomTimelineFilter=normalizeRoomTimelineFilter(button.dataset.roomFilter);
