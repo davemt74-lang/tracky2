@@ -322,7 +322,7 @@ jobs:
           grep -F 'tracky2-v0.17.0/src/orb-spatial-core.js' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/src/agent-shortcuts.js' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/docs/V09-AGENT-ROADMAP.md' /tmp/tracky2-v0170-files.txt
-          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.17.0/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('agent','ArrowRight')!=='meeting'||m.nextAgentTab('meeting','ArrowRight')!=='room')process.exit(1)})"
+          node --input-type=module -e "import('./dist/package-smoke/tracky2-v0.17.0/src/agent-presentation.js').then(m=>{if(m.nextAgentTab('agent','ArrowRight')!=='room'||m.nextAgentTab('room','ArrowRight')!=='dialogue')process.exit(1)})"
           grep -F 'tracky2-v0.17.0/server/install.php' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/server/admin.php' /tmp/tracky2-v0170-files.txt
           grep -F 'tracky2-v0.17.0/server/session.php' /tmp/tracky2-v0170-files.txt
