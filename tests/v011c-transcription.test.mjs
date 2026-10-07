@@ -175,7 +175,7 @@ test('11C runtime rejects stale transcription results before canonical save and 
  const detail=runtime.indexOf('transcribeDetailed(segment.samples)',begin);
  const stale=runtime.indexOf("transcriptLifecycle.cancel(segment.segmentId,'stale-transcription-result'",detail);
  const fields=runtime.indexOf('canonicalTranscriptFields(transcriptRecord)',stale);
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn',fields);
+ const save=runtime.indexOf('savedTurn = await queueConversationPersistence({',fields);
  assert.ok(begin>0&&detail>begin&&stale>detail&&fields>stale&&save>fields);
  assert.match(runtime,/currentTranscriptState='pending'/);
  assert.match(runtime,/currentTranscriptState='cancelled'/);
