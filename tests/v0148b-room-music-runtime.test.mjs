@@ -4,14 +4,17 @@ import fs from 'node:fs';
 
 const read=path=>fs.readFileSync(path,'utf8');
 
-test('V2B ROOM runtime queues music only after speech-origin resolution and keeps lyrics outside Conversation',()=>{
+test('V2B ROOM music sidecar stays downstream of live Conversation and keeps lyrics outside Conversation',()=>{
  const runtime=read('vertical-motion.js');
- const originAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin');
+ const processAt=runtime.indexOf('async function processRoomSegment');
+ const transcriptAt=runtime.indexOf('await transcribeLiveConversationSegment(segment)',processAt);
+ const dispatchAt=runtime.indexOf('dispatchLiveAgentConversationTurn(liveConversationTurn)',transcriptAt);
+ const originAt=runtime.indexOf('const speechOrigin=resolveRoomSpeechOrigin',dispatchAt);
  const queueAt=runtime.indexOf('queueMusicRecognitionWindow(segment',originAt);
- const transcriptAt=runtime.indexOf('ensureTranscriptionEngine()',originAt);
- assert.ok(originAt>0);
- assert.ok(queueAt>originAt,'music sidecar must be decided after V2A speech origin');
- assert.ok(transcriptAt>queueAt,'normal Conversation transcription remains later in the live-speech path');
+ assert.ok(transcriptAt>processAt);
+ assert.ok(dispatchAt>transcriptAt,'live Conversation handoff must precede ROOM media analysis');
+ assert.ok(originAt>dispatchAt);
+ assert.ok(queueAt>originAt,'music sidecar must still be decided after V2A speech origin');
  assert.match(runtime,/const lyricEligible=Boolean\(primaryMusic&&speechOrigin\?\.state!=='live'\)/);
  assert.match(runtime,/state\.voice\.transcriber\.transcribeDetailed\(job\.samples\)/);
  assert.doesNotMatch(runtime,/saveDialogueTurn\([^)]*musicWorkingLyricQuery/s);

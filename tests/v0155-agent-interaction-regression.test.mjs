@@ -54,10 +54,11 @@ test('V0.15.5 preserves the direct enrolled voice-profile meter path',()=>{
  assert.match(runtime,/updateParticipantAudioMeters\(true\)/);
 });
 
-test('V0.15.5 keeps the end-to-end turn to AGENT handoff wired',()=>{
+test('V0.15.5+ keeps the end-to-end live turn to AGENT handoff wired',()=>{
  const runtime=read('vertical-motion.js');
- assert.match(runtime,/state\.voice\.turns\.push\(savedTurn\)/);
- assert.match(runtime,/agentRuntime\?\.onDialogue\(savedTurn\)/);
+ assert.match(runtime,/dispatchLiveAgentConversationTurn\(liveConversationTurn\)/);
+ assert.match(runtime,/agentRuntime\?\.onDialogue\(turn\)/);
+ assert.match(runtime,/void saveDialogueTurn\(turn\)\.catch/);
  const agent=read('agent-mode.js');
  assert.match(agent,/async function onDialogue\(turn\)/);
  assert.match(agent,/say\(result\.reply/);

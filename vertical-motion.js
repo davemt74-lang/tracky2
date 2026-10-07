@@ -5259,6 +5259,108 @@ function noteLiveVoiceProfileMatch(match,segment){
  return true;
 }
 
+function createLiveAgentConversationTurn(segment,transcript,transcriptRecord){
+ const transcriptFields=canonicalTranscriptFields(transcriptRecord);
+ const createdAt=new Date().toISOString();
+ const base={
+  ...createSpeakerTurn({
+   participantId:null,participantName:null,trackId:null,groupId:'SOLO',
+   confidence:1,voiceConfidence:0,signalConfidence:1,
+   startedAt:segment.startedAt,endedAt:segment.endedAt,
+   peakDb:segment.peakDb,avgDb:segment.avgDb,noiseFloorDb:segment.noiseFloorDb,
+   nearbyParticipantIds:[],nearbyParticipantNames:[],
+   transcript,attribution:'unknown'
+  }),
+  id:segment.segmentId,
+  sessionId:state.voice.sessionId,
+  createdAt,
+  at:Date.now(),
+  meetingId:segment.meetingId||null,
+  meetingSchemaVersion:segment.meetingId?segment.meetingSchemaVersion||1:null,
+  conversationMode:'live',
+  conversationPrimaryPath:true,
+  ...transcriptFields
+ };
+ const conversationFields=multiConversationTurnFields(base,{
+  visibleParticipants:[],visibleVisitorIds:[],groupSize:1
+ });
+ return {...base,...conversationFields};
+}
+
+function dispatchLiveAgentConversationTurn(turn){
+ if(state.mode!=='agent'||!turn?.transcript?.trim())return false;
+ const existing=state.voice.turns.findIndex(row=>row.id===turn.id);
+ if(existing>=0)state.voice.turns[existing]=turn;
+ else state.voice.turns.push(turn);
+ if(state.voice.turns.length>50)state.voice.turns.splice(0,state.voice.turns.length-50);
+ state.voice.lastDecision='conversation-dispatched';
+ renderDialogueTurns();
+ renderVoiceHud();
+ agentRuntime?.onDialogue(turn);
+ // Persistence is secondary to live conversation. A browser storage failure must
+ // never make a heard/transcribed user turn disappear from the active conversation.
+ void saveDialogueTurn(turn).catch(error=>{
+  console.error('Could not persist live conversation turn',error);
+  pushRoomEvent('Conversation is live, but this turn could not be saved locally.','error');
+ });
+ return true;
+}
+
+async function transcribeLiveConversationSegment(segment){
+ let transcript='';
+ let transcriptRecord=null;
+ if(ui.liveTranscription.checked){
+  transcriptLifecycle.begin({
+   segmentId:segment.segmentId,generation:segment.generation,
+   sessionId:state.voice.sessionId,source:'local-whisper',
+   captureDurationMs:segment.captureDurationMs,at:Date.now()
+  });
+  state.voice.currentTranscriptState='pending';
+  state.voice.currentTranscriptSegmentId=segment.segmentId;
+  state.voice.currentTranscriptModelRevision=null;
+  renderVoiceHud();
+
+  const transcriptReady=await ensureTranscriptionEngine();
+  if(!voiceSegmentIsCurrent(segment)){
+   transcriptLifecycle.cancel(segment.segmentId,'segment-invalidated',Date.now());
+   state.voice.currentTranscriptState='cancelled';
+   return {transcript:'',transcriptRecord:null,cancelled:true};
+  }
+  if(transcriptReady){
+   const detail=await state.voice.transcriber.transcribeDetailed(segment.samples);
+   if(!voiceSegmentIsCurrent(segment)){
+    transcriptLifecycle.cancel(segment.segmentId,'stale-transcription-result',Date.now());
+    state.voice.currentTranscriptState='cancelled';
+    return {transcript:'',transcriptRecord:null,cancelled:true};
+   }
+   transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+    text:detail.text,confidence:detail.confidence,language:detail.language,
+    source:detail.source,modelId:detail.modelId,modelRevision:detail.modelRevision,
+    processingDurationMs:detail.processingDurationMs,at:detail.completedAt
+   });
+   transcript=transcriptRecord?.text||'';
+   state.voice.currentTranscriptState=transcriptRecord?.state||'unavailable';
+   state.voice.currentTranscriptModelRevision=transcriptRecord?.modelRevision||null;
+  }else{
+   transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
+    text:'',source:'local-whisper',at:Date.now()
+   });
+   state.voice.currentTranscriptState='unavailable';
+  }
+ }else{
+  transcriptRecord={
+   state:'unavailable',source:'disabled',segmentId:segment.segmentId,
+   sessionId:state.voice.sessionId,captureDurationMs:segment.captureDurationMs,
+   completedAt:Date.now()
+  };
+  state.voice.currentTranscriptState='unavailable';
+  state.voice.currentTranscriptSegmentId=segment.segmentId;
+  state.voice.currentTranscriptModelRevision=null;
+ }
+ renderVoiceHud();
+ return {transcript,transcriptRecord,cancelled:false};
+}
+
 async function processRoomSegment(segment) {
   let outcome='completed';
   if (!voiceSegmentIsCurrent(segment)) {
@@ -5268,10 +5370,25 @@ async function processRoomSegment(segment) {
   }
   state.voice.processing = true;
   renderVoiceHud();
+  let transcript='';
+  let transcriptRecord=null;
+  let liveConversationTurn=null;
 
   try {
+    const transcription=await transcribeLiveConversationSegment(segment);
+    if(transcription.cancelled){outcome='cancelled';return;}
+    transcript=transcription.transcript;
+    transcriptRecord=transcription.transcriptRecord;
+    if(state.mode==='agent'&&transcript.trim()){
+      liveConversationTurn=createLiveAgentConversationTurn(segment,transcript,transcriptRecord);
+      dispatchLiveAgentConversationTurn(liveConversationTurn);
+    }
+
     const speakerReady = await ensureSpeakerEngine();
-    if (!speakerReady){outcome='failed';return;}
+    if (!speakerReady){
+      outcome=liveConversationTurn?'completed':'failed';
+      return;
+    }
     if (!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
 
     const embedding = await state.voice.engine.embedding(segment.samples);
@@ -5327,7 +5444,8 @@ async function processRoomSegment(segment) {
     }:rawVoiceMatch;
     const roomTracks = segment.roomTracks || [];
     let association=resolveSpeakerAssociation({voiceMatch,roomTracks});
-    const sameSegmentEnvironment=segment.environmentEvidencePromise
+    const sameSegmentEnvironment=segment.environmentEvidencePromise&&
+      !(state.mode==='agent'&&transcript.trim())
       ?await segment.environmentEvidencePromise:null;
     if(!voiceSegmentIsCurrent(segment)){outcome='cancelled';return;}
     const speechOrigin=resolveRoomSpeechOrigin({
@@ -5365,7 +5483,7 @@ async function processRoomSegment(segment) {
         }
       });
     }
-    if(!speechOrigin.allowConversation){
+    if(!speechOrigin.allowConversation&&!(state.mode==='agent'&&transcript.trim())){
       queueMusicRecognitionWindow(segment,{
        classification:sameSegmentEnvironment?.classification||null,speechOrigin,
        behaviorPolicy
@@ -5510,7 +5628,9 @@ async function processRoomSegment(segment) {
       : null;
 
     if (!gate.accept) {
-      // Rejected acoustic signals have no verified speaker identity.
+      // Rejected acoustic signals have no verified speaker identity. A non-empty
+      // live AGENT transcript still continues through conversation mode.
+      const keepLiveConversation=Boolean(state.mode==='agent'&&transcript.trim());
       state.voice.currentSpeakerId=null;
       state.voice.currentSpeakerName='Unverified acoustic segment';
       state.voice.currentVoiceConfidence=0;
@@ -5547,60 +5667,9 @@ async function processRoomSegment(segment) {
       }
       renderParticipantCards();
       renderVoiceHud();
-      return;
+      if(!keepLiveConversation)return;
     }
 
-    let transcript='';
-    let transcriptRecord=null;
-    if(ui.liveTranscription.checked){
-      transcriptLifecycle.begin({
-        segmentId:segment.segmentId,generation:segment.generation,
-        sessionId:state.voice.sessionId,source:'local-whisper',
-        captureDurationMs:segment.captureDurationMs,at:Date.now()
-      });
-      state.voice.currentTranscriptState='pending';
-      state.voice.currentTranscriptSegmentId=segment.segmentId;
-      state.voice.currentTranscriptModelRevision=null;
-      renderVoiceHud();
-
-      const transcriptReady=await ensureTranscriptionEngine();
-      if(!voiceSegmentIsCurrent(segment)){
-        transcriptLifecycle.cancel(segment.segmentId,'segment-invalidated',Date.now());
-        state.voice.currentTranscriptState='cancelled';
-        outcome='cancelled';return;
-      }
-      if(transcriptReady){
-        const detail=await state.voice.transcriber.transcribeDetailed(segment.samples);
-        if(!voiceSegmentIsCurrent(segment)){
-          transcriptLifecycle.cancel(segment.segmentId,'stale-transcription-result',Date.now());
-          state.voice.currentTranscriptState='cancelled';
-          outcome='cancelled';return;
-        }
-        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
-          text:detail.text,confidence:detail.confidence,language:detail.language,
-          source:detail.source,modelId:detail.modelId,modelRevision:detail.modelRevision,
-          processingDurationMs:detail.processingDurationMs,at:detail.completedAt
-        });
-        transcript=transcriptRecord?.text||'';
-        state.voice.currentTranscriptState=transcriptRecord?.state||'unavailable';
-        state.voice.currentTranscriptModelRevision=transcriptRecord?.modelRevision||null;
-      }else{
-        transcriptRecord=transcriptLifecycle.finalize(segment.segmentId,{
-          text:'',source:'local-whisper',at:Date.now()
-        });
-        state.voice.currentTranscriptState='unavailable';
-      }
-      renderVoiceHud();
-    }else{
-      transcriptRecord={
-        state:'unavailable',source:'disabled',segmentId:segment.segmentId,
-        sessionId:state.voice.sessionId,captureDurationMs:segment.captureDurationMs,
-        completedAt:Date.now()
-      };
-      state.voice.currentTranscriptState='unavailable';
-      state.voice.currentTranscriptSegmentId=segment.segmentId;
-      state.voice.currentTranscriptModelRevision=null;
-    }
     const transcriptFields=canonicalTranscriptFields(transcriptRecord);
 
     const associationTransition=speakerAssociationTracker.preview(association,Date.now());
@@ -5733,35 +5802,36 @@ async function processRoomSegment(segment) {
     state.voice.currentConversationAttention=turn.attentionTarget;
     state.voice.currentConversationGroupSize=turn.conversationGroupSize;
     state.voice.currentConversationLabel=conversationContextLabel(turn);
-    turn.at=Date.now();
+    turn.at=liveConversationTurn?.at||Date.now();
+    turn.id=liveConversationTurn?.id||turn.id||segment.segmentId;
+    turn.createdAt=liveConversationTurn?.createdAt||turn.createdAt||new Date().toISOString();
+    turn.conversationMode=state.mode==='agent'?'live':turn.conversationMode;
+    turn.conversationPrimaryPath=Boolean(liveConversationTurn);
     if (!voiceSegmentIsCurrent(segment)){
       transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
       state.voice.currentTranscriptState='cancelled';
       outcome='cancelled';return;
     }
 
-    let savedTurn;
+    let savedTurn=turn;
     try {
       savedTurn = await saveDialogueTurn({
         ...turn,
         sessionId: state.voice.sessionId,
-        createdAt: new Date().toISOString()
+        createdAt: turn.createdAt||new Date().toISOString()
       });
     } catch (error) {
-      transcriptLifecycle.cancel(segment.segmentId,'dialogue-save-failed',Date.now());
-      state.voice.currentTranscriptState='cancelled';
-      outcome='failed';
-      state.voice.lastDecision='dialogue-save-failed';
+      // Live conversation already received the transcript. Storage is not an
+      // authority over whether AGENT can hear or answer the user.
       console.error('Could not persist dialogue turn', error);
-      pushRoomEvent('Speech turn was not saved; AGENT reply skipped.', 'error');
-      return;
+      pushRoomEvent('Conversation is live, but this turn could not be saved locally.', 'error');
+      state.voice.lastDecision='conversation-live-save-failed';
     }
 
     if (!voiceSegmentIsCurrent(segment)) {
-      transcriptLifecycle.cancel(segment.segmentId,'post-persistence-stale',Date.now());
+      transcriptLifecycle.cancel(segment.segmentId,'post-analysis-stale',Date.now());
       state.voice.currentTranscriptState='cancelled';
       outcome='cancelled';
-      await deleteDialogueTurn(savedTurn.id).catch(() => {});
       return;
     }
 
@@ -5796,19 +5866,27 @@ async function processRoomSegment(segment) {
       }
     }
 
-    state.voice.turns.push(savedTurn);
+    const liveIndex=state.voice.turns.findIndex(row=>row.id===savedTurn.id);
+    if(liveIndex>=0)state.voice.turns[liveIndex]=savedTurn;
+    else state.voice.turns.push(savedTurn);
     if (state.voice.turns.length > 50) state.voice.turns.splice(0, state.voice.turns.length - 50);
     void refreshTranscriptSessionSummary();
     void meetingUI?.refreshTurns();
     memoryUI?.refreshProposals?.();
-    state.voice.lastDecision = 'accepted';
+    state.voice.lastDecision = liveConversationTurn?'conversation-enriched':'accepted';
     if(state.mode==='agent'){
       logRoomMessage('audio',savedTurn.participantId?'Voice-profile-matched speech segment':'Shared room speech segment · speaker unverified',
        'room-voice',savedTurn.participantId?{participantId:savedTurn.participantId}:{});
       goalIntentTracker.addDialogueGoal(savedTurn,Date.now());
       renderGoalStatus();
-      const followThroughHandled=await handleContextualFollowThrough(savedTurn,Date.now());
-      if(!followThroughHandled)agentRuntime?.onDialogue(savedTurn);
+      // Normal conversation was already dispatched immediately after transcription.
+      // Contextual/proactive systems observe the enriched turn but cannot own the reply path.
+      if(!liveConversationTurn){
+       const followThroughHandled=await handleContextualFollowThrough(savedTurn,Date.now());
+       if(!followThroughHandled)agentRuntime?.onDialogue(savedTurn);
+      }else{
+       void handleContextualFollowThrough(savedTurn,Date.now());
+      }
       noteSituationalDialogueFeedback(savedTurn,Date.now());
       proactiveGovernor.noteDialogue(savedTurn,Date.now());
       renderCognitiveStatus();
@@ -5818,9 +5896,11 @@ async function processRoomSegment(segment) {
     renderDialogueTurns();
     renderVoiceHud();
   } catch (error) {
-    outcome='failed';
+    outcome=liveConversationTurn?'completed':'failed';
     console.error(error);
-    pushRoomEvent('Speech turn could not be analyzed.', 'error');
+    pushRoomEvent(liveConversationTurn
+      ?'Conversation continued; speaker/ROOM enrichment could not be completed.'
+      :'Speech turn could not be analyzed.', 'error');
   } finally {
     transcriptLifecycle.forget(segment?.segmentId);
     state.voice.processing = false;
