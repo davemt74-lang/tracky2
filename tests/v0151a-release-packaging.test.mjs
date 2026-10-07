@@ -8,12 +8,12 @@ test('15.1A package, PWA cache and deploy artifact versions stay aligned',()=>{
  const pkg=JSON.parse(read('package.json'));
  const sw=read('sw.js');
  const workflow=read('.github/workflows/test.yml');
- assert.equal(pkg.version,'0.17.2');
- assert.match(sw,/tracky2-static-v0\.17\.2/);
- assert.match(workflow,/tracky2-v0\.17\.2-deploy\.zip/);
- assert.match(workflow,/gh release create v0\.17\.2/);
- assert.match(workflow,/gh release edit v0\.17\.2/);
- assert.match(workflow,/V0\.17\.2 fixes a malformed desktop CSS media-query boundary/);
+ assert.equal(pkg.version,'0.17.3');
+ assert.match(sw,/tracky2-static-v0\.17\.3/);
+ assert.match(workflow,/tracky2-v0\.17\.3-deploy\.zip/);
+ assert.match(workflow,/gh release create v0\.17\.3/);
+ assert.match(workflow,/gh release edit v0\.17\.3/);
+ assert.match(workflow,/V0\.17\.3 restores camera-first AGENT startup/);
  assert.doesNotMatch(workflow,/V0\.14\.8 closes the ROOM audio intelligence sequence/);
  assert.doesNotMatch(workflow,/tracky2-v0\.14\.8-deploy\.zip/);
 });
