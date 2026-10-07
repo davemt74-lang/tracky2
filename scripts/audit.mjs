@@ -264,8 +264,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.17.1') {
-  fail('package.json version must be 0.17.1');
+if (packageJson.version !== '0.17.2') {
+  fail('package.json version must be 0.17.2');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -388,8 +388,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.17\.1-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.17.1 deploy ZIP');
+if (!/tracky2-v0\.17\.2-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.17.2 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
