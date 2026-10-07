@@ -70,11 +70,11 @@ test('14.8J current package surfaces remain version-aligned after later releases
  const diagnostics=fs.readFileSync('diagnostics.js','utf8');
  const audit=fs.readFileSync('scripts/audit.mjs','utf8');
  const workflow=fs.readFileSync('.github/workflows/test.yml','utf8');
- assert.equal(pkg.version,'0.15.6');
- assert.match(sw,/tracky2-static-v0\.15\.6/);
- assert.match(diagnostics,/version:'0\.15\.6'/);
- assert.match(audit,/packageJson\.version !== '0\.15\.6'/);
- assert.match(workflow,/tracky2-v0\.15\.6-deploy\.zip/);
+ assert.equal(pkg.version,'0.15.7');
+ assert.match(sw,/tracky2-static-v0\.15\.7/);
+ assert.match(diagnostics,/version:'0\.15\.7'/);
+ assert.match(audit,/packageJson\.version !== '0\.15\.7'/);
+ assert.match(workflow,/tracky2-v0\.15\.7-deploy\.zip/);
  assert.doesNotMatch(workflow,/tracky2-v0\.14\.7-deploy\.zip/);
 });
 
