@@ -6,11 +6,12 @@ test('camera and orb are presentation variants, never separate camera engines',(
  assert.deepEqual(orbPresentation({view:'orb',speaking:true}),{orb:true,videoVisible:false,orbSpeaking:true});
  assert.equal(orbPresentation({view:'camera',speaking:true}).orbSpeaking,false);
 });
-test('all five AGENT sidebar tabs support direct click and keyboard cycling',()=>{
+test('exactly four AGENT sidebar tabs support direct click and keyboard cycling',()=>{
  assert.equal(nextAgentTab('dialogue','agent'),'agent');
- assert.equal(nextAgentTab('agent','ArrowRight'),'meeting');
- assert.equal(nextAgentTab('meeting','ArrowRight'),'room');
+ assert.equal(nextAgentTab('agent','ArrowRight'),'room');
+ assert.equal(nextAgentTab('room','ArrowRight'),'dialogue');
  assert.equal(nextAgentTab('dialogue','ArrowLeft'),'room');
  assert.equal(nextAgentTab('activity','Home'),'dialogue');
  assert.equal(nextAgentTab('dialogue','End'),'room');
+ assert.notEqual(nextAgentTab('agent','meeting'),'meeting');
 });
