@@ -18,12 +18,13 @@ test('15.1C runtime logs handoff and contested ownership through ROOM',()=>{
  assert.match(runtime,/semantic:'conversation-scope-handoff'/);
 });
 
-test('15.1C agent applies ownership gate before generating replies',()=>{
+test('15.1C ownership metadata remains observable without becoming a hard AGENT reply gate',()=>{
  const agent=read('agent-mode.js');
- const owner=agent.indexOf('conversationReplyOwnershipPolicy(turn');
- const provider=agent.indexOf('buildAgentMessages(',owner);
- assert.ok(owner>0&&provider>owner);
- assert.match(agent,/Conversation ownership blocked reply/);
+ const runtime=read('vertical-motion.js');
+ assert.doesNotMatch(agent,/conversationReplyOwnershipPolicy/);
+ assert.match(runtime,/conversationOwnershipTracker\.observe\(turn,Date\.now\(\)\)/);
+ assert.match(agent,/buildAgentMessages\(/);
+ assert.match(agent,/localAgentReply\(turn\.transcript/);
 });
 
 test('15.1C ownership core is metadata-only and local',()=>{

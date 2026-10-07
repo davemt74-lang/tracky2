@@ -20,11 +20,11 @@ test('15.1B presence transitions are emitted through canonical ROOM observations
  assert.match(runtime,/semantic,message,/);
 });
 
-test('15.1B speaker attribution is guarded against stale/mistargeted participant state',()=>{
+test('15.1B participant transition metadata does not suppress a current enrolled voice association',()=>{
  const runtime=read('vertical-motion.js');
- assert.match(runtime,/participantTargetEligibility\(/);
- assert.match(runtime,/participant-mistarget/);
- assert.match(runtime,/targeting\.allowed/);
+ assert.doesNotMatch(runtime,/participantTargetEligibility/);
+ assert.match(runtime,/const rawVoiceMatch = bestVoiceMatch/);
+ assert.match(runtime,/noteLiveVoiceProfileMatch\(rawVoiceMatch,segment\)/);
 });
 
 test('15.1B core remains metadata-only and local',()=>{

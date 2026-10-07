@@ -125,5 +125,5 @@ test('v0.14.7 right participant sidebar removes section titles and AGENT diagnos
  assert.doesNotMatch(html,/ROOM IDENTITY · FULL BODY|Persistent participant tracking/);
  assert.doesNotMatch(html,/ROOM PARTICIPANTS|Known participants and stable visitors/);
  assert.match(runtime,/AGENT participant cards stop at the verified Voice Profile\/input meter/);
- assert.match(runtime,/if \(state\.mode !== 'agent'\) \{/);
+ assert.match(runtime,/if \(state\.mode === 'agent'\) return card;/);
 });

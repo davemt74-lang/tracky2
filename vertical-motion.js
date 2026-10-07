@@ -103,7 +103,7 @@ import {
 } from './src/room-tracking-core.js';
 import {ParticipantContinuityTracker} from './src/participant-continuity-core.js';
 import {
- ParticipantPresenceTransitionTracker,participantTargetEligibility
+ ParticipantPresenceTransitionTracker
 } from './src/participant-transition-core.js';
 import { IdentityEngine, cropFacePhoto } from './src/identity-engine.js';
 import {
@@ -3477,7 +3477,7 @@ async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
  mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
  const plan=microphoneRecovery.plan({
   permission:mediaPermissions.microphone,visible:!document.hidden,
-  manualStop:roomAudioManuallyStopped||!state.running
+  manualStop:roomAudioManuallyStopped||state.mode!=='agent'
  });
  if(!plan.allowed){
   listeningController.setRecovering(false,plan.reason);
@@ -3488,10 +3488,10 @@ async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
  microphoneRecoveryTimer=setTimeout(async()=>{
   microphoneRecoveryTimer=0;
   mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
-  if(document.hidden||roomAudioManuallyStopped||!state.running||mediaPermissions.microphone!=='granted'){
+  if(document.hidden||roomAudioManuallyStopped||state.mode!=='agent'||mediaPermissions.microphone!=='granted'){
    listeningController.setRecovering(false,
     document.hidden?'page-hidden':roomAudioManuallyStopped?'manual-stop':
-     !state.running?'camera-offline':'permission-'+mediaPermissions.microphone);
+     state.mode!=='agent'?'agent-mode-inactive':'permission-'+mediaPermissions.microphone);
    renderRuntimeHealth(true);renderListeningHealth();return;
   }
   microphoneRecovery.record();
@@ -4447,8 +4447,11 @@ function createParticipantCard(track) {
   card.append(top, body);
 
   // AGENT participant cards stop at the verified Voice Profile/input meter.
-  // Detailed diagnostic rows and duplicate saved-photo data belong outside this compact sidebar.
-  if (state.mode !== 'agent') {
+  // Profile, identity and enrollment maintenance belongs on participant/profile surfaces.
+  if (state.mode === 'agent') return card;
+
+  // Non-AGENT participant cards retain diagnostics and profile controls.
+  {
     if (participant?.primaryPhoto) {
       const saved = document.createElement('img');
       saved.className = 'participant-primary-badge';
@@ -4660,14 +4663,6 @@ function renderParticipantCards() {
 
   for(const track of visible){
     const card=createParticipantCard(track);
-    if(state.mode==='agent'&&track.participantId){
-      const button=document.createElement('button');
-      button.type='button';button.className='agent-participant-voice-button';
-      button.textContent='◉ Voice';
-      button.setAttribute('aria-label','Capture voice profile for '+(track.participantName||'participant'));
-      button.addEventListener('click',()=>void agentRuntime?.openVoice(track.participantId));
-      card.append(button);
-    }
     ui.participantCards.append(card);
   }
   if(state.mode==='agent'){
@@ -5408,23 +5403,6 @@ async function processRoomSegment(segment) {
       };
       association=resolveSpeakerAssociation({voiceMatch,roomTracks});
     }
-    const targeting=participantTargetEligibility({
-      participantId:association.participantId,
-      tracks:roomTracks,association,now:Date.now()
-    });
-    if(association.participantId&&!targeting.allowed){
-      v015AutonomyCertificationMonitor.note('participant-mistarget',{
-       participantId:association.participantId,reason:targeting.reason
-      },Date.now());
-      association=resolveSpeakerAssociation({
-       voiceMatch:{
-        matched:false,participant:null,similarity:voiceMatch.similarity,
-        secondSimilarity:voiceMatch.secondSimilarity,margin:voiceMatch.margin,
-        ambiguous:true,targetingSuppressed:true
-       },
-       roomTracks
-      });
-    }
     const participant=association.participantId
       ? (voiceMatch.participant?.id===association.participantId
         ? voiceMatch.participant : participantById(association.participantId))
@@ -6064,7 +6042,7 @@ async function startRoomAudio() {
       onSegment: async (segment) => onRoomAudioSegment(segment),
       onUnavailable:()=>{
         if(state.voice.audio!==capture||!state.voice.active)return;
-        const recover=!roomAudioManuallyStopped&&state.running;
+        const recover=!roomAudioManuallyStopped&&state.mode==='agent'&&!document.hidden;
         stopRoomAudio();
         roomSensorState('microphone','degraded','Microphone interrupted · room silence not inferred');
         if(recover)void scheduleMicrophoneRecovery();
@@ -7704,7 +7682,20 @@ async function maybeStartApprovedCamera(){
     'Approve camera through Start camera to enable future auto-start.';
  }
 }
+async function maybeStartApprovedMicrophone(){
+ if(state.mode!=='agent'||state.voice.active||roomAudioManuallyStopped)return false;
+ const permission=await queryMediaPermission(navigator.permissions,'microphone');
+ mediaPermissions.microphone=permission;
+ renderRuntimeHealth(true);
+ if(permission!=='granted'){
+  if(permission==='denied')agentRuntime?.setAudioActive(false);
+  return false;
+ }
+ microphoneRecovery.reset();cancelMicrophoneRecovery();
+ return startRoomAudio();
+}
 void maybeStartApprovedCamera();
+void maybeStartApprovedMicrophone();
 window.addEventListener('pageshow',()=>{
  if(!state.gameplay.game.active&&!state.multiplayer.snapshot().active&&!patternActive()){
   void reloadIdentityParticipants().then(()=>renderMode());
@@ -7741,5 +7732,6 @@ document.addEventListener('visibilitychange',()=>{
  if(cameraRecoveryPending)void scheduleCameraRecovery('foreground-resume');
  if(microphoneRecoveryPending)void scheduleMicrophoneRecovery('foreground-resume');
  if(!state.running&&!cameraStoppedThisPage&&!cameraRecoveryPending)void maybeStartApprovedCamera();
+ if(state.mode==='agent'&&!state.voice.active&&!roomAudioManuallyStopped)void maybeStartApprovedMicrophone();
  void multiRoomRuntime?.sync?.();
 });
