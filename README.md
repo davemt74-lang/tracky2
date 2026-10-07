@@ -1,6 +1,6 @@
-# Tracky2 V0.17.3 — AGENT Onboarding Recovery
+# Tracky2 V0.17.4 — Flat Deploy Repair
 
-Tracky2 is a local-first **AGENT** experience. V0.17.3 restores camera-first startup after the V0.17 simplification.
+Tracky2 is a local-first **AGENT** experience. V0.17.4 fixes the deploy artifact so an upload-and-extract install lands directly in the web document root.
 
 ## Primary AGENT workspace
 
@@ -51,6 +51,8 @@ Conversational AI is opt-in. AGENT can use configured OpenAI or Anthropic server
 
 ## Self-hosting
 
+The release ZIP is a **flat document-root deploy**. Upload the ZIP into the domain/subdomain document root and extract it there. After extraction, `index.html`, `vertical-motion.html`, `server/`, `src/`, and `assets/` must be directly in that folder—there is no version wrapper directory.
+
 Install through `server/install.php`. The first owner account is created by the installer.
 
 Run locally:
@@ -69,7 +71,7 @@ Run:
 npm run validate
 ```
 
-Installed acceptance for V0.17.3 focuses on the recovered camera-first path:
+Installed acceptance for V0.17.4 starts with the document-root deployment shape, then the recovered camera-first path:
 
 **splash → AGENT → four tabs only → camera works → live mic meter moves → transcript appears → AGENT replies → TTS speaks → listening resumes**
 
