@@ -132,6 +132,7 @@ export class RoomAudioCapture {
   constructor(options = {}) {
     this.onLevel = options.onLevel || (() => {});
     this.onSegment = options.onSegment || (() => {});
+    this.onVoiceWindow = options.onVoiceWindow || (() => {});
     this.onUnavailable = options.onUnavailable || (() => {});
     this.stream = null;
     this.context = null;
@@ -158,6 +159,15 @@ export class RoomAudioCapture {
     this.hangoverMs = options.hangoverMs ?? 650;
     this.minSegmentSeconds = options.minSegmentSeconds ?? 0.8;
     this.maxSegmentSeconds = options.maxSegmentSeconds ?? 18;
+
+    // Short rolling speech windows let the participant meter use the enrolled
+    // voice signature as a background/other-speaker filter while speech is
+    // still happening. Full transcription/turn processing remains segment-based.
+    this.voiceWindowSeconds = options.voiceWindowSeconds ?? 1.35;
+    this.voiceWindowIntervalMs = options.voiceWindowIntervalMs ?? 650;
+    this.voicePreviewFrames = [];
+    this.voicePreviewSampleCount = 0;
+    this.lastVoiceWindowAt = 0;
   }
 
   async start() {
@@ -340,11 +350,15 @@ export class RoomAudioCapture {
         this.levels = [];
         this.spatialFrames = [];
         this.stereoFrames = [];
+        this.voicePreviewFrames = [];
+        this.voicePreviewSampleCount = 0;
+        this.lastVoiceWindowAt = 0;
         this.segmentStartedAt = now;
       }
 
       this.frames.push(frame);
       this.levels.push(db);
+      this.pushVoicePreview(frame, db, now);
       if(spatialFrame)this.spatialFrames.push(spatialFrame);
       if(spatialFrame?.channelCount>=2&&spatialFrame.leftSamples?.length&&
          spatialFrame.rightSamples?.length)
@@ -384,12 +398,41 @@ export class RoomAudioCapture {
     });
   }
 
+  pushVoicePreview(frame, db, now) {
+    if (!frame?.length || !this.context?.sampleRate) return;
+    const sourceRate=this.context.sampleRate;
+    const maxSamples=Math.max(sourceRate,Math.round(sourceRate*this.voiceWindowSeconds));
+    this.voicePreviewFrames.push(frame);
+    this.voicePreviewSampleCount+=frame.length;
+    while(this.voicePreviewFrames.length>1&&this.voicePreviewSampleCount>maxSamples){
+      const removed=this.voicePreviewFrames.shift();
+      this.voicePreviewSampleCount-=removed?.length||0;
+    }
+    // VoiceIdentityEngine requires at least one second at 16 kHz.
+    if(this.voicePreviewSampleCount<sourceRate)return;
+    if(this.lastVoiceWindowAt&&now-this.lastVoiceWindowAt<this.voiceWindowIntervalMs)return;
+
+    const combined=concatFrames(this.voicePreviewFrames);
+    const clip=combined.length>maxSamples?combined.slice(combined.length-maxSamples):combined;
+    const samples=resampleLinear(clip,sourceRate,TARGET_RATE);
+    if(samples.length<TARGET_RATE)return;
+    this.lastVoiceWindowAt=now;
+    Promise.resolve(this.onVoiceWindow({
+      samples,sampleRate:TARGET_RATE,db,
+      noiseFloorDb:this.noiseFloorDb,speaking:true,
+      capturedAt:now,durationSeconds:samples.length/TARGET_RATE
+    })).catch((error)=>console.warn('Live speaker filter window failed.',error));
+  }
+
   discardSegment() {
     this.speaking = false;
     this.frames = [];
     this.levels = [];
     this.spatialFrames = [];
     this.stereoFrames = [];
+    this.voicePreviewFrames = [];
+    this.voicePreviewSampleCount = 0;
+    this.lastVoiceWindowAt = 0;
     this.segmentStartedAt = 0;
     this.lastVoiceAt = 0;
   }

@@ -808,3 +808,22 @@
  .game-page.agent-mode .agent-recall-result-head{display:grid}
  .game-page.agent-mode .agent-recall-result-head span{text-align:left}
 }
+
+
+/* V0.15.6: live participant voice input; Voice Profile is a background/speaker filter. */
+.game-page.agent-mode .participant-audio-meter[data-mode="speaker"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="live"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="filtering"] .participant-audio-fill{
+ background:linear-gradient(90deg,#21bba5,#8fffa2);
+ box-shadow:0 0 12px rgba(64,244,165,.65);
+}
+.game-page.agent-mode .participant-audio-meter[data-mode="speaker"] + .participant-audio-caption,
+.game-page.agent-mode .participant-audio-meter[data-mode="live"] + .participant-audio-caption,
+.game-page.agent-mode .participant-audio-meter[data-mode="filtering"] + .participant-audio-caption{
+ color:#9bffca;
+}
+.game-page.agent-mode .participant-audio-meter[data-mode="quiet"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="background-filtered"] .participant-audio-fill,
+.game-page.agent-mode .participant-audio-meter[data-mode="unassigned"] .participant-audio-fill{
+ width:0%!important;background:transparent;box-shadow:none;
+}
