@@ -1,5 +1,5 @@
 // Local-only camera preference; the browser remains the sole camera permission authority.
-export const CAMERA_PREFERENCE_KEY='tracky2-camera-autostart-v1';
+export const CAMERA_PREFERENCE_KEY='tracky2-camera-autostart-v2';
 export const LAST_PARTICIPANT_KEY='tracky2-last-enrolled-participant-v1';
 
 export function cameraAutostartEligible({optIn=false,permission='prompt',supported=true,sessionStopped=false}={}){
