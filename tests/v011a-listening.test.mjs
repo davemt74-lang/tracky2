@@ -126,16 +126,16 @@ test('11A integration preserves one live room microphone and routes all segments
  assert.doesNotMatch(core,/getUserMedia|MediaRecorder|AudioContext|transcribe\(|embedding\(/);
 });
 
-test('11A canonical dialogue is saved and revalidated before AGENT sees the turn',()=>{
+test('11A live AGENT conversation cannot be vetoed by dialogue persistence',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn');
- const revalidate=runtime.indexOf('if (!voiceSegmentIsCurrent(segment)) {',save);
- const agent=runtime.indexOf('agentRuntime?.onDialogue(savedTurn)',save);
- assert.ok(save>0);
- assert.ok(revalidate>save);
- assert.ok(agent>revalidate);
- assert.doesNotMatch(runtime,/agentRuntime\?\.onDialogue\(turn\)/);
- assert.match(runtime,/Speech turn was not saved; AGENT reply skipped\./);
+ const helper=runtime.indexOf('function dispatchLiveAgentConversationTurn');
+ const agent=runtime.indexOf('agentRuntime?.onDialogue(turn)',helper);
+ const save=runtime.indexOf('void saveDialogueTurn(turn)',helper);
+ assert.ok(helper>0);
+ assert.ok(agent>helper);
+ assert.ok(save>agent,'live AGENT handoff must happen before best-effort persistence');
+ assert.match(runtime,/Conversation is live, but this turn could not be saved locally\./);
+ assert.doesNotMatch(runtime,/Speech turn was not saved; AGENT reply skipped\./);
 });
 
 test('11A AGENT reply policy cancels superseded local-model work without clobbering newer state',()=>{
