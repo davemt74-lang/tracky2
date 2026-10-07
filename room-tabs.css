@@ -19,9 +19,10 @@
  border-bottom-color:transparent;background:rgba(39,147,144,.2);
  box-shadow:inset 0 3px 0 #5be6dc}
 .room-left-tabs [role="tab"]:focus-visible{outline:2px solid #72f3e6;outline-offset:-2px}
-.room-left-tabpanel{min-height:0;overflow-y:auto;overscroll-behavior:contain;
+.room-left-tabpanel{flex:1 1 auto;width:100%;max-width:100%;min-width:0;min-height:0;
+ overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
  scrollbar-width:thin;scrollbar-color:rgba(91,229,218,.55) transparent;
- padding:10px}
+ padding:10px;box-sizing:border-box}
 .room-left-tabpanel[hidden]{display:none!important}
 .room-left-tabpanel .dialogue-hud-head{align-items:center}
 .room-left-tabpanel .room-events{gap:6px}
