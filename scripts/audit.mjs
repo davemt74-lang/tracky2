@@ -47,6 +47,7 @@ const requiredFiles = [
   'docs/V013-MASTER-PLAN.md',
   'docs/V013-RELEASE-ACCEPTANCE.md',
   'docs/V0148-RELEASE-ACCEPTANCE.md',
+  'docs/V0170-RELEASE-ACCEPTANCE.md',
   'docs/V014-MASTER-PLAN.md',
   'docs/hardware-acceptance.md',
   'package.json',
@@ -263,8 +264,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.16.0') {
-  fail('package.json version must be 0.16.0');
+if (packageJson.version !== '0.17.0') {
+  fail('package.json version must be 0.17.0');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -388,7 +389,7 @@ if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
 if (!/tracky2-v0\.16\.0-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.16.0 deploy ZIP');
+  fail('CI must build Tracky2 V0.17.0 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
