@@ -181,25 +181,25 @@ test('11E runtime stamps meeting ID before queueing, refreshes after corrections
  assert.match(runtime,/meetingId:segment\.meetingId\|\|null/);
  assert.match(runtime,/meetingUI\?\.refreshTurns\(\)/);
  assert.match(runtime,/createMeetingUi\(/);
- assert.match(runtime,/requestedMode==='meeting'/);
+ assert.doesNotMatch(runtime,/requestedMode==='meeting'/);
  assert.equal((runtime.match(/new RoomAudioCapture\(/g)||[]).length,1,
   'meeting runtime must reuse the one canonical RoomAudioCapture');
  const meetingCore=fs.readFileSync('src/meeting-core.js','utf8');
  assert.doesNotMatch(meetingCore,/getUserMedia|MediaRecorder|AudioContext|transcribe\(|embedding\(|fetch\(/);
 });
 
-test('11E Meeting tab is keyboard-accessible and meeting entry remains AGENT runtime presentation',()=>{
+test('11E meeting controls are administrative while the live runtime remains shared with AGENT',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
  const tabs=fs.readFileSync('room-tabs-controller.js','utf8');
  const presentation=fs.readFileSync('src/agent-presentation.js','utf8');
- assert.match(html,/id="roomMeetingTab"/);
- assert.match(html,/id="roomMeetingPanel"/);
- assert.match(html,/value="meeting"/);
- assert.match(tabs,/requestedMode==='agent'\|\|requestedMode==='meeting'/);
- assert.match(tabs,/requestedMeeting/);
- assert.match(presentation,/\['dialogue','activity','agent','meeting','room'\]/);
+ const admin=fs.readFileSync('server/admin.php','utf8');
+ assert.doesNotMatch(html,/id="roomMeetingTab"|id="roomMeetingPanel"/);
+ assert.match(html,/id="controlCenterMeetingTab"/);
+ assert.match(html,/id="controlCenterMeetingPanel"/);
+ assert.match(admin,/vertical-motion\.html\?admin=meeting/);
+ assert.doesNotMatch(tabs,/requestedMeeting|mode.*meeting/);
+ assert.match(presentation,/\['dialogue','activity','agent','room'\]/);
 });
-
 test('11E AGENT cancels stale reply on meeting boundary and meeting policy gates participation before group policy',()=>{
  const agent=fs.readFileSync('agent-mode.js','utf8');
  const meeting=agent.indexOf('const meetingPolicy=meetingAgentReplyPolicy(getMeeting(),turn)');
