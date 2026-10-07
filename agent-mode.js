@@ -664,7 +664,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(sharedStatus)sharedStatus.hidden=true;
   entries=loadAgentHistory(localStorage);
   ui.save.checked=entries.length>0;
-  ui.useModel.checked=false;
+  try{ui.useModel.checked=localStorage.getItem('tracky2-agent-model-enabled')==='yes';}
+   catch{ui.useModel.checked=false;}
   if(ui.provider){
    let savedProvider='auto';
    try{savedProvider=normalizeProviderChoice(localStorage.getItem('tracky2-agent-provider')||'auto');}catch{}
@@ -679,23 +680,58 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   });
   ui.providerRefresh?.addEventListener('click',()=>void refreshProviderRuntime());
   ui.useModel.addEventListener('change',async()=>{
-    if(!ui.useModel.checked){ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;}
+     if(!ui.useModel.checked){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;
+     }
+     const selected=ui.provider?.value||'auto';
+     if(selected==='ollama'){
+      try{
+       validateLocalAgentEndpoint(ui.modelEndpoint.value);
+       localStorage.setItem('tracky2-agent-model-enabled','yes');
+       ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
+      }catch(error){
+       try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+       ui.useModel.checked=false;ui.modelStatus.textContent=error.message;
+      }
+      return;
+     }
+     const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+     const resolved=activeRemoteProvider(selected,runtime?.providers||[]);
+     const row=runtime?.providers?.find(item=>item.provider===resolved);
+     if(!row?.configured){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.useModel.checked=false;ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';return;
+     }
+     try{localStorage.setItem('tracky2-agent-model-enabled','yes');}catch{}
+     ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
+       ' · server-mediated text only · '+providerBudgetLabel(row.budget);
+   });
+   void refreshProviderRuntime({announce:false}).then(runtime=>{
+    applyProviderSelection();
+    if(!ui.useModel.checked)return;
     const selected=ui.provider?.value||'auto';
     if(selected==='ollama'){
      try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
       ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
-     }catch(error){ui.useModel.checked=false;ui.modelStatus.textContent=error.message;}
+     }catch(error){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.useModel.checked=false;ui.modelStatus.textContent=error.message;
+     }
      return;
     }
-    const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
     const resolved=activeRemoteProvider(selected,runtime?.providers||[]);
     const row=runtime?.providers?.find(item=>item.provider===resolved);
-    if(!row?.configured){ui.useModel.checked=false;ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';return;}
+    if(!row?.configured){
+     try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+     ui.useModel.checked=false;
+     ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';
+     return;
+    }
     ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
-      ' · server-mediated text only · '+providerBudgetLabel(row.budget);
-  });
-  void refreshProviderRuntime({announce:false}).then(()=>applyProviderSelection());
-  refillVoices();
+      ' · restored from your saved AI-model preference · '+providerBudgetLabel(row.budget);
+   });
+   refillVoices();
   if(speech?.addEventListener)speech.addEventListener('voiceschanged',refillVoices);
   ui.clear.addEventListener('click',()=>{
     if(!window.confirm('Clear local AGENT conversation history?'))return;
