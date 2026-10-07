@@ -53,8 +53,6 @@ const requiredFiles = [
   'src/tracker-core.js',
   'src/camera-preference.js',
   'src/games/agent.js',
-  'src/color-controllers.js',
-  'src/controller-stability.js',
   'src/player-presence.js',
   'src/hardware-diagnostics.js',
   'src/hardware-certification-core.js',
