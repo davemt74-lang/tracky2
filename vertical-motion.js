@@ -5262,7 +5262,7 @@ function noteLiveVoiceProfileMatch(match,segment){
 function createLiveAgentConversationTurn(segment,transcript,transcriptRecord){
  const transcriptFields=canonicalTranscriptFields(transcriptRecord);
  const createdAt=new Date().toISOString();
- return {
+ const base={
   ...createSpeakerTurn({
    participantId:null,participantName:null,trackId:null,groupId:'SOLO',
    confidence:1,voiceConfidence:0,signalConfidence:1,
@@ -5275,17 +5275,16 @@ function createLiveAgentConversationTurn(segment,transcript,transcriptRecord){
   sessionId:state.voice.sessionId,
   createdAt,
   at:Date.now(),
-  conversationGroupSize:1,
-  conversationParticipantIds:[],
-  conversationVisitorIds:[],
-  conversationScopeId:'scope:unknown-solo',
-  attentionTarget:'agent',
-  addressedAgent:false,
-  turnOwnership:'unverified-speaker',
+  meetingId:segment.meetingId||null,
+  meetingSchemaVersion:segment.meetingId?segment.meetingSchemaVersion||1:null,
   conversationMode:'live',
   conversationPrimaryPath:true,
   ...transcriptFields
  };
+ const conversationFields=multiConversationTurnFields(base,{
+  visibleParticipants:[],visibleVisitorIds:[],groupSize:1
+ });
+ return {...base,...conversationFields};
 }
 
 function dispatchLiveAgentConversationTurn(turn){
@@ -5803,7 +5802,11 @@ async function processRoomSegment(segment) {
     state.voice.currentConversationAttention=turn.attentionTarget;
     state.voice.currentConversationGroupSize=turn.conversationGroupSize;
     state.voice.currentConversationLabel=conversationContextLabel(turn);
-    turn.at=Date.now();
+    turn.at=liveConversationTurn?.at||Date.now();
+    turn.id=liveConversationTurn?.id||turn.id||segment.segmentId;
+    turn.createdAt=liveConversationTurn?.createdAt||turn.createdAt||new Date().toISOString();
+    turn.conversationMode=state.mode==='agent'?'live':turn.conversationMode;
+    turn.conversationPrimaryPath=Boolean(liveConversationTurn);
     if (!voiceSegmentIsCurrent(segment)){
       transcriptLifecycle.cancel(segment.segmentId,'pre-persistence-stale',Date.now());
       state.voice.currentTranscriptState='cancelled';
