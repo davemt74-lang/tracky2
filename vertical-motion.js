@@ -70,7 +70,7 @@ import {routineProactiveOpportunity} from './src/agent-proactive-intelligence-co
 import {LocalEnvironmentalAudioClassifier} from './src/environmental-audio-engine.js';
 import {createVisitorSession,reconcileVisitors,visibleVisitors,visitorForTrack,visitorDisplayName,associateVisitorTurn,promoteVisitorTurn,upgradeVisitorTimeline} from './src/visitor-session.js';
 import {activityEvent,addActivity} from './src/player-activity.js';
-import {cameraAutostartEligible,cameraPermissionState,loadCameraPreference,saveCameraPreference} from './src/camera-preference.js';
+import {cameraPermissionState,cameraPreferenceState,cameraStartupAction,saveCameraPreference} from './src/camera-preference.js';
 import {
   advanceScan,
   bestParticipantMatch
@@ -6011,7 +6011,7 @@ async function startCamera(deviceId = '') {
   }
 
   try {
-    updateGameScene('camera');
+    updateGameScene('permission');
     ui.cameraStatus.textContent = 'Requesting camera…';
     const video = {
       width: { ideal: 1280 },
@@ -6027,6 +6027,7 @@ async function startCamera(deviceId = '') {
     state.stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
     ui.video.srcObject = state.stream;
     await ui.video.play();
+    updateGameScene('camera');
     await enumerateCameras();
 
     state.running = true;
@@ -6098,8 +6099,8 @@ ui.start.addEventListener('click', () => {
 ui.cameraAutostart.addEventListener('change',()=>{
   saveCameraPreference(window.localStorage,ui.cameraAutostart.checked);
   ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
-    'On: auto-start only if the browser already grants camera permission.':
-    'Off: camera starts manually.';
+    'On: AGENT starts camera onboarding on entry and the browser may ask permission.':
+    'Off: camera stays manual until you turn this back on.';
 });
 ui.startRoomAudio.addEventListener('click',()=>{
  roomAudioManuallyStopped=false;
@@ -6198,12 +6199,19 @@ async function captureGovernedSceneImage({target}={}){
 }
 
 await reloadIdentityParticipants();
-ui.cameraAutostart.checked=loadCameraPreference(window.localStorage);
-ui.cameraPreferenceStatus.textContent=ui.cameraAutostart.checked ?
-  'Saved preference · checking browser permission…':'Camera starts manually until approved.';
+const initialCameraPreference=cameraPreferenceState(window.localStorage);
+ui.cameraAutostart.checked=initialCameraPreference!=='disabled';
+ui.cameraPreferenceStatus.textContent=initialCameraPreference==='disabled'
+ ?'Camera auto-start is off by owner choice.'
+ :initialCameraPreference==='enabled'
+  ?'Saved preference · checking browser permission…'
+  :'First AGENT launch · camera onboarding will start automatically.';
 // AGENT is the canonical Tracky2 runtime. Legacy game/lobby parameters are ignored.
 state.mode='agent';
 renderMode();
+// Camera onboarding is core AGENT bootstrap. Start it before optional meeting,
+// memory, cognition or provider modules so those modules cannot block the scan.
+void maybeStartAgentCameraOnboarding();
 await loadSavedDialogue();
 updateConversationGroups();
 renderParticipantCards();
@@ -6298,6 +6306,8 @@ if(state.mode==='agent'){
     }
   });
   agentRuntime.init();
+  agentRuntime.setCameraActive?.(state.running);
+  agentRuntime.setAudioActive?.(state.voice.active);
   agentRuntime.onMeetingChange?.(meetingUI?.activeMeeting()||null);
   const autoGreet=document.getElementById('agentAutoGreet');
   const proactiveEnabled=document.getElementById('agentProactiveEnabled');
@@ -6727,20 +6737,46 @@ if(state.mode==='agent'){
   ui.voiceAcknowledgements.checked=false;
   ui.liveTranscription.checked=true;
 }
-async function maybeStartApprovedCamera(){
- if(state.running||!loadCameraPreference(window.localStorage)||cameraStoppedThisPage)return;
+async function maybeStartAgentCameraOnboarding(){
+ if(state.running||cameraStoppedThisPage)return false;
+ const preference=cameraPreferenceState(window.localStorage);
  const permission=await cameraPermissionState(navigator.permissions);
- if(cameraAutostartEligible({optIn:true,permission,
-  supported:!!navigator.mediaDevices?.getUserMedia,sessionStopped:cameraStoppedThisPage})){
-  ui.cameraPreferenceStatus.textContent='Permission granted · starting camera…';
-  const ok=await startCamera(ui.select.value);
-  if(!ok)ui.cameraPreferenceStatus.textContent='Auto-start failed; use Start camera to retry.';
- }else{
-  ui.cameraPreferenceStatus.textContent=permission==='denied'?'Camera blocked in browser settings.':
-    permission==='unsupported'?'Browser cannot confirm permission; click Start camera.':
-    'Approve camera through Start camera to enable future auto-start.';
+ const action=cameraStartupAction({
+  preference,permission,
+  supported:!!navigator.mediaDevices?.getUserMedia,
+  sessionStopped:cameraStoppedThisPage
+ });
+ if(action==='manual'){
+  updateGameScene('idle');
+  ui.cameraPreferenceStatus.textContent='Camera auto-start is off by owner choice.';
+  return false;
  }
+ if(action==='unsupported'){
+  updateGameScene('error');
+  ui.cameraStatus.textContent='Camera API unavailable';
+  ui.cameraPreferenceStatus.textContent='This browser does not provide camera access.';
+  return false;
+ }
+ if(action==='blocked'){
+  updateGameScene('error');
+  ui.cameraStatus.textContent='Camera blocked';
+  ui.cameraPreferenceStatus.textContent='Camera is blocked in browser settings.';
+  return false;
+ }
+ ui.cameraPreferenceStatus.textContent=action==='start'
+  ?'Permission granted · starting camera…'
+  :'Starting camera onboarding · approve browser permission if asked.';
+ const ok=await startCamera(ui.select.value);
+ if(ok){
+  if(preference==='unset')saveCameraPreference(window.localStorage,true);
+  ui.cameraAutostart.checked=true;
+  ui.cameraPreferenceStatus.textContent='Camera onboarding active · auto-start enabled.';
+  return true;
+ }
+ ui.cameraPreferenceStatus.textContent='Camera onboarding could not start; use Start camera to retry.';
+ return false;
 }
+
 async function maybeStartApprovedMicrophone(){
  if(state.mode!=='agent'||state.voice.active||roomAudioManuallyStopped)return false;
  const permission=await queryMediaPermission(navigator.permissions,'microphone');
@@ -6753,7 +6789,6 @@ async function maybeStartApprovedMicrophone(){
  microphoneRecovery.reset();cancelMicrophoneRecovery();
  return startRoomAudio();
 }
-void maybeStartApprovedCamera();
 void maybeStartApprovedMicrophone();
 window.addEventListener('pageshow',()=>{
  void reloadIdentityParticipants().then(()=>renderMode());
@@ -6788,7 +6823,7 @@ document.addEventListener('visibilitychange',()=>{
  void refreshStorageHealth();
  if(cameraRecoveryPending)void scheduleCameraRecovery('foreground-resume');
  if(microphoneRecoveryPending)void scheduleMicrophoneRecovery('foreground-resume');
- if(!state.running&&!cameraStoppedThisPage&&!cameraRecoveryPending)void maybeStartApprovedCamera();
+ if(!state.running&&!cameraStoppedThisPage&&!cameraRecoveryPending)void maybeStartAgentCameraOnboarding();
  if(state.mode==='agent'&&!state.voice.active&&!roomAudioManuallyStopped)void maybeStartApprovedMicrophone();
  void multiRoomRuntime?.sync?.();
 });
