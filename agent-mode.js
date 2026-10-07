@@ -35,8 +35,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  };
  let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
  let responseGeneration=0;
- let modelController=null,lastProximityVolume=.85,lastSpeakerId=null;
- let providerRuntime=null,remoteAudio=null,lastFocusedElement=null;
+ let speechGeneration=0;
+ let modelController=null,speechController=null,lastProximityVolume=.85,lastSpeakerId=null;
+ let providerRuntime=null,remoteAudio=null,remoteAudioCleanup=null,lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const providerRecovery=new ProviderRecoveryCoordinator();
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
@@ -316,8 +317,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-speech-state',{detail:{speaking}}));
  }
  function stopSpeech(){
+  speechGeneration+=1;
+  speechController?.abort();speechController=null;
   if(speech?.speaking)speech.cancel();
   if(remoteAudio){try{remoteAudio.pause();}catch{}remoteAudio=null;}
+  if(remoteAudioCleanup){const cleanup=remoteAudioCleanup;remoteAudioCleanup=null;cleanup();}
   notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
  }
  function speakSystem(text){
@@ -340,19 +344,35 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  async function speakElevenLabs(text){
   const voiceId=String(ui.elevenVoice?.value||'').trim();
   if(!voiceId)throw new Error('Enter an ElevenLabs voice ID.');
-  stopSpeech();suppressMic(true);ui.speaker.textContent='Agent voice loading…';
-  const result=await querySelfHostedSpeech({text,voiceId,status:providerRuntime});
+  stopSpeech();
+  const token=speechGeneration;
+  const controller=new AbortController();speechController=controller;
+  ui.speaker.textContent='Agent voice loading…';
+  // No audio is playing yet, so keep listening while the remote voice is generated.
+  const result=await querySelfHostedSpeech({text,voiceId,status:providerRuntime,signal:controller.signal});
+  if(token!==speechGeneration)return null;
   const binary=atob(result.audioBase64),bytes=new Uint8Array(binary.length);
   for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
   const url=URL.createObjectURL(new Blob([bytes],{type:result.mimeType||'audio/mpeg'}));
   const audio=new Audio(url);remoteAudio=audio;audio.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
   let released=false;const release=()=>{
-   if(released)return;released=true;if(remoteAudio===audio)remoteAudio=null;
+   if(released)return;released=true;
+   if(remoteAudio===audio)remoteAudio=null;
+   if(remoteAudioCleanup===release)remoteAudioCleanup=null;
+   if(speechController===controller)speechController=null;
    URL.revokeObjectURL(url);notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
   };
-  audio.addEventListener('play',()=>{ui.speaker.textContent='Agent speaking';notifySpeech(true);},{once:true});
+  remoteAudioCleanup=release;
+  audio.addEventListener('play',()=>{
+   if(token!==speechGeneration){release();return;}
+   suppressMic(true);ui.speaker.textContent='Agent speaking';notifySpeech(true);
+  },{once:true});
   audio.addEventListener('ended',release,{once:true});audio.addEventListener('error',release,{once:true});
-  await audio.play();return result;
+  try{
+   await audio.play();
+   if(token!==speechGeneration){try{audio.pause();}catch{}release();return null;}
+   return result;
+  }catch(error){release();throw error;}
  }
  function say(text,participantId=null,scopeId=null){
   if(!text)return false;
@@ -362,6 +382,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    void speakElevenLabs(text).then(result=>{
     if(ui.providerBudget&&result?.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
    }).catch(error=>{
+    if(error?.name==='AbortError')return;
     ui.modelStatus.textContent='ElevenLabs unavailable: '+error.message+' · using system voice';
     speakSystem(text);
    });
