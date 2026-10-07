@@ -1,13 +1,13 @@
-# Tracky2 V0.17.0 — AGENT Refinement
+# Tracky2 V0.17.1 — AGENT Shell Repair
 
-Tracky2 is a local-first **AGENT** experience. V0.17.0 begins the simplification pass after the legacy gameplay removal.
+Tracky2 is a local-first **AGENT** experience. V0.17.1 repairs the simplified AGENT shell after the V0.17.0 four-tab refinement.
 
 ## Primary AGENT workspace
 
-The live AGENT page has exactly four primary tabs:
+The live AGENT page has exactly four primary tabs. The visible labels are kept compact so the tab bar stays inside the left sidebar:
 
 - **Conversation** — chronological participant speech and AGENT responses.
-- **Participant Activity** — verified participant presence and camera-relative activity.
+- **Activity** — verified participant presence and camera-relative activity (accessible name: Participant Activity).
 - **AGENT** — voice, provider, memory, task and cognitive controls.
 - **ROOM** — the unified environment/hearing/background-action evidence feed.
 
@@ -19,7 +19,7 @@ Meeting is no longer a primary AGENT tab and there is no Meeting URL mode.
 
 Meeting controls now live in the administrative Control Center and are linked from `server/admin.php`. Opening those controls does **not** create a second camera, microphone, transcription or conversation engine. Meetings continue to reuse the single AGENT runtime and stamp canonical turns with meeting metadata while a meeting is active.
 
-Legacy `?mode=meeting` URLs simply open the normal AGENT runtime; they do not switch the product into another mode.
+Every `vertical-motion.html` entry initializes the same AGENT presentation. Legacy mode query strings no longer decide whether the shell loads.
 
 ## Conversation runtime
 
@@ -55,7 +55,7 @@ Run:
 npm run validate
 ```
 
-Installed acceptance for V0.17.0 focuses on the simplified path:
+Installed acceptance for V0.17.1 focuses on the repaired simplified path:
 
 **splash → AGENT → four tabs only → camera works → live mic meter moves → transcript appears → AGENT replies → TTS speaks → listening resumes**
 

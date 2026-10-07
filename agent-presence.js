@@ -6,11 +6,10 @@ const ui={nav:$('agentViewChooser'),camera:$('agentCameraView'),orb:$('agentOrbV
  stage:$('agentOrbStage'),orbArt:$('agentVoiceOrb'),follower:$('agentOrbFollower'),
  caption:$('agentOrbCaption'),leftRail:$('agentMobileLeftRail'),
  rightRail:$('agentMobileRightRail'),backdrop:$('agentMobileBackdrop')};
-const requested=new URLSearchParams(window.location.search).get('mode')==='agent';
 const initialView=new URLSearchParams(window.location.search).get('view');
-let mode=normalizeAgentView(initialView),speaking=false,agentEnabled=requested,panelsHidden=false;
+let mode=normalizeAgentView(initialView),speaking=false,agentEnabled=true,panelsHidden=false;
 let mobilePanel=null,shortcut={key:'',count:0,lastAt:0};
-if(requested)document.body.classList.add('agent-mode');
+document.body.classList.add('agent-mode');
 if(ui.follower)ui.follower.dataset.follow='idle';
 function render(){
  const state=orbPresentation({view:mode,speaking});
@@ -76,12 +75,6 @@ window.addEventListener('tracky:agent-speech-cadence',event=>{
 });
 window.addEventListener('tracky:agent-speech-state',event=>{
  speaking=event.detail?.speaking===true;render();
-});
-window.addEventListener('tracky:agent-ready',event=>{
- if(event.detail?.enabled===true)agentEnabled=true;
- else if(!requested)agentEnabled=false;
- if(!agentEnabled){speaking=false;mode='camera';mobilePanel=null;}
- render();
 });
 // Available immediately, even if camera/model initialization fails.
 render();

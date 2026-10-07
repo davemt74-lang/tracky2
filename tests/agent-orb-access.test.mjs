@@ -4,7 +4,8 @@ import fs from 'node:fs';
 
 test('orb can launch directly and camera/orb controls do not depend on recognition startup', async()=>{
  const code=fs.readFileSync('agent-presence.js','utf8');
- assert.match(code,/const requested=new URLSearchParams\(window.location.search\).get\('mode'\)==='agent'/);
+ assert.match(code,/agentEnabled=true/);
+ assert.doesNotMatch(code,/get\('mode'\).*===.*agent|const requested=/);
  assert.match(code,/render\(\);\s*$/);
  const ids=['agentViewChooser','agentCameraView','agentOrbView','agentOrbStage','agentVoiceOrb','agentOrbCaption'];
  const el=new Map(ids.map(id=>[id,{id,hidden:true,dataset:{},attributes:{},events:{},

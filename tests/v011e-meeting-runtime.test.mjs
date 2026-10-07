@@ -196,7 +196,7 @@ test('11E meeting controls are administrative while the live runtime remains sha
  assert.doesNotMatch(html,/id="roomMeetingTab"|id="roomMeetingPanel"/);
  assert.match(html,/id="controlCenterMeetingTab"/);
  assert.match(html,/id="controlCenterMeetingPanel"/);
- assert.match(admin,/vertical-motion\.html\?admin=meeting/);
+ assert.match(admin,/vertical-motion\.html\?mode=agent&amp;admin=meeting/);
  assert.doesNotMatch(tabs,/requestedMeeting|mode.*meeting/);
  assert.match(presentation,/\['dialogue','activity','agent','room'\]/);
 });
