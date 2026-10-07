@@ -4,7 +4,7 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('15.1C runtime persists canonical ownership fields before dialogue save',()=>{
  const runtime=read('vertical-motion.js');
  const own=runtime.indexOf('conversationOwnershipTracker.observe(turn');
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn',own);
+ const save=runtime.indexOf('savedTurn = await queueConversationPersistence({',own);
  assert.ok(own>0&&save>own);
  assert.match(runtime,/conversationOwnershipState/);
  assert.match(runtime,/conversationOwnershipParticipantId/);
