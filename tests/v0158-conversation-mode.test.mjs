@@ -19,9 +19,11 @@ test('V0.15.8 live AGENT handoff precedes local persistence',()=>{
  const runtime=read('vertical-motion.js');
  const helper=runtime.indexOf('function dispatchLiveAgentConversationTurn');
  const agent=runtime.indexOf('agentRuntime?.onDialogue(turn)',helper);
- const save=runtime.indexOf('void saveDialogueTurn(turn).catch',helper);
+ const save=runtime.indexOf('void queueConversationPersistence(turn).catch',helper);
  assert.ok(helper>0&&agent>helper&&save>agent);
  assert.match(runtime,/Persistence is secondary to live conversation/);
+ assert.match(runtime,/const liveConversationPersistence=new Map\(\)/);
+ assert.match(runtime,/const task=previous\.catch\(\(\)=>null\)\.then\(\(\)=>saveDialogueTurn\(turn\)\)/);
  assert.match(runtime,/Conversation is live, but this turn could not be saved locally/);
 });
 

@@ -231,7 +231,7 @@ test('11D runtime applies group attention before pending-reply supersession and 
 test('11D runtime persists conversation fields before canonical save and exposes ROOM attention state',()=>{
  const runtime=fs.readFileSync('vertical-motion.js','utf8');
  const fields=runtime.indexOf('const conversationFields=multiConversationTurnFields(turn');
- const save=runtime.indexOf('savedTurn = await saveDialogueTurn',fields);
+ const save=runtime.indexOf('savedTurn = await queueConversationPersistence({',fields);
  assert.ok(fields>0&&save>fields);
  assert.match(runtime,/turn=\{\.\.\.turn,\.\.\.conversationFields,/);
  assert.match(runtime,/currentConversationAttention=turn\.attentionTarget/);

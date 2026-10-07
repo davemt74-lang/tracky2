@@ -5259,6 +5259,22 @@ function noteLiveVoiceProfileMatch(match,segment){
  return true;
 }
 
+const liveConversationPersistence=new Map();
+
+function queueConversationPersistence(turn){
+ const id=String(turn?.id||'');
+ if(!id)return Promise.reject(new Error('Conversation turn requires an ID.'));
+ const previous=liveConversationPersistence.get(id)||Promise.resolve();
+ // Serialize writes for the same canonical turn so a slower provisional write
+ // can never overwrite later speaker/ROOM enrichment.
+ const task=previous.catch(()=>null).then(()=>saveDialogueTurn(turn));
+ liveConversationPersistence.set(id,task);
+ void task.finally(()=>{
+  if(liveConversationPersistence.get(id)===task)liveConversationPersistence.delete(id);
+ }).catch(()=>{});
+ return task;
+}
+
 function createLiveAgentConversationTurn(segment,transcript,transcriptRecord){
  const transcriptFields=canonicalTranscriptFields(transcriptRecord);
  const createdAt=new Date().toISOString();
@@ -5296,10 +5312,17 @@ function dispatchLiveAgentConversationTurn(turn){
  state.voice.lastDecision='conversation-dispatched';
  renderDialogueTurns();
  renderVoiceHud();
- agentRuntime?.onDialogue(turn);
- // Persistence is secondary to live conversation. A browser storage failure must
- // never make a heard/transcribed user turn disappear from the active conversation.
- void saveDialogueTurn(turn).catch(error=>{
+
+ // AGENT reply work is deliberately decoupled from ROOM enrichment, but async
+ // failures must still be observed instead of becoming unhandled rejections.
+ void Promise.resolve().then(()=>agentRuntime?.onDialogue(turn)).catch(error=>{
+  console.error('AGENT conversation reply failed',error);
+  pushRoomEvent('AGENT heard the turn, but the reply pipeline failed.','error');
+ });
+
+ // Persistence is secondary to live conversation. Same-turn writes are serialized
+ // so this provisional record cannot race and overwrite later enriched metadata.
+ void queueConversationPersistence(turn).catch(error=>{
   console.error('Could not persist live conversation turn',error);
   pushRoomEvent('Conversation is live, but this turn could not be saved locally.','error');
  });
@@ -5815,7 +5838,7 @@ async function processRoomSegment(segment) {
 
     let savedTurn=turn;
     try {
-      savedTurn = await saveDialogueTurn({
+      savedTurn = await queueConversationPersistence({
         ...turn,
         sessionId: state.voice.sessionId,
         createdAt: turn.createdAt||new Date().toISOString()
@@ -6184,6 +6207,9 @@ async function startRoomAudio() {
     pushRoomEvent('Room audio online · adaptive noise gate active.', 'system');
     renderDialogueTurns();
     renderVoiceHud();
+    // Warm the local transcriber as soon as listening starts so the first spoken
+    // turn does not pay model-load latency or cause later queued speech to expire.
+    if(ui.liveTranscription.checked)void ensureTranscriptionEngine();
     void ensureSpeakerEngine();
     microphoneRecoveryPending=false;
     renderRuntimeHealth(true);

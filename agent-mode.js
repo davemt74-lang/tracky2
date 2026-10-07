@@ -35,11 +35,13 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  };
  let entries=[],voiceModuleLoaded=false,open=false,lastTurnAt=0,responsePending=false;
  let responseGeneration=0;
- let modelController=null,lastProximityVolume=.85,lastSpeakerId=null;
- let providerRuntime=null,remoteAudio=null,lastFocusedElement=null;
+ let speechGeneration=0;
+ let modelController=null,speechController=null,lastProximityVolume=.85,lastSpeakerId=null;
+ let providerRuntime=null,remoteAudio=null,remoteAudioCleanup=null,lastFocusedElement=null;
  const greeted=new Map(),speech=globalThis.speechSynthesis||null;
  const providerRecovery=new ProviderRecoveryCoordinator();
  const voices=()=>typeof speech?.getVoices==='function'?speech.getVoices():[];
+ const speechBusy=()=>Boolean(speech?.speaking||speechController||remoteAudio);
  async function refreshProviderRuntime({announce=true}={}){
   try{
    providerRuntime=await fetchSelfHostedProviderStatus();
@@ -316,8 +318,11 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   window.dispatchEvent(new CustomEvent('tracky:agent-speech-state',{detail:{speaking}}));
  }
  function stopSpeech(){
+  speechGeneration+=1;
+  speechController?.abort();speechController=null;
   if(speech?.speaking)speech.cancel();
   if(remoteAudio){try{remoteAudio.pause();}catch{}remoteAudio=null;}
+  if(remoteAudioCleanup){const cleanup=remoteAudioCleanup;remoteAudioCleanup=null;cleanup();}
   notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
  }
  function speakSystem(text){
@@ -340,19 +345,35 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  async function speakElevenLabs(text){
   const voiceId=String(ui.elevenVoice?.value||'').trim();
   if(!voiceId)throw new Error('Enter an ElevenLabs voice ID.');
-  stopSpeech();suppressMic(true);ui.speaker.textContent='Agent voice loading…';
-  const result=await querySelfHostedSpeech({text,voiceId,status:providerRuntime});
+  stopSpeech();
+  const token=speechGeneration;
+  const controller=new AbortController();speechController=controller;
+  ui.speaker.textContent='Agent voice loading…';
+  // No audio is playing yet, so keep listening while the remote voice is generated.
+  const result=await querySelfHostedSpeech({text,voiceId,status:providerRuntime,signal:controller.signal});
+  if(token!==speechGeneration)return null;
   const binary=atob(result.audioBase64),bytes=new Uint8Array(binary.length);
   for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
   const url=URL.createObjectURL(new Blob([bytes],{type:result.mimeType||'audio/mpeg'}));
   const audio=new Audio(url);remoteAudio=audio;audio.volume=ui.distanceAudio?.checked?lastProximityVolume:.85;
   let released=false;const release=()=>{
-   if(released)return;released=true;if(remoteAudio===audio)remoteAudio=null;
+   if(released)return;released=true;
+   if(remoteAudio===audio)remoteAudio=null;
+   if(remoteAudioCleanup===release)remoteAudioCleanup=null;
+   if(speechController===controller)speechController=null;
    URL.revokeObjectURL(url);notifySpeech(false);suppressMic(false);ui.speaker.textContent='Agent listening';
   };
-  audio.addEventListener('play',()=>{ui.speaker.textContent='Agent speaking';notifySpeech(true);},{once:true});
+  remoteAudioCleanup=release;
+  audio.addEventListener('play',()=>{
+   if(token!==speechGeneration){release();return;}
+   suppressMic(true);ui.speaker.textContent='Agent speaking';notifySpeech(true);
+  },{once:true});
   audio.addEventListener('ended',release,{once:true});audio.addEventListener('error',release,{once:true});
-  await audio.play();return result;
+  try{
+   await audio.play();
+   if(token!==speechGeneration){try{audio.pause();}catch{}release();return null;}
+   return result;
+  }catch(error){release();throw error;}
  }
  function say(text,participantId=null,scopeId=null){
   if(!text)return false;
@@ -362,6 +383,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    void speakElevenLabs(text).then(result=>{
     if(ui.providerBudget&&result?.budget)ui.providerBudget.textContent=providerBudgetLabel(result.budget);
    }).catch(error=>{
+    if(error?.name==='AbortError')return;
     ui.modelStatus.textContent='ElevenLabs unavailable: '+error.message+' · using system voice';
     speakSystem(text);
    });
@@ -383,6 +405,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  async function onDialogue(turn){
   if(!turn?.transcript?.trim())return;
+  // A newer heard turn invalidates a remote voice response that is still only
+  // being generated. Active playback remains protected by microphone suppression.
+  if(speechController&&!remoteAudio)stopSpeech();
   // Canonical participant context is scoped to the current conversation membership.
   // AGENT history is separately scoped; no participant transcript is duplicated there.
   const people=participants();
@@ -416,7 +441,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   const now=Date.now();
   const policy=replyEligibility({
    turn,now,lastReplyAt:lastTurnAt,responsePending,modalOpen:open,
-   agentSpeaking:Boolean(speech?.speaking)
+   agentSpeaking:speechBusy()
   });
   if(policy.action==='cancel-agent-speech'){
    responseGeneration+=1;
@@ -643,7 +668,8 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   if(sharedStatus)sharedStatus.hidden=true;
   entries=loadAgentHistory(localStorage);
   ui.save.checked=entries.length>0;
-  ui.useModel.checked=false;
+  try{ui.useModel.checked=localStorage.getItem('tracky2-agent-model-enabled')==='yes';}
+   catch{ui.useModel.checked=false;}
   if(ui.provider){
    let savedProvider='auto';
    try{savedProvider=normalizeProviderChoice(localStorage.getItem('tracky2-agent-provider')||'auto');}catch{}
@@ -658,23 +684,58 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
   });
   ui.providerRefresh?.addEventListener('click',()=>void refreshProviderRuntime());
   ui.useModel.addEventListener('change',async()=>{
-    if(!ui.useModel.checked){ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;}
+     if(!ui.useModel.checked){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.modelStatus.textContent='Off. Local scripted conversation is active.';return;
+     }
+     const selected=ui.provider?.value||'auto';
+     if(selected==='ollama'){
+      try{
+       validateLocalAgentEndpoint(ui.modelEndpoint.value);
+       localStorage.setItem('tracky2-agent-model-enabled','yes');
+       ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
+      }catch(error){
+       try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+       ui.useModel.checked=false;ui.modelStatus.textContent=error.message;
+      }
+      return;
+     }
+     const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
+     const resolved=activeRemoteProvider(selected,runtime?.providers||[]);
+     const row=runtime?.providers?.find(item=>item.provider===resolved);
+     if(!row?.configured){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.useModel.checked=false;ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';return;
+     }
+     try{localStorage.setItem('tracky2-agent-model-enabled','yes');}catch{}
+     ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
+       ' · server-mediated text only · '+providerBudgetLabel(row.budget);
+   });
+   void refreshProviderRuntime({announce:false}).then(runtime=>{
+    applyProviderSelection();
+    if(!ui.useModel.checked)return;
     const selected=ui.provider?.value||'auto';
     if(selected==='ollama'){
      try{validateLocalAgentEndpoint(ui.modelEndpoint.value);
       ui.modelStatus.textContent='Enabled · conversation text stays on the loopback Ollama endpoint.';
-     }catch(error){ui.useModel.checked=false;ui.modelStatus.textContent=error.message;}
+     }catch(error){
+      try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+      ui.useModel.checked=false;ui.modelStatus.textContent=error.message;
+     }
      return;
     }
-    const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
     const resolved=activeRemoteProvider(selected,runtime?.providers||[]);
     const row=runtime?.providers?.find(item=>item.provider===resolved);
-    if(!row?.configured){ui.useModel.checked=false;ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';return;}
+    if(!row?.configured){
+     try{localStorage.setItem('tracky2-agent-model-enabled','no');}catch{}
+     ui.useModel.checked=false;
+     ui.modelStatus.textContent='No configured OpenAI or Anthropic provider is available.';
+     return;
+    }
     ui.modelStatus.textContent=(selected==='auto'?'Auto selected '+resolved:resolved)+
-      ' · server-mediated text only · '+providerBudgetLabel(row.budget);
-  });
-  void refreshProviderRuntime({announce:false}).then(()=>applyProviderSelection());
-  refillVoices();
+      ' · restored from your saved AI-model preference · '+providerBudgetLabel(row.budget);
+   });
+   refillVoices();
   if(speech?.addEventListener)speech.addEventListener('voiceschanged',refillVoices);
   ui.clear.addEventListener('click',()=>{
     if(!window.confirm('Clear local AGENT conversation history?'))return;
@@ -712,7 +773,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  async function researchContext(prompt){
   const value=String(prompt||'').replace(/\s+/g,' ').trim().slice(0,900);
-  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+  if(!value||open||responsePending||speechBusy()||getMeeting()?.status==='active')
    return Object.freeze({ok:false,reason:'agent-unavailable',reply:'',sources:[]});
   const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
   const selected=ui.provider?.value||'auto';
@@ -749,7 +810,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
 
  async function composeProactive(prompt,{participantId=null,scopeId=null}={}){
   const value=String(prompt||'').trim();
-  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+  if(!value||open||responsePending||speechBusy()||getMeeting()?.status==='active')
    return Object.freeze({ok:false,reason:'agent-unavailable',reply:''});
   const selected=ui.provider?.value||'auto';
   const messages=[
@@ -809,9 +870,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    showThread();
    return {greeted:greeted.size,history:entries.length,lastSpeakerId};
   },
-  isBusy:()=>Boolean(open||responsePending||speech?.speaking),
+  isBusy:()=>Boolean(open||responsePending||speechBusy()),
   proactiveSpeak(text,{participantId=null,scopeId=null}={}){
-   if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
+   if(!text||open||responsePending||speechBusy()||getMeeting()?.status==='active')return false;
    return say(text,participantId,scopeId)===true;
   },
   onNetworkChange(online){
