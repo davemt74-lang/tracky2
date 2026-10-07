@@ -5,31 +5,24 @@ import {roomMeterState} from '../src/participant-audio-meter.js';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('live participant meter now follows the current microphone signal during speech',()=>{
+test('live participant meter follows current microphone amplitude immediately',()=>{
  const result=roomMeterState({
-  active:true,participantId:'p1',speaking:true,
-  liveDb:-30,noiseFloorDb:-58,voiceProfileReady:false,soleCandidate:true
+  active:true,db:-30,noiseFloorDb:-58,vad:true
  });
- assert.equal(result.mode,'live');
+ assert.equal(result.mode,'speech');
  assert.ok(result.level>0);
 });
 
-test('enrolled Voice Profile filters background or another speaker instead of gating input',()=>{
- const accepted=roomMeterState({
-  active:true,participantId:'p1',speaking:true,
-  liveDb:-27,noiseFloorDb:-58,voiceProfileReady:true,
-  liveSpeakerParticipantId:'p1',liveSpeakerConfidence:.95
+test('voice profile state cannot suppress the live participant meter',()=>{
+ const base=roomMeterState({
+  active:true,db:-27,noiseFloorDb:-58,vad:true
  });
- assert.equal(accepted.mode,'speaker');
- assert.ok(accepted.level>0);
-
- const rejected=roomMeterState({
-  active:true,participantId:'p1',speaking:true,
-  liveDb:-22,noiseFloorDb:-58,voiceProfileReady:true,
-  liveSpeakerParticipantId:'p2',liveSpeakerConfidence:.94
+ const withProfileState=roomMeterState({
+  active:true,db:-27,noiseFloorDb:-58,vad:true,
+  participantId:'p1',voiceProfileReady:true,
+  liveSpeakerParticipantId:'p2',liveSpeakerConfidence:.99
  });
- assert.equal(rejected.mode,'background-filtered');
- assert.equal(rejected.level,0);
+ assert.deepEqual(withProfileState,base);
 });
 
 test('runtime records raw voice profile match before diarization suppression',()=>{
