@@ -189,23 +189,13 @@ export function hardwareCertificationSummary({capabilities={},exercises={}}={}){
 }
 
 function cleanCameraMetrics(input={}){
- const cleanColor=row=>freezeObject({
-  detections:Math.max(0,Number(row?.detections)||0),
-  stableFrames:Math.max(0,Number(row?.stableFrames)||0),
-  dropouts:Math.max(0,Number(row?.dropouts)||0),
-  rejectedJumps:Math.max(0,Number(row?.rejectedJumps)||0),
-  meanConfidence:finite(row?.meanConfidence)?Math.max(0,Math.min(1,row.meanConfidence)):0,
-  visitedZones:Object.freeze((row?.visitedZones||[]).filter(Number.isFinite).slice(0,8))
- });
  return freezeObject({
   frames:Math.max(0,Number(input.frames)||0),
   durationMs:Math.max(0,Number(input.durationMs)||0),
   measuredFps:finite(input.measuredFps)?Math.max(0,input.measuredFps):0,
-  cameraReadiness:text(input.cameraReadiness,64)||'hardware-review-incomplete',
-  colors:freezeObject({
-   green:cleanColor(input.colors?.green),
-   blue:cleanColor(input.colors?.blue)
-  })
+  meanFrameGapMs:finite(input.meanFrameGapMs)?Math.max(0,input.meanFrameGapMs):0,
+  maxFrameGapMs:finite(input.maxFrameGapMs)?Math.max(0,input.maxFrameGapMs):0,
+  cameraReadiness:text(input.cameraReadiness,64)||'hardware-review-incomplete'
  });
 }
 

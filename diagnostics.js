@@ -1,5 +1,3 @@
-import { detectColorControllers, createColorCalibration, validateColorCalibration } from './src/color-controllers.js';
-import { createControllerStability } from './src/controller-stability.js';
 import { createHardwareDiagnostics } from './src/hardware-diagnostics.js';
 import {
  RuntimeBudget,queryMediaPermission,storagePressure,releaseAcceptanceSummary
@@ -15,7 +13,7 @@ import {
 import {LiveCertificationHarness,LIVE_CERT_SCENARIOS} from './src/live-certification-core.js';
 import {buildFinalCertificationReport,canonicalFinalCertificationJson,finalCertificationLabel} from './src/final-certification-core.js';
 
-const DIAGNOSTICS_RELEASE={version:'0.15.9'};
+const DIAGNOSTICS_RELEASE={version:'0.16.0'};
 const $ = selector => document.querySelector(selector);
 const ui = {
  start:$('#startTestCamera'),stop:$('#stopTestCamera'),select:$('#testCameraSelect'),
@@ -40,7 +38,6 @@ const metrics=createHardwareDiagnostics();
 const runtimeBudget=new RuntimeBudget();
 const performanceGovernor=new DevicePerformanceGovernor();
 const liveCertificationHarness=new LiveCertificationHarness();
-const trackers={green:createControllerStability(),blue:createControllerStability()};
 
 let stream=null,raf=0,lastDisplay=0,lastLongCheckpoint=0,lastPerformanceSampleAt=0;
 let lastPerformanceRuntime=null;
@@ -63,14 +60,6 @@ let capabilityInput={
  audioWorklet:typeof globalThis.AudioWorkletNode!=='undefined'?'supported':'unsupported',
  localModel:'not-tested'
 };
-
-function calibration() {
- try {
-  const saved=window.localStorage.getItem('tracky2-color-calibration-v1');
-  return saved?validateColorCalibration(JSON.parse(saved)):createColorCalibration();
- } catch {return createColorCalibration();}
-}
-const currentCalibration=calibration();
 
 const LIVE_CERTIFICATION_SNAPSHOT_KEY='tracky2-v0151g-live-certification-snapshot';
 function readLiveRuntimeSnapshot(){
@@ -145,7 +134,7 @@ function exerciseInputs(){
  const runtime=runtimeBudget.snapshot();
  const cameraCoverage=camera.frames===0
   ?'not-run'
-  :camera.cameraReadiness==='coverage-and-performance-observed'?'pass'
+  :camera.cameraReadiness==='camera-performance-observed'?'pass'
   :cameraOutcome.startsWith('failed:')?'fail':'partial';
  const microphoneTransport=micOutcome.status==='not-tested'
   ?'not-run'
@@ -466,7 +455,7 @@ ui.start.addEventListener('click',async()=>{
   recordEvidence('camera-start','granted',
    settings.width&&settings.height?settings.width+'x'+settings.height:null);
   ui.start.disabled=true;ui.stop.disabled=false;ui.select.disabled=true;
-  ui.camera.textContent='Camera live. Move both markers through all four sections.';
+  ui.camera.textContent='Camera live. Keep this tab active to measure frame rate and runtime stability.';
   raf=requestAnimationFrame(tick);
   void refreshReleaseHealth();
  } catch(error) {

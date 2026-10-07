@@ -79,7 +79,7 @@ test('10I responsive presentation preserves existing mobile rails and keyboard t
 test('10I ROOM/Control Center keep privacy and diagnostic boundaries visible',()=>{
  const html=fs.readFileSync('vertical-motion.html','utf8');
  assert.match(html,/overall environment/i);
- assert.match(html,/Person-specific identity, movement, dwell and voice-profile activity stays in Player \/ Participant views/i);
+ assert.match(html,/Person-specific identity, movement, dwell and voice-profile activity stays in Participant views/i);
  assert.match(html,/not a measured floor plan/i);
  assert.match(html,/They do not identify a sound source/i);
  assert.match(html,/does not create Agent Memory or infer health, emotion, sleep, protected traits, or intent/i);

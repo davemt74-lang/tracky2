@@ -1,8 +1,8 @@
 {
   "id": "./index.html",
-  "name": "Tracky2 — Play in Motion",
+  "name": "Tracky2 — AGENT",
   "short_name": "Tracky2",
-  "description": "Local-first camera-controlled games with a shared motion gameboard.",
+  "description": "Local-first room agent with camera presence, participant identity, voice conversation and ROOM intelligence.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

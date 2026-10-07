@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import { startupReport,shouldAutoEnter } from '../src/launch-core.js';
-test('startup never requests camera or microphone to show lobby readiness',()=>{
- const ok=startupReport();assert.equal(ok.ready,true);assert.match(ok.message,/ready/);
+test('startup never requests camera or microphone to show AGENT readiness',()=>{
+ const ok=startupReport();assert.equal(ok.ready,true);assert.match(ok.message,/AGENT ready/);
  assert.equal(JSON.stringify(ok).includes('permission'),false);
 });
 test('unsafe context or unavailable storage displays actionable warning without blocking navigation',()=>{

@@ -35,8 +35,10 @@ test('orb can launch directly and camera/orb controls do not depend on recogniti
   assert.equal(el.get('agentVoiceOrb').dataset.speech,'speaking');
  }finally{delete globalThis.window;delete globalThis.document;}
 });
-test('lobby includes dedicated Orb entry point',()=>{
- const html=fs.readFileSync('games.html','utf8'),js=fs.readFileSync('games.js','utf8');
- assert.match(html,/id="lobbyOrbLaunch"/);
- assert.match(js,/\.\/vertical-motion\.html\?mode=agent&view=orb/);
+test('retired Games URL redirects to AGENT while direct Orb URL remains supported',()=>{
+ const html=fs.readFileSync('games.html','utf8');
+ assert.match(html,/vertical-motion\.html\?mode=agent/);
+ assert.equal(fs.existsSync('games.js'),false);
+ const presence=fs.readFileSync('agent-presence.js','utf8');
+ assert.match(presence,/const initialView=new URLSearchParams\(window\.location\.search\)\.get\('view'\)/);
 });

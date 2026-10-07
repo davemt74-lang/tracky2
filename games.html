@@ -1,90 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="0;url=./vertical-motion.html?mode=agent">
   <meta name="theme-color" content="#0b0f0c">
-  <title>Tracky2 — Game Lobby</title>
+  <title>Tracky2 — AGENT</title>
   <link rel="stylesheet" href="./styles.css">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" href="./assets/icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.webmanifest">
 </head>
-<body class="jarvis-page">
-<main class="shell game-lobby-shell">
-  <header class="hero">
-    <div>
-      <p class="eyebrow">TRACKY · GAME LOBBY</p><h1>Choose a game</h1>
-      <p>Select your game, enrolled participants, timed rounds and controller setup before entering the shared board.</p>
-    </div>
-    <div class="badges"><a class="button-link" href="./participants.html">Manage participants</a>
-      <a class="button-link" href="./server/admin.php">Self-hosted Admin</a>
-      <a class="button-link" href="./diagnostics.html">Hardware self-test</a>
-      <a class="button-link" href="./tracker.html">Tracker setup</a></div>
-  </header>
-  <section class="panel lobby-layout" aria-labelledby="lobbyHeading">
-    <div class="lobby-game-details">
-      <small>SELECT GAME</small><h2 id="lobbyHeading">Tracky2 game library</h2>
-      <label>Game
-        <select id="lobbyGame">
-          <option value="random-follow-pattern">Random Follow Pattern · timed rounds</option>
-          <option value="reaction-challenge">Reaction Challenge · speed and accuracy</option>
-          <option value="agent">AGENT · live camera conversation</option>
-          <option value="solo">Classic solo · 3-zone point goal</option>
-          <option value="multiplayer">Classic two-player · 4-zone point goal</option>
-        </select>
-      </label>
-      <div class="game-card-preview" aria-hidden="true">
-        <div class="mini-lane"><i></i><i></i></div>
-      </div>
-      <p id="lobbyGameSummary">Follow randomly selected zone and repetition targets on one shared four-section board.</p>
-      <p>Camera detection, enrolled participant tracking and optional Voice Profiles are shared by every game.
-        Extra games can be registered without installing another camera or participant database.</p>
-    </div>
-    <div class="lobby-controls">
-      <div id="patternLobbySettings">
-        <h2>Timed game setup</h2>
-        <div class="lobby-choices">
-          <label>Number of players
-            <select id="lobbyPlayerCount"><option value="1">1 player</option>
-              <option value="2" selected>2 players</option><option value="3">3 players</option>
-              <option value="4">4 players</option><option value="5">5 players</option>
-              <option value="6">6 players</option></select></label>
-          <label>Player interval
-            <select id="lobbyInterval"><option value="30" selected>30 seconds</option>
-              <option value="60">60 seconds</option><option value="90">90 seconds</option>
-              <option value="120">120 seconds</option></select></label>
-          <label>Rounds per game
-            <select id="lobbyRounds"><option value="5" selected>5 rounds</option>
-              <option value="10">10 rounds</option><option value="15">15 rounds</option>
-              <option value="20">20 rounds</option></select></label>
-        </div>
-        <h3>Player order</h3>
-        <p>Assign enrolled participants in play order. Each round follows the roster, starting again at player 1.</p>
-        <div id="lobbyPlayers" class="lobby-player-list"></div>
-      </div>
-      <div class="lobby-preview" aria-live="polite">
-        <h3>Game preview &amp; turn schedule</h3>
-        <div id="lobbyPreview"></div>
-      </div>
-      <p id="lobbyStatus" role="status" aria-live="polite"></p>
-      <button id="lobbyStart" type="button" class="primary">Go to game setup</button>\n      <button id="lobbyOrbLaunch" type="button" class="primary" hidden>Launch AGENT · Orb (no video display)</button>
-      <p class="lobby-privacy-note">Roster choices are transferred only within this browser tab and rechecked
-        against enrolled participants. The game never infers who holds a marker from face recognition.</p>
-    </div>
-  </section>
-<section class="lobby-second-game panel" aria-label="Available game library">
-    <h2>Available games</h2>
-    <div class="lobby-game-tiles">
-      <article><strong>01 · Random Follow Pattern</strong>
-        <p>Follow randomly changing zones, completing 3–6 up/down repetitions in each timed round.</p></article>
-      <article><strong>02 · Reaction Challenge</strong>
-        <p>Move out of a randomly highlighted zone, then enter as quickly as possible. Track hits and reaction times.</p></article>
-      <article><strong>03 · AGENT</strong><p>Full-screen camera conversation with person tracking, voice profiling and a local spoken agent.</p></article>
-    </div>
+<body class="tracky-launch">
+<main class="launch-screen">
+  <section class="launch-panel">
+    <p class="launch-overline">TRACKY2 · AGENT</p>
+    <h1>Opening AGENT</h1>
+    <p class="launch-tagline">The legacy game lobby has been retired.</p>
+    <a class="button-link primary launch-primary" href="./vertical-motion.html?mode=agent">Open AGENT →</a>
   </section>
 </main>
-<script type="module" src="./games.js"></script>
-<script type="module" src="./pwa.js"></script>
+<script>location.replace('./vertical-motion.html?mode=agent');</script>
 </body>
 </html>

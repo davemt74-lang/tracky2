@@ -15,7 +15,6 @@ const requiredFiles = [
   'launch.js',
   'assets/tracky-mark.svg',
   'games.html',
-  'games.js',
   'vertical-motion.html',
   'participants.html',
   'diagnostics.html',
@@ -35,7 +34,6 @@ const requiredFiles = [
   'diagnostics.js',
   'styles.css',
   'participants-stage.css',
-  'game-stage.css',
   'scene-analysis.css',
   'room-tabs.css',
   'agent-mode.css',
@@ -53,24 +51,8 @@ const requiredFiles = [
   'docs/hardware-acceptance.md',
   'package.json',
   'src/tracker-core.js',
-  'src/movement-core.js',
-  'src/gameplay-core.js',
-  'src/game-platform.js',
-  'src/shared-board.js',
-  'src/game-lobby.js',
   'src/camera-preference.js',
-  'src/games/random-follow-pattern.js',
-  'src/games/reaction-challenge.js',
   'src/games/agent.js',
-  'src/games/pattern-setup.js',
-  'src/game-session.js',
-  'src/game-input.js',
-  'src/game-presenter.js',
-  'src/color-controllers.js',
-  'src/multiplayer-match.js',
-  'src/controller-stability.js',
-  'src/player-presence.js',
-  'src/match-history.js',
   'src/hardware-diagnostics.js',
   'src/hardware-certification-core.js',
   'src/overlap-source-separation-core.js',
@@ -173,24 +155,8 @@ const runtimeJs = [
   'src/roster-layout.js',
   'participant-voice.js',
   'src/tracker-core.js',
-  'src/movement-core.js',
-  'src/gameplay-core.js',
-  'src/game-platform.js',
-  'src/shared-board.js',
-  'src/game-lobby.js',
   'src/camera-preference.js',
-  'src/games/random-follow-pattern.js',
-  'src/games/reaction-challenge.js',
   'src/games/agent.js',
-  'src/games/pattern-setup.js',
-  'src/game-session.js',
-  'src/game-input.js',
-  'src/game-presenter.js',
-  'src/color-controllers.js',
-  'src/multiplayer-match.js',
-  'src/controller-stability.js',
-  'src/player-presence.js',
-  'src/match-history.js',
   'src/hardware-diagnostics.js',
   'src/hardware-certification-core.js',
   'src/overlap-source-separation-core.js',
@@ -273,7 +239,7 @@ const runtimeJs = [
 const htmlContracts = [
   ['index.html', ['launch.js']],
   ['tracker.html', ['app.js']],
-  ['games.html', ['games.js']],
+  ['games.html', []],
   ['vertical-motion.html', ['vertical-motion.js', 'room-tabs-controller.js', 'agent-presence.js',
   'account-participants.js',
   'control-center.js', 'agent-mode.css', 'agent-presence.css']],
@@ -297,8 +263,8 @@ function read(file) {
 for (const file of requiredFiles) read(file);
 
 const packageJson = JSON.parse(read('package.json') || '{}');
-if (packageJson.version !== '0.15.9') {
-  fail('package.json version must be 0.15.9');
+if (packageJson.version !== '0.16.0') {
+  fail('package.json version must be 0.16.0');
 }
 if (packageJson.type !== 'module') {
   fail('package.json must use ESM via type=module');
@@ -421,8 +387,8 @@ const workflow = read('.github/workflows/test.yml');
 if (!/npm run validate/.test(workflow)) {
   fail('CI must execute npm run validate');
 }
-if (!/tracky2-v0\.15\.9-deploy\.zip/.test(workflow)) {
-  fail('CI must build Tracky2 V0.15.9 deploy ZIP');
+if (!/tracky2-v0\.16\.0-deploy\.zip/.test(workflow)) {
+  fail('CI must build Tracky2 V0.16.0 deploy ZIP');
 }
 for (const file of requiredFiles.filter((file) => !file.startsWith('README') && file !== 'package.json')) {
   const filename = path.basename(file);
