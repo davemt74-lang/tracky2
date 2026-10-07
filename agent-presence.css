@@ -24,7 +24,6 @@
  box-shadow:inset 0 0 0 1px #64e6d57f}
 .game-page.agent-mode .room-left-panel{top:83px;max-height:calc(100dvh - 107px)}
 .game-page.agent-mode .room-identity-hud{top:83px;max-height:calc(100dvh - 107px)}
-.game-page.agent-mode .room-left-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
 .game-page.agent-mode .room-left-tabs button{padding:8px 3px;font-size:.69rem}
 .game-page.agent-mode .agent-tab-heading{display:grid;gap:3px;padding:8px 4px;border-bottom:1px solid #76e3d632}
 .game-page.agent-mode .agent-tab-heading strong{font-size:.9rem;color:#c9fff3}
@@ -106,11 +105,17 @@
  box-shadow:0 14px 46px rgba(0,0,0,.24);
 }
 .game-page.agent-mode .room-left-tabs {
- grid-template-columns:repeat(3,minmax(0,1fr));
+ grid-template-columns:repeat(4,minmax(0,1fr));
  background:rgba(4,28,34,.27);
 }
-.game-page.agent-mode .room-left-tabpanel {background:rgba(2,20,27,.08)}
-.game-page.agent-mode .room-left-tabs button {white-space:nowrap;min-width:0}
+.game-page.agent-mode .room-left-tabpanel {
+ flex:1 1 auto;width:100%;max-width:100%;min-width:0;
+ overflow-x:hidden;background:rgba(2,20,27,.08)
+}
+.game-page.agent-mode .room-left-tabpanel>*{max-width:100%;min-width:0}
+.game-page.agent-mode .room-left-tabs button {
+ white-space:normal;overflow-wrap:anywhere;line-height:1.15;min-width:0
+}
 .game-page.agent-mode .room-left-tabs button[hidden] {display:none!important}
 .game-page.agent-mode .room-left-panel .room-event,
 .game-page.agent-mode .room-left-panel .dialogue-turn,
@@ -170,8 +175,7 @@
 @media(max-width:530px){.agent-shortcut-hint{display:none}}
 
 
-/* V0.9: one flowing chat, the fourth ROOM tab, and immersive shortcuts. */
-.game-page.agent-mode .room-left-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+/* V0.17.1: one flowing chat with a contained four-tab AGENT sidebar. */
 .game-page.agent-mode .agent-chat-thread{display:flex;flex-direction:column;gap:12px;max-height:none;overflow:visible;padding:5px 2px 15px}
 .game-page.agent-mode .agent-chat-thread[hidden]{display:none!important}
 .game-page.agent-mode #roomDialoguePanel{scrollbar-gutter:stable;min-height:150px}
