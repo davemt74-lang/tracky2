@@ -3477,7 +3477,7 @@ async function scheduleMicrophoneRecovery(reason='microphone-interrupted'){
  mediaPermissions.microphone=await queryMediaPermission(navigator.permissions,'microphone');
  const plan=microphoneRecovery.plan({
   permission:mediaPermissions.microphone,visible:!document.hidden,
-  manualStop:roomAudioManuallyStopped||!state.running
+  manualStop:roomAudioManuallyStopped||state.mode!=='agent'
  });
  if(!plan.allowed){
   listeningController.setRecovering(false,plan.reason);
@@ -4446,7 +4446,7 @@ function createParticipantCard(track) {
 
   card.append(top, body);
 
-  // AGENT participant cards intentionally stop at the live voice meter.
+  // AGENT participant cards stop at the verified Voice Profile/input meter.
   // Profile, identity and enrollment maintenance belongs on participant/profile surfaces.
   if (state.mode === 'agent') return card;
 
