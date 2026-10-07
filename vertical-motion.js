@@ -4421,7 +4421,7 @@ function createParticipantCard(track) {
     meter.dataset.trackId = String(track.id);
     if(track.participantId)meter.dataset.participantId=String(track.participantId);
     meter.setAttribute('role', 'meter');
-    meter.setAttribute('aria-label', 'Live participant voice input filtered from room and background audio');
+    meter.setAttribute('aria-label', 'Live microphone voice input level');
     meter.setAttribute('aria-valuemin', '0');
     meter.setAttribute('aria-valuemax', '100');
     meter.setAttribute('aria-valuenow', '0');
