@@ -9,7 +9,7 @@
 <body><main class="shell diag-shell">
   <header class="diag-heading"><div><small>V0.13 REPRESENTATIVE-DEVICE CERTIFICATION</small><h1>Camera, microphone &amp; resilience certification</h1>
     <p>No video or audio is recorded. Exported certification reports contain aggregate measurements and owner-entered device/environment labels only.</p></div>
-    <a class="button-link" href="./vertical-motion.html">← Vertical Motion</a></header>
+    <a class="button-link" href="./vertical-motion.html?mode=agent">← AGENT</a></header>
   <section class="panel"><h2>1. Certification profile &amp; capability matrix</h2>
     <p>Use descriptive labels only. Tracky2 does not persist browser device IDs, raw user-agent strings, media, transcripts or biometric samples in the certification report.</p>
     <div class="diag-actions">
@@ -23,8 +23,8 @@
     <div id="certPerformanceTrend" class="diag-metrics" aria-live="polite">Long-run performance trend not measured.</div>
     <p id="certificationStatus" role="status">Certification is NOT-RUN until representative-device evidence is recorded.</p>
   </section>
-  <section class="panel"><h2>2. Camera and both colored markers</h2>
-    <p>Start your camera. Hold a green marker, then a blue marker, in each of the same four vertical gameboard sections. Keep this tab active for at least eight seconds.</p>
+  <section class="panel"><h2>2. Camera performance</h2>
+    <p>Start your camera and keep this tab active for at least eight seconds. Tracky2 measures aggregate frame rate and timing only; frames are not retained.</p>
     <div class="diag-actions"><button id="startTestCamera" class="primary">Start camera test</button>
       <button id="stopTestCamera" disabled>Stop camera</button>
       <label>Camera <select id="testCameraSelect"><option value="">Default camera</option></select></label></div>
@@ -38,10 +38,10 @@
     <button id="testMicrophone">Test microphone</button><p id="testMicrophoneStatus" role="status">Microphone not tested.</p>
   </section>
   <section class="panel"><h2>4. Participant, tracking and voice verification</h2>
-    <ol><li>Open <a href="./participants.html">Participants</a> and enroll at least two consenting players, including optional Voice Profiles.</li>
-      <li>In the game, confirm recognition when each player faces the camera and body tracking when they turn away.</li>
-      <li>Confirm only the active player's colored marker scores, and its partial repetitions reset after temporary occlusion.</li>
-      <li>Test optional Voice Profile recognition and transcription in the main game separately. This page tests microphone access, not model identification accuracy.</li></ol>
+    <ol><li>Open <a href="./participants.html">Participants</a> and enroll consenting participants, including optional Voice Profiles.</li>
+      <li>In AGENT, confirm recognition when a participant faces the camera and body continuity when they turn away or briefly leave view.</li>
+      <li>Speak naturally and confirm the participant input meter, transcription, conversation turn, AGENT reply and return-to-listening cycle.</li>
+      <li>Test optional Voice Profile recognition separately. This page tests microphone transport, not speaker-model identification accuracy.</li></ol>
   </section>
   <section class="panel"><h2>5. Resilience &amp; lifecycle acceptance</h2>
     <p>These checks require a real browser and real hardware. Tracky2 records only your explicit pass/fail confirmations plus aggregate runtime/permission/storage measurements.</p>
@@ -143,7 +143,7 @@
     <small>A PASS means this tested device/session satisfies the Tracky2 V0.15.1 certification gate. It is not a universal hardware claim.</small>
   </section>
   <section class="panel"><h2>8. Export &amp; compare certification evidence</h2>
-    <p>Review measured FPS, marker confidence, four-zone coverage, dropout/jump counts, permission/storage state, aggregate runtime budget and the explicit real-device checklist. No raw camera, microphone, transcript, face or voice samples are exported.</p>
+    <p>Review measured FPS, frame timing, permission/storage state, aggregate runtime budget and the explicit real-device checklist. No raw camera, microphone, transcript, face or voice samples are exported.</p>
     <button id="exportTestReport" disabled>Export certification JSON + SHA-256</button>
     <label>Compare prior certification report <input id="compareCertificationReport" type="file" accept="application/json,.json"></label>
     <p id="certCompareStatus" role="status">No prior certification report loaded.</p>
