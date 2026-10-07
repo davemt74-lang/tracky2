@@ -12,8 +12,16 @@ export function selectGamePlayer(roster,requestedId='',preferredId=''){
  if(valid.some(p=>p.id===preferredId))return preferredId;
  return valid.length===1?valid[0].id:'';
 }
+export function cameraPreferenceState(store){
+ try{
+  const value=store?.getItem(CAMERA_PREFERENCE_KEY);
+  if(value==='true')return 'enabled';
+  if(value==='false')return 'disabled';
+  return 'unset';
+ }catch{return 'unset';}
+}
 export function loadCameraPreference(store){
- try{return store?.getItem(CAMERA_PREFERENCE_KEY)==='true';}catch{return false;}
+ return cameraPreferenceState(store)==='enabled';
 }
 export function saveCameraPreference(store,enabled){
  try{store?.setItem(CAMERA_PREFERENCE_KEY,enabled?'true':'false');return true;}catch{return false;}
