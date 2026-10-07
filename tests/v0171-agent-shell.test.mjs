@@ -4,14 +4,14 @@ import fs from 'node:fs';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
-test('V0.17.1 AGENT presentation no longer depends on mode query-string gating',()=>{
+test('V0.17.2 AGENT presentation no longer depends on mode query-string gating',()=>{
  const presence=read('agent-presence.js');
  assert.match(presence,/agentEnabled=true/);
  assert.match(presence,/document\.body\.classList\.add\('agent-mode'\)/);
  assert.doesNotMatch(presence,/get\('mode'\).*===.*agent|const requested=|!requested/);
 });
 
-test('V0.17.1 four-tab sidebar cannot leak labels or pane content outside its bounds',()=>{
+test('V0.17.2 four-tab sidebar cannot leak labels or pane content outside its bounds',()=>{
  const html=read('vertical-motion.html');
  const presenceCss=read('agent-presence.css');
  const tabsCss=read('room-tabs.css');
@@ -24,19 +24,19 @@ test('V0.17.1 four-tab sidebar cannot leak labels or pane content outside its bo
  assert.match(tabsCss,/overflow-x:hidden;overflow-y:auto/);
 });
 
-test('V0.17.1 Admin Meetings enters the canonical AGENT shell',()=>{
+test('V0.17.2 Admin Meetings enters the canonical AGENT shell',()=>{
  const admin=read('server/admin.php');
  assert.match(admin,/vertical-motion\.html\?mode=agent&amp;admin=meeting/);
 });
 
-test('V0.17.1 release package metadata is aligned',()=>{
+test('V0.17.2 release package metadata is aligned',()=>{
  const pkg=JSON.parse(read('package.json'));
  const sw=read('sw.js');
  const workflow=read('.github/workflows/test.yml');
  const audit=read('scripts/audit.mjs');
- assert.equal(pkg.version,'0.17.1');
- assert.match(sw,/tracky2-static-v0\.17\.1-agent-shell-r1/);
- assert.match(workflow,/tracky2-v0\.17\.1-deploy\.zip/);
- assert.match(workflow,/Tracky2 v0\.17\.1 — AGENT Shell Repair/);
- assert.match(audit,/package\.json version must be 0\.17\.1/);
+ assert.equal(pkg.version,'0.17.2');
+ assert.match(sw,/tracky2-static-v0\.17\.2-css-shell-r1/);
+ assert.match(workflow,/tracky2-v0\.17\.2-deploy\.zip/);
+ assert.match(workflow,/Tracky2 v0\.17\.2 — CSS Shell Structure Repair/);
+ assert.match(audit,/package\.json version must be 0\.17\.2/);
 });
