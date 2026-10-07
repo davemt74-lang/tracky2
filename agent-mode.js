@@ -773,7 +773,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
  }
  async function researchContext(prompt){
   const value=String(prompt||'').replace(/\s+/g,' ').trim().slice(0,900);
-  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+  if(!value||open||responsePending||speechBusy()||getMeeting()?.status==='active')
    return Object.freeze({ok:false,reason:'agent-unavailable',reply:'',sources:[]});
   const runtime=providerRuntime||await refreshProviderRuntime({announce:false});
   const selected=ui.provider?.value||'auto';
@@ -810,7 +810,7 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
 
  async function composeProactive(prompt,{participantId=null,scopeId=null}={}){
   const value=String(prompt||'').trim();
-  if(!value||open||responsePending||speech?.speaking||getMeeting()?.status==='active')
+  if(!value||open||responsePending||speechBusy()||getMeeting()?.status==='active')
    return Object.freeze({ok:false,reason:'agent-unavailable',reply:''});
   const selected=ui.provider?.value||'auto';
   const messages=[
@@ -870,9 +870,9 @@ export function createAgentRoom({participants,getDialogueTurns=()=>[],getMemorie
    showThread();
    return {greeted:greeted.size,history:entries.length,lastSpeakerId};
   },
-  isBusy:()=>Boolean(open||responsePending||speech?.speaking),
+  isBusy:()=>Boolean(open||responsePending||speechBusy()),
   proactiveSpeak(text,{participantId=null,scopeId=null}={}){
-   if(!text||open||responsePending||speech?.speaking||getMeeting()?.status==='active')return false;
+   if(!text||open||responsePending||speechBusy()||getMeeting()?.status==='active')return false;
    return say(text,participantId,scopeId)===true;
   },
   onNetworkChange(online){
