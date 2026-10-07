@@ -4,6 +4,7 @@
 export function sceneStep(step) {
  const steps={
    idle:{label:'Waiting for camera',progress:0,ready:false},
+   permission:{label:'Starting camera · approve browser permission if asked',progress:10,ready:false},
    camera:{label:'Camera connected · loading tracking models',progress:22,ready:false},
    models:{label:'Models loaded · analyzing room geometry',progress:58,ready:false},
    detecting:{label:'Analyzing scene · stabilizing detections',progress:83,ready:false},
