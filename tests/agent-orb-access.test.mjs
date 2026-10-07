@@ -40,5 +40,5 @@ test('retired Games URL redirects to AGENT while direct Orb URL remains supporte
  assert.match(html,/vertical-motion\.html\?mode=agent/);
  assert.equal(fs.existsSync('games.js'),false);
  const presence=fs.readFileSync('agent-presence.js','utf8');
- assert.match(presence,/view=orb|params\.get\('view'\)==='orb'/);
+ assert.match(presence,/const initialView=new URLSearchParams\(window\.location\.search\)\.get\('view'\)/);
 });
