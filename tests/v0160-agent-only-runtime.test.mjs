@@ -57,9 +57,8 @@ test('V0.16.0 removes retired gameplay source modules while retaining AGENT desc
   'src/games/pattern-setup.js','src/games/reaction-challenge.js'
  ]) assert.equal(exists(path),false,path+' must remain removed');
  assert.equal(exists('src/games/agent.js'),true);
- // These utilities remain because Hardware Diagnostics still exercises them.
- assert.equal(exists('src/color-controllers.js'),true);
- assert.equal(exists('src/controller-stability.js'),true);
+ for(const path of ['src/color-controllers.js','src/controller-stability.js','src/player-presence.js'])
+  assert.equal(exists(path),false,path+' must remain removed');
 });
 
 test('V0.16.0 PWA and package publish only the AGENT runtime',()=>{
